@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Forma Fitness</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --black: #0F0F0F;
+      --white: #FFFFFF;
+      --gray-50: #FAFAFA;
+      --gray-100: #F4F4F4;
+      --gray-200: #E8E8E8;
+      --gray-400: #ADADAD;
+      --gray-600: #666666;
+      --gray-800: #333333;
+      --accent: #2563EB;
+      --accent-light: #EFF6FF;
+      --green: #16A34A;
+      --green-light: #F0FDF4;
+      --amber: #D97706;
+      --amber-light: #FFFBEB;
+      --red: #DC2626;
+      --red-light: #FEF2F2;
+      --protein: #2563EB;
+      --carbs: #D97706;
+      --fat: #DC2626;
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; background: var(--gray-50); color: var(--black); min-height: 100vh; }
+
+    /* LAYOUT */
+    .app { display: flex; flex-direction: column; min-height: 100vh; max-width: 520px; margin: 0 auto; }
+    
+    /* HEADER */
+    .header { background: var(--white); border-bottom: 1px solid var(--gray-200); padding: 20px 20px 0; position: sticky; top: 0; z-index: 100; }
+    .header-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
+    .brand { display: flex; align-items: center; gap: 10px; }
+    .brand-mark { width: 32px; height: 32px; background: var(--black); border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+    .brand-mark svg { width: 18px; height: 18px; fill: white; }
+    .brand-name { font-size: 18px; font-weight: 700; letter-spacing: -0.5px; color: var(--black); }
+    .brand-sub { font-size: 11px; color: var(--gray-400); margin-top: 1px; }
+    .score-badge { font-size: 11px; font-weight: 700; padding: 4px 12px; border-radius: 20px; letter-spacing: 0.3px; }
+    .score-great { background: var(--green-light); color: var(--green); }
+    .score-good { background: var(--amber-light); color: var(--amber); }
+    .score-needs { background: var(--red-light); color: var(--red); }
+
+    /* TABS */
+    .tabs { display: flex; }
+    .tab-btn { padding: 10px 18px; font-size: 13px; font-weight: 400; color: var(--gray-400); border: none; background: none; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; white-space: nowrap; }
+    .tab-btn.active { font-weight: 600; color: var(--black); border-bottom-color: var(--black); }
+
+    /* CONTENT */
+    .content { flex: 1; padding: 16px; }
+
+    /* CARDS */
+    .card { background: var(--white); border-radius: 14px; padding: 18px; margin-bottom: 12px; border: 1px solid var(--gray-200); }
+    .card-title { font-size: 10px; font-weight: 700; color: var(--gray-400); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 14px; }
+
+    /* MACRO BARS */
+    .macro-bar { margin-bottom: 14px; }
+    .macro-bar:last-child { margin-bottom: 0; }
+    .macro-bar-header { display: flex; justify-content: space-between; margin-bottom: 5px; }
+    .macro-label { font-size: 12px; color: var(--gray-600); font-weight: 500; }
+    .macro-value { font-size: 12px; color: var(--black); font-weight: 600; }
+    .macro-track { height: 5px; background: var(--gray-100); border-radius: 3px; overflow: hidden; }
+    .macro-fill { height: 100%; border-radius: 3px; transition: width 0.5s ease; }
+
+    /* REMAINING */
+    .remaining-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+    .remaining-item { border-radius: 10px; padding: 12px 14px; }
+    .remaining-val { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
+    .remaining-label { font-size: 11px; color: var(--gray-600); margin-top: 2px; }
+
+    /* MEALS */
+    .meal-row { display: flex; align-items: center; padding: 11px 0; border-bottom: 1px solid var(--gray-100); }
+    .meal-row:last-of-type { border-bottom: none; }
+    .meal-info { flex: 1; min-width: 0; }
+    .meal-name { font-size: 14px; font-weight: 500; color: var(--black); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .meal-meta { font-size: 11px; color: var(--gray-400); margin-top: 2px; }
+    .meal-cals { font-size: 14px; font-weight: 600; color: var(--black); margin-left: 12px; white-space: nowrap; }
+    .delete-btn { background: none; border: none; color: var(--gray-200); cursor: pointer; font-size: 20px; line-height: 1; padding: 0 0 0 8px; transition: color 0.15s; }
+    .delete-btn:hover { color: var(--red); }
+
+    /* WORKOUTS */
+    .workout-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--gray-100); }
+    .workout-row:last-child { border-bottom: none; }
+    .workout-cals { font-size: 13px; font-weight: 600; color: var(--red); }
+
+    /* FORMS */
+    .form-group { margin-bottom: 8px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    input[type="text"], input[type="number"], input[type="date"], select, textarea {
+      width: 100%; padding: 10px 12px; border: 1px solid var(--gray-200); border-radius: 8px;
+      font-size: 14px; color: var(--black); background: var(--white); outline: none;
+      transition: border-color 0.15s; font-family: inherit;
+    }
+    input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+    .btn { width: 100%; padding: 12px; background: var(--black); color: var(--white); border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity 0.15s; margin-top: 4px; font-family: inherit; }
+    .btn:hover { opacity: 0.85; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-secondary { background: var(--gray-100); color: var(--black); }
+
+    /* HISTORY */
+    .day-row { display: flex; justify-content: space-between; align-items: center; padding: 13px 0; border-bottom: 1px solid var(--gray-100); cursor: pointer; transition: opacity 0.15s; }
+    .day-row:hover { opacity: 0.7; }
+    .day-row:last-child { border-bottom: none; }
+    .day-date { font-size: 14px; font-weight: 600; color: var(--black); }
+    .day-meta { font-size: 12px; color: var(--gray-400); margin-top: 2px; }
+    .day-right { display: flex; align-items: center; gap: 8px; }
+    .day-chevron { color: var(--gray-200); font-size: 16px; }
+    .back-btn { background: none; border: none; color: var(--gray-400); font-size: 13px; cursor: pointer; padding: 8px 0 12px; display: flex; align-items: center; gap: 4px; font-family: inherit; }
+
+    /* PROGRESS */
+    .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+    .stat-item { background: var(--gray-50); border-radius: 10px; padding: 14px; }
+    .stat-val { font-size: 24px; font-weight: 700; color: var(--black); letter-spacing: -1px; }
+    .stat-label { font-size: 11px; color: var(--gray-400); margin-top: 3px; }
+
+    /* PHOTOS */
+    .photo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+    .photo-thumb { aspect-ratio: 3/4; border-radius: 8px; overflow: hidden; background: var(--gray-100); position: relative; cursor: pointer; }
+    .photo-thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .photo-angle { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.5); color: white; font-size: 10px; font-weight: 600; text-align: center; padding: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .photo-date-group { margin-bottom: 16px; }
+    .photo-date-label { font-size: 11px; font-weight: 700; color: var(--gray-400); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; }
+    .upload-area { border: 2px dashed var(--gray-200); border-radius: 10px; padding: 24px; text-align: center; color: var(--gray-400); font-size: 13px; cursor: pointer; transition: border-color 0.15s; margin-bottom: 8px; }
+    .upload-area:hover { border-color: var(--accent); color: var(--accent); }
+    .upload-icon { font-size: 28px; margin-bottom: 6px; }
+    .angle-selector { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 8px; }
+    .angle-btn { padding: 8px; border: 1px solid var(--gray-200); border-radius: 8px; background: none; font-size: 12px; font-weight: 500; color: var(--gray-600); cursor: pointer; transition: all 0.15s; font-family: inherit; }
+    .angle-btn.selected { background: var(--black); color: var(--white); border-color: var(--black); }
+
+    /* LIGHTBOX */
+    .lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 1000; align-items: center; justify-content: center; }
+    .lightbox.open { display: flex; }
+    .lightbox img { max-width: 90vw; max-height: 90vh; object-fit: contain; border-radius: 8px; }
+    .lightbox-close { position: absolute; top: 20px; right: 20px; background: none; border: none; color: white; font-size: 32px; cursor: pointer; }
+
+    /* LOADING */
+    .loading { text-align: center; padding: 60px 20px; color: var(--gray-400); font-size: 14px; }
+    .empty { text-align: center; color: var(--gray-400); font-size: 13px; padding: 24px 0; }
+
+    /* TOAST */
+    .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--black); color: white; padding: 10px 20px; border-radius: 20px; font-size: 13px; font-weight: 500; z-index: 999; opacity: 0; transition: opacity 0.3s; pointer-events: none; white-space: nowrap; }
+    .toast.show { opacity: 1; }
+
+    /* CHART */
+    .chart-wrap { position: relative; height: 160px; margin-top: 8px; }
+
+    /* COMPARE */
+    .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .compare-photo { border-radius: 10px; overflow: hidden; background: var(--gray-100); aspect-ratio: 3/4; }
+    .compare-photo img { width: 100%; height: 100%; object-fit: cover; }
+    .compare-label { font-size: 11px; color: var(--gray-400); text-align: center; margin-top: 4px; }
+  </style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <div class="header-top">
+      <div class="brand">
+        <div class="brand-mark">
+          <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/></svg>
+        </div>
+        <div>
+          <div class="brand-name">Forma Fitness</div>
+          <div class="brand-sub" id="today-date"></div>
+        </div>
+      </div>
+      <div id="score-badge"></div>
+    </div>
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('today')">Today</button>
+      <button class="tab-btn" onclick="switchTab('history')">History</button>
+      <button class="tab-btn" onclick="switchTab('progress')">Progress</button>
+      <button class="tab-btn" onclick="switchTab('photos')">Photos</button>
+    </div>
+  </div>
+
+  <div class="content">
+    <!-- TODAY -->
+    <div id="tab-today">
+      <div class="card">
+        <div class="card-title">Daily Targets</div>
+        <div class="macro-bar">
+          <div class="macro-bar-header"><span class="macro-label">Calories</span><span class="macro-value" id="cal-val">0 / 2250 kcal</span></div>
+          <div class="macro-track"><div class="macro-fill" id="cal-bar" style="background:#0F0F0F;width:0%"></div></div>
+        </div>
+        <div class="macro-bar">
+          <div class="macro-bar-header"><span class="macro-label">Protein</span><span class="macro-value" id="pro-val">0 / 160g</span></div>
+          <div class="macro-track"><div class="macro-fill" id="pro-bar" style="background:#2563EB;width:0%"></div></div>
+        </div>
+        <div class="macro-bar">
+          <div class="macro-bar-header"><span class="macro-label">Carbs</span><span class="macro-value" id="carb-val">0 / 150g</span></div>
+          <div class="macro-track"><div class="macro-fill" id="carb-bar" style="background:#D97706;width:0%"></div></div>
+        </div>
+        <div class="macro-bar">
+          <div class="macro-bar-header"><span class="macro-label">Fat</span><span class="macro-value" id="fat-val">0 / 65g</span></div>
+          <div class="macro-track"><div class="macro-fill" id="fat-bar" style="background:#DC2626;width:0%"></div></div>
+        </div>
+        <div class="remaining-row">
+          <div class="remaining-item" id="cal-remaining-box">
+            <div class="remaining-val" id="cal-remaining">2250</div>
+            <div class="remaining-label">cals remaining</div>
+          </div>
+          <div class="remaining-item" id="pro-remaining-box">
+            <div class="remaining-val" id="pro-remaining">160g</div>
+            <div class="remaining-label" id="pro-remaining-label">protein needed</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Meals</div>
+        <div id="meals-list"><div class="empty">No meals logged yet</div></div>
+        <div style="margin-top:16px">
+          <div class="form-group"><input type="text" id="meal-name" placeholder="Meal name (e.g. Chicken + Lentils)" /></div>
+          <div class="form-row form-group">
+            <input type="number" id="meal-cals" placeholder="Calories" />
+            <input type="number" id="meal-protein" placeholder="Protein (g)" />
+          </div>
+          <div class="form-row form-group">
+            <input type="number" id="meal-carbs" placeholder="Carbs (g)" />
+            <input type="number" id="meal-fat" placeholder="Fat (g)" />
+          </div>
+          <button class="btn" onclick="addMeal()">Add Meal</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Workouts</div>
+        <div id="workouts-list"><div class="empty">No workouts logged yet</div></div>
+        <div style="margin-top:16px">
+          <div class="form-group"><input type="text" id="workout-name" placeholder="Workout (e.g. Leg Day + Cardio)" /></div>
+          <div class="form-row form-group">
+            <input type="number" id="workout-duration" placeholder="Duration (min)" />
+            <input type="number" id="workout-cals" placeholder="Cals burned" />
+          </div>
+          <button class="btn" onclick="addWorkout()">Add Workout</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- HISTORY -->
+    <div id="tab-history" style="display:none">
+      <div id="history-list-view">
+        <div class="card">
+          <div class="card-title">All Days</div>
+          <div id="history-list"><div class="loading">Loading...</div></div>
+        </div>
+      </div>
+      <div id="history-detail-view" style="display:none">
+        <button class="back-btn" onclick="showHistoryList()">← Back</button>
+        <div class="card" id="detail-macros"></div>
+        <div class="card" id="detail-meals"></div>
+        <div class="card" id="detail-workouts" style="display:none"></div>
+      </div>
+    </div>
+
+    <!-- PROGRESS -->
+    <div id="tab-progress" style="display:none">
+      <div class="card">
+        <div class="card-title">Body Composition</div>
+        <div class="stat-grid">
+          <div class="stat-item"><div class="stat-val">16.1%</div><div class="stat-label">Starting body fat</div></div>
+          <div class="stat-item"><div class="stat-val">13%</div><div class="stat-label">Goal body fat</div></div>
+          <div class="stat-item"><div class="stat-val">180.6</div><div class="stat-label">Starting weight (lbs)</div></div>
+          <div class="stat-item"><div class="stat-val">88.4</div><div class="stat-label">Muscle mass (lbs)</div></div>
+        </div>
+        <div style="background:var(--gray-50);border-radius:10px;padding:14px">
+          <div style="font-size:11px;color:var(--gray-400);margin-bottom:4px">Fat to lose</div>
+          <div style="font-size:22px;font-weight:700;color:var(--black)">~8 lbs</div>
+          <div style="font-size:12px;color:var(--gray-400);margin-top:3px">At 0.5–0.75 lbs/week → 10–16 weeks</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Body Fat Trend</div>
+        <div class="chart-wrap"><canvas id="bf-chart"></canvas></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Log a Body Scan</div>
+        <div class="form-row form-group">
+          <input type="number" id="scan-bf" placeholder="Body fat %" step="0.1" />
+          <input type="number" id="scan-weight" placeholder="Weight (lbs)" step="0.1" />
+        </div>
+        <div class="form-group"><input type="number" id="scan-muscle" placeholder="Muscle mass (lbs) — optional" step="0.1" /></div>
+        <div class="form-group"><input type="date" id="scan-date" /></div>
+        <button class="btn" onclick="addScan()">Save Scan</button>
+      </div>
+
+      <div class="card" id="scan-history-card">
+        <div class="card-title">Scan History</div>
+        <div id="scan-list"><div class="loading">Loading...</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Daily Targets</div>
+        <div class="stat-grid">
+          <div class="stat-item"><div class="stat-val">2,250</div><div class="stat-label">Calories/day</div></div>
+          <div class="stat-item"><div class="stat-val">160g</div><div class="stat-label">Protein/day</div></div>
+          <div class="stat-item"><div class="stat-val">150g</div><div class="stat-label">Carbs/day</div></div>
+          <div class="stat-item"><div class="stat-val">65g</div><div class="stat-label">Fat/day</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PHOTOS -->
+    <div id="tab-photos" style="display:none">
+      <div class="card">
+        <div class="card-title">Upload Progress Photo</div>
+        <div class="angle-selector">
+          <button class="angle-btn selected" onclick="selectAngle('front', this)">Front</button>
+          <button class="angle-btn" onclick="selectAngle('side', this)">Side</button>
+          <button class="angle-btn" onclick="selectAngle('back', this)">Back</button>
+        </div>
+        <div class="form-group"><input type="date" id="photo-date" /></div>
+        <label class="upload-area" for="photo-input">
+          <div class="upload-icon">📷</div>
+          <div>Tap to select photo</div>
+          <div style="font-size:11px;margin-top:4px">JPG or PNG</div>
+        </label>
+        <input type="file" id="photo-input" accept="image/*" style="display:none" onchange="previewPhoto(event)" />
+        <div id="photo-preview" style="display:none;margin-bottom:8px">
+          <img id="preview-img" style="width:100%;border-radius:8px;max-height:200px;object-fit:cover" />
+        </div>
+        <button class="btn" id="upload-btn" onclick="uploadPhoto()" disabled>Upload Photo</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Compare Two Dates</div>
+        <div class="form-row form-group">
+          <div>
+            <div style="font-size:11px;color:var(--gray-400);margin-bottom:4px">Before</div>
+            <select id="compare-date-1" onchange="updateCompare()"><option value="">Select date</option></select>
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--gray-400);margin-bottom:4px">After</div>
+            <select id="compare-date-2" onchange="updateCompare()"><option value="">Select date</option></select>
+          </div>
+        </div>
+        <div id="compare-view" style="display:none">
+          <div class="compare-grid">
+            <div><div class="compare-photo"><img id="compare-img-1" /></div><div class="compare-label" id="compare-label-1"></div></div>
+            <div><div class="compare-photo"><img id="compare-img-2" /></div><div class="compare-label" id="compare-label-2"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">All Photos</div>
+        <div id="photos-list"><div class="loading">Loading...</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- LIGHTBOX -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <button class="lightbox-close">×</button>
+  <img id="lightbox-img" src="" />
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL = 'https://azcopsldgmqutqvaajhu.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_5jK2YBmMRL-ukO7H4O-CIA_jzyo0kGh';
+const TARGETS = { calories: 2250, protein: 160, carbs: 150, fat: 65 };
+
+const today = new Date().toISOString().split('T')[0];
+let currentMeals = [];
+let currentWorkouts = [];
+let allScans = [];
+let allPhotos = [];
+let selectedAngle = 'front';
+let selectedPhotoFile = null;
+let bfChart = null;
+
+// API helpers
+async function dbGet(table, filters = '') {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${filters}&order=created_at.asc`, {
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+  });
+  return res.json();
+}
+async function dbPost(table, data) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+    method: 'POST',
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+    body: JSON.stringify(data)
+  });
+  return res.json();
+}
+async function dbDelete(table, id) {
+  await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
+    method: 'DELETE',
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+  });
+}
+async function storageUpload(bucket, path, file) {
+  const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${bucket}/${path}`, {
+    method: 'POST',
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': file.type },
+    body: file
+  });
+  return res.json();
+}
+function storageUrl(bucket, path) {
+  return `${SUPABASE_URL}/storage/v1/object/public/${bucket}/${path}`;
+}
+
+// TOAST
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// SCORE
+function dayScore(cals, protein) {
+  const calPct = cals / TARGETS.calories;
+  const proOk = protein >= TARGETS.protein * 0.9;
+  const calOk = calPct >= 0.85 && calPct <= 1.1;
+  if (calOk && proOk) return 'great';
+  if ((calOk || proOk) && calPct > 0.7) return 'good';
+  if (cals === 0) return null;
+  return 'needs work';
+}
+
+// INIT
+async function init() {
+  document.getElementById('today-date').textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+  document.getElementById('scan-date').value = today;
+  document.getElementById('photo-date').value = today;
+  await Promise.all([loadTodayMeals(), loadTodayWorkouts()]);
+  loadHistory();
+  loadScans();
+  loadPhotos();
+}
+
+// TODAY
+async function loadTodayMeals() {
+  currentMeals = await dbGet('meals', `date=eq.${today}`);
+  renderMeals();
+}
+async function loadTodayWorkouts() {
+  currentWorkouts = await dbGet('workouts', `date=eq.${today}`);
+  renderWorkouts();
+}
+
+function renderMeals() {
+  const totals = calcTotals(currentMeals);
+  updateMacroBars(totals);
+  const el = document.getElementById('meals-list');
+  if (!currentMeals.length) { el.innerHTML = '<div class="empty">No meals logged yet</div>'; return; }
+  el.innerHTML = currentMeals.map(m => `
+    <div class="meal-row">
+      <div class="meal-info">
+        <div class="meal-name">${m.name}</div>
+        <div class="meal-meta">${m.time || ''} · P:${m.protein}g C:${m.carbs}g F:${m.fat}g</div>
+      </div>
+      <div class="meal-cals">${m.calories}</div>
+      <button class="delete-btn" onclick="deleteMeal('${m.id}')">×</button>
+    </div>`).join('');
+}
+
+function renderWorkouts() {
+  const el = document.getElementById('workouts-list');
+  if (!currentWorkouts.length) { el.innerHTML = '<div class="empty">No workouts logged yet</div>'; return; }
+  el.innerHTML = currentWorkouts.map(w => `
+    <div class="workout-row">
+      <div>
+        <div style="font-size:14px;font-weight:500">${w.name}</div>
+        <div style="font-size:11px;color:var(--gray-400);margin-top:2px">${w.time || ''} · ${w.duration} min</div>
+      </div>
+      <div class="workout-cals">−${w.calories} cal</div>
+    </div>`).join('');
+}
+
+function calcTotals(meals) {
+  return meals.reduce((a, m) => ({ calories: a.calories + (+m.calories||0), protein: a.protein + (+m.protein||0), carbs: a.carbs + (+m.carbs||0), fat: a.fat + (+m.fat||0) }), { calories: 0, protein: 0, carbs: 0, fat: 0 });
+}
+
+function updateMacroBars(t) {
+  const pct = (v, target) => Math.min((v / target) * 100, 100).toFixed(1);
+  document.getElementById('cal-val').textContent = `${t.calories} / ${TARGETS.calories} kcal`;
+  document.getElementById('pro-val').textContent = `${t.protein} / ${TARGETS.protein}g`;
+  document.getElementById('carb-val').textContent = `${t.carbs} / ${TARGETS.carbs}g`;
+  document.getElementById('fat-val').textContent = `${t.fat} / ${TARGETS.fat}g`;
+  document.getElementById('cal-bar').style.width = pct(t.calories, TARGETS.calories) + '%';
+  document.getElementById('pro-bar').style.width = pct(t.protein, TARGETS.protein) + '%';
+  document.getElementById('carb-bar').style.width = pct(t.carbs, TARGETS.carbs) + '%';
+  document.getElementById('fat-bar').style.width = pct(t.fat, TARGETS.fat) + '%';
+
+  const calRem = TARGETS.calories - t.calories;
+  const proRem = TARGETS.protein - t.protein;
+  const calBox = document.getElementById('cal-remaining-box');
+  const proBox = document.getElementById('pro-remaining-box');
+  document.getElementById('cal-remaining').textContent = Math.abs(calRem);
+  calBox.style.background = calRem >= 0 ? 'var(--green-light)' : 'var(--red-light)';
+  document.querySelector('#cal-remaining-box .remaining-label').textContent = calRem >= 0 ? 'cals remaining' : 'cals over';
+  document.getElementById('cal-remaining').style.color = calRem >= 0 ? 'var(--green)' : 'var(--red)';
+  document.getElementById('pro-remaining').textContent = Math.abs(proRem) + 'g';
+  proBox.style.background = proRem <= 0 ? 'var(--green-light)' : 'var(--amber-light)';
+  document.getElementById('pro-remaining-label').textContent = proRem <= 0 ? 'protein hit ✓' : 'protein needed';
+  document.getElementById('pro-remaining').style.color = proRem <= 0 ? 'var(--green)' : 'var(--amber)';
+
+  const score = dayScore(t.calories, t.protein);
+  const badge = document.getElementById('score-badge');
+  if (score) {
+    const map = { great: ['Great Day', 'score-great'], good: ['Good Day', 'score-good'], 'needs work': ['Needs Work', 'score-needs'] };
+    badge.innerHTML = `<span class="score-badge ${map[score][1]}">${map[score][0]}</span>`;
+  } else badge.innerHTML = '';
+}
+
+async function addMeal() {
+  const name = document.getElementById('meal-name').value.trim();
+  const cals = +document.getElementById('meal-cals').value || 0;
+  if (!name || !cals) { toast('Enter meal name and calories'); return; }
+  const meal = { date: today, name, calories: cals, protein: +document.getElementById('meal-protein').value||0, carbs: +document.getElementById('meal-carbs').value||0, fat: +document.getElementById('meal-fat').value||0, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) };
+  await dbPost('meals', meal);
+  ['meal-name','meal-cals','meal-protein','meal-carbs','meal-fat'].forEach(id => document.getElementById(id).value = '');
+  await loadTodayMeals();
+  toast('Meal added ✓');
+}
+
+async function deleteMeal(id) {
+  await dbDelete('meals', id);
+  await loadTodayMeals();
+  toast('Meal removed');
+}
+
+async function addWorkout() {
+  const name = document.getElementById('workout-name').value.trim();
+  if (!name) { toast('Enter workout name'); return; }
+  const w = { date: today, name, duration: +document.getElementById('workout-duration').value||0, calories: +document.getElementById('workout-cals').value||0, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) };
+  await dbPost('workouts', w);
+  ['workout-name','workout-duration','workout-cals'].forEach(id => document.getElementById(id).value = '');
+  await loadTodayWorkouts();
+  toast('Workout added ✓');
+}
+
+// HISTORY
+async function loadHistory() {
+  const [meals, workouts] = await Promise.all([dbGet('meals', 'select=date,calories,protein,carbs,fat'), dbGet('workouts', 'select=date,calories')]);
+  const dayMap = {};
+  meals.forEach(m => {
+    if (!dayMap[m.date]) dayMap[m.date] = { calories: 0, protein: 0, carbs: 0, fat: 0 };
+    dayMap[m.date].calories += +m.calories||0;
+    dayMap[m.date].protein += +m.protein||0;
+    dayMap[m.date].carbs += +m.carbs||0;
+    dayMap[m.date].fat += +m.fat||0;
+  });
+  const days = Object.keys(dayMap).sort((a, b) => b.localeCompare(a));
+  const el = document.getElementById('history-list');
+  if (!days.length) { el.innerHTML = '<div class="empty">No history yet</div>'; return; }
+  const scoreMap = { great: ['Great Day','score-great'], good: ['Good Day','score-good'], 'needs work': ['Needs Work','score-needs'] };
+  el.innerHTML = days.map(d => {
+    const t = dayMap[d];
+    const score = dayScore(t.calories, t.protein);
+    const s = score ? scoreMap[score] : null;
+    return `<div class="day-row" onclick="showHistoryDetail('${d}')">
+      <div>
+        <div class="day-date">${new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</div>
+        <div class="day-meta">${t.calories} cal · ${t.protein}g protein</div>
+      </div>
+      <div class="day-right">
+        ${s ? `<span class="score-badge ${s[1]}">${s[0]}</span>` : ''}
+        <span class="day-chevron">›</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function showHistoryDetail(date) {
+  document.getElementById('history-list-view').style.display = 'none';
+  document.getElementById('history-detail-view').style.display = 'block';
+  const [meals, workouts] = await Promise.all([dbGet('meals', `date=eq.${date}`), dbGet('workouts', `date=eq.${date}`)]);
+  const t = calcTotals(meals);
+  const score = dayScore(t.calories, t.protein);
+  const scoreMap = { great: ['Great Day','score-great'], good: ['Good Day','score-good'], 'needs work': ['Needs Work','score-needs'] };
+  const s = score ? scoreMap[score] : null;
+  document.getElementById('detail-macros').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div style="font-size:15px;font-weight:700">${new Date(date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</div>
+      ${s ? `<span class="score-badge ${s[1]}">${s[0]}</span>` : ''}
+    </div>
+    <div class="card-title">Macros</div>
+    ${['Calories','Protein','Carbs','Fat'].map((label, i) => {
+      const keys = ['calories','protein','carbs','fat'];
+      const tgt = [TARGETS.calories, TARGETS.protein, TARGETS.carbs, TARGETS.fat];
+      const cols = ['#0F0F0F','#2563EB','#D97706','#DC2626'];
+      const v = t[keys[i]];
+      const pct = Math.min((v / tgt[i]) * 100, 100).toFixed(1);
+      return `<div class="macro-bar"><div class="macro-bar-header"><span class="macro-label">${label}</span><span class="macro-value">${v} / ${tgt[i]}${i===0?' kcal':'g'}</span></div><div class="macro-track"><div class="macro-fill" style="background:${cols[i]};width:${pct}%"></div></div></div>`;
+    }).join('')}`;
+  document.getElementById('detail-meals').innerHTML = `<div class="card-title">Meals</div>` + (meals.length ? meals.map(m => `<div class="meal-row"><div class="meal-info"><div class="meal-name">${m.name}</div><div class="meal-meta">${m.time||''} · P:${m.protein}g C:${m.carbs}g F:${m.fat}g</div></div><div class="meal-cals">${m.calories}</div></div>`).join('') : '<div class="empty">No meals</div>');
+  const wkEl = document.getElementById('detail-workouts');
+  if (workouts.length) {
+    wkEl.style.display = 'block';
+    wkEl.innerHTML = `<div class="card-title">Workouts</div>` + workouts.map(w => `<div class="workout-row"><div><div style="font-size:14px;font-weight:500">${w.name}</div><div style="font-size:11px;color:var(--gray-400);margin-top:2px">${w.duration} min</div></div><div class="workout-cals">−${w.calories} cal</div></div>`).join('');
+  } else wkEl.style.display = 'none';
+}
+
+function showHistoryList() {
+  document.getElementById('history-list-view').style.display = 'block';
+  document.getElementById('history-detail-view').style.display = 'none';
+}
+
+// SCANS
+async function loadScans() {
+  allScans = await dbGet('scans', 'order=date.asc');
+  renderScans();
+  renderBfChart();
+}
+
+function renderScans() {
+  const el = document.getElementById('scan-list');
+  if (!allScans.length) { el.innerHTML = '<div class="empty">No scans yet</div>'; return; }
+  el.innerHTML = [...allScans].reverse().map(s => `
+    <div class="meal-row">
+      <div class="meal-info">
+        <div class="meal-name">${new Date(s.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+        <div class="meal-meta">${s.weight} lbs${s.muscle_mass ? ` · ${s.muscle_mass} lbs muscle` : ''}</div>
+      </div>
+      <div style="font-size:20px;font-weight:700;color:${s.body_fat<=13?'var(--green)':s.body_fat<=16?'var(--amber)':'var(--red)'}">${s.body_fat}%</div>
+    </div>`).join('');
+}
+
+function renderBfChart() {
+  const canvas = document.getElementById('bf-chart');
+  if (bfChart) bfChart.destroy();
+  if (!allScans.length) return;
+  const labels = allScans.map(s => new Date(s.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+  const data = allScans.map(s => s.body_fat);
+  bfChart = new Chart(canvas, {
+    type: 'line',
+    data: { labels, datasets: [{ data, borderColor: '#2563EB', backgroundColor: 'rgba(37,99,235,0.08)', borderWidth: 2, pointBackgroundColor: '#2563EB', pointRadius: 4, tension: 0.3, fill: true }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => `${ctx.raw}% body fat` } } }, scales: { y: { min: 10, max: 25, grid: { color: '#F0F0F0' }, ticks: { font: { size: 11 }, callback: v => v + '%' } }, x: { grid: { display: false }, ticks: { font: { size: 11 } } } } }
+  });
+}
+
+async function addScan() {
+  const bf = +document.getElementById('scan-bf').value;
+  const weight = +document.getElementById('scan-weight').value;
+  const date = document.getElementById('scan-date').value;
+  if (!bf || !weight || !date) { toast('Fill in body fat, weight, and date'); return; }
+  await dbPost('scans', { date, body_fat: bf, weight, muscle_mass: +document.getElementById('scan-muscle').value || null });
+  ['scan-bf','scan-weight','scan-muscle'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('scan-date').value = today;
+  await loadScans();
+  toast('Scan saved ✓');
+}
+
+// PHOTOS
+async function loadPhotos() {
+  allPhotos = await dbGet('progress_photos', 'order=date.desc');
+  renderPhotos();
+  updateCompareSelects();
+}
+
+function renderPhotos() {
+  const el = document.getElementById('photos-list');
+  if (!allPhotos.length) { el.innerHTML = '<div class="empty">No photos yet — upload your first progress photo!</div>'; return; }
+  const byDate = {};
+  allPhotos.forEach(p => { if (!byDate[p.date]) byDate[p.date] = []; byDate[p.date].push(p); });
+  el.innerHTML = Object.entries(byDate).map(([date, photos]) => `
+    <div class="photo-date-group">
+      <div class="photo-date-label">${new Date(date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</div>
+      <div class="photo-grid">
+        ${photos.map(p => `<div class="photo-thumb" onclick="openLightbox('${p.photo_url}')"><img src="${p.photo_url}" loading="lazy" /><div class="photo-angle">${p.angle}</div></div>`).join('')}
+      </div>
+    </div>`).join('');
+}
+
+function selectAngle(angle, btn) {
+  selectedAngle = angle;
+  document.querySelectorAll('.angle-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+}
+
+function previewPhoto(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  selectedPhotoFile = file;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    document.getElementById('preview-img').src = ev.target.result;
+    document.getElementById('photo-preview').style.display = 'block';
+    document.getElementById('upload-btn').disabled = false;
+  };
+  reader.readAsDataURL(file);
+}
+
+async function uploadPhoto() {
+  if (!selectedPhotoFile) return;
+  const date = document.getElementById('photo-date').value;
+  if (!date) { toast('Select a date'); return; }
+  const btn = document.getElementById('upload-btn');
+  btn.disabled = true; btn.textContent = 'Uploading...';
+  try {
+    const ext = selectedPhotoFile.name.split('.').pop();
+    const path = `${date}/${selectedAngle}_${Date.now()}.${ext}`;
+    const uploadRes = await storageUpload('progress-photos', path, selectedPhotoFile);
+    if (uploadRes.error) throw new Error(uploadRes.error.message);
+    const url = storageUrl('progress-photos', path);
+    await dbPost('progress_photos', { date, photo_url: url, angle: selectedAngle });
+    document.getElementById('photo-preview').style.display = 'none';
+    document.getElementById('photo-input').value = '';
+    selectedPhotoFile = null;
+    await loadPhotos();
+    toast('Photo uploaded ✓');
+  } catch (e) {
+    toast('Upload failed — check storage bucket');
+    console.error(e);
+  }
+  btn.disabled = false; btn.textContent = 'Upload Photo';
+}
+
+function updateCompareSelects() {
+  const dates = [...new Set(allPhotos.map(p => p.date))].sort();
+  const opts = ['<option value="">Select date</option>', ...dates.map(d => `<option value="${d}">${new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</option>`)].join('');
+  document.getElementById('compare-date-1').innerHTML = opts;
+  document.getElementById('compare-date-2').innerHTML = opts;
+}
+
+function updateCompare() {
+  const d1 = document.getElementById('compare-date-1').value;
+  const d2 = document.getElementById('compare-date-2').value;
+  if (!d1 || !d2) { document.getElementById('compare-view').style.display = 'none'; return; }
+  const p1 = allPhotos.find(p => p.date === d1 && p.angle === 'front') || allPhotos.find(p => p.date === d1);
+  const p2 = allPhotos.find(p => p.date === d2 && p.angle === 'front') || allPhotos.find(p => p.date === d2);
+  if (!p1 || !p2) return;
+  document.getElementById('compare-img-1').src = p1.photo_url;
+  document.getElementById('compare-img-2').src = p2.photo_url;
+  document.getElementById('compare-label-1').textContent = new Date(d1+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});
+  document.getElementById('compare-label-2').textContent = new Date(d2+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});
+  document.getElementById('compare-view').style.display = 'block';
+}
+
+// LIGHTBOX
+function openLightbox(url) {
+  document.getElementById('lightbox-img').src = url;
+  document.getElementById('lightbox').classList.add('open');
+}
+function closeLightbox() { document.getElementById('lightbox').classList.remove('open'); }
+
+// TABS
+function switchTab(tab) {
+  ['today','history','progress','photos'].forEach(t => {
+    document.getElementById(`tab-${t}`).style.display = t === tab ? 'block' : 'none';
+    document.querySelectorAll('.tab-btn').forEach((btn, i) => btn.classList.toggle('active', ['today','history','progress','photos'][i] === tab));
+  });
+}
+
+init();
+</script>
+</body>
+</html>
