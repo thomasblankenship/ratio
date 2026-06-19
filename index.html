@@ -248,9 +248,13 @@
           <div class="macro-bar-header"><span class="macro-label">Carbs</span><span class="macro-value" id="carb-val">0 / 150g</span></div>
           <div class="macro-track"><div class="macro-fill" id="carb-bar" style="background:#FB7185;width:0%"></div></div>
         </div>
-        <div class="macro-bar" style="margin-bottom:0">
+        <div class="macro-bar">
           <div class="macro-bar-header"><span class="macro-label">Fat</span><span class="macro-value" id="fat-val">0 / 65g</span></div>
           <div class="macro-track"><div class="macro-fill" id="fat-bar" style="background:#FBBF24;width:0%"></div></div>
+        </div>
+        <div class="macro-bar" style="margin-bottom:0">
+          <div class="macro-bar-header"><span class="macro-label">Fiber</span><span class="macro-value" id="fiber-val">0 / 30g</span></div>
+          <div class="macro-track"><div class="macro-fill" id="fiber-bar" style="background:#16A34A;width:0%"></div></div>
         </div>
         <!-- hidden elements kept for JS compat -->
         <span id="cal-val" style="display:none"></span>
@@ -284,6 +288,13 @@
               <div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Fat (g)</div>
               <input type="number" id="meal-fat" placeholder="0" min="0" />
             </div>
+          </div>
+          <div class="form-row form-group">
+            <div>
+              <div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Fiber (g)</div>
+              <input type="number" id="meal-fiber" placeholder="0" min="0" />
+            </div>
+            <div></div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px">
             <button class="btn btn-secondary" onclick="saveFoodFromForm()" style="background:var(--gray-100);color:var(--black)">Save Food</button>
@@ -584,7 +595,8 @@
           <button class="angle-btn" onclick="selectAngle('side', this)">Side</button>
           <button class="angle-btn" onclick="selectAngle('back', this)">Back</button>
         </div>
-        <div class="form-group"><input type="date" id="photo-date" /></div>
+        <!-- Photo date locked to today -->
+        <input type="hidden" id="photo-date" />
         <div id="photo-preview" style="display:none;margin-bottom:12px">
           <img id="preview-img" style="width:100%;border-radius:10px;max-height:280px;object-fit:cover" />
         </div>
@@ -701,7 +713,7 @@
 <script>
 const SUPABASE_URL = 'https://azcopsldgmqutqvaajhu.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF6Y29wc2xkZ21xdXRxdmFhamh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4MTYwMTEsImV4cCI6MjA5NzM5MjAxMX0.1cS2YNlIV0jeZPN9nZwpzBLcIiGeQVG0UtZO0bsbqaI';
-const TARGETS = { calories: 2250, protein: 160, carbs: 150, fat: 65 };
+const TARGETS = { calories: 2250, protein: 160, carbs: 150, fat: 65, fiber: 30 };
 
 const todayLocal = new Date();
 const today = `${todayLocal.getFullYear()}-${String(todayLocal.getMonth()+1).padStart(2,'0')}-${String(todayLocal.getDate()).padStart(2,'0')}`;
@@ -769,18 +781,25 @@ async function dbDelete(table, id) {
   });
 }
 async function storageUpload(bucket, path, file) {
-  // Try upsert first (overwrites existing file)
+  // DELETE first then POST to handle overwrites cleanly
+  await fetch(`${SUPABASE_URL}/storage/v1/object/${bucket}/${path}`, {
+    method: 'DELETE',
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+  });
+  // Small delay then upload fresh
+  await new Promise(r => setTimeout(r, 300));
   const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${bucket}/${path}`, {
     method: 'POST',
     headers: { 
       'apikey': SUPABASE_KEY, 
       'Authorization': `Bearer ${SUPABASE_KEY}`, 
-      'Content-Type': file.type,
+      'Content-Type': 'image/jpeg',
       'x-upsert': 'true'
     },
     body: file
   });
-  return res.json();
+  const text = await res.text();
+  try { return JSON.parse(text); } catch(e) { return { error: text }; }
 }
 function storageUrl(bucket, path) {
   return `${SUPABASE_URL}/storage/v1/object/public/${bucket}/${path}`;
@@ -835,6 +854,7 @@ async function init() {
   if (todayDateEl) todayDateEl.textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
   document.getElementById('scan-date').value = today;
   document.getElementById('photo-date').value = today;
+  // Lock photo uploads to today only
   // Load sequentially to avoid race conditions
   await loadTodayMeals();
   await loadTodayWorkouts();
@@ -869,7 +889,7 @@ function renderMeals() {
           <span>${m.name}</span>
           <button data-edit="${i}" style="background:none;border:none;cursor:pointer;font-size:11px;color:#ADADAD;padding:0 2px;flex-shrink:0">✏️</button>
         </div>
-        <div class="meal-meta">${m.time || ''} · P:${m.protein}g C:${m.carbs}g F:${m.fat}g</div>
+        <div class="meal-meta">${m.time || ''} · P:${m.protein}g C:${m.carbs}g F:${m.fat}g${m.fiber ? ` Fi:${m.fiber}g` : ''}</div>
       </div>
       <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
         <span style="font-size:14px;font-weight:600;color:#111">${m.calories} kcal</span>
@@ -940,7 +960,7 @@ async function relogWorkout(name, duration, calories) {
 }
 
 function calcTotals(meals) {
-  return meals.reduce((a, m) => ({ calories: a.calories + (+m.calories||0), protein: a.protein + (+m.protein||0), carbs: a.carbs + (+m.carbs||0), fat: a.fat + (+m.fat||0) }), { calories: 0, protein: 0, carbs: 0, fat: 0 });
+  return meals.reduce((a, m) => ({ calories: a.calories + (+m.calories||0), protein: a.protein + (+m.protein||0), carbs: a.carbs + (+m.carbs||0), fat: a.fat + (+m.fat||0), fiber: a.fiber + (+m.fiber||0) }), { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 });
 }
 
 function updateMacroBars(t) {
@@ -948,9 +968,11 @@ function updateMacroBars(t) {
   document.getElementById('pro-val').textContent = `${t.protein} / ${TARGETS.protein}g`;
   document.getElementById('carb-val').textContent = `${t.carbs} / ${TARGETS.carbs}g`;
   document.getElementById('fat-val').textContent = `${t.fat} / ${TARGETS.fat}g`;
+  document.getElementById('fiber-val').textContent = `${t.fiber||0} / 30g`;
   document.getElementById('pro-bar').style.width = pct(t.protein, TARGETS.protein) + '%';
   document.getElementById('carb-bar').style.width = pct(t.carbs, TARGETS.carbs) + '%';
   document.getElementById('fat-bar').style.width = pct(t.fat, TARGETS.fat) + '%';
+  document.getElementById('fiber-bar').style.width = pct(t.fiber||0, 30) + '%';
 
   // Update ring
   const calPct = Math.min(t.calories / TARGETS.calories, 1);
@@ -1010,7 +1032,7 @@ async function addMeal() {
   if (!name || !cals) { toast('Enter meal name and calories'); return; }
   const meal = { date: today, name, calories: cals, protein: +document.getElementById('meal-protein').value||0, carbs: +document.getElementById('meal-carbs').value||0, fat: +document.getElementById('meal-fat').value||0, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) };
   await dbPost('meals', meal);
-  ['meal-name','meal-cals','meal-protein','meal-carbs','meal-fat'].forEach(id => document.getElementById(id).value = '');
+  ['meal-name','meal-cals','meal-protein','meal-carbs','meal-fat','meal-fiber'].forEach(id => document.getElementById(id).value = '');
   await loadTodayMeals();
   toast('Meal added ✓');
 }
@@ -1335,7 +1357,8 @@ async function uploadPhoto() {
 
     // Upload to storage (overwrites existing file at same path)
     const uploadRes = await storageUpload('progress-photos', path, selectedPhotoFile);
-    if (uploadRes.error) throw new Error(uploadRes.error.message);
+    console.log('Upload response:', uploadRes);
+    if (uploadRes.error) throw new Error(typeof uploadRes.error === 'string' ? uploadRes.error : uploadRes.error.message || 'Upload failed');
     const url = storageUrl('progress-photos', path) + '?t=' + Date.now(); // cache bust
 
     if (existing) {
