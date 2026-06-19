@@ -281,27 +281,27 @@
           <div class="form-row form-group">
             <div>
               <div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Calories</div>
-              <input type="number" id="meal-cals" placeholder="0" min="0" />
+              <input type="number" id="meal-cals" placeholder="0" min="0" step="0.1" />
             </div>
             <div>
               <div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Protein (g)</div>
-              <input type="number" id="meal-protein" placeholder="0" min="0" />
+              <input type="number" id="meal-protein" placeholder="0" min="0" step="0.1" />
             </div>
           </div>
           <div class="form-row form-group">
             <div>
               <div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Carbs (g)</div>
-              <input type="number" id="meal-carbs" placeholder="0" min="0" />
+              <input type="number" id="meal-carbs" placeholder="0" min="0" step="0.1" />
             </div>
             <div>
               <div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Fat (g)</div>
-              <input type="number" id="meal-fat" placeholder="0" min="0" />
+              <input type="number" id="meal-fat" placeholder="0" min="0" step="0.1" />
             </div>
           </div>
           <div class="form-row form-group">
             <div>
               <div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Fiber (g)</div>
-              <input type="number" id="meal-fiber" placeholder="0" min="0" />
+              <input type="number" id="meal-fiber" placeholder="0" min="0" step="0.1" />
             </div>
             <div></div>
           </div>
@@ -706,6 +706,42 @@
   </div>
 </div>
 
+<!-- EDIT MEAL MODAL -->
+<div id="edit-meal-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:600;align-items:flex-end;justify-content:center">
+  <div style="background:white;border-radius:20px 20px 0 0;padding:24px;width:100%;max-width:520px">
+    <div style="font-size:16px;font-weight:700;margin-bottom:16px">Edit Meal</div>
+    <div class="form-group"><input type="text" id="edit-meal-name-input" placeholder="Meal name" /></div>
+    <div class="form-row form-group">
+      <div>
+        <div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Calories</div>
+        <input type="number" id="edit-meal-cals-input" placeholder="0" min="0" step="0.1" />
+      </div>
+      <div>
+        <div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Protein (g)</div>
+        <input type="number" id="edit-meal-protein-input" placeholder="0" min="0" step="0.1" />
+      </div>
+    </div>
+    <div class="form-row form-group">
+      <div>
+        <div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Carbs (g)</div>
+        <input type="number" id="edit-meal-carbs-input" placeholder="0" min="0" step="0.1" />
+      </div>
+      <div>
+        <div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Fat (g)</div>
+        <input type="number" id="edit-meal-fat-input" placeholder="0" min="0" step="0.1" />
+      </div>
+    </div>
+    <div class="form-group">
+      <div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Fiber (g)</div>
+      <input type="number" id="edit-meal-fiber-input" placeholder="0" min="0" step="0.1" />
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px">
+      <button class="btn" onclick="closeEditMealModal()" style="background:#F4F4F4;color:#0F0F0F">Cancel</button>
+      <button class="btn" onclick="saveEditedMeal()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
 <!-- BARCODE SCANNER MODAL -->
 <div id="barcode-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.95);z-index:600;flex-direction:column;align-items:center;justify-content:center">
   <div style="color:white;font-size:16px;font-weight:700;margin-bottom:16px">Scan Barcode</div>
@@ -1058,7 +1094,10 @@ function renderMeals() {
     </div>`).join('');
   // Attach event listeners - avoids quote/special char issues in onclick
   el.querySelectorAll('[data-edit]').forEach(btn => {
-    btn.addEventListener('click', () => editMealName(+btn.dataset.edit));
+    btn.addEventListener('click', () => {
+      const m = currentMeals[+btn.dataset.edit];
+      openEditMealModal(m.id, m.name, m.calories, m.protein, m.carbs, m.fat, m.fiber, 'today');
+    });
   });
   el.querySelectorAll('[data-delete]').forEach(btn => {
     btn.addEventListener('click', () => confirmDeleteMeal(+btn.dataset.delete));
@@ -1225,20 +1264,6 @@ async function addMeal() {
   ['meal-name','meal-cals','meal-protein','meal-carbs','meal-fat','meal-fiber'].forEach(id => document.getElementById(id).value = ''); document.getElementById('meal-form').style.display='none'; document.getElementById('add-meal-btn').style.display='block';
   await loadTodayMeals();
   toast('Meal added ✓');
-}
-
-async function editMealName(index) {
-  const meal = currentMeals[index];
-  if (!meal) return;
-  const newName = prompt('Edit meal name:', meal.name);
-  if (!newName || newName.trim() === meal.name) return;
-  await fetch(`${SUPABASE_URL}/rest/v1/meals?id=eq.${meal.id}`, {
-    method: 'PATCH',
-    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: newName.trim() })
-  });
-  await loadTodayMeals();
-  toast('Meal name updated ✓');
 }
 
 async function confirmDeleteMeal(index) {
@@ -2352,6 +2377,51 @@ function showLabelResult(data) {
     fillBtn.style.cssText = 'background:linear-gradient(135deg,#F97316,#FB7185);color:white;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:600;cursor:pointer;grid-column:1/-1;margin-top:4px;width:100%';
     fillBtn.onclick = () => { fillMealFormFromScan(labelScannedData); closeLabelModal(); };
     actions.appendChild(fillBtn);
+  }
+}
+
+// Edit meal modal
+let _editMealId = null;
+let _editMealSource = null; // 'today' or 'history'
+
+function openEditMealModal(mealId, name, calories, protein, carbs, fat, fiber, source) {
+  _editMealId = mealId;
+  _editMealSource = source;
+  document.getElementById('edit-meal-name-input').value = name;
+  document.getElementById('edit-meal-cals-input').value = calories;
+  document.getElementById('edit-meal-protein-input').value = protein;
+  document.getElementById('edit-meal-carbs-input').value = carbs;
+  document.getElementById('edit-meal-fat-input').value = fat;
+  document.getElementById('edit-meal-fiber-input').value = fiber || 0;
+  document.getElementById('edit-meal-modal').style.display = 'flex';
+}
+
+function closeEditMealModal() {
+  document.getElementById('edit-meal-modal').style.display = 'none';
+  _editMealId = null;
+}
+
+async function saveEditedMeal() {
+  if (!_editMealId) return;
+  const updates = {
+    name: document.getElementById('edit-meal-name-input').value.trim(),
+    calories: +document.getElementById('edit-meal-cals-input').value || 0,
+    protein: +document.getElementById('edit-meal-protein-input').value || 0,
+    carbs: +document.getElementById('edit-meal-carbs-input').value || 0,
+    fat: +document.getElementById('edit-meal-fat-input').value || 0,
+    fiber: +document.getElementById('edit-meal-fiber-input').value || 0,
+  };
+  await fetch(`${SUPABASE_URL}/rest/v1/meals?id=eq.${_editMealId}`, {
+    method: 'PATCH',
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(updates)
+  });
+  closeEditMealModal();
+  toast('Meal updated ✓');
+  if (_editMealSource === 'history') {
+    showHistoryDetail(window._historyDate);
+  } else {
+    await loadTodayMeals();
   }
 }
 
