@@ -327,7 +327,7 @@
         <div id="photo-preview" style="display:none;margin-bottom:8px">
           <img id="preview-img" style="width:100%;border-radius:8px;max-height:200px;object-fit:cover" />
         </div>
-        <button class="btn" id="upload-btn" onclick="uploadPhoto()" disabled>Upload Photo</button>
+        <button class="btn" id="upload-btn" onclick="uploadPhoto()" style="display:none">Upload Photo</button>
       </div>
 
       <div class="card">
@@ -371,7 +371,8 @@ const SUPABASE_URL = 'https://azcopsldgmqutqvaajhu.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF6Y29wc2xkZ21xdXRxdmFhamh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4MTYwMTEsImV4cCI6MjA5NzM5MjAxMX0.1cS2YNlIV0jeZPN9nZwpzBLcIiGeQVG0UtZO0bsbqaI';
 const TARGETS = { calories: 2250, protein: 160, carbs: 150, fat: 65 };
 
-const today = new Date().toISOString().split('T')[0];
+const todayLocal = new Date();
+const today = `${todayLocal.getFullYear()}-${String(todayLocal.getMonth()+1).padStart(2,'0')}-${String(todayLocal.getDate()).padStart(2,'0')}`;
 let currentMeals = [];
 let currentWorkouts = [];
 let allScans = [];
@@ -692,7 +693,7 @@ function previewPhoto(e) {
   reader.onload = ev => {
     document.getElementById('preview-img').src = ev.target.result;
     document.getElementById('photo-preview').style.display = 'block';
-    document.getElementById('upload-btn').disabled = false;
+    document.getElementById('upload-btn').style.display = 'block';
   };
   reader.readAsDataURL(file);
 }
@@ -702,7 +703,7 @@ async function uploadPhoto() {
   const date = document.getElementById('photo-date').value;
   if (!date) { toast('Select a date'); return; }
   const btn = document.getElementById('upload-btn');
-  btn.disabled = true; btn.textContent = 'Uploading...';
+  btn.textContent = 'Uploading...'; btn.style.opacity = '0.5';
   try {
     const ext = selectedPhotoFile.name.split('.').pop();
     const path = `${date}/${selectedAngle}_${Date.now()}.${ext}`;
@@ -719,7 +720,7 @@ async function uploadPhoto() {
     toast('Upload failed — check storage bucket');
     console.error(e);
   }
-  btn.disabled = false; btn.textContent = 'Upload Photo';
+  btn.style.display = 'none'; btn.textContent = 'Upload Photo';
 }
 
 function updateCompareSelects() {
