@@ -725,9 +725,11 @@ function updateLogDateDisplay() {
   yesterday.setDate(yesterday.getDate() - 1);
   const yStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth()+1).padStart(2,'0')}-${String(yesterday.getDate()).padStart(2,'0')}`;
   const isYesterday = logDate === yStr;
-  document.getElementById('log-date-label').textContent = isToday ? 'Today' : isYesterday ? 'Yesterday' : d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
-  document.getElementById('log-date-sublabel').textContent = d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  const labelEl = document.getElementById('log-date-label');
+  const subEl = document.getElementById('log-date-sublabel');
   const nextBtn = document.getElementById('log-date-next');
+  if (labelEl) labelEl.textContent = isToday ? 'Today' : isYesterday ? 'Yesterday' : d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+  if (subEl) subEl.textContent = d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   if (nextBtn) nextBtn.style.opacity = logDate === today ? '0.2' : '1';
 }
 let currentMeals = [];
