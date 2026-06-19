@@ -831,11 +831,11 @@ async function init() {
 
 // TODAY
 async function loadTodayMeals() {
-  currentMeals = await dbGet('meals', `date=eq.${today}`);
+  currentMeals = await dbGet('meals', `date=eq.${logDate}`);
   renderMeals();
 }
 async function loadTodayWorkouts() {
-  currentWorkouts = await dbGet('workouts', `date=eq.${today}`);
+  currentWorkouts = await dbGet('workouts', `date=eq.${logDate}`);
   renderWorkouts();
 }
 
@@ -844,15 +844,27 @@ function renderMeals() {
   updateMacroBars(totals);
   const el = document.getElementById('meals-list');
   if (!currentMeals.length) { el.innerHTML = '<div class="empty">No meals logged yet</div>'; return; }
-  el.innerHTML = currentMeals.map(m => `
+  el.innerHTML = currentMeals.map((m, i) => `
     <div class="meal-row">
-      <div class="meal-info">
-        <div class="meal-name">${m.name}</div>
+      <div class="meal-info" style="min-width:0;flex:1">
+        <div class="meal-name" style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
+          <span>${m.name}</span>
+          <button data-edit="${i}" style="background:none;border:none;cursor:pointer;font-size:11px;color:#ADADAD;padding:0 2px;flex-shrink:0">✏️</button>
+        </div>
         <div class="meal-meta">${m.time || ''} · P:${m.protein}g C:${m.carbs}g F:${m.fat}g</div>
       </div>
-      <div class="meal-cals">${m.calories} kcal</div>
-      <button class="delete-btn" onclick="deleteMeal('${m.id}')">×</button>
+      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+        <span style="font-size:14px;font-weight:600;color:#111">${m.calories} kcal</span>
+        <button class="delete-btn" data-delete="${i}">×</button>
+      </div>
     </div>`).join('');
+  // Attach event listeners - avoids quote/special char issues in onclick
+  el.querySelectorAll('[data-edit]').forEach(btn => {
+    btn.addEventListener('click', () => editMealName(+btn.dataset.edit));
+  });
+  el.querySelectorAll('[data-delete]').forEach(btn => {
+    btn.addEventListener('click', () => confirmDeleteMeal(+btn.dataset.delete));
+  });
 }
 
 function renderWorkouts() {
@@ -1881,10 +1893,10 @@ function toggleEditProfile() {
   display.style.display = isEditing ? 'grid' : 'none';
   btn.textContent = isEditing ? 'Edit' : 'Cancel';
   if (!isEditing) {
-    const ft = Math.floor(userProfile.heightIn / 12);
-    const inches = userProfile.heightIn % 12;
-    document.getElementById('edit-height-ft').value = ft;
-    document.getElementById('edit-height-in').value = inches;
+    const profileFt = Math.floor(userProfile.heightIn / 12);
+    const profileIn = userProfile.heightIn % 12;
+    document.getElementById('edit-height-ft').value = profileFt;
+    document.getElementById('edit-height-in').value = profileIn;
     document.getElementById('edit-age').value = userProfile.age;
     document.getElementById('edit-gender').value = userProfile.gender;
     document.getElementById('edit-activity').value = userProfile.activity;
@@ -1892,18 +1904,18 @@ function toggleEditProfile() {
 }
 
 function saveProfile() {
-  const ft = +document.getElementById('edit-height-ft').value || 5;
-  const inches = +document.getElementById('edit-height-in').value || 0;
-  const heightIn = (ft * 12) + inches;
+  const heightFt = +document.getElementById('edit-height-ft').value || 5;
+  const heightInches = +document.getElementById('edit-height-in').value || 0;
+  const heightIn = (heightFt * 12) + heightInches;
   const age = +document.getElementById('edit-age').value;
   const gender = document.getElementById('edit-gender').value;
   const activity = document.getElementById('edit-activity').value;
   if (!heightIn || !age) { toast('Fill in height and age'); return; }
-  const ft = Math.floor(heightIn / 12);
-  const inches = heightIn % 12;
+  const dispFt = Math.floor(heightIn / 12);
+  const dispIn = heightIn % 12;
   userProfile = { heightIn, age, gender, activity };
   localStorage.setItem('ff_profile', JSON.stringify(userProfile));
-  document.getElementById('disp-height').textContent = `${ft}'${inches}"`;
+  document.getElementById('disp-height').textContent = `${dispFt}'${dispIn}"`;
   document.getElementById('disp-age').textContent = age;
   document.getElementById('disp-gender').textContent = gender === 'male' ? 'Male' : 'Female';
   const activityLabels = { sedentary: 'Sedentary', light: 'Lightly Active', moderate: 'Moderately Active', active: 'Very Active', athlete: 'Athlete' };
