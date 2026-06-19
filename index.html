@@ -736,6 +736,75 @@
 <div class="toast" id="toast"></div>
 
 <script>
+// Global functions defined first so onclick handlers can find them
+function toggleMealForm() {
+  const form = document.getElementById('meal-form');
+  const btn = document.getElementById('add-meal-btn');
+  const isOpen = form.style.display !== 'none';
+  form.style.display = isOpen ? 'none' : 'block';
+  btn.textContent = isOpen ? '+ Add Meal' : '− Cancel';
+  btn.style.background = isOpen ? 'linear-gradient(135deg,#F97316,#FB7185)' : '#FEF2F2';
+  btn.style.color = isOpen ? 'white' : '#DC2626';
+}
+
+function toggleWorkoutForm() {
+  const form = document.getElementById('workout-form');
+  const btn = document.getElementById('add-workout-btn');
+  const isOpen = form.style.display !== 'none';
+  form.style.display = isOpen ? 'none' : 'block';
+  btn.textContent = isOpen ? '+ Add Workout' : '− Cancel';
+  btn.style.background = isOpen ? 'linear-gradient(135deg,#F97316,#FB7185)' : '#FEF2F2';
+  btn.style.color = isOpen ? 'white' : '#DC2626';
+}
+
+function toggleHistoryAddForm() {
+  const form = document.getElementById('hist-add-form');
+  const btn = document.getElementById('hist-add-btn');
+  const isOpen = form.style.display !== 'none';
+  form.style.display = isOpen ? 'none' : 'block';
+  btn.textContent = isOpen ? '+ Add Meal' : '− Cancel';
+}
+
+function changeLogDate(dir) {
+  const d = new Date(logDate + 'T12:00:00');
+  d.setDate(d.getDate() + dir);
+  const newDate = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  if (newDate > today) return;
+  logDate = newDate;
+  updateLogDateDisplay();
+  loadTodayMeals();
+  loadTodayWorkouts();
+}
+
+function switchTab(tab) {
+  ['today','history','meals','progress','photos'].forEach(t => {
+    document.getElementById(`tab-${t}`).style.display = t === tab ? 'block' : 'none';
+  });
+  document.querySelectorAll('.tab-btn').forEach((btn, i) => {
+    btn.classList.toggle('active', ['today','history','meals','progress','photos'][i] === tab);
+  });
+  if (tab === 'meals') loadMealsTab();
+}
+
+function selectAngle(angle, btn) {
+  selectedAngle = angle;
+  document.querySelectorAll('.angle-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+}
+
+function openLightbox(url) {
+  document.getElementById('lightbox-img').src = url;
+  document.getElementById('lightbox').classList.add('open');
+}
+function closeLightbox() { document.getElementById('lightbox').classList.remove('open'); }
+
+function changeMonth(dir) {
+  calendarMonth += dir;
+  if (calendarMonth > 11) { calendarMonth = 0; calendarYear++; }
+  if (calendarMonth < 0) { calendarMonth = 11; calendarYear--; }
+  renderCalendar();
+}
+
 const SUPABASE_URL = 'https://azcopsldgmqutqvaajhu.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF6Y29wc2xkZ21xdXRxdmFhamh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4MTYwMTEsImV4cCI6MjA5NzM5MjAxMX0.1cS2YNlIV0jeZPN9nZwpzBLcIiGeQVG0UtZO0bsbqaI';
 const TARGETS = { calories: 2250, protein: 160, carbs: 150, fat: 65, fiber: 30 };
@@ -1051,26 +1120,6 @@ function updateMacroBars(t) {
   }
 }
 
-function toggleMealForm() {
-  const form = document.getElementById('meal-form');
-  const btn = document.getElementById('add-meal-btn');
-  const isOpen = form.style.display !== 'none';
-  form.style.display = isOpen ? 'none' : 'block';
-  btn.textContent = isOpen ? '+ Add Meal' : '− Cancel';
-  btn.style.background = isOpen ? 'linear-gradient(135deg,#F97316,#FB7185)' : '#FEF2F2';
-  btn.style.color = isOpen ? 'white' : '#DC2626';
-}
-
-function toggleWorkoutForm() {
-  const form = document.getElementById('workout-form');
-  const btn = document.getElementById('add-workout-btn');
-  const isOpen = form.style.display !== 'none';
-  form.style.display = isOpen ? 'none' : 'block';
-  btn.textContent = isOpen ? '+ Add Workout' : '− Cancel';
-  btn.style.background = isOpen ? 'linear-gradient(135deg,#F97316,#FB7185)' : '#FEF2F2';
-  btn.style.color = isOpen ? 'white' : '#DC2626';
-}
-
 async function addMeal() {
   const name = document.getElementById('meal-name').value.trim();
   const cals = +document.getElementById('meal-cals').value || 0;
@@ -1377,11 +1426,7 @@ function renderPhotos() {
     </div>`).join('');
 }
 
-function selectAngle(angle, btn) {
-  selectedAngle = angle;
-  document.querySelectorAll('.angle-btn').forEach(b => b.classList.remove('selected'));
-  btn.classList.add('selected');
-}
+
 
 function previewPhoto(e) {
   const file = e.target.files[0];
@@ -1487,22 +1532,10 @@ function updateCompare() {
 }
 
 // LIGHTBOX
-function openLightbox(url) {
-  document.getElementById('lightbox-img').src = url;
-  document.getElementById('lightbox').classList.add('open');
-}
-function closeLightbox() { document.getElementById('lightbox').classList.remove('open'); }
+
 
 // TABS
-function switchTab(tab) {
-  ['today','history','meals','progress','photos'].forEach(t => {
-    document.getElementById(`tab-${t}`).style.display = t === tab ? 'block' : 'none';
-  });
-  document.querySelectorAll('.tab-btn').forEach((btn, i) => {
-    btn.classList.toggle('active', ['today','history','meals','progress','photos'][i] === tab);
-  });
-  if (tab === 'meals') loadMealsTab();
-}
+
 
 // CALENDAR
 let calendarYear = new Date().getFullYear();
@@ -1521,12 +1554,7 @@ async function loadDayTotals() {
   renderHistoryList();
 }
 
-function changeMonth(dir) {
-  calendarMonth += dir;
-  if (calendarMonth > 11) { calendarMonth = 0; calendarYear++; }
-  if (calendarMonth < 0) { calendarMonth = 11; calendarYear--; }
-  renderCalendar();
-}
+
 
 function renderCalendar() {
   const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
