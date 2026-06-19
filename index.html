@@ -271,7 +271,7 @@
           <button onclick="toggleMealForm()" id="add-meal-btn" class="btn">+ Add Meal</button>
         </div>
         <div id="meal-form" style="display:none;margin-top:12px;background:#FAFAFA;border-radius:12px;padding:14px">
-          <div class="form-group"><input type="text" id="meal-name" placeholder="Meal name (e.g. Chicken + Lentils)" /></div>
+          <div class="form-group"><input type="text" id="meal-name" placeholder="Meal name (e.g. Chicken + Rice)" /></div>
           <div class="form-row form-group">
             <div>
               <div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Calories</div>
@@ -386,7 +386,7 @@
         <div class="card" style="padding-top:12px">
           <button onclick="toggleHistoryAddForm('meal')" id="hist-add-meal-btn" class="btn">+ Add Meal</button>
           <div id="hist-add-meal-form" style="display:none;margin-top:12px;background:#FAFAFA;border-radius:10px;padding:14px">
-            <div class="form-group"><input type="text" id="hist-meal-name" placeholder="Meal name" /></div>
+            <div class="form-group"><input type="text" id="hist-meal-name" placeholder="Meal name (e.g. Chicken + Rice)" /></div>
             <div class="form-row form-group">
               <div>
                 <div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Calories</div>
@@ -416,7 +416,7 @@
         <div class="card" style="padding-top:12px">
           <button onclick="toggleHistoryAddForm('workout')" id="hist-add-workout-btn" class="btn">+ Add Workout</button>
           <div id="hist-add-workout-form" style="display:none;margin-top:12px;background:#FAFAFA;border-radius:10px;padding:14px">
-            <div class="form-group"><input type="text" id="hist-workout-name" placeholder="Workout name" /></div>
+            <div class="form-group"><input type="text" id="hist-workout-name" placeholder="Workout (e.g. Leg Day + Cardio)" /></div>
             <div class="form-row form-group">
               <div>
                 <div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Duration (min)</div>
@@ -740,17 +740,33 @@
   <div style="background:white;border-radius:20px 20px 0 0;padding:24px;width:100%;max-width:520px">
     <div style="font-size:16px;font-weight:700;color:#0F0F0F;margin-bottom:4px" id="food-modal-name"></div>
     <div style="font-size:12px;color:#ADADAD;margin-bottom:16px" id="food-modal-per"></div>
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
-      <input type="number" id="food-modal-qty" placeholder="Quantity" step="0.1" value="1"
-        oninput="updateFoodModalPreview()"
-        style="flex:1;padding:12px;border:1px solid #E8E8E8;border-radius:8px;font-size:16px;font-weight:600;outline:none" />
-      <div id="food-modal-unit-label" style="font-size:14px;color:#666;min-width:30px"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+      <div>
+        <div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Amount</div>
+        <input type="number" id="food-modal-qty" placeholder="1" step="0.1" value="1"
+          oninput="updateFoodModalPreview()"
+          style="width:100%;padding:10px 12px;border:1px solid #E8E8E8;border-radius:8px;font-size:16px;font-weight:600;outline:none;box-sizing:border-box" />
+      </div>
+      <div>
+        <div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Unit</div>
+        <select id="food-modal-unit-select" oninput="updateFoodModalPreview()" style="width:100%;padding:10px 12px;border:1px solid #E8E8E8;border-radius:8px;font-size:14px;outline:none;background:white">
+          <option value="serving">serving</option>
+          <option value="oz">oz</option>
+          <option value="g">g</option>
+          <option value="cup">cup</option>
+          <option value="tbsp">tbsp</option>
+          <option value="tsp">tsp</option>
+          <option value="each">each</option>
+          <option value="slice">slice</option>
+        </select>
+      </div>
     </div>
-    <div style="background:#FFF7ED;border-radius:10px;padding:12px;margin-bottom:16px;display:grid;grid-template-columns:repeat(4,1fr);text-align:center">
-      <div><div style="font-size:16px;font-weight:700;color:#F97316" id="modal-cals">0</div><div style="font-size:10px;color:#ADADAD">kcal</div></div>
-      <div><div style="font-size:16px;font-weight:700;color:#F97316" id="modal-protein">0</div><div style="font-size:10px;color:#ADADAD">protein</div></div>
-      <div><div style="font-size:16px;font-weight:700;color:#FB7185" id="modal-carbs">0</div><div style="font-size:10px;color:#ADADAD">carbs</div></div>
-      <div><div style="font-size:16px;font-weight:700;color:#FBBF24" id="modal-fat">0</div><div style="font-size:10px;color:#ADADAD">fat</div></div>
+    <div style="background:#FFF7ED;border-radius:10px;padding:12px;margin-bottom:16px;display:grid;grid-template-columns:repeat(5,1fr);text-align:center">
+      <div><div style="font-size:15px;font-weight:700;color:#F97316" id="modal-cals">0</div><div style="font-size:9px;color:#ADADAD">kcal</div></div>
+      <div><div style="font-size:15px;font-weight:700;color:#F97316" id="modal-protein">0</div><div style="font-size:9px;color:#ADADAD">protein</div></div>
+      <div><div style="font-size:15px;font-weight:700;color:#FB7185" id="modal-carbs">0</div><div style="font-size:9px;color:#ADADAD">carbs</div></div>
+      <div><div style="font-size:15px;font-weight:700;color:#FBBF24" id="modal-fat">0</div><div style="font-size:9px;color:#ADADAD">fat</div></div>
+      <div><div style="font-size:15px;font-weight:700;color:#16A34A" id="modal-fiber">0</div><div style="font-size:9px;color:#ADADAD">fiber</div></div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
       <button class="btn btn-secondary" onclick="closeFoodModal()" style="background:#F4F4F4;color:#0F0F0F">Cancel</button>
@@ -1807,19 +1823,38 @@ function openFoodModal(id) {
   if (!activeFoodForModal) return;
   document.getElementById('food-modal-name').textContent = activeFoodForModal.name;
   document.getElementById('food-modal-per').textContent = `${activeFoodForModal.calories_per_unit} kcal per ${activeFoodForModal.unit}`;
-  document.getElementById('food-modal-unit-label').textContent = activeFoodForModal.unit;
   document.getElementById('food-modal-qty').value = 1;
+  // Set unit selector to food's default unit
+  const unitSelect = document.getElementById('food-modal-unit-select');
+  const foodUnit = activeFoodForModal.unit || 'oz';
+  // Try to match unit in dropdown, default to oz
+  const matchingOption = [...unitSelect.options].find(o => o.value === foodUnit);
+  unitSelect.value = matchingOption ? foodUnit : 'oz';
   updateFoodModalPreview();
   document.getElementById('food-modal').style.display = 'flex';
+}
+
+function getUnitMultiplier(fromUnit, toUnit) {
+  // Conversion factors relative to oz
+  const toOz = { oz: 1, g: 0.03527, serving: 1, cup: 8, tbsp: 0.5, tsp: 0.1667, each: 1, slice: 1 };
+  if (fromUnit === toUnit) return 1;
+  // Convert: qty in toUnit -> oz -> fromUnit
+  const ozPerTo = toOz[toUnit] || 1;
+  const ozPerFrom = toOz[fromUnit] || 1;
+  return ozPerTo / ozPerFrom;
 }
 
 function updateFoodModalPreview() {
   if (!activeFoodForModal) return;
   const qty = +document.getElementById('food-modal-qty').value || 0;
-  document.getElementById('modal-cals').textContent = Math.round(activeFoodForModal.calories_per_unit * qty);
-  document.getElementById('modal-protein').textContent = (activeFoodForModal.protein_per_unit * qty).toFixed(1) + 'g';
-  document.getElementById('modal-carbs').textContent = (activeFoodForModal.carbs_per_unit * qty).toFixed(1) + 'g';
-  document.getElementById('modal-fat').textContent = (activeFoodForModal.fat_per_unit * qty).toFixed(1) + 'g';
+  const selectedUnit = document.getElementById('food-modal-unit-select').value;
+  const baseUnit = activeFoodForModal.unit || 'oz';
+  const multiplier = qty * getUnitMultiplier(baseUnit, selectedUnit);
+  document.getElementById('modal-cals').textContent = Math.round(activeFoodForModal.calories_per_unit * multiplier);
+  document.getElementById('modal-protein').textContent = (activeFoodForModal.protein_per_unit * multiplier).toFixed(1) + 'g';
+  document.getElementById('modal-carbs').textContent = (activeFoodForModal.carbs_per_unit * multiplier).toFixed(1) + 'g';
+  document.getElementById('modal-fat').textContent = (activeFoodForModal.fat_per_unit * multiplier).toFixed(1) + 'g';
+  document.getElementById('modal-fiber').textContent = ((activeFoodForModal.fiber_per_unit || 0) * multiplier).toFixed(1) + 'g';
 }
 
 function closeFoodModal() {
@@ -1830,13 +1865,17 @@ function closeFoodModal() {
 async function logFoodFromModal() {
   if (!activeFoodForModal) return;
   const qty = +document.getElementById('food-modal-qty').value || 1;
+  const selectedUnit = document.getElementById('food-modal-unit-select').value;
+  const baseUnit = activeFoodForModal.unit || 'oz';
+  const multiplier = qty * getUnitMultiplier(baseUnit, selectedUnit);
   const meal = {
-    date: today,
-    name: `${activeFoodForModal.name} (${qty} ${activeFoodForModal.unit})`,
-    calories: Math.round(activeFoodForModal.calories_per_unit * qty),
-    protein: Math.round(activeFoodForModal.protein_per_unit * qty * 10) / 10,
-    carbs: Math.round(activeFoodForModal.carbs_per_unit * qty * 10) / 10,
-    fat: Math.round(activeFoodForModal.fat_per_unit * qty * 10) / 10,
+    date: logDate,
+    name: `${activeFoodForModal.name} (${qty} ${selectedUnit})`,
+    calories: Math.round(activeFoodForModal.calories_per_unit * multiplier),
+    protein: Math.round(activeFoodForModal.protein_per_unit * multiplier * 10) / 10,
+    carbs: Math.round(activeFoodForModal.carbs_per_unit * multiplier * 10) / 10,
+    fat: Math.round(activeFoodForModal.fat_per_unit * multiplier * 10) / 10,
+    fiber: Math.round((activeFoodForModal.fiber_per_unit || 0) * multiplier * 10) / 10,
     time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   };
   await dbPost('meals', meal);
