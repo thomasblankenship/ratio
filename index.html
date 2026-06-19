@@ -832,8 +832,12 @@ async function uploadPhoto() {
     selectedPhotoFile = null;
     await loadPhotos();
   } catch (e) {
-    toast('Upload failed — check storage bucket');
+    toast('Upload failed — please try again');
     console.error(e);
+    // Clear preview on failure
+    document.getElementById('photo-preview').style.display = 'none';
+    document.getElementById('photo-input').value = '';
+    selectedPhotoFile = null;
   }
   btn.style.display = 'none'; btn.textContent = 'Upload Photo'; btn.style.opacity = '1';
   btn.style.opacity = '1';
