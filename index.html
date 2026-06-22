@@ -2111,6 +2111,9 @@ function renderCalendar() {
       if (score === 'great') { indicator = '⭐'; bgColor = '#FFF7ED'; }
       else if (score === 'good') { indicator = '✅'; bgColor = '#F0FDF4'; }
       else if (score === 'over') { indicator = '❌'; bgColor = '#FEF2F2'; }
+    } else if (!isFuture && !isToday && !data) {
+      bgColor = '#F4F4F4';
+      textColor = '#ADADAD';
     }
 
     const todayRing = isToday ? `border:2px solid #F97316;` : 'border:2px solid transparent;';
