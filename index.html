@@ -2283,7 +2283,7 @@ async function searchFoodDatabase(query) {
         <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #F4F4F4">
           <div>
             <div style="font-size:14px;font-weight:500">${f.name}</div>
-            <div style="font-size:11px;color:#ADADAD">${f.cals_per_unit} kcal · ${f.protein_per_unit}g P per ${f.unit}</div>
+            <div style="font-size:11px;color:#ADADAD">${f.cals_per_unit || f.calories_per_unit || 0} kcal · ${f.protein_per_unit}g P per ${f.unit}</div>
           </div>
           <button type="button" onclick="openFoodModal('${f.id}')" style="background:linear-gradient(135deg,#F97316,#FB7185);color:white;border:none;border-radius:14px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer">+ Log</button>
         </div>`).join('');
@@ -2357,7 +2357,7 @@ function renderSavedFoods() {
           ${f.name}
           <button onclick="openEditFoodModal('${f.id}')" style="background:none;border:none;cursor:pointer;font-size:12px;color:#ADADAD;padding:0 4px;vertical-align:middle">✏️</button>
         </div>
-        <div class="meal-meta">${f.calories_per_unit} kcal · ${f.protein_per_unit}g P per ${f.unit}</div>
+        <div class="meal-meta">${f.cals_per_unit || f.calories_per_unit || 0} kcal · ${f.protein_per_unit}g P per ${f.unit}</div>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
         <button onclick="openFoodModal('${f.id}')" style="background:var(--accent);color:white;border:none;border-radius:16px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer">+ Log</button>
@@ -2397,14 +2397,17 @@ function toggleAddSavedMeal() {
 
 async function saveFood() {
   const name = document.getElementById('food-name').value.trim();
-  const cals = +document.getElementById('food-cals').value;
+  const calsRaw = document.getElementById('food-cals').value.replace(/[^0-9.]/g, '');
+  const cals = parseFloat(calsRaw) || 0;
+  console.log('saveFood name:', name, 'cals:', cals, 'raw:', document.getElementById('food-cals').value);
   const servingQty = document.getElementById('food-serving-qty').value || '1';
   const servingUnit = document.getElementById('food-unit').value;
-  const unit = servingQty === '1' ? servingUnit : `${servingQty} ${servingUnit}`;
-  if (!name || !cals) { toast('Enter food name and calories'); return; }
+  const unit = (+servingQty === 1 || servingQty === '1') ? servingUnit : `${servingQty} ${servingUnit}`;
+  if (!name) { toast('Enter a food name'); return; }
+  if (!cals) { toast('Enter calories per serving'); return; }
   await dbPost('saved_foods', {
     name, unit,
-    calories_per_unit: cals,
+    cals_per_unit: cals,
     protein_per_unit: +document.getElementById('food-protein').value || 0,
     carbs_per_unit: +document.getElementById('food-carbs').value || 0,
     fat_per_unit: +document.getElementById('food-fat').value || 0,
@@ -2463,7 +2466,7 @@ function openFoodModal(id) {
   }
   if (!activeFoodForModal) return;
   document.getElementById('food-modal-name').textContent = activeFoodForModal.name;
-  document.getElementById('food-modal-per').textContent = `${activeFoodForModal.cals_per_unit} kcal per ${activeFoodForModal.unit || 'serving'}`;
+  document.getElementById('food-modal-per').textContent = `${activeFoodForModal.cals_per_unit || activeFoodForModal.calories_per_unit || 0} kcal per ${activeFoodForModal.unit || 'serving'}`;
   document.getElementById('food-modal-qty').value = 1;
   updateFoodModalPreview();
   window._foodModalType = 'breakfast';
@@ -2492,7 +2495,7 @@ function updateFoodModalPreview() {
   const selectedUnit = document.getElementById('food-modal-unit-select').value;
   const baseUnit = activeFoodForModal.unit || 'oz';
   const multiplier = qty * getUnitMultiplier(baseUnit, selectedUnit);
-  document.getElementById('modal-cals').textContent = Math.round(activeFoodForModal.calories_per_unit * multiplier);
+  document.getElementById('modal-cals').textContent = Math.round((activeFoodForModal.cals_per_unit || activeFoodForModal.calories_per_unit || 0) * multiplier);
   document.getElementById('modal-protein').textContent = (activeFoodForModal.protein_per_unit * multiplier).toFixed(1) + 'g';
   document.getElementById('modal-carbs').textContent = (activeFoodForModal.carbs_per_unit * multiplier).toFixed(1) + 'g';
   document.getElementById('modal-fat').textContent = (activeFoodForModal.fat_per_unit * multiplier).toFixed(1) + 'g';
@@ -2524,7 +2527,7 @@ async function logFoodFromModal() {
     date: logDate,
     name: `${activeFoodForModal.name} (${qty} ${selectedUnit})`,
     meal_type: window._foodModalType || 'breakfast',
-    calories: Math.round(activeFoodForModal.calories_per_unit * multiplier),
+    calories: Math.round((activeFoodForModal.cals_per_unit || activeFoodForModal.calories_per_unit || 0) * multiplier),
     protein: Math.round(activeFoodForModal.protein_per_unit * multiplier * 10) / 10,
     carbs: Math.round(activeFoodForModal.carbs_per_unit * multiplier * 10) / 10,
     fat: Math.round(activeFoodForModal.fat_per_unit * multiplier * 10) / 10,
@@ -2568,7 +2571,7 @@ function openEditFoodModal(id) {
   if (!food) return;
   _editFoodId = id;
   document.getElementById('edit-food-name').value = food.name || '';
-  document.getElementById('edit-food-cals').value = food.cals_per_unit || 0;
+  document.getElementById('edit-food-cals').value = food.cals_per_unit || food.calories_per_unit || 0;
   document.getElementById('edit-food-protein').value = food.protein_per_unit || 0;
   document.getElementById('edit-food-carbs').value = food.carbs_per_unit || 0;
   document.getElementById('edit-food-fat').value = food.fat_per_unit || 0;
