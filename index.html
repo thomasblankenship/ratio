@@ -523,6 +523,13 @@
           <button class="btn" onclick="saveFood()">Save Food</button>
           <button class="btn" onclick="toggleAddFood()" style="background:#FEF2F2;color:#DC2626;margin-top:8px">Cancel</button>
         </div>
+        <!-- Food search -->
+        <div style="margin-bottom:12px;position:relative">
+          <input type="text" id="food-search-input" placeholder="🔍 Search food database..."
+            style="width:100%;padding:10px 12px;border:1px solid #E8E8E8;border-radius:10px;font-size:14px;outline:none;box-sizing:border-box"
+            oninput="onFoodSearchInput(this.value)" />
+        </div>
+        <div id="food-search-results" style="display:none;margin-bottom:12px"></div>
         <div id="saved-foods-list"><div class="loading">Loading...</div></div>
       </div>
 
@@ -2114,17 +2121,42 @@ function renderCalendar() {
 }
 
 function renderHistoryList() {
-  const days = Object.keys(dayTotalsCache).sort((a,b) => b.localeCompare(a)).slice(0, 14);
   const el = document.getElementById('history-list');
-  if (!days.length) { el.innerHTML = '<div class="empty">No history yet</div>'; return; }
   const scoreMap = { great: ['⭐ Great Day','score-great'], good: ['✅ Good Day','score-good'], over: ['❌ Over Limit','score-needs'] };
-  el.innerHTML = days.map(d => {
+
+  // Build last 30 days regardless of whether data exists
+  const allDays = [];
+  for (let i = 0; i < 30; i++) {
+    const d = new Date(today + 'T12:00:00');
+    d.setDate(d.getDate() - i);
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    allDays.push(dateStr);
+  }
+
+  el.innerHTML = allDays.map(d => {
     const t = dayTotalsCache[d];
+    const dateLabel = new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+
+    if (!t) {
+      // Empty day — show encouraging prompt
+      const isToday = d === today;
+      return `<div class="day-row" onclick="showHistoryDetail('${d}')">
+        <div>
+          <div class="day-date">${dateLabel}</div>
+          <div class="day-meta" style="color:#ADADAD">${isToday ? 'Start logging today!' : '📋 Nothing logged — tap to add'}</div>
+        </div>
+        <div class="day-right">
+          <span class="score-badge" style="background:#F4F4F4;color:#ADADAD;border:none">—</span>
+          <span class="day-chevron">›</span>
+        </div>
+      </div>`;
+    }
+
     const score = dayScore(t.calories, t.protein);
     const s = score ? scoreMap[score] : null;
     return `<div class="day-row" onclick="showHistoryDetail('${d}')">
       <div>
-        <div class="day-date">${new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</div>
+        <div class="day-date">${dateLabel}</div>
         <div class="day-meta">${t.calories} cal · ${t.protein}g protein</div>
       </div>
       <div class="day-right">
@@ -2133,6 +2165,94 @@ function renderHistoryList() {
       </div>
     </div>`;
   }).join('');
+}
+
+// FOOD SEARCH
+let foodSearchTimeout = null;
+
+function onFoodSearchInput(query) {
+  clearTimeout(foodSearchTimeout);
+  const resultsEl = document.getElementById('food-search-results');
+  const savedFoodsEl = document.getElementById('saved-foods-list');
+  if (!query || query.length < 2) {
+    resultsEl.style.display = 'none';
+    savedFoodsEl.style.display = 'block';
+    return;
+  }
+  savedFoodsEl.style.display = 'none';
+  resultsEl.style.display = 'block';
+  resultsEl.innerHTML = '<div style="color:#ADADAD;font-size:13px;padding:8px 0">Searching...</div>';
+  foodSearchTimeout = setTimeout(() => searchFoodDatabase(query), 400);
+}
+
+async function searchFoodDatabase(query) {
+  const resultsEl = document.getElementById('food-search-results');
+  try {
+    // Search local saved foods first
+    const localMatches = savedFoods.filter(f => f.name.toLowerCase().includes(query.toLowerCase()));
+
+    // Search USDA via Worker
+    const res = await fetch(`${WORKER_URL}/search?q=${encodeURIComponent(query)}`);
+    const data = await res.json();
+    const usdaResults = data.results || [];
+
+    if (!localMatches.length && !usdaResults.length) {
+      resultsEl.innerHTML = '<div style="color:#ADADAD;font-size:13px;padding:8px 0">No results found — try scanning or adding manually</div>';
+      return;
+    }
+
+    let html = '';
+
+    // Local saved foods first
+    if (localMatches.length) {
+      html += `<div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px">Your Saved Foods</div>`;
+      html += localMatches.map(f => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #F4F4F4">
+          <div>
+            <div style="font-size:14px;font-weight:500">${f.name}</div>
+            <div style="font-size:11px;color:#ADADAD">${f.cals_per_unit} kcal · ${f.protein_per_unit}g P per ${f.unit}</div>
+          </div>
+          <button type="button" onclick="openFoodModal(${savedFoods.indexOf(f)})" style="background:linear-gradient(135deg,#F97316,#FB7185);color:white;border:none;border-radius:14px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer">+ Log</button>
+        </div>`).join('');
+    }
+
+    // USDA results
+    if (usdaResults.length) {
+      html += `<div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.8px;margin:10px 0 6px">Food Database</div>`;
+      html += usdaResults.map((f, i) => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #F4F4F4">
+          <div>
+            <div style="font-size:14px;font-weight:500">${f.name}</div>
+            <div style="font-size:11px;color:#ADADAD">${f.calories} kcal · ${f.protein}g P · ${f.serving_size}</div>
+          </div>
+          <button type="button" onclick='logSearchResult(${JSON.stringify(JSON.stringify(f))})' style="background:linear-gradient(135deg,#F97316,#FB7185);color:white;border:none;border-radius:14px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer">+ Log</button>
+        </div>`).join('');
+    }
+
+    resultsEl.innerHTML = html;
+  } catch(e) {
+    resultsEl.innerHTML = '<div style="color:#ADADAD;font-size:13px;padding:8px 0">Search unavailable — check connection</div>';
+  }
+}
+
+async function logSearchResult(jsonStr) {
+  const f = JSON.parse(jsonStr);
+  // Show the food modal pre-filled with this data
+  labelScannedData = {
+    name: f.name,
+    calories: f.calories,
+    protein: f.protein,
+    carbs: f.carbs,
+    fat: f.fat,
+    fiber: f.fiber || 0,
+    unit: f.serving_size
+  };
+  showLabelResult(labelScannedData);
+  openLabelModal(true);
+  // Clear search
+  document.getElementById('food-search-input').value = '';
+  document.getElementById('food-search-results').style.display = 'none';
+  document.getElementById('saved-foods-list').style.display = 'block';
 }
 
 // MEALS TAB
@@ -2413,15 +2533,31 @@ function openBarcodeScanner() {
   document.getElementById('barcode-modal').style.display = 'flex';
   setTimeout(() => {
     html5QrcodeScanner = new Html5Qrcode("barcode-reader");
+    const startWithFallback = () => {
+      html5QrcodeScanner.start(
+        { facingMode: "environment" },
+        { fps: 20, qrbox: { width: 280, height: 160 } },
+        onBarcodeDetected,
+        err => {}
+      ).catch(() => {
+        toast('Camera access denied');
+        closeBarcodeScanner();
+      });
+    };
     html5QrcodeScanner.start(
-      { facingMode: "environment" },
-      { fps: 10, qrbox: { width: 250, height: 150 } },
+      { 
+        facingMode: "environment",
+        advanced: [{ focusMode: "continuous" }]
+      },
+      { 
+        fps: 30,
+        qrbox: { width: 280, height: 160 },
+        aspectRatio: 1.7,
+        experimentalFeatures: { useBarCodeDetectorIfSupported: true }
+      },
       onBarcodeDetected,
       err => {}
-    ).catch(err => {
-      toast('Camera access denied');
-      closeBarcodeScanner();
-    });
+    ).catch(startWithFallback);
   }, 300);
 }
 
