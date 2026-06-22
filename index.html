@@ -2192,12 +2192,13 @@ function onFoodSearchInput(query) {
 
 async function testWorker() {
   try {
-    toast('Testing Worker connection...');
-    const res = await fetch(WORKER_URL + '/search?q=chicken');
-    const text = await res.text();
-    alert('Status: ' + res.status + '\nResponse: ' + text.substring(0, 200));
+    // Test barcode endpoint
+    toast('Testing barcode endpoint...');
+    const res1 = await fetch(WORKER_URL + '/barcode?code=0038000138416');
+    const text1 = await res1.text();
+    alert('BARCODE Status: ' + res1.status + '\n' + text1.substring(0, 300));
   } catch(e) {
-    alert('FETCH ERROR:\n' + e.name + ': ' + e.message);
+    alert('BARCODE ERROR:\n' + e.name + ': ' + e.message);
   }
 }
 
