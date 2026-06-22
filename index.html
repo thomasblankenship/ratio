@@ -2545,15 +2545,17 @@ function getUnitMultiplier(fromUnit, toUnit) {
 
 function updateFoodModalPreview() {
   if (!activeFoodForModal) return;
-  const qty = +document.getElementById('food-modal-qty').value || 0;
-  const selectedUnit = document.getElementById('food-modal-unit-select').value;
-  const baseUnit = activeFoodForModal.unit || 'oz';
-  const multiplier = qty * getUnitMultiplier(baseUnit, selectedUnit);
-  document.getElementById('modal-cals').textContent = Math.round((activeFoodForModal.cals_per_unit || activeFoodForModal.calories_per_unit || 0) * multiplier);
-  document.getElementById('modal-protein').textContent = (activeFoodForModal.protein_per_unit * multiplier).toFixed(1) + 'g';
-  document.getElementById('modal-carbs').textContent = (activeFoodForModal.carbs_per_unit * multiplier).toFixed(1) + 'g';
-  document.getElementById('modal-fat').textContent = (activeFoodForModal.fat_per_unit * multiplier).toFixed(1) + 'g';
-  document.getElementById('modal-fiber').textContent = ((activeFoodForModal.fiber_per_unit || 0) * multiplier).toFixed(1) + 'g';
+  const qty = parseFloat(document.getElementById('food-modal-qty').value) || 1;
+  const calsPerUnit = activeFoodForModal.calories_per_unit || activeFoodForModal.cals_per_unit || 0;
+  document.getElementById('modal-cals').textContent = Math.round(calsPerUnit * qty);
+  document.getElementById('modal-protein').textContent = ((activeFoodForModal.protein_per_unit || 0) * qty).toFixed(1) + 'g';
+  document.getElementById('modal-carbs').textContent = ((activeFoodForModal.carbs_per_unit || 0) * qty).toFixed(1) + 'g';
+  document.getElementById('modal-fat').textContent = ((activeFoodForModal.fat_per_unit || 0) * qty).toFixed(1) + 'g';
+  document.getElementById('modal-fiber').textContent = ((activeFoodForModal.fiber_per_unit || 0) * qty).toFixed(1) + 'g';
+  const servingLabel = document.getElementById('food-modal-serving-label');
+  if (servingLabel) {
+    servingLabel.textContent = qty === 1 ? (activeFoodForModal.unit || '1 serving') : `${qty} × ${activeFoodForModal.unit || 'serving'}`;
+  }
 }
 
 function closeFoodModal() {
@@ -2573,26 +2575,26 @@ function selectFoodModalType(type, btn) {
 
 async function logFoodFromModal() {
   if (!activeFoodForModal) return;
-  const qty = +document.getElementById('food-modal-qty').value || 1;
-  const selectedUnit = document.getElementById('food-modal-unit-select').value;
-  const baseUnit = activeFoodForModal.unit || 'oz';
-  const multiplier = qty * getUnitMultiplier(baseUnit, selectedUnit);
+  const qty = parseFloat(document.getElementById('food-modal-qty').value) || 1;
+  const calsPerUnit = activeFoodForModal.calories_per_unit || activeFoodForModal.cals_per_unit || 0;
+  const servingLabel = qty === 1 ? (activeFoodForModal.unit || '1 serving') : `${qty} × ${activeFoodForModal.unit || 'serving'}`;
   const meal = {
     date: logDate,
-    name: `${activeFoodForModal.name} (${qty} ${selectedUnit})`,
+    name: `${activeFoodForModal.name} (${servingLabel})`,
     meal_type: window._foodModalType || 'breakfast',
-    calories: Math.round((activeFoodForModal.cals_per_unit || activeFoodForModal.calories_per_unit || 0) * multiplier),
-    protein: Math.round(activeFoodForModal.protein_per_unit * multiplier * 10) / 10,
-    carbs: Math.round(activeFoodForModal.carbs_per_unit * multiplier * 10) / 10,
-    fat: Math.round(activeFoodForModal.fat_per_unit * multiplier * 10) / 10,
-    fiber: Math.round((activeFoodForModal.fiber_per_unit || 0) * multiplier * 10) / 10,
+    calories: Math.round(calsPerUnit * qty),
+    protein: Math.round((activeFoodForModal.protein_per_unit || 0) * qty * 10) / 10,
+    carbs: Math.round((activeFoodForModal.carbs_per_unit || 0) * qty * 10) / 10,
+    fat: Math.round((activeFoodForModal.fat_per_unit || 0) * qty * 10) / 10,
+    fiber: Math.round((activeFoodForModal.fiber_per_unit || 0) * qty * 10) / 10,
     time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   };
   await dbPost('meals', meal);
   closeFoodModal();
   await loadTodayMeals();
   switchTab('today');
-  toast(`${activeFoodForModal.name} added to today ✓`);
+  toast(`${activeFoodForModal.name} added ✓`);
+}
 }
 
 async function logSavedMeal(id) {
