@@ -2222,7 +2222,7 @@ async function showHistoryDetail(date) {
           <span>${m.name}</span>
           <button data-hist-edit="${i}" style="background:none;border:none;cursor:pointer;font-size:11px;color:#ADADAD;padding:0 2px">✏️</button>
         </div>
-        <div class="meal-meta">Protein:${m.protein}g · Carbs:${m.carbs}g · Fat:${m.fat}g · Fiber:${m.fiber||0}g · Chol:${m.cholesterol||0}mg</div>
+        <div class="meal-meta">Protein:${m.protein}g · Carbs:${m.carbs}g · Fat:${m.fat}g · Fiber:${m.fiber||0}g</div>
       </div>
       <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
         <span style="font-size:14px;font-weight:600;color:#111">${m.calories} kcal</span>
@@ -3178,8 +3178,8 @@ function _parseServingSizeG(raw) {
   // prefer parenthesized gram value e.g. "1 tsp. (5g)" or "1/2 cup (117g)"
   const parenG = s.match(/\((\d+\.?\d*)\s*g\)/i);
   if (parenG) return parseFloat(parenG[1]);
-  // explicit gram value e.g. "117g" or "117 g"
-  const gMatch = s.match(/^(\d+\.?\d*)\s*g\b/i);
+  // explicit gram value e.g. "125g" or "117 g" or "125 g"
+  const gMatch = s.match(/^(\d+\.?\d*)\s*g\b?/i);
   if (gMatch) return parseFloat(gMatch[1]);
   // oz → grams e.g. "4 oz"
   const ozMatch = s.match(/(\d+\.?\d*)\s*oz\b/i);
