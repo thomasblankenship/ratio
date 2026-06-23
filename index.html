@@ -3179,7 +3179,7 @@ function _parseServingSizeG(raw) {
   const parenG = s.match(/\((\d+\.?\d*)\s*g\)/i);
   if (parenG) return parseFloat(parenG[1]);
   // explicit gram value e.g. "125g" or "117 g" or "125 g"
-  const gMatch = s.match(/^(\d+\.?\d*)\s*g\b?/i);
+  const gMatch = s.match(/^(\d+\.?\d*)\s*g(\s|$)/i);
   if (gMatch) return parseFloat(gMatch[1]);
   // oz → grams e.g. "4 oz"
   const ozMatch = s.match(/(\d+\.?\d*)\s*oz\b/i);
