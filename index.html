@@ -1177,20 +1177,20 @@
       </div>
       <!-- Serving size: display + unit scroll -->
       <div style="font-size:11px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Serving Size</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:center">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <!-- Amount display (read-only, updates on unit change) -->
-        <div style="background:white;border-radius:10px;border:1px solid #E8E8E8;padding:12px;text-align:center">
-          <div style="font-size:22px;font-weight:700;color:#0F0F0F" id="label-serving-display">—</div>
-          <div style="font-size:10px;color:#ADADAD;margin-top:2px">per serving</div>
+        <div style="background:white;border-radius:10px;border:1px solid #E8E8E8;padding:16px 12px;text-align:center;display:flex;flex-direction:column;justify-content:center;min-height:120px">
+          <div style="font-size:28px;font-weight:700;color:#0F0F0F;line-height:1" id="label-serving-display">—</div>
+          <div style="font-size:11px;color:#ADADAD;margin-top:6px" id="label-serving-unit-label">g</div>
         </div>
         <!-- Unit scroll wheel -->
         <div style="background:white;border-radius:10px;overflow:hidden;border:1px solid #E8E8E8;position:relative">
           <div style="font-size:10px;color:#ADADAD;text-align:center;padding:4px 0;border-bottom:1px solid #F4F4F4">Unit</div>
           <div id="label-unit-scroll" style="height:120px;overflow-y:scroll;scroll-snap-type:y mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none"></div>
-          <div style="pointer-events:none;position:absolute;top:50%;left:0;right:0;height:40px;transform:translateY(-8px);border-top:1px solid #F97316;border-bottom:1px solid #F97316;background:rgba(249,115,22,0.06)"></div>
+          <div style="pointer-events:none;position:absolute;left:0;right:0;height:40px;top:calc(50% + 10px);border-top:1px solid #F97316;border-bottom:1px solid #F97316;background:rgba(249,115,22,0.06)"></div>
         </div>
       </div>
-      <div style="font-size:11px;color:#ADADAD;text-align:center;margin-top:8px">Scroll unit to convert</div>
+      <div style="font-size:11px;color:#ADADAD;text-align:center;margin-top:8px">Scroll to change unit</div>
     </div>
     <div id="label-loading" style="display:none;text-align:center;padding:16px;color:#ADADAD;font-size:13px">🤖 Claude is reading the label...</div>
     <div id="label-actions" style="display:none;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
@@ -3119,44 +3119,54 @@ async function readLabelWithClaude(base64DataUrl, mimeType) {
 }
 
 // ── Label scan unit picker ────────────────────────────────────────────────
-let _labelServingG = 100;  // canonical grams from scan (used for weight/vol conversions)
-let _labelServingRaw = 100; // raw number from scan (used for count units)
+let _labelServingG = 117;
 let _labelUnit = 'g';
-let _labelServingVal = 100;
+let _labelServingVal = 117;
+let _labelIsCountable = false; // true only if scan suggests whole units (package/slice etc.)
 
-const LABEL_UNITS = [
-  // weight
-  'g', 'oz',
-  // volume
-  'ml', 'fl oz',
-  // count
-  'serving', 'slice', 'piece', 'package', 'cup', 'tbsp', 'tsp'
-];
-const LABEL_COUNT_UNITS = new Set(['serving','slice','piece','package','cup','tbsp','tsp']);
+const LABEL_WEIGHT_UNITS = ['g', 'oz'];
+const LABEL_VOL_UNITS    = ['ml', 'fl oz'];
+const LABEL_COUNT_UNITS  = ['serving', 'slice', 'piece', 'package', 'cup', 'tbsp', 'tsp'];
+const LABEL_ALL_UNITS    = [...LABEL_WEIGHT_UNITS, ...LABEL_VOL_UNITS, ...LABEL_COUNT_UNITS];
+const LABEL_COUNT_SET    = new Set(LABEL_COUNT_UNITS);
 
-function _labelConvert(g, unit) {
-  if (LABEL_COUNT_UNITS.has(unit)) return _labelServingRaw; // no conversion
-  if (unit === 'oz')    return Math.round(g / 28.3495 * 10) / 10;
-  if (unit === 'ml')    return Math.round(g * 10) / 10;
-  if (unit === 'fl oz') return Math.round(g / 29.5735 * 10) / 10;
-  return Math.round(g * 10) / 10; // g
+function _labelConvert(grams, unit) {
+  if (LABEL_COUNT_SET.has(unit)) return 1; // always 1 for count units
+  if (unit === 'oz')    return Math.round(grams / 28.3495 * 10) / 10;
+  if (unit === 'ml')    return Math.round(grams * 10) / 10;
+  if (unit === 'fl oz') return Math.round(grams / 29.5735 * 10) / 10;
+  return Math.round(grams * 10) / 10; // g
+}
+
+function _parseServingSizeG(raw) {
+  if (!raw) return 100;
+  // handles "117g", "117 g", "4 oz", "1/2 cup (117g)", etc.
+  // prefer the parenthesized gram value if present
+  const parenG = String(raw).match(/\((\d+\.?\d*)\s*g\)/i);
+  if (parenG) return parseFloat(parenG[1]);
+  const num = parseFloat(String(raw));
+  if (!isNaN(num)) return num;
+  return 100;
 }
 
 function _buildUnitWheel() {
   const container = document.getElementById('label-unit-scroll');
   container.innerHTML = '';
   const itemH = 40;
-  container.style.height = itemH * 3 + 'px';
 
   // top spacer
   const top = document.createElement('div');
   top.style.minHeight = itemH + 'px';
   container.appendChild(top);
 
-  LABEL_UNITS.forEach(unit => {
+  LABEL_ALL_UNITS.forEach(unit => {
+    const isCount = LABEL_COUNT_SET.has(unit);
+    const disabled = isCount && !_labelIsCountable;
     const el = document.createElement('div');
-    el.style.cssText = `min-height:${itemH}px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;color:#0F0F0F;scroll-snap-align:center;`;
+    el.style.cssText = `min-height:${itemH}px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;scroll-snap-align:center;color:${disabled ? '#D0D0D0' : '#0F0F0F'};`;
     el.textContent = unit;
+    el.dataset.unit = unit;
+    el.dataset.disabled = disabled ? '1' : '0';
     container.appendChild(el);
   });
 
@@ -3166,19 +3176,28 @@ function _buildUnitWheel() {
   container.appendChild(bot);
 
   // scroll to current unit
-  const idx = LABEL_UNITS.indexOf(_labelUnit);
-  if (idx >= 0) setTimeout(() => { container.scrollTop = idx * itemH; }, 40);
+  const idx = LABEL_ALL_UNITS.indexOf(_labelUnit);
+  if (idx >= 0) setTimeout(() => { container.scrollTop = idx * itemH; }, 50);
 
-  // on scroll, update display
   let t;
   container.addEventListener('scroll', () => {
     clearTimeout(t);
     t = setTimeout(() => {
-      const idx2 = Math.min(Math.round(container.scrollTop / itemH), LABEL_UNITS.length - 1);
-      _labelUnit = LABEL_UNITS[idx2];
+      const idx2 = Math.min(Math.round(container.scrollTop / itemH), LABEL_ALL_UNITS.length - 1);
+      const unit = LABEL_ALL_UNITS[idx2];
+      const isCount = LABEL_COUNT_SET.has(unit);
+      // skip disabled count units — snap back to nearest enabled
+      if (isCount && !_labelIsCountable) {
+        const snapTo = LABEL_ALL_UNITS.indexOf('g');
+        container.scrollTop = snapTo * itemH;
+        return;
+      }
+      _labelUnit = unit;
       _labelServingVal = _labelConvert(_labelServingG, _labelUnit);
-      const display = document.getElementById('label-serving-display');
-      if (display) display.textContent = _labelServingVal;
+      const disp = document.getElementById('label-serving-display');
+      const unitLbl = document.getElementById('label-serving-unit-label');
+      if (disp) disp.textContent = _labelServingVal;
+      if (unitLbl) unitLbl.textContent = _labelUnit;
     }, 100);
   });
 }
@@ -3191,14 +3210,21 @@ function showLabelResult(data) {
   document.getElementById('label-carbs').textContent = (data.carbs || 0) + 'g';
   document.getElementById('label-fat').textContent = (data.fat || 0) + 'g';
 
-  // seed canonical grams from scan
-  const rawG = parseFloat(data.serving_size_g || data.serving_size || 100);
-  _labelServingG = isNaN(rawG) ? 100 : rawG;
-  _labelServingRaw = _labelServingG;
+  // Parse serving size — handles "117g", "117 g", "4 oz (113g)", plain numbers
+  _labelServingG = _parseServingSizeG(data.serving_size_g || data.serving_size);
   _labelUnit = 'g';
   _labelServingVal = Math.round(_labelServingG * 10) / 10;
 
-  document.getElementById('label-serving-display').textContent = _labelServingVal;
+  // Only enable count units if scan looks like a whole-package meal
+  // (servings_per_container = 1, or name contains package/meal/entrée keywords)
+  const servings = parseFloat(data.servings_per_container || data.servings || 0);
+  const nameLC = (data.name || '').toLowerCase();
+  _labelIsCountable = servings === 1 || /\b(meal|entrée|entree|kit|package|dinner|lunch)\b/.test(nameLC);
+
+  const disp = document.getElementById('label-serving-display');
+  const unitLbl = document.getElementById('label-serving-unit-label');
+  if (disp) disp.textContent = _labelServingVal;
+  if (unitLbl) unitLbl.textContent = _labelUnit;
 
   _buildUnitWheel();
 
