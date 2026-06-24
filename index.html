@@ -3729,6 +3729,7 @@ function renderWeightChart() {
   // Update goal display with projection date
   const weightToGoEl = document.getElementById('disp-weight-to-go');
 
+  console.log('CHART DEBUG', JSON.stringify({weightGoal: userGoals.weightGoal, anchorScan, labelsLen: labels.length, dataLen: data.length}));
   if (userGoals.weightGoal && anchorScan) {
     const lbsLeft = Math.abs(anchorScan.weight - userGoals.weightGoal).toFixed(1);
     const dir = userGoals.weightGoal < anchorScan.weight ? 'to lose' : 'to gain';
