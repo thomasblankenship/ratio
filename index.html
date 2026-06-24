@@ -1270,7 +1270,7 @@
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <input type="number" min="0" id="food-modal-qty" placeholder="1" value="1" step="0.1" oninput="updateFoodModalPreview()"
           style="width:100%;padding:10px 12px;border:1px solid #E8E8E8;border-radius:8px;font-size:16px;font-weight:600;outline:none;box-sizing:border-box" />
-        <select id="food-modal-unit-select" onchange="setFoodModalUnit(this.value)" style="font-size:14px;font-weight:700;color:#F97316;padding:10px 12px;background:#FFF7ED;border:1px solid #F97316;border-radius:8px;cursor:pointer;width:100%;outline:none;appearance:none;-webkit-appearance:none;text-align:center">
+        <select id="food-modal-unit-select" onchange="setFoodModalUnit(this.value)" style="font-size:14px;font-weight:700;color:#F97316;padding:10px 12px;background:#FFF7ED;border:1px solid #F97316;border-radius:8px;cursor:pointer;width:100%;outline:none;text-align:center">
           <option value="g">g</option>
           <option value="oz">oz</option>
           <option value="each">each</option>
@@ -2917,6 +2917,18 @@ function setFoodModalUnit(newUnit) {
   const oldUnit = _foodModalUnit;
   _foodModalUnit = newUnit;
   document.getElementById('food-modal-serving-label').textContent = _foodModalUnit;
+  // Convert displayed qty to new unit
+  const servingQty = activeFoodForModal?._servingQty || 1;
+  const currentQty = parseFloat(document.getElementById('food-modal-qty').value) || servingQty;
+  const countUnits2 = ['each','serving','slice','piece','cup','tbsp','tsp','scoop','packet','bar','can','bottle'];
+  let grams = currentQty;
+  if (oldUnit === 'oz') grams = currentQty * 28.3495;
+  else if (countUnits2.includes(oldUnit)) grams = servingQty * currentQty;
+  let newQty;
+  if (newUnit === 'oz') newQty = Math.round(grams / 28.3495 * 10) / 10;
+  else if (countUnits2.includes(newUnit)) newQty = Math.round(grams / servingQty * 10) / 10;
+  else newQty = Math.round(grams * 10) / 10;
+  document.getElementById('food-modal-qty').value = newQty;
   const servingQty = activeFoodForModal?._servingQty || 1;
   const currentQty = parseFloat(document.getElementById('food-modal-qty').value) || servingQty;
   // Convert current qty to grams first
