@@ -3600,7 +3600,8 @@ let _goalNumpadVal = '';
 function openGoalNumpad(field, unit) {
   _goalNumpadField = field;
   _goalNumpadUnit = unit;
-  _goalNumpadVal = document.getElementById('edit-' + field)?.value || '';
+  const existingVal = document.getElementById('edit-' + field)?.value;
+  _goalNumpadVal = (existingVal && parseFloat(existingVal) > 0 && parseFloat(existingVal) < 500) ? existingVal : '';
   const modal = document.getElementById('goal-numpad-modal');
   const display = document.getElementById('goal-numpad-display');
   const title = document.getElementById('goal-numpad-title');
@@ -3622,6 +3623,9 @@ function goalNumpadPress(key) {
     if (!_goalNumpadVal) _goalNumpadVal = '0';
     _goalNumpadVal += '.';
   } else {
+    // Limit to 1 decimal place
+    const dotIdx = _goalNumpadVal.indexOf('.');
+    if (dotIdx >= 0 && _goalNumpadVal.length - dotIdx > 1) return;
     if (_goalNumpadVal === '0') _goalNumpadVal = '';
     _goalNumpadVal += key;
   }
