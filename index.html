@@ -2863,8 +2863,9 @@ function openFoodModal(id) {
   document.getElementById('food-modal-name').textContent = activeFoodForModal.name;
   document.getElementById('food-modal-per').textContent = `${calsPerUnit} kcal per ${storedUnit}`;
   document.getElementById('food-modal-qty').value = servingQty;
-  _foodModalUnit = 'g';
-  document.getElementById('food-modal-serving-label').textContent = 'g';
+  // Use the food's stored unit (each, oz, g, etc.)
+  _foodModalUnit = activeFoodForModal._servingUnit || 'g';
+  document.getElementById('food-modal-serving-label').textContent = _foodModalUnit;
   updateFoodModalPreview();
   window._foodModalType = 'breakfast';
   document.querySelectorAll('.food-modal-type-btn').forEach(b => {
@@ -2889,19 +2890,26 @@ function getUnitMultiplier(fromUnit, toUnit) {
 let _foodModalUnit = 'g';
 
 function cycleFoodModalUnit() {
-  const units = ['g', 'oz', 'serving'];
+  // Build unit list based on the food's base unit
+  const baseUnit = activeFoodForModal?._servingUnit || 'g';
+  const countUnits = ['each','serving','slice','piece','cup','tbsp','tsp','scoop','packet','bar','can','bottle'];
+  const isCount = countUnits.includes(baseUnit);
+  const units = isCount ? [baseUnit, 'g', 'oz'] : ['g', 'oz', baseUnit === 'serving' ? 'serving' : 'serving'].filter((v,i,a)=>a.indexOf(v)===i);
   const idx = units.indexOf(_foodModalUnit);
   const oldUnit = _foodModalUnit;
   _foodModalUnit = units[(idx + 1) % units.length];
   document.getElementById('food-modal-serving-label').textContent = _foodModalUnit;
   const servingQty = activeFoodForModal?._servingQty || 1;
   const currentQty = parseFloat(document.getElementById('food-modal-qty').value) || servingQty;
+  // Convert current qty to grams first
+  const countUnits2 = ['each','serving','slice','piece','cup','tbsp','tsp','scoop','packet','bar','can','bottle'];
   let grams = currentQty;
   if (oldUnit === 'oz') grams = currentQty * 28.3495;
-  else if (oldUnit === 'serving') grams = servingQty;
+  else if (countUnits2.includes(oldUnit)) grams = servingQty * currentQty; // 1 each = servingQty grams
+  // Convert grams to new unit
   let newQty;
   if (_foodModalUnit === 'oz') newQty = Math.round(grams / 28.3495 * 10) / 10;
-  else if (_foodModalUnit === 'serving') newQty = 1;
+  else if (countUnits2.includes(_foodModalUnit)) newQty = Math.round(grams / servingQty * 10) / 10;
   else newQty = Math.round(grams * 10) / 10;
   document.getElementById('food-modal-qty').value = newQty;
   updateFoodModalPreview();
@@ -2911,9 +2919,10 @@ function updateFoodModalPreview() {
   if (!activeFoodForModal) return;
   const amount = parseFloat(document.getElementById('food-modal-qty').value) || 0;
   const servingQty = activeFoodForModal._servingQty || 1;
+  const countUnits3 = ['each','serving','slice','piece','cup','tbsp','tsp','scoop','packet','bar','can','bottle'];
   let amountInGrams = amount;
   if (_foodModalUnit === 'oz') amountInGrams = amount * 28.3495;
-  else if (_foodModalUnit === 'serving') amountInGrams = servingQty;
+  else if (countUnits3.includes(_foodModalUnit)) amountInGrams = amount * servingQty; // 2 each = 2 * servingQty grams
   const ratio = servingQty > 0 ? amountInGrams / servingQty : 0;
   const calsPerUnit = activeFoodForModal.calories_per_unit || activeFoodForModal.cals_per_unit || 0;
   document.getElementById('modal-cals').textContent = Math.round(calsPerUnit * ratio);
@@ -2944,9 +2953,10 @@ async function logFoodFromModal() {
   const amount = parseFloat(document.getElementById('food-modal-qty').value) || 0;
   const servingQty = activeFoodForModal._servingQty || 1;
   const servingUnit = activeFoodForModal._servingUnit || activeFoodForModal.unit || 'serving';
+  const countUnits4 = ['each','serving','slice','piece','cup','tbsp','tsp','scoop','packet','bar','can','bottle'];
   let amountGrams = amount;
   if (_foodModalUnit === 'oz') amountGrams = amount * 28.3495;
-  else if (_foodModalUnit === 'serving') amountGrams = servingQty;
+  else if (countUnits4.includes(_foodModalUnit)) amountGrams = amount * servingQty;
   const ratio = servingQty > 0 ? amountGrams / servingQty : 0;
   const calsPerUnit = activeFoodForModal.calories_per_unit || activeFoodForModal.cals_per_unit || 0;
   const servingLabel = `${amount} ${_foodModalUnit}`;
