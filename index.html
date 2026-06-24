@@ -3118,10 +3118,7 @@ async function openBarcodeScanner() {
     try {
       html5QrcodeScanner = new Html5Qrcode("barcode-reader");
       html5QrcodeScanner.start(
-        {
-          facingMode: { exact: "environment" },
-          advanced: [{ focusMode: "continuous" }, { zoom: 1.0 }]
-        },
+        { facingMode: "environment" },
         { 
           fps: 10,
           qrbox: { width: 280, height: 160 },
@@ -3130,7 +3127,17 @@ async function openBarcodeScanner() {
         },
         onBarcodeDetected,
         err => {}
-      ).catch(err => {
+      ).then(() => {
+        // Apply continuous autofocus after scanner starts
+        try {
+          const video = document.querySelector('#barcode-reader video');
+          if (video?.srcObject) {
+            video.srcObject.getVideoTracks().forEach(track => {
+              track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(() => {});
+            });
+          }
+        } catch(e) {}
+      }).catch(err => {
         console.error('Scanner start error:', err);
         toast('Camera access denied — please allow camera in browser settings');
         closeBarcodeScanner();
