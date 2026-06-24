@@ -1270,19 +1270,13 @@
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <input type="number" min="0" id="food-modal-qty" placeholder="1" value="1" step="0.1" oninput="updateFoodModalPreview()"
           style="width:100%;padding:10px 12px;border:1px solid #E8E8E8;border-radius:8px;font-size:16px;font-weight:600;outline:none;box-sizing:border-box" />
-        <select id="food-modal-unit-select" onchange="setFoodModalUnit(this.value)" style="font-size:16px;font-weight:700;color:#F97316;padding:10px;background:#FFF7ED;border:2px solid #F97316;border-radius:8px;width:100%;height:44px;box-sizing:border-box">
-          <option value="g">g</option>
-          <option value="oz">oz</option>
-          <option value="each">each</option>
-          <option value="serving">serving</option>
-          <option value="tbsp">tbsp</option>
-          <option value="tsp">tsp</option>
-          <option value="cup">cup</option>
-          <option value="slice">slice</option>
-          <option value="piece">piece</option>
-          <option value="scoop">scoop</option>
-        </select>
+        <div style="background:white;border-radius:10px;overflow:hidden;border:1px solid #E8E8E8;position:relative">
+          <div style="font-size:10px;color:#ADADAD;text-align:center;padding:4px 0;border-bottom:1px solid #F4F4F4">Unit</div>
+          <div id="food-modal-unit-scroll" style="height:120px;overflow-y:scroll;scroll-snap-type:y mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none"></div>
+          <div style="pointer-events:none;position:absolute;left:0;right:0;height:40px;top:64px;border-top:1px solid #F97316;border-bottom:1px solid #F97316;background:rgba(249,115,22,0.06)"></div>
+        </div>
         <span id="food-modal-serving-label" style="display:none">g</span>
+        <input type="hidden" id="food-modal-unit-select" value="g" />
       </div>
     </div>
     <div style="background:#FFF7ED;border-radius:10px;padding:12px;margin-bottom:16px;display:grid;grid-template-columns:repeat(5,1fr);text-align:center">
@@ -2878,18 +2872,7 @@ function openFoodModal(id) {
   // Use the food's stored unit (each, oz, g, etc.)
   _foodModalUnit = activeFoodForModal._servingUnit || 'g';
   document.getElementById('food-modal-serving-label').textContent = _foodModalUnit;
-  const sel = document.getElementById('food-modal-unit-select');
-  if (sel) {
-    // Add the food's unit to the dropdown if not already there
-    const hasOption = Array.from(sel.options).some(o => o.value === _foodModalUnit);
-    if (!hasOption) {
-      const opt = document.createElement('option');
-      opt.value = _foodModalUnit;
-      opt.textContent = _foodModalUnit;
-      sel.insertBefore(opt, sel.firstChild);
-    }
-    sel.value = _foodModalUnit;
-  }
+  _buildFoodUnitWheel();
   updateFoodModalPreview();
   window._foodModalType = 'breakfast';
   document.querySelectorAll('.food-modal-type-btn').forEach(b => {
@@ -2913,20 +2896,62 @@ function getUnitMultiplier(fromUnit, toUnit) {
 
 let _foodModalUnit = 'g';
 
+const FOOD_COUNT_UNITS = ['each','serving','slice','piece','cup','tbsp','tsp','scoop','packet','bar','can','bottle'];
+const FOOD_ALL_UNITS = ['g','oz','each','slice','piece','serving','cup','tbsp','tsp','scoop'];
+
+function _buildFoodUnitWheel() {
+  const container = document.getElementById('food-modal-unit-scroll');
+  if (!container) return;
+  container.innerHTML = '';
+  const itemH = 40;
+  const baseUnit = activeFoodForModal?._servingUnit || 'g';
+  // Put base unit first if not already in list
+  const units = [...FOOD_ALL_UNITS];
+  if (!units.includes(baseUnit)) units.unshift(baseUnit);
+
+  const top = document.createElement('div');
+  top.style.minHeight = itemH + 'px';
+  container.appendChild(top);
+
+  units.forEach(unit => {
+    const el = document.createElement('div');
+    el.style.cssText = `min-height:${itemH}px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;scroll-snap-align:center;color:#0F0F0F;`;
+    el.textContent = unit;
+    container.appendChild(el);
+  });
+
+  const bot = document.createElement('div');
+  bot.style.minHeight = itemH + 'px';
+  container.appendChild(bot);
+
+  const idx = units.indexOf(_foodModalUnit);
+  if (idx >= 0) setTimeout(() => { container.scrollTop = idx * itemH; }, 150);
+
+  let t;
+  container.addEventListener('scroll', () => {
+    clearTimeout(t);
+    t = setTimeout(() => {
+      const idx2 = Math.min(Math.round(container.scrollTop / itemH), units.length - 1);
+      const unit = units[idx2];
+      setFoodModalUnit(unit);
+    }, 80);
+  });
+}
+
 function setFoodModalUnit(newUnit) {
   const oldUnit = _foodModalUnit;
   _foodModalUnit = newUnit;
   document.getElementById('food-modal-serving-label').textContent = _foodModalUnit;
-  // Convert displayed qty to new unit
+  document.getElementById('food-modal-unit-select').value = newUnit;
+  // Convert qty
   const servingQty = activeFoodForModal?._servingQty || 1;
   const currentQty = parseFloat(document.getElementById('food-modal-qty').value) || servingQty;
-  const countUnits2 = ['each','serving','slice','piece','cup','tbsp','tsp','scoop','packet','bar','can','bottle'];
   let grams = currentQty;
   if (oldUnit === 'oz') grams = currentQty * 28.3495;
-  else if (countUnits2.includes(oldUnit)) grams = servingQty * currentQty;
+  else if (FOOD_COUNT_UNITS.includes(oldUnit)) grams = servingQty * currentQty;
   let newQty;
   if (newUnit === 'oz') newQty = Math.round(grams / 28.3495 * 10) / 10;
-  else if (countUnits2.includes(newUnit)) newQty = Math.round(grams / servingQty * 10) / 10;
+  else if (FOOD_COUNT_UNITS.includes(newUnit)) newQty = Math.round(grams / servingQty * 10) / 10;
   else newQty = Math.round(grams * 10) / 10;
   document.getElementById('food-modal-qty').value = newQty;
   const servingQty = activeFoodForModal?._servingQty || 1;
@@ -3398,6 +3423,7 @@ function showLabelResult(data) {
   document.getElementById('label-chol').textContent = (data.cholesterol || 0) + 'mg';
 
   // Parse serving size — handles "5g", "1 tsp. (5g)", "4 oz (113g)", plain numbers
+  console.log('Label data:', JSON.stringify({name:data.name, serving_size:data.serving_size, serving_size_g:data.serving_size_g, calories:data.calories}));
   const rawServing = data.serving_size_g || data.serving_size || '';
   _labelServingG = _parseServingSizeG(rawServing);
   // Auto-select unit based on what the label says
