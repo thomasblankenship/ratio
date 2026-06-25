@@ -313,7 +313,7 @@
             </div>
             <div>
               <div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Protein (g)</div>
-              <input type="number" id="meal-protein" placeholder="0" min="0" step="0.1" onblur="if(this.value==='')return;if(+this.value<0)this.value=0;this.value=Math.round(+this.value*10)/10">
+              <input type="number" id="meal-protein" placeholder="0" min="0" step="0.1" onblur="if(+this.value<0)this.value=0;this.value=Math.round(+this.value*10)/10||0">
             </div>
           </div>
           <div class="form-row form-group">
@@ -598,10 +598,10 @@
         <div id="weight-no-goal" style="font-size:12px;color:#ADADAD;margin-bottom:12px">Tap <b>Edit Goal</b> to set your target weight</div>
         <!-- Time range pills -->
         <div style="display:flex;gap:4px;margin-bottom:14px;overflow-x:auto;padding-bottom:2px">
-          <button class="range-pill weight-range" data-range="1W" onclick="setChartRange('weight','1W')">1W</button>
+          <button class="range-pill weight-range active-pill" data-range="1W" onclick="setChartRange('weight','1W')">1W</button>
           <button class="range-pill weight-range" data-range="1M" onclick="setChartRange('weight','1M')">1M</button>
           <button class="range-pill weight-range" data-range="3M" onclick="setChartRange('weight','3M')">3M</button>
-          <button class="range-pill weight-range" class="range-pill weight-range active-pill" data-range="6M" onclick="setChartRange('weight','6M')">6M</button>
+          <button class="range-pill weight-range" data-range="6M" onclick="setChartRange('weight','6M')">6M</button>
           <button class="range-pill weight-range" data-range="1Y" onclick="setChartRange('weight','1Y')">1Y</button>
           <button class="range-pill weight-range" data-range="All" onclick="setChartRange('weight','All')">All</button>
         </div>
@@ -704,10 +704,10 @@
           <button onclick="openBfCalculator()" style="width:100%;background:#F4F4F4;color:#0F0F0F;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:12px">📏 Estimate My Body Fat %</button>
           <!-- Time range pills -->
           <div style="display:flex;gap:4px;margin-bottom:14px;overflow-x:auto;padding-bottom:2px">
-            <button class="range-pill bf-range" data-range="1W" onclick="setChartRange('bf','1W')">1W</button>
+            <button class="range-pill bf-range active-pill" data-range="1W" onclick="setChartRange('bf','1W')">1W</button>
             <button class="range-pill bf-range" data-range="1M" onclick="setChartRange('bf','1M')">1M</button>
             <button class="range-pill bf-range" data-range="3M" onclick="setChartRange('bf','3M')">3M</button>
-            <button class="range-pill bf-range" class="range-pill bf-range active-pill" data-range="6M" onclick="setChartRange('bf','6M')">6M</button>
+            <button class="range-pill bf-range" data-range="6M" onclick="setChartRange('bf','6M')">6M</button>
             <button class="range-pill bf-range" data-range="1Y" onclick="setChartRange('bf','1Y')">1Y</button>
             <button class="range-pill bf-range" data-range="All" onclick="setChartRange('bf','All')">All</button>
           </div>
@@ -745,12 +745,31 @@
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
           <div style="font-size:16px;font-weight:700;color:#0F0F0F">Skeletal Muscle Mass</div>
           <div style="display:flex;align-items:center;gap:10px">
-            <button onclick="toggleGoalEdit('muscle')" style="font-size:12px;font-weight:600;color:var(--accent);background:none;border:none;cursor:pointer">Edit Goal</button>
+            <button id="muscle-edit-goal-btn" onclick="toggleGoalEdit('muscle')" style="font-size:12px;font-weight:600;color:var(--accent);background:none;border:none;cursor:pointer">Edit Goal</button>
             <div onclick="toggleMuscleTracking()" style="cursor:pointer;width:40px;height:22px;border-radius:11px;background:#16A34A;position:relative;transition:background 0.2s;flex-shrink:0" id="muscle-toggle-track">
               <div style="position:absolute;top:3px;right:3px;width:16px;height:16px;border-radius:50%;background:white;transition:right 0.2s" id="muscle-toggle-knob"></div>
             </div>
           </div>
         </div>
+        <!-- Method selection prompt - shown when no method chosen yet -->
+        <div id="muscle-method-prompt" style="display:none;text-align:center;padding:16px 8px">
+          <div style="font-size:13px;color:#666;margin-bottom:16px">How do you track muscle mass?</div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <button onclick="setMuscleMethod('inbody')" style="padding:12px;border:1px solid #E8E8E8;border-radius:12px;background:white;font-size:13px;font-weight:600;cursor:pointer;text-align:left;display:flex;align-items:center;gap:10px">
+              <span style="font-size:20px">📊</span>
+              <div><div style="font-weight:700">InBody / DEXA Scan</div><div style="font-size:11px;color:#ADADAD;font-weight:400">I get regular body composition scans</div></div>
+            </button>
+            <button onclick="setMuscleMethod('estimate')" style="padding:12px;border:1px solid #E8E8E8;border-radius:12px;background:white;font-size:13px;font-weight:600;cursor:pointer;text-align:left;display:flex;align-items:center;gap:10px">
+              <span style="font-size:20px">📏</span>
+              <div><div style="font-weight:700">Estimate from Body Fat %</div><div style="font-size:11px;color:#ADADAD;font-weight:400">Calculate automatically from weight & body fat</div></div>
+            </button>
+            <button onclick="setMuscleMethod('none')" style="padding:12px;border:1px solid #E8E8E8;border-radius:12px;background:white;font-size:13px;font-weight:600;cursor:pointer;text-align:left;display:flex;align-items:center;gap:10px">
+              <span style="font-size:20px">🚫</span>
+              <div><div style="font-weight:700">I don't track this</div><div style="font-size:11px;color:#ADADAD;font-weight:400">Hide muscle mass section</div></div>
+            </button>
+          </div>
+        </div>
+
         <div id="muscle-card-inner">
           <!-- Goal display -->
           <div id="muscle-goal-display" style="display:none;background:#F0FDF4;border-radius:10px;padding:12px;margin-bottom:12px">
@@ -773,12 +792,13 @@
             </div>
           </div>
           <div id="muscle-no-goal" style="font-size:12px;color:#ADADAD;margin-bottom:12px">Tap <b>Edit Goal</b> to set a muscle mass target</div>
+          <div id="muscle-estimate-notice" style="display:none;font-size:11px;color:#ADADAD;margin-bottom:12px;font-style:italic">📏 Estimated from body fat % — get an InBody scan for precision</div>
           <!-- Time range pills -->
           <div style="display:flex;gap:4px;margin-bottom:14px;overflow-x:auto;padding-bottom:2px">
-            <button class="range-pill muscle-range" data-range="1W" onclick="setChartRange('muscle','1W')">1W</button>
+            <button class="range-pill muscle-range active-pill" data-range="1W" onclick="setChartRange('muscle','1W')">1W</button>
             <button class="range-pill muscle-range" data-range="1M" onclick="setChartRange('muscle','1M')">1M</button>
             <button class="range-pill muscle-range" data-range="3M" onclick="setChartRange('muscle','3M')">3M</button>
-            <button class="range-pill muscle-range" class="range-pill muscle-range active-pill" data-range="6M" onclick="setChartRange('muscle','6M')">6M</button>
+            <button class="range-pill muscle-range" data-range="6M" onclick="setChartRange('muscle','6M')">6M</button>
             <button class="range-pill muscle-range" data-range="1Y" onclick="setChartRange('muscle','1Y')">1Y</button>
             <button class="range-pill muscle-range" data-range="All" onclick="setChartRange('muscle','All')">All</button>
           </div>
@@ -789,7 +809,7 @@
               <div style="font-size:11px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px" id="muscle-latest-date">No entries yet</div>
               <div style="font-size:26px;font-weight:700;color:#0F0F0F;letter-spacing:-0.5px"><span id="muscle-latest-val">—</span> <span style="font-size:14px;font-weight:500;color:#888">lbs</span></div>
             </div>
-            <button onclick="openLogModal('muscle')" style="background:#16A34A;color:white;border:none;border-radius:20px;padding:10px 20px;font-size:13px;font-weight:700;cursor:pointer">Record Muscle</button>
+            <button id="muscle-record-btn" onclick="openLogModal('muscle')" style="background:#16A34A;color:white;border:none;border-radius:20px;padding:10px 20px;font-size:13px;font-weight:700;cursor:pointer">Record Muscle</button>
           </div>
           <!-- Goal edit inline -->
           <div id="muscle-goal-edit" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid #F4F4F4">
@@ -1617,12 +1637,7 @@ async function saveSetting(key, value) {
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/user_settings?on_conflict=key`, {
       method: 'POST',
-      headers: {
-        'apikey': SUPABASE_KEY,
-        'Authorization': `Bearer ${SUPABASE_KEY}`,
-        'Content-Type': 'application/json',
-        'Prefer': 'resolution=merge-duplicates,return=minimal'
-      },
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates,return=minimal' },
       body: JSON.stringify({ key, value })
     });
     if (!res.ok) { const t = await res.text(); console.error('saveSetting error', res.status, t); }
@@ -1838,16 +1853,16 @@ async function obFinish() {
   const t = window._obSuggestedTargets || { calories: 2000, protein: 150, carbs: 150, fat: 65 };
   userTargets = t;
   TARGETS.calories = t.calories; TARGETS.protein = t.protein; TARGETS.carbs = t.carbs; TARGETS.fat = t.fat;
-  localStorage.setItem('ff_targets', JSON.stringify(t));
+  await saveSetting('targets', t);
 
   // Save goals
   userGoals = {
     weightStart: weight, weightGoal: goalWeight,
     bfCurrent: null, bfGoal: goalBf,
     bfTrackingOn: true,
-    muscleCurrent: null, muscleGoal: null
+    muscleCurrent: null, muscleGoal: null, muscleMethod: null
   };
-  saveSetting('goals', userGoals);
+  await saveSetting('goals', userGoals);
 
   // Log starting weight as first scan entry
   if (weight) {
@@ -1856,6 +1871,7 @@ async function obFinish() {
 
   // Mark onboarding complete
   localStorage.setItem('ff_onboarded', '1');
+  await Promise.all([saveSetting('goals', userGoals), saveSetting('targets', userTargets), saveSetting('profile', userProfile)]);
   document.getElementById('onboarding-modal').style.display = 'none';
 
   // Now fully init the app
@@ -2864,21 +2880,17 @@ function openFoodModal(id) {
   const unitMatch = storedUnit.match(/^([\d.]+)\s*(.+)$/);
   const servingQtyRaw = unitMatch ? parseFloat(unitMatch[1]) : 1;
   const servingUnit = unitMatch ? unitMatch[2].trim() : storedUnit.trim();
-  // Always store _servingQty in grams for consistent ratio calculation
   const _countUnits = ['each','serving','slice','piece','cup','tbsp','tsp','scoop','packet','bar','can','bottle'];
   let servingQtyG;
   if (servingUnit === 'oz') servingQtyG = servingQtyRaw * 28.3495;
-  else if (servingUnit === 'ml') servingQtyG = servingQtyRaw;
-  else if (_countUnits.includes(servingUnit)) servingQtyG = servingQtyRaw; // count units: qty=1 each
-  else servingQtyG = servingQtyRaw; // grams
+  else servingQtyG = servingQtyRaw;
   activeFoodForModal._servingQty = servingQtyG;
   activeFoodForModal._servingUnit = servingUnit;
   document.getElementById('food-modal-name').textContent = activeFoodForModal.name;
   document.getElementById('food-modal-per').textContent = `${calsPerUnit} kcal per ${storedUnit}`;
   document.getElementById('food-modal-qty').value = servingQtyRaw;
-  // Use the food's stored unit (each, oz, g, etc.)
-  _foodModalUnit = activeFoodForModal._servingUnit || 'g';
-  document.getElementById('food-modal-serving-label').textContent = _foodModalUnit;
+  _foodModalUnit = servingUnit;
+  document.getElementById('food-modal-serving-label').textContent = servingUnit;
   _buildFoodUnitWheel();
   updateFoodModalPreview();
   window._foodModalType = 'breakfast';
@@ -2902,7 +2914,6 @@ function getUnitMultiplier(fromUnit, toUnit) {
 }
 
 let _foodModalUnit = 'g';
-
 const FOOD_COUNT_UNITS = ['each','serving','slice','piece','cup','tbsp','tsp','scoop','packet','bar','can','bottle'];
 const FOOD_ALL_UNITS = ['g','oz','each','slice','piece','serving','cup','tbsp','tsp','scoop'];
 
@@ -2912,35 +2923,23 @@ function _buildFoodUnitWheel() {
   container.innerHTML = '';
   const itemH = 40;
   const baseUnit = activeFoodForModal?._servingUnit || 'g';
-  // Put base unit first if not already in list
   const units = [...FOOD_ALL_UNITS];
   if (!units.includes(baseUnit)) units.unshift(baseUnit);
-
-  const top = document.createElement('div');
-  top.style.minHeight = itemH + 'px';
-  container.appendChild(top);
-
+  const top = document.createElement('div'); top.style.minHeight = itemH + 'px'; container.appendChild(top);
   units.forEach(unit => {
     const el = document.createElement('div');
     el.style.cssText = `min-height:${itemH}px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;scroll-snap-align:center;color:#0F0F0F;`;
-    el.textContent = unit;
-    container.appendChild(el);
+    el.textContent = unit; container.appendChild(el);
   });
-
-  const bot = document.createElement('div');
-  bot.style.minHeight = itemH + 'px';
-  container.appendChild(bot);
-
+  const bot = document.createElement('div'); bot.style.minHeight = itemH + 'px'; container.appendChild(bot);
   const idx = units.indexOf(_foodModalUnit);
   if (idx >= 0) setTimeout(() => { container.scrollTop = idx * itemH; }, 150);
-
   let t;
   container.addEventListener('scroll', () => {
     clearTimeout(t);
     t = setTimeout(() => {
       const idx2 = Math.min(Math.round(container.scrollTop / itemH), units.length - 1);
-      const unit = units[idx2];
-      setFoodModalUnit(unit);
+      setFoodModalUnit(units[idx2]);
     }, 80);
   });
 }
@@ -2949,8 +2948,7 @@ function setFoodModalUnit(newUnit) {
   const oldUnit = _foodModalUnit;
   _foodModalUnit = newUnit;
   document.getElementById('food-modal-serving-label').textContent = _foodModalUnit;
-  document.getElementById('food-modal-unit-select').value = newUnit;
-  // Convert qty
+  if (document.getElementById('food-modal-unit-select')) document.getElementById('food-modal-unit-select').value = newUnit;
   const sfuQty = activeFoodForModal?._servingQty || 1;
   const currentQty = parseFloat(document.getElementById('food-modal-qty').value) || sfuQty;
   let grams = currentQty;
@@ -3000,8 +2998,9 @@ function selectFoodModalType(type, btn) {
 async function logFoodFromModal() {
   if (!activeFoodForModal) return;
   const amount = parseFloat(document.getElementById('food-modal-qty').value) || 0;
-  const lfServingQty = activeFoodForModal._servingQty || 1;
+  const servingQty = activeFoodForModal._servingQty || 1;
   const servingUnit = activeFoodForModal._servingUnit || activeFoodForModal.unit || 'serving';
+  const lfServingQty = activeFoodForModal._servingQty || 1;
   const countUnits4 = ['each','serving','slice','piece','cup','tbsp','tsp','scoop','packet','bar','can','bottle'];
   let amountGrams = amount;
   if (_foodModalUnit === 'oz') amountGrams = amount * 28.3495;
@@ -3126,23 +3125,13 @@ async function openBarcodeScanner() {
       html5QrcodeScanner = new Html5Qrcode("barcode-reader");
       html5QrcodeScanner.start(
         { facingMode: "environment" },
-        { 
-          fps: 10,
-          qrbox: { width: 280, height: 160 },
-          experimentalFeatures: { useBarCodeDetectorIfSupported: true },
-          aspectRatio: 1.7778
-        },
+        { fps: 10, qrbox: { width: 280, height: 160 }, experimentalFeatures: { useBarCodeDetectorIfSupported: true }, aspectRatio: 1.7778 },
         onBarcodeDetected,
         err => {}
       ).then(() => {
-        // Apply continuous autofocus after scanner starts
         try {
           const video = document.querySelector('#barcode-reader video');
-          if (video?.srcObject) {
-            video.srcObject.getVideoTracks().forEach(track => {
-              track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(() => {});
-            });
-          }
+          if (video?.srcObject) video.srcObject.getVideoTracks().forEach(t => t.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(() => {}));
         } catch(e) {}
       }).catch(err => {
         console.error('Scanner start error:', err);
@@ -3185,7 +3174,7 @@ async function onBarcodeDetected(barcode) {
       fiber: data.fiber,
       cholesterol: data.cholesterol || 0,
       serving_size: data.serving_size,
-      unit: data.serving_size
+      unit: data.serving_size + ' serving'
     };
     showLabelResult(labelScannedData);
     openLabelModal(true);
@@ -3239,7 +3228,6 @@ function openLabelModal(fromBarcode = false) {
 
 function closeLabelModal() {
   document.getElementById('label-modal').style.display = 'none';
-  // Don't clear labelScannedData here — log/save functions need it after closing
   setTimeout(() => { labelScannedData = null; }, 500);
 }
 
@@ -3324,7 +3312,7 @@ let _labelIsCountable = false; // true only if scan suggests whole units (packag
 
 const LABEL_WEIGHT_UNITS = ['g', 'oz'];
 const LABEL_VOL_UNITS    = ['ml', 'fl oz', 'tbsp', 'tsp'];
-const LABEL_COUNT_UNITS  = ['serving', 'each', 'slice', 'piece', 'package', 'cup', 'bar', 'scoop', 'tablet'];
+const LABEL_COUNT_UNITS  = ['serving', 'slice', 'piece', 'package', 'cup'];
 const LABEL_ALL_UNITS    = [...LABEL_WEIGHT_UNITS, ...LABEL_VOL_UNITS, ...LABEL_COUNT_UNITS];
 const LABEL_COUNT_SET    = new Set(LABEL_COUNT_UNITS);
 
@@ -3345,7 +3333,7 @@ function _parseServingSizeG(raw) {
   const parenG = s.match(/\((\d+\.?\d*)\s*g\)/i);
   if (parenG) return parseFloat(parenG[1]);
   // explicit gram value e.g. "117g" or "117 g"
-  const gMatch = s.match(/^(\d+\.?\d*)\s*g(\s|$)/i);
+  const gMatch = s.match(/^(\d+\.?\d*)\s*g\b/i);
   if (gMatch) return parseFloat(gMatch[1]);
   // oz → grams e.g. "4 oz"
   const ozMatch = s.match(/(\d+\.?\d*)\s*oz\b/i);
@@ -3429,25 +3417,19 @@ function showLabelResult(data) {
   document.getElementById('label-chol').textContent = (data.cholesterol || 0) + 'mg';
 
   // Parse serving size — handles "5g", "1 tsp. (5g)", "4 oz (113g)", plain numbers
-  console.log('Label data:', JSON.stringify({name:data.name, serving_size:data.serving_size, serving_size_g:data.serving_size_g, calories:data.calories}));
   const rawServing = data.serving_size_g || data.serving_size || '';
   _labelServingG = _parseServingSizeG(rawServing);
   // Auto-select unit based on what the label says
   const rawStr = String(rawServing).toLowerCase();
-  if (/\bslice\b/.test(rawStr)) {
-    _labelUnit = 'slice'; _labelServingVal = parseFloat(rawStr) || 1;
-  } else if (/\beach\b/.test(rawStr)) {
-    _labelUnit = 'each'; _labelServingVal = parseFloat(rawStr) || 1;
-  } else if (/\bpiece\b/.test(rawStr)) {
-    _labelUnit = 'piece'; _labelServingVal = parseFloat(rawStr) || 1;
-  } else if (/\bscoop\b/.test(rawStr)) {
-    _labelUnit = 'scoop'; _labelServingVal = parseFloat(rawStr) || 1;
-  } else if (/tbsp|tablespoon/.test(rawStr)) {
-    _labelUnit = 'tbsp'; _labelServingVal = parseFloat(rawStr) || 1;
+  if (/tbsp|tablespoon/.test(rawStr)) {
+    _labelUnit = 'tbsp';
+    _labelServingVal = parseFloat(rawStr) || 1;
   } else if (/tsp|teaspoon/.test(rawStr)) {
-    _labelUnit = 'tsp'; _labelServingVal = parseFloat(rawStr) || 1;
+    _labelUnit = 'tsp';
+    _labelServingVal = parseFloat(rawStr) || 1;
   } else if (/\boz\b/.test(rawStr) && !/\(.*g\)/.test(rawStr)) {
-    _labelUnit = 'oz'; _labelServingVal = Math.round(_labelServingG / 28.3495 * 10) / 10;
+    _labelUnit = 'oz';
+    _labelServingVal = Math.round(_labelServingG / 28.3495 * 10) / 10;
   } else {
     _labelUnit = 'g';
     _labelServingVal = Math.round(_labelServingG * 10) / 10;
@@ -3491,7 +3473,6 @@ async function logLabelAsFood() {
   if (existing) {
     foodId = existing.id;
   } else {
-    // Always save the canonical unit (what the label says), not the user's scroll position
     const canonicalUnit = LABEL_COUNT_SET.has(chosenUnit) ? `${chosenServing} ${chosenUnit}` : `${_labelServingG}g`;
     const saved = await dbPost('saved_foods', {
       name: labelScannedData.name,
@@ -3554,12 +3535,13 @@ let bfChartObj = null;
 let muscleChartObj = null;
 
 async function loadGoals() {
-  const [sbGoals, sbTargets, sbProfile] = await Promise.all([
-    loadSetting('goals'), loadSetting('targets'), loadSetting('profile')
-  ]);
-  const goalsData   = sbGoals   || (localStorage.getItem('ff_goals')   ? JSON.parse(localStorage.getItem('ff_goals'))   : null);
-  const targetsData = sbTargets || (localStorage.getItem('ff_targets') ? JSON.parse(localStorage.getItem('ff_targets')) : null);
-  const profileData = sbProfile || (localStorage.getItem('ff_profile') ? JSON.parse(localStorage.getItem('ff_profile')) : null);
+  const [sbGoals, sbTargets, sbProfile] = await Promise.all([loadSetting('goals'), loadSetting('targets'), loadSetting('profile')]);
+  const savedTargets_ls = localStorage.getItem('ff_targets');
+  const savedGoals_ls = localStorage.getItem('ff_goals');
+  const savedProfile_ls = localStorage.getItem('ff_profile');
+  const targetsData = sbTargets || (savedTargets_ls ? JSON.parse(savedTargets_ls) : null);
+  const goalsData = sbGoals || (savedGoals_ls ? JSON.parse(savedGoals_ls) : null);
+  const profileData = sbProfile || (savedProfile_ls ? JSON.parse(savedProfile_ls) : null);
   if (targetsData) userTargets = targetsData;
   if (goalsData) {
     const g = goalsData;
@@ -3570,8 +3552,10 @@ async function loadGoals() {
       bfGoal: g.bfGoal || null,
       bfTrackingOn: g.bfTrackingOn !== false,
       muscleCurrent: g.muscleCurrent || g.muscle || null,
+      muscleMethod: g.muscleMethod || null,
       muscleGoal: g.muscleGoal || null,
-      muscleTrackingOn: g.muscleTrackingOn !== false
+      muscleTrackingOn: g.muscleTrackingOn !== false,
+      muscleMethod: g.muscleMethod || null
     };
   }
   if (profileData) userProfile = profileData;
@@ -3635,6 +3619,8 @@ function updateGoalsDisplay() {
     muscleNoGoal.style.display = 'block';
   }
 
+  // Muscle method UI
+  updateMuscleMethodUI();
   // Muscle toggle state
   const muscleOn = userGoals.muscleTrackingOn !== false;
   document.getElementById('muscle-toggle-track').style.background = muscleOn ? '#16A34A' : '#ADADAD';
@@ -3690,11 +3676,7 @@ function openGoalNumpad(field, unit) {
   _goalNumpadUnit = unit;
   const existing = document.getElementById('edit-' + field)?.value;
   _goalNumpadVal = (existing && parseFloat(existing) > 0 && parseFloat(existing) < 500) ? existing : '';
-  const labels = {
-    'weight-start':'Starting Weight','weight-goal':'Goal Weight',
-    'bf-current':'Current Body Fat','bf-goal':'Goal Body Fat',
-    'muscle-current':'Current Muscle Mass','muscle-goal':'Goal Muscle Mass'
-  };
+  const labels = { 'weight-start':'Starting Weight','weight-goal':'Goal Weight','bf-current':'Current Body Fat','bf-goal':'Goal Body Fat','muscle-current':'Current Muscle Mass','muscle-goal':'Goal Muscle Mass' };
   document.getElementById('goal-numpad-title').textContent = labels[field] || field;
   document.getElementById('goal-numpad-display').textContent = _goalNumpadVal || '0';
   document.getElementById('goal-numpad-modal').style.display = 'flex';
@@ -3702,16 +3684,8 @@ function openGoalNumpad(field, unit) {
 
 function goalNumpadPress(key) {
   if (key === 'del') { _goalNumpadVal = _goalNumpadVal.slice(0,-1); }
-  else if (key === '.') {
-    if (_goalNumpadVal.includes('.')) return;
-    if (!_goalNumpadVal) _goalNumpadVal = '0';
-    _goalNumpadVal += '.';
-  } else {
-    const dotIdx = _goalNumpadVal.indexOf('.');
-    if (dotIdx >= 0 && _goalNumpadVal.length - dotIdx > 1) return;
-    if (_goalNumpadVal === '0') _goalNumpadVal = '';
-    _goalNumpadVal += key;
-  }
+  else if (key === '.') { if (_goalNumpadVal.includes('.')) return; if (!_goalNumpadVal) _goalNumpadVal = '0'; _goalNumpadVal += '.'; }
+  else { const dotIdx = _goalNumpadVal.indexOf('.'); if (dotIdx >= 0 && _goalNumpadVal.length - dotIdx > 1) return; if (_goalNumpadVal === '0') _goalNumpadVal = ''; _goalNumpadVal += key; }
   document.getElementById('goal-numpad-display').textContent = _goalNumpadVal || '0';
 }
 
@@ -3719,23 +3693,21 @@ function confirmGoalNumpad() {
   const val = parseFloat(_goalNumpadVal);
   if (!isNaN(val) && val > 0) {
     const input = document.getElementById('edit-' + _goalNumpadField);
-    if (input) { input.value = val; input.setAttribute('data-set', '1'); }
+    if (input) { input.value = val; input.setAttribute('data-set','1'); }
     const btn = document.getElementById('edit-' + _goalNumpadField + '-btn');
     if (btn) btn.textContent = val + ' ' + _goalNumpadUnit;
   }
   document.getElementById('goal-numpad-modal').style.display = 'none';
 }
 
-function cancelGoalNumpad() {
-  document.getElementById('goal-numpad-modal').style.display = 'none';
-}
+function cancelGoalNumpad() { document.getElementById('goal-numpad-modal').style.display = 'none'; }
 
 async function saveWeightGoal() {
-  const start = Math.round(+document.getElementById('edit-weight-start').value * 10) / 10;
-  const goal  = Math.round(+document.getElementById('edit-weight-goal').value  * 10) / 10;
+  const start = +document.getElementById('edit-weight-start').value;
+  const goal = +document.getElementById('edit-weight-goal').value;
   if (!start || !goal) { toast('Enter both starting and goal weight'); return; }
   userGoals.weightStart = start;
-  userGoals.weightGoal  = goal;
+  userGoals.weightGoal = goal;
   await saveSetting('goals', userGoals);
   toggleGoalEdit('weight');
   updateGoalsDisplay();
@@ -3885,26 +3857,15 @@ function renderWeightChart() {
     const funFactEl = document.getElementById('weight-fun-fact');
     if (userGoals.weightStart && latestScan.weight < userGoals.weightStart) {
       const lost = Math.round((userGoals.weightStart - latestScan.weight) * 10) / 10;
-      const facts = [
-        [1,'🍞 a loaf of bread'],[2,'🔨 a hammer'],[3,'🍷 a box of wine'],
-        [4,'🍉 a medium-sized watermelon'],[5,'🍳 a cast iron skillet'],[6,'🐈 a house cat'],
-        [7,'👶 a newborn baby'],[8,'🔥 a bag of charcoal'],[9,'🥛 a gallon of milk'],
-        [10,'🎳 a bowling ball'],[12,'🦃 a Thanksgiving turkey'],[15,'🎒 a fully loaded backpack'],
-        [20,'🍉 a large watermelon'],[22,'🛞 a car tire'],[25,'🐕 a large dog'],
-        [30,'🛒 a metal hand cart'],[36,'🧒 a 4-year-old child'],[47,'💧 a water cooler jug'],[50,'🐾 a bag of dog food'],
-      ];
+      const facts = [[1,'🍞 a loaf of bread'],[2,'🔨 a hammer'],[3,'🍷 a box of wine'],[4,'🍉 a medium-sized watermelon'],[5,'🍳 a cast iron skillet'],[6,'🐈 a house cat'],[7,'👶 a newborn baby'],[8,'🔥 a bag of charcoal'],[9,'🥛 a gallon of milk'],[10,'🎳 a bowling ball'],[12,'🦃 a Thanksgiving turkey'],[15,'🎒 a fully loaded backpack'],[20,'🍉 a large watermelon'],[22,'🛞 a car tire'],[25,'🐕 a large dog'],[30,'🛒 a metal hand cart'],[36,'🧒 a 4-year-old child'],[47,'💧 a water cooler jug'],[50,'🐾 a bag of dog food']];
       let match = facts[0];
       for (const f of facts) { if (lost >= f[0]) match = f; else break; }
       funFactEl.textContent = `🎉 Down ${lost} lbs — that's the weight of ${match[1]}!`;
-      funFactEl.style.color = '#16A34A';
-      funFactEl.style.display = 'block';
+      funFactEl.style.color = '#16A34A'; funFactEl.style.display = 'block';
     } else if (userGoals.weightStart && latestScan.weight > userGoals.weightStart) {
       funFactEl.textContent = `📈 Up ${Math.round((latestScan.weight - userGoals.weightStart) * 10) / 10} lbs from start`;
-      funFactEl.style.color = '#F97316';
-      funFactEl.style.display = 'block';
-    } else {
-      funFactEl.style.display = 'none';
-    }
+      funFactEl.style.color = '#F97316'; funFactEl.style.display = 'block';
+    } else { funFactEl.style.display = 'none'; }
   }
 
   if (!filtered.length) {
@@ -3932,56 +3893,94 @@ function renderWeightChart() {
   // Update goal display with projection date
   const weightToGoEl = document.getElementById('disp-weight-to-go');
 
-  const anchorScan = latestScan || filtered[filtered.length - 1];
-  if (userGoals.weightGoal && anchorScan) {
-    const lbsLeft = Math.abs(anchorScan.weight - userGoals.weightGoal).toFixed(1);
-    const dir = userGoals.weightGoal < anchorScan.weight ? 'to lose' : 'to gain';
-    let goalDate = projectGoalDate(anchorScan.weight, userGoals.weightGoal, anchorScan.date);
-    let projNote = '';
-    if (!goalDate) {
-      const weeks = Math.max(Math.abs(anchorScan.weight - userGoals.weightGoal), 1);
-      goalDate = new Date(anchorScan.date + 'T12:00:00');
-      goalDate.setDate(goalDate.getDate() + Math.round(weeks * 7));
-      projNote = ' (est. 1 lb/wk)';
-    }
-    const goalDateLabel = goalDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    const daysLeft = Math.round((goalDate - new Date()) / 86400000);
-    if (weightToGoEl) weightToGoEl.textContent = `${lbsLeft} lbs ${dir} · Est. ${goalDateLabel} (${daysLeft} days)${projNote}`;
+  if (userGoals.weightGoal && latestScan) {
+    const goalDate = projectGoalDate(latestScan.weight, userGoals.weightGoal, latestScan.date);
+    const lbsLeft = Math.abs(latestScan.weight - userGoals.weightGoal).toFixed(1);
+    const dir = userGoals.weightGoal < latestScan.weight ? 'to lose' : 'to gain';
 
-    const anchorDateObj = new Date(anchorScan.date + 'T12:00:00');
-    const monthlyLabels = [], monthlyProjData = [];
-    const cursor = new Date(anchorDateObj);
-    cursor.setMonth(cursor.getMonth() + 1);
-    while (cursor <= goalDate) {
-      monthlyLabels.push(fmtDate(cursor.toISOString().split('T')[0]));
-      const frac = (cursor - anchorDateObj) / (goalDate - anchorDateObj);
-      monthlyProjData.push(Math.round((anchorScan.weight + frac * (userGoals.weightGoal - anchorScan.weight)) * 10) / 10);
-      cursor.setMonth(cursor.getMonth() + 1);
+    if (goalDate) {
+      const goalDateLabel = goalDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      const daysLeft = Math.round((goalDate - new Date()) / 86400000);
+      if (weightToGoEl) weightToGoEl.textContent = `${lbsLeft} lbs ${dir} · Est. ${goalDateLabel} (${daysLeft} days)`;
+
+      // Build projected line: from last actual point → goal date
+      // Only add future projection points
+      const projLabel = fmtDate(goalDate.toISOString().split('T')[0]);
+
+      // Null-pad projection across existing labels, then add goal point
+      const projData = data.map(() => null);
+      projData[projData.length - 1] = latestScan.weight; // anchor at last real point
+      const projLabelsExtended = [...labels, projLabel];
+      const projDataExtended = [...projData, userGoals.weightGoal];
+
+      datasets.push({
+        label: 'Projection',
+        data: projDataExtended,
+        borderColor: '#16A34A',
+        borderWidth: 2,
+        borderDash: [6, 4],
+        pointRadius: projDataExtended.map((_, i) => i === projDataExtended.length - 1 ? 6 : 0),
+        pointBackgroundColor: '#16A34A',
+        pointBorderColor: 'white',
+        pointBorderWidth: 2,
+        tension: 0,
+        fill: false,
+        spanGaps: true
+      });
+
+      // Horizontal goal line across all labels including projection
+      datasets.push({
+        label: 'Goal line',
+        data: [...labels.map(() => userGoals.weightGoal), userGoals.weightGoal],
+        borderColor: 'rgba(22,163,74,0.25)',
+        borderWidth: 1,
+        borderDash: [3, 3],
+        pointRadius: 0,
+        fill: false
+      });
+
+      weightChartObj = new Chart(canvas, {
+        type: 'line',
+        data: { labels: projLabelsExtended, datasets },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              filter: item => item.dataset.label !== 'Goal line',
+              callbacks: {
+                label: ctx => {
+                  if (ctx.dataset.label === 'Projection') return ctx.raw != null ? `Goal: ${ctx.raw} lbs` : null;
+                  return ctx.raw != null ? `${ctx.raw} lbs` : null;
+                }
+              }
+            }
+          },
+          scales: {
+            y: { grid: { color: '#F5F5F5' }, ticks: { font: { size: 11 }, callback: v => (Math.round(v * 10) / 10) + ' lbs' } },
+            x: { grid: { display: false }, ticks: { font: { size: 11 }, maxTicksLimit: 7 } }
+          }
+        }
+      });
+      renderBMI(); return;
+    } else {
+      if (weightToGoEl) weightToGoEl.textContent = `${lbsLeft} lbs ${dir}`;
     }
-    const projLabel = fmtDate(goalDate.toISOString().split('T')[0]);
-    const allLabels = [...labels, ...monthlyLabels, projLabel];
-    const nReal = data.length;
-    const projDataExtended = [...Array(Math.max(nReal-1,0)).fill(null), anchorScan.weight, ...monthlyProjData, userGoals.weightGoal];
-    datasets[0].data = [...data, ...monthlyLabels.map(()=>null), null];
-    datasets.push({ label:'Projection', data:projDataExtended, borderColor:'#16A34A', borderWidth:2, borderDash:[6,4],
-      pointRadius:projDataExtended.map((_,i)=>i===projDataExtended.length-1?6:0), pointBackgroundColor:'#16A34A',
-      pointBorderColor:'white', pointBorderWidth:2, tension:0, fill:false, spanGaps:true });
-    datasets.push({ label:'Goal line', data:allLabels.map(()=>userGoals.weightGoal),
-      borderColor:'rgba(22,163,74,0.3)', borderWidth:1.5, borderDash:[3,3], pointRadius:0, fill:false });
-    weightChartObj = new Chart(canvas, { type:'line', data:{labels:allLabels, datasets},
-      options:{ responsive:true, maintainAspectRatio:false,
-        plugins:{ legend:{display:false}, tooltip:{ filter:i=>i.dataset.label!=='Goal line',
-          callbacks:{label:ctx=>ctx.raw!=null?(ctx.dataset.label==='Projection'?`Projected: ${ctx.raw} lbs`:`${ctx.raw} lbs`):null}}},
-        scales:{ y:{grid:{color:'#F5F5F5'},ticks:{font:{size:11},callback:v=>(Math.round(v*10)/10)+' lbs'}},
-          x:{grid:{display:false},ticks:{font:{size:11},maxTicksLimit:8}}}}});
-    renderBMI(); return;
   }
 
-  weightChartObj = new Chart(canvas, { type:'line', data:{labels, datasets},
-    options:{ responsive:true, maintainAspectRatio:false,
-      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.raw} lbs`}}},
-      scales:{ y:{grid:{color:'#F5F5F5'},ticks:{font:{size:11},callback:v=>(Math.round(v*10)/10)+' lbs'}},
-        x:{grid:{display:false},ticks:{font:{size:11},maxTicksLimit:6}}}}});
+  // No goal or no projection — simple chart
+  weightChartObj = new Chart(canvas, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => `${ctx.raw} lbs` } } },
+      scales: {
+        y: { grid: { color: '#F5F5F5' }, ticks: { font: { size: 11 }, callback: v => (Math.round(v * 10) / 10) + ' lbs' } },
+        x: { grid: { display: false }, ticks: { font: { size: 11 }, maxTicksLimit: 6 } }
+      }
+    }
+  });
   renderBMI();
 }
 
@@ -4020,62 +4019,48 @@ function renderBfChart() {
     fill: true
   }];
 
-  const anchorBf = bfScans.length ? bfScans[bfScans.length-1] : null;
-  const fmtDateBf = d => new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});
-  if (userGoals.bfGoal && anchorBf) {
-    const latestWeightScan = allScans.filter(s=>s.weight).slice(-1)[0];
-    const curW = latestWeightScan ? latestWeightScan.weight : 180;
-    const tdee_bf = calcTDEE(curW);
-    const deficit_bf = tdee_bf - userTargets.calories;
-    const curFat = curW * (anchorBf.body_fat/100);
-    const goalFat = curW * (userGoals.bfGoal/100);
-    let goalDate;
-    if (Math.abs(deficit_bf) >= 50) {
-      const fatLossPerDay = (deficit_bf/3500)*0.8;
-      const fatToLose = curFat - goalFat;
-      if (fatLossPerDay > 0 && fatToLose > 0) {
-        const days = Math.min(fatToLose/fatLossPerDay, 730);
-        goalDate = new Date(anchorBf.date+'T12:00:00');
-        goalDate.setDate(goalDate.getDate()+Math.round(days));
+  if (userGoals.bfGoal) {
+    const projData = [...data.map(() => null)];
+    projData[projData.length - 1] = data[data.length - 1];
+    projData.push(userGoals.bfGoal);
+    datasets.push({
+      label: 'Goal',
+      data: projData,
+      borderColor: '#16A34A',
+      borderWidth: 1.5,
+      borderDash: [6, 4],
+      pointRadius: [0,0,0,0,0,5],
+      pointBackgroundColor: '#16A34A',
+      tension: 0,
+      fill: false,
+      spanGaps: true
+    });
+    datasets.push({
+      label: 'Goal line',
+      data: Array(labels.length).fill(userGoals.bfGoal),
+      borderColor: 'rgba(22,163,74,0.2)',
+      borderWidth: 1,
+      borderDash: [4, 4],
+      pointRadius: 0,
+      fill: false
+    });
+  }
+
+  bfChartObj = new Chart(canvas, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ctx.dataset.label === 'Goal line' ? null : `${ctx.raw}%` }, filter: item => item.dataset.label !== 'Goal line' }
+      },
+      scales: {
+        y: { grid: { color: '#F5F5F5' }, ticks: { font: { size: 11 }, callback: v => (Math.round(v * 10) / 10) + '%' } },
+        x: { grid: { display: false }, ticks: { font: { size: 11 }, maxTicksLimit: 6 } }
       }
     }
-    if (!goalDate) {
-      const months = Math.max(Math.abs(anchorBf.body_fat-userGoals.bfGoal)/0.5,1);
-      goalDate = new Date(anchorBf.date+'T12:00:00');
-      goalDate.setMonth(goalDate.getMonth()+Math.round(months));
-    }
-    const anchorBfDate = new Date(anchorBf.date+'T12:00:00');
-    const mlBf=[], mpBf=[];
-    const cur2 = new Date(anchorBfDate);
-    cur2.setMonth(cur2.getMonth()+1);
-    while(cur2<=goalDate){
-      mlBf.push(fmtDateBf(cur2.toISOString().split('T')[0]));
-      const frac=(cur2-anchorBfDate)/(goalDate-anchorBfDate);
-      mpBf.push(Math.round((anchorBf.body_fat+frac*(userGoals.bfGoal-anchorBf.body_fat))*10)/10);
-      cur2.setMonth(cur2.getMonth()+1);
-    }
-    const allLabelsBf=[...labels,...mlBf,fmtDateBf(goalDate.toISOString().split('T')[0])];
-    const nRealBf=data.length;
-    const projBf=[...Array(Math.max(nRealBf-1,0)).fill(null),anchorBf.body_fat,...mpBf,userGoals.bfGoal];
-    datasets[0].data=[...data,...mlBf.map(()=>null),null];
-    datasets.push({label:'Projection',data:projBf,borderColor:'#16A34A',borderWidth:2,borderDash:[6,4],
-      pointRadius:projBf.map((_,i)=>i===projBf.length-1?6:0),pointBackgroundColor:'#16A34A',
-      pointBorderColor:'white',pointBorderWidth:2,tension:0,fill:false,spanGaps:true});
-    datasets.push({label:'Goal line',data:allLabelsBf.map(()=>userGoals.bfGoal),
-      borderColor:'rgba(22,163,74,0.25)',borderWidth:1.5,borderDash:[3,3],pointRadius:0,fill:false});
-    bfChartObj=new Chart(canvas,{type:'line',data:{labels:allLabelsBf,datasets},
-      options:{responsive:true,maintainAspectRatio:false,
-        plugins:{legend:{display:false},tooltip:{filter:i=>i.dataset.label!=='Goal line',
-          callbacks:{label:ctx=>ctx.raw!=null?`${ctx.raw}%`:null}}},
-        scales:{y:{grid:{color:'#F5F5F5'},ticks:{font:{size:11},callback:v=>(Math.round(v*10)/10)+'%'}},
-          x:{grid:{display:false},ticks:{font:{size:11},maxTicksLimit:8}}}}});
-    return;
-  }
-  bfChartObj=new Chart(canvas,{type:'line',data:{labels,datasets},
-    options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.raw}%`}}},
-      scales:{y:{grid:{color:'#F5F5F5'},ticks:{font:{size:11},callback:v=>(Math.round(v*10)/10)+'%'}},
-        x:{grid:{display:false},ticks:{font:{size:11},maxTicksLimit:6}}}}});
+  });
 }
 
 // Log modal with numpad
@@ -4142,6 +4127,7 @@ async function loadScans() {
   renderScans();
   renderWeightChart();
   renderBfChart();
+  if (userGoals.muscleMethod === 'estimate') recalcMuscleFromBf();
   renderMuscleChart();
   renderBMI();
 }
@@ -4181,55 +4167,101 @@ function renderMuscleChart() {
     fill: true
   }];
 
-  const anchorM = muscleScans.length ? muscleScans[muscleScans.length-1] : null;
-  const fmtDateM = d => new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});
-  if (userGoals.muscleGoal && anchorM) {
-    const latestWM = allScans.filter(s=>s.weight).slice(-1)[0];
-    const curWM = latestWM ? latestWM.weight : 180;
-    const tdee_m = calcTDEE(curWM);
-    const deficit_m = tdee_m - userTargets.calories;
-    const protRatio = Math.min((userTargets.protein||160)/(curWM*0.8),1);
-    let monthlyGain;
-    if (deficit_m>200) monthlyGain=0.15*protRatio;
-    else if (deficit_m>-200) monthlyGain=0.5*protRatio;
-    else monthlyGain=Math.min(1.0*protRatio,1.0);
-    monthlyGain=Math.max(monthlyGain,0.1);
-    const lbsToGoM=Math.abs(anchorM.muscle_mass-userGoals.muscleGoal);
-    const months=Math.max(lbsToGoM/monthlyGain,1);
-    const goalDateM=new Date(anchorM.date+'T12:00:00');
-    goalDateM.setMonth(goalDateM.getMonth()+Math.round(months));
-    const anchorMDate=new Date(anchorM.date+'T12:00:00');
-    const mlM=[],mpM=[];
-    const cur3=new Date(anchorMDate);
-    cur3.setMonth(cur3.getMonth()+1);
-    while(cur3<=goalDateM){
-      mlM.push(fmtDateM(cur3.toISOString().split('T')[0]));
-      const frac=(cur3-anchorMDate)/(goalDateM-anchorMDate);
-      mpM.push(Math.round((anchorM.muscle_mass+frac*(userGoals.muscleGoal-anchorM.muscle_mass))*10)/10);
-      cur3.setMonth(cur3.getMonth()+1);
+  if (userGoals.muscleGoal) {
+    const projData = [...data.map(() => null)];
+    projData[projData.length - 1] = data[data.length - 1];
+    projData.push(userGoals.muscleGoal);
+    datasets.push({
+      label: 'Goal',
+      data: projData,
+      borderColor: '#F97316',
+      borderWidth: 1.5,
+      borderDash: [6, 4],
+      pointRadius: [0,0,0,0,0,5],
+      pointBackgroundColor: '#F97316',
+      tension: 0,
+      fill: false,
+      spanGaps: true
+    });
+    datasets.push({
+      label: 'Goal line',
+      data: Array(labels.length).fill(userGoals.muscleGoal),
+      borderColor: 'rgba(249,115,22,0.2)',
+      borderWidth: 1,
+      borderDash: [4, 4],
+      pointRadius: 0,
+      fill: false
+    });
+  }
+
+  muscleChartObj = new Chart(canvas, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ctx.dataset.label === 'Goal line' ? null : `${ctx.raw} lbs` }, filter: item => item.dataset.label !== 'Goal line' }
+      },
+      scales: {
+        y: { grid: { color: '#F5F5F5' }, ticks: { font: { size: 11 }, callback: v => (Math.round(v * 10) / 10) + ' lbs' } },
+        x: { grid: { display: false }, ticks: { font: { size: 11 }, maxTicksLimit: 6 } }
+      }
     }
-    const allLabelsM=[...labels,...mlM,fmtDateM(goalDateM.toISOString().split('T')[0])];
-    const nRealM=data.length;
-    const projM=[...Array(Math.max(nRealM-1,0)).fill(null),anchorM.muscle_mass,...mpM,userGoals.muscleGoal];
-    datasets[0].data=[...data,...mlM.map(()=>null),null];
-    datasets.push({label:'Projection',data:projM,borderColor:'#F97316',borderWidth:2,borderDash:[6,4],
-      pointRadius:projM.map((_,i)=>i===projM.length-1?6:0),pointBackgroundColor:'#F97316',
-      pointBorderColor:'white',pointBorderWidth:2,tension:0,fill:false,spanGaps:true});
-    datasets.push({label:'Goal line',data:allLabelsM.map(()=>userGoals.muscleGoal),
-      borderColor:'rgba(249,115,22,0.25)',borderWidth:1.5,borderDash:[3,3],pointRadius:0,fill:false});
-    muscleChartObj=new Chart(canvas,{type:'line',data:{labels:allLabelsM,datasets},
-      options:{responsive:true,maintainAspectRatio:false,
-        plugins:{legend:{display:false},tooltip:{filter:i=>i.dataset.label!=='Goal line',
-          callbacks:{label:ctx=>ctx.raw!=null?`${ctx.raw} lbs`:null}}},
-        scales:{y:{grid:{color:'#F5F5F5'},ticks:{font:{size:11},callback:v=>(Math.round(v*10)/10)+' lbs'}},
-          x:{grid:{display:false},ticks:{font:{size:11},maxTicksLimit:8}}}}});
+  });
+}
+
+async function setMuscleMethod(method) {
+  userGoals.muscleMethod = method;
+  await saveSetting('goals', userGoals);
+  updateMuscleMethodUI();
+  if (method === 'estimate') recalcMuscleFromBf();
+  renderMuscleChart();
+}
+
+function recalcMuscleFromBf() {
+  const latestWeight = allScans.filter(s => s.weight).slice(-1)[0]?.weight;
+  const latestBf = allScans.filter(s => s.body_fat).slice(-1)[0]?.body_fat;
+  if (!latestWeight || !latestBf) return;
+  const leanMass = latestWeight * (1 - latestBf / 100);
+  const estimated = Math.round(leanMass * 0.47 * 10) / 10;
+  userGoals.muscleCurrent = estimated;
+  saveSetting('goals', userGoals);
+  updateGoalsDisplay();
+}
+
+function updateMuscleMethodUI() {
+  const method = userGoals.muscleMethod;
+  const prompt = document.getElementById('muscle-method-prompt');
+  const inner = document.getElementById('muscle-card-inner');
+  const recordBtn = document.getElementById('muscle-record-btn');
+  const editGoalBtn = document.getElementById('muscle-edit-goal-btn');
+  const estimateNotice = document.getElementById('muscle-estimate-notice');
+  const toggle = document.getElementById('muscle-toggle-track');
+
+  if (!method) {
+    if (prompt) prompt.style.display = 'block';
+    if (inner) inner.style.display = 'none';
+    if (toggle) toggle.style.display = 'none';
+    if (editGoalBtn) editGoalBtn.style.display = 'none';
     return;
   }
-  muscleChartObj=new Chart(canvas,{type:'line',data:{labels,datasets},
-    options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.raw} lbs`}}},
-      scales:{y:{grid:{color:'#F5F5F5'},ticks:{font:{size:11},callback:v=>(Math.round(v*10)/10)+' lbs'}},
-        x:{grid:{display:false},ticks:{font:{size:11},maxTicksLimit:6}}}}});
+  if (prompt) prompt.style.display = 'none';
+  if (toggle) toggle.style.display = method === 'none' ? 'none' : 'block';
+  if (method === 'none') {
+    if (inner) inner.style.display = 'none';
+    return;
+  }
+  if (inner) inner.style.display = 'block';
+  if (method === 'inbody') {
+    if (recordBtn) recordBtn.style.display = 'block';
+    if (editGoalBtn) editGoalBtn.style.display = 'block';
+    if (estimateNotice) estimateNotice.style.display = 'none';
+  } else if (method === 'estimate') {
+    if (recordBtn) recordBtn.style.display = 'none';
+    if (editGoalBtn) editGoalBtn.style.display = 'block';
+    if (estimateNotice) estimateNotice.style.display = 'block';
+  }
 }
 
 async function saveMuscleGoal() {
@@ -4238,7 +4270,7 @@ async function saveMuscleGoal() {
   if (!current || !goal) { toast('Enter both current and goal muscle mass'); return; }
   userGoals.muscleCurrent = current;
   userGoals.muscleGoal = goal;
-  saveSetting('goals', userGoals);
+  await saveSetting('goals', userGoals);
   toggleGoalEdit('muscle');
   updateGoalsDisplay();
   renderMuscleChart();
@@ -4368,13 +4400,13 @@ async function saveProfile() {
 
 async function toggleMuscleTracking() {
   userGoals.muscleTrackingOn = userGoals.muscleTrackingOn === false ? true : false;
-  saveSetting('goals', userGoals);
+  await saveSetting('goals', userGoals);
   updateGoalsDisplay();
 }
 
 async function toggleBfTracking() {
   userGoals.bfTrackingOn = userGoals.bfTrackingOn === false ? true : false;
-  saveSetting('goals', userGoals);
+  await saveSetting('goals', userGoals);
   updateGoalsDisplay();
 }
 
@@ -4463,7 +4495,7 @@ function hideCalcResult() {
   document.getElementById('calc-use-btn').style.display = 'none';
 }
 
-function useBfEstimate() {
+async function useBfEstimate() {
   if (!_bfCalcResult) return;
   closeBfCalculator();
   // Pre-fill the Edit Goal form with this estimate as current BF
@@ -4473,7 +4505,7 @@ function useBfEstimate() {
   el.style.display = 'block';
   // Also update userGoals.bfCurrent
   userGoals.bfCurrent = _bfCalcResult;
-  saveSetting('goals', userGoals);
+  await saveSetting('goals', userGoals);
   updateGoalsDisplay();
   toast(`Body fat set to ${_bfCalcResult}% — now set your goal below`);
 }
