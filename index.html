@@ -2433,23 +2433,9 @@ async function handleLogin() {
     document.getElementById('auth-screen').style.display = 'none';
     // Check if first-time login (no profile yet)
     const profile = await loadSetting('profile');
-    if (!profile) {
-      // New user who just verified email - they already went through onboarding
-      // but haven't saved yet. Show app normally.
-      document.getElementById('app-shell').style.display = 'block';
-      await appInit();
-    } else if (profile && !localStorage.getItem('ff_welcomed_' + _currentUser?.id)) {
-      // Show welcome screen for first login after verification
-      localStorage.setItem('ff_welcomed_' + _currentUser?.id, '1');
-      await loadGoals();
-      window._obGoalType = profile.primaryGoal;
-      window._obName = profile.name;
-      window._obActivity = profile.activity;
-      await showWelcomeScreen();
-    } else {
-      document.getElementById('app-shell').style.display = 'block';
-      await appInit();
-    }
+    // Existing users always go straight to the app
+    document.getElementById('app-shell').style.display = 'block';
+    await appInit();
   } catch(e) {
     errEl.textContent = e.message;
   } finally {
