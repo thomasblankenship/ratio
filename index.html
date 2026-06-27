@@ -1734,6 +1734,48 @@
 
 </div>
 
+
+<!-- DAILY CHECK-IN MODAL -->
+<div id="checkin-modal" style="display:none;position:fixed;inset:0;z-index:950;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px)">
+  <div style="background:white;border-radius:28px 28px 0 0;padding:32px 24px 48px;width:100%;max-width:520px;position:relative;max-height:85vh;overflow-y:auto">
+    <!-- Close button -->
+    <button onclick="dismissCheckin()" style="position:absolute;top:16px;right:16px;background:#F4F4F4;border:none;width:32px;height:32px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#666">×</button>
+    <!-- Icon -->
+    <div style="text-align:center;margin-bottom:20px">
+      <div id="checkin-emoji" style="font-size:56px;line-height:1;margin-bottom:12px"></div>
+      <div id="checkin-badge" style="display:inline-block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;padding:4px 14px;border-radius:20px;margin-bottom:4px"></div>
+    </div>
+    <!-- Yesterday date -->
+    <div id="checkin-date" style="text-align:center;font-size:12px;font-weight:600;color:#ADADAD;margin-bottom:12px"></div>
+    <!-- Main message -->
+    <div id="checkin-message" style="font-size:18px;font-weight:700;color:#0F0F0F;line-height:1.45;text-align:center;margin-bottom:16px;letter-spacing:-0.3px"></div>
+    <!-- Stats row (only shown when data exists) -->
+    <div id="checkin-stats" style="display:none;background:#F9F9F9;border-radius:16px;padding:16px;margin-bottom:20px">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;text-align:center">
+        <div>
+          <div id="ci-cals-val" style="font-size:22px;font-weight:700;color:#0F0F0F;letter-spacing:-0.5px"></div>
+          <div style="font-size:10px;font-weight:600;color:#ADADAD;text-transform:uppercase;margin-top:2px">Calories</div>
+        </div>
+        <div>
+          <div id="ci-prot-val" style="font-size:22px;font-weight:700;color:#F97316;letter-spacing:-0.5px"></div>
+          <div style="font-size:10px;font-weight:600;color:#ADADAD;text-transform:uppercase;margin-top:2px">Protein</div>
+        </div>
+        <div>
+          <div id="ci-target-val" style="font-size:22px;font-weight:700;color:#ADADAD;letter-spacing:-0.5px"></div>
+          <div style="font-size:10px;font-weight:600;color:#ADADAD;text-transform:uppercase;margin-top:2px">Target</div>
+        </div>
+      </div>
+    </div>
+    <!-- Sub message -->
+    <div id="checkin-sub" style="font-size:14px;color:#666;line-height:1.6;text-align:center;margin-bottom:28px"></div>
+    <!-- Action buttons -->
+    <div id="checkin-actions" style="display:flex;flex-direction:column;gap:10px">
+      <button id="checkin-primary-btn" onclick="dismissCheckin()" style="width:100%;padding:16px;background:#F97316;color:white;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer"></button>
+      <button onclick="dismissCheckin()" style="width:100%;padding:12px;background:none;border:none;font-size:14px;color:#ADADAD;cursor:pointer">Maybe later</button>
+    </div>
+  </div>
+</div>
+
 <!-- LIGHTBOX -->
 <div class="lightbox" id="lightbox" onclick="closeLightbox()">
   <button class="lightbox-close">×</button>
@@ -2667,6 +2709,8 @@ async function appInit() {
   loadDayTotals();
   loadScans();
   loadPhotos();
+  // Show daily accountability check-in (once per day, after data is loaded)
+  await maybeShowCheckin();
 }
 
 // MOTIVATIONAL QUOTES
@@ -5567,6 +5611,149 @@ async function saveEditedWorkout() {
   toast('Workout updated ✓');
   await loadTodayWorkouts();
 }
+
+// ═══════════════════════════════════════════════════════════
+// DAILY CHECK-IN
+// ═══════════════════════════════════════════════════════════
+const CHECKIN_MESSAGES = {
+  no_logs: [
+    { msg: "Welcome back! Yesterday is gone, but today's menu is entirely up to you.", sub: "Let's start strong — log your first meal and keep the streak alive.", btn: "Log Breakfast Now 🍳" },
+    { msg: "One missed day won't break your progress. Consistency isn't about being perfect — it's about coming back.", sub: "You're here. That's what matters. Let's make today count.", btn: "Start Today Fresh 💪" },
+    { msg: "Slip-ups are just data, not defeats. Your goals are still waiting for you.", sub: "No guilt, no shame. Just open the log and take one small step.", btn: "Log a Meal 📋" },
+    { msg: "Progress over perfection. You're still on track to hit your goals.", sub: "Every expert was once a beginner who didn't give up. Let's go.", btn: "Let's Get Back On It 🔥" },
+  ],
+  low_protein_fat_loss: [
+    { msg: "Yesterday's protein was low. Your muscles needed fuel and didn't find enough.", sub: "When you're in a calorie deficit without enough protein, your body starts breaking down muscle instead of fat. Let's protect your gains today.", btn: "Start Logging Today 💪" },
+    { msg: "Low protein day yesterday. Without it, fat loss comes at a cost — muscle.", sub: "Aim for {protein}g today. Start with a high-protein breakfast and build from there.", btn: "Log Breakfast 🍳" },
+    { msg: "Your body can't preserve muscle without protein. Yesterday you were {gap}g short.", sub: "Today's a new chance. Hit {protein}g and your body will thank you.", btn: "Let's Nail It Today 🎯" },
+    { msg: "Undereating protein might feel like discipline — but it's working against your fat loss goals.", sub: "Muscle burns fat at rest. Protect it with {protein}g of protein today.", btn: "Protect Your Muscle 💪" },
+  ],
+  low_protein_weight_loss: [
+    { msg: "Protein was low yesterday. Even for weight loss, protein keeps you full and preserves muscle.", sub: "Hit {protein}g today and you'll fight cravings all day long.", btn: "Start Strong Today 💪" },
+    { msg: "Yesterday's protein was only {actual}g — aim for {protein}g today.", sub: "Higher protein = fewer cravings, better results on the scale. Let's fix it today.", btn: "Log Breakfast 🍳" },
+  ],
+  low_protein_muscle_gain: [
+    { msg: "Protein was low yesterday — and muscle doesn't build without it.", sub: "You need {protein}g daily to grow. Yesterday you left gains on the table. Let's make up for it today.", btn: "Fix It Today 💪" },
+    { msg: "Building muscle requires protein every single day. Yesterday you fell short at {actual}g.", sub: "Hit {protein}g today. Your muscles are waiting for the signal.", btn: "Feed the Muscle 🥩" },
+  ],
+  on_track_fat_loss: [
+    { msg: "Yesterday was perfect. You hit your targets and stayed consistent.", sub: "That's exactly how body recomposition works — one good day at a time. Stack another today.", btn: "Keep the Streak Going 🔥" },
+    { msg: "Protein ✓  Calories ✓  You're doing the work.", sub: "Back-to-back good days compound like interest. Your future self is already thanking you.", btn: "Do It Again Today 📈" },
+    { msg: "You nailed it yesterday. Deficit on point, protein locked in.", sub: "Consistency like this is what separates people who hit their goals from those who don't. Let's go.", btn: "Another Perfect Day 🌟" },
+    { msg: "That's what we're talking about. Calories in check, protein dialed in.", sub: "One more day like yesterday and you're building unstoppable momentum.", btn: "Let's Build On It 💪" },
+  ],
+  on_track_weight_loss: [
+    { msg: "Solid day yesterday — deficit on point, staying consistent.", sub: "Weight loss isn't magic, it's math and consistency. You're proving that daily.", btn: "Keep It Going ⚖️" },
+    { msg: "You stayed in your deficit yesterday. That's the job done.", sub: "Do it again today. Small wins, stacked daily, become big results.", btn: "Another Good Day 🎯" },
+  ],
+  on_track_muscle_gain: [
+    { msg: "Great day yesterday — calories up, protein dialed in.", sub: "That's the muscle-building formula. Recovery happens today, growth shows next week.", btn: "Keep Fueling 💪" },
+    { msg: "You hit your targets yesterday. Your muscles are growing while you read this.", sub: "Stay consistent. Muscle is built in the kitchen as much as the gym.", btn: "Feed the Gains 🥩" },
+  ],
+  overate: [
+    { msg: "One heavy meal doesn't erase weeks of hard work. Your body is resilient.", sub: "Reset with your next meal. Consistency over time is what counts — not one day.", btn: "Reset Today 🔄" },
+    { msg: "Logged it anyway? That takes courage. Tracking the tough days is exactly how you build lasting habits.", sub: "No guilt. You showed up, you logged it, and that's a win in itself.", btn: "Back On Track Today 💪" },
+    { msg: "Your body needed extra fuel, and that's okay. Be kind to yourself.", sub: "Progress is a winding road. One over-target day won't stop you — giving up would.", btn: "Nourish Well Today 🌱" },
+    { msg: "No guilt, no regrets. Progress is never a straight line.", sub: "What matters is what you do today. Let's make it a good one.", btn: "Fresh Start Today ✨" },
+  ],
+  undereating: [
+    { msg: "Yesterday's calories were really low — {actual} out of {target}.", sub: "Chronic undereating stalls fat loss and burns muscle. Your goals need fuel too.", btn: "Eat Well Today 🍽️" },
+    { msg: "Eating too little yesterday. Your body went into conservation mode.", sub: "Undereating is just as important to fix as overeating. Hit {target} calories today.", btn: "Fuel Up Today ⚡" },
+    { msg: "Low calorie day yesterday. This can slow your metabolism and increase cravings later.", sub: "Aim for {target} calories today spread across meals. You'll feel better and see better results.", btn: "Stay Fueled 🔥" },
+  ],
+};
+
+function _pickRandom(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function _fillTemplate(str, vars) {
+  return str.replace(/\{(\w+)\}/g, (_, k) => vars[k] !== undefined ? vars[k] : _);
+}
+
+async function maybeShowCheckin() {
+  // Only show once per day
+  const key = 'ci_shown_' + today;
+  if (localStorage.getItem(key)) return;
+  localStorage.setItem(key, '1');
+
+  // Get yesterday's date string
+  const yd = new Date(todayLocal);
+  yd.setDate(yd.getDate() - 1);
+  const yesterday = `${yd.getFullYear()}-${String(yd.getMonth()+1).padStart(2,'0')}-${String(yd.getDate()).padStart(2,'0')}`;
+
+  // Load yesterday's meals
+  const meals = await dbGet('meals', `date=eq.${yesterday}&select=calories,protein`);
+
+  const goal = userProfile?.primaryGoal || 'fat_loss';
+  const calTarget = userTargets?.calories || 2250;
+  const proTarget = userTargets?.protein || 160;
+
+  const totalCals = Math.round(meals.reduce((a, m) => a + (+m.calories || 0), 0));
+  const totalProt = Math.round(meals.reduce((a, m) => a + (+m.protein || 0), 0));
+
+  const ydLabel = yd.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+
+  let state, msgPool;
+  const vars = { protein: proTarget, actual: totalProt, target: calTarget, gap: proTarget - totalProt };
+
+  if (!meals.length) {
+    // STATE 1: No meals logged
+    state = { emoji: '👋', badge: 'We missed you', badgeBg: '#F4F4F4', badgeColor: '#888' };
+    msgPool = CHECKIN_MESSAGES.no_logs;
+    document.getElementById('checkin-stats').style.display = 'none';
+  } else {
+    // Show stats
+    document.getElementById('checkin-stats').style.display = 'block';
+    document.getElementById('ci-cals-val').textContent = totalCals;
+    document.getElementById('ci-prot-val').textContent = totalProt + 'g';
+    document.getElementById('ci-target-val').textContent = calTarget;
+
+    const calPct = totalCals / calTarget;
+    const proOk = totalProt >= proTarget * 0.9;
+
+    if (calPct > 1.10) {
+      // STATE 4: Overate
+      state = { emoji: '💙', badge: 'Over target', badgeBg: '#FEF2F2', badgeColor: '#DC2626' };
+      document.getElementById('ci-cals-val').style.color = '#DC2626';
+      msgPool = CHECKIN_MESSAGES.overate;
+    } else if (calPct < 0.60) {
+      // STATE 5: Undereating (very low)
+      state = { emoji: '⚡', badge: 'Calories too low', badgeBg: '#FFFBEB', badgeColor: '#D97706' };
+      document.getElementById('ci-cals-val').style.color = '#D97706';
+      msgPool = CHECKIN_MESSAGES.undereating;
+    } else if (!proOk) {
+      // STATE 2: Low protein
+      state = { emoji: '🥩', badge: 'Low protein', badgeBg: '#FFF7ED', badgeColor: '#F97316' };
+      const poolKey = 'low_protein_' + goal;
+      msgPool = CHECKIN_MESSAGES[poolKey] || CHECKIN_MESSAGES.low_protein_fat_loss;
+    } else {
+      // STATE 3: On track ⭐
+      state = { emoji: '⭐', badge: 'Nailed it', badgeBg: '#F0FDF4', badgeColor: '#16A34A' };
+      document.getElementById('ci-cals-val').style.color = '#16A34A';
+      const poolKey = 'on_track_' + goal;
+      msgPool = CHECKIN_MESSAGES[poolKey] || CHECKIN_MESSAGES.on_track_fat_loss;
+    }
+  }
+
+  const picked = _fillTemplate(JSON.stringify(_pickRandom(msgPool)), vars);
+  const { msg, sub, btn } = JSON.parse(picked);
+
+  document.getElementById('checkin-emoji').textContent = state.emoji;
+  document.getElementById('checkin-badge').textContent = state.badge;
+  document.getElementById('checkin-badge').style.background = state.badgeBg;
+  document.getElementById('checkin-badge').style.color = state.badgeColor;
+  document.getElementById('checkin-date').textContent = ydLabel;
+  document.getElementById('checkin-message').textContent = msg;
+  document.getElementById('checkin-sub').textContent = sub;
+  document.getElementById('checkin-primary-btn').textContent = btn;
+  document.getElementById('checkin-modal').style.display = 'flex';
+}
+
+function dismissCheckin() {
+  document.getElementById('checkin-modal').style.display = 'none';
+}
+
 
 init();
 </script>
