@@ -950,13 +950,23 @@
           <div class="card-title" style="margin-bottom:0">Profile</div>
           <button onclick="toggleEditProfile()" id="edit-profile-btn" style="background:var(--accent);color:white;border:none;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;cursor:pointer">Edit</button>
         </div>
-        <div id="profile-display" class="stat-grid">
+        <div id="profile-display">
+          <div id="disp-name-row" style="display:none;margin-bottom:12px;padding:12px 14px;background:#F9F9F9;border-radius:10px">
+            <div style="font-size:11px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px">Name</div>
+            <div style="font-size:16px;font-weight:600;color:#0F0F0F" id="disp-name"></div>
+          </div>
+          <div class="stat-grid">
           <div class="stat-item"><div class="stat-val" id="disp-height">5'9"</div><div class="stat-label">Height</div></div>
           <div class="stat-item"><div class="stat-val" id="disp-age">43</div><div class="stat-label">Age</div></div>
           <div class="stat-item"><div class="stat-val" id="disp-gender">Male</div><div class="stat-label">Gender</div></div>
           <div class="stat-item"><div class="stat-val" id="disp-activity">Very Active</div><div class="stat-label">Activity Level</div></div>
         </div>
+        </div>
         <div id="profile-edit-form" style="display:none;margin-top:4px">
+          <div class="form-group">
+            <div style="font-size:11px;color:#666;margin-bottom:4px;font-weight:600">Name</div>
+            <input type="text" id="edit-name" placeholder="First name" autocomplete="given-name" style="width:100%;padding:10px 12px;border:1px solid #E8E8E8;border-radius:8px;font-size:14px;outline:none;box-sizing:border-box" />
+          </div>
           <div class="form-group">
             <div style="font-size:11px;color:#666;margin-bottom:4px;font-weight:600">Height</div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
@@ -4130,6 +4140,11 @@ async function loadGoals() {
 }
 
 function updateGoalsDisplay() {
+  // Show name in profile display if set
+  if (userProfile?.name) {
+    document.getElementById('disp-name').textContent = userProfile.name;
+    document.getElementById('disp-name-row').style.display = 'block';
+  }
   document.getElementById('disp-calories').textContent = userTargets.calories.toLocaleString();
   document.getElementById('disp-protein').textContent = userTargets.protein + 'g';
   document.getElementById('disp-carbs').textContent = userTargets.carbs + 'g';
@@ -5042,6 +5057,7 @@ function toggleEditProfile() {
   if (!isEditing) {
     const profileFt = Math.floor(userProfile.heightIn / 12);
     const profileIn = userProfile.heightIn % 12;
+    document.getElementById('edit-name').value = userProfile.name || '';
     document.getElementById('edit-height-ft').value = profileFt;
     document.getElementById('edit-height-in').value = profileIn;
     document.getElementById('edit-age').value = userProfile.age;
@@ -5051,6 +5067,7 @@ function toggleEditProfile() {
 }
 
 async function saveProfile() {
+  const name = document.getElementById('edit-name').value.trim();
   const heightFt = +document.getElementById('edit-height-ft').value || 5;
   const heightInches = +document.getElementById('edit-height-in').value || 0;
   const heightIn = (heightFt * 12) + heightInches;
@@ -5060,14 +5077,29 @@ async function saveProfile() {
   if (!heightIn || !age) { toast('Fill in height and age'); return; }
   const dispFt = Math.floor(heightIn / 12);
   const dispIn = heightIn % 12;
-  userProfile = { heightIn, age, gender, activity };
+  userProfile = { heightIn, age, gender, activity, name };
   await saveSetting('profile', userProfile);
   await saveSetting('targets', userTargets);
+  // Also update Supabase auth display_name
+  if (name && _authToken) {
+    try {
+      await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+        method: 'PUT',
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${_authToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: { display_name: name } })
+      });
+    } catch(e) { console.warn('Could not update auth display_name:', e); }
+  }
   document.getElementById('disp-height').textContent = `${dispFt}'${dispIn}"`;
   document.getElementById('disp-age').textContent = age;
   document.getElementById('disp-gender').textContent = gender === 'male' ? 'Male' : 'Female';
   const activityLabels = { sedentary: 'Sedentary', light: 'Lightly Active', moderate: 'Moderately Active', active: 'Very Active', athlete: 'Athlete' };
   document.getElementById('disp-activity').textContent = activityLabels[activity];
+  // Update name display
+  if (name) {
+    document.getElementById('disp-name').textContent = name;
+    document.getElementById('disp-name-row').style.display = 'block';
+  }
   toggleEditProfile();
   toast('Profile saved ✓');
 }
