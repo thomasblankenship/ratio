@@ -2433,15 +2433,32 @@ function showAuthTab(tab) {
 
 function startSignup() {
   console.log('[Ratio] startSignup called');
-  document.getElementById('auth-screen').style.display = 'none';
-  // Hide all onboarding screens, then show step 1
-  document.querySelectorAll('.ob-screen').forEach(el => { el.style.display = 'none'; });
+  const authEl = document.getElementById('auth-screen');
+  authEl.style.display = 'none';
+  authEl.style.visibility = 'hidden';
+  authEl.style.pointerEvents = 'none';
+
+  // Hide all onboarding screens first
+  document.querySelectorAll('.ob-screen').forEach(el => {
+    el.style.display = 'none';
+  });
+
   const step1 = document.getElementById('ob-step-1');
-  if (step1) {
-    step1.style.display = 'flex';
-    step1.style.flexDirection = 'column';
-    console.log('[Ratio] step1 visible:', step1.offsetHeight > 0);
-  }
+  if (!step1) { console.error('[Ratio] ob-step-1 element NOT IN DOM'); return; }
+
+  // Apply styles directly on element
+  step1.removeAttribute('style'); // clear any existing inline style
+  step1.style.cssText = 'position:fixed !important;top:0 !important;left:0 !important;right:0 !important;bottom:0 !important;width:100vw !important;height:100vh !important;background:white !important;display:flex !important;flex-direction:column !important;z-index:9999 !important;padding:0 !important;overflow-y:auto !important;';
+
+  console.log('[Ratio] step1 cssText:', step1.style.cssText.substring(0, 80));
+  setTimeout(() => {
+    console.log('[Ratio] step1 offsetHeight (after timeout):', step1.offsetHeight);
+    console.log('[Ratio] step1 getBCR:', JSON.stringify(step1.getBoundingClientRect()));
+    console.log('[Ratio] step1 computed display:', getComputedStyle(step1).display);
+    console.log('[Ratio] step1 computed visibility:', getComputedStyle(step1).visibility);
+    console.log('[Ratio] step1 computed position:', getComputedStyle(step1).position);
+  }, 100);
+
   _obCurrentStep = 1;
 }
 
