@@ -2417,6 +2417,34 @@ async function appInit() {
   const hasProfile = await loadSetting('profile');
   const hasGoals = await loadSetting('goals');
   if (!hasProfile && !hasGoals) {
+    // Check if there's pending onboarding data to apply (email-verified user returning)
+    const pending = localStorage.getItem('pending_onboarding');
+    if (pending && _currentUser) {
+      try {
+        const p = JSON.parse(pending);
+        window._obName = p.obName || p.name || '';
+        window._obGoalType = p.obGoalType || 'fat_loss';
+        window._obActivity = p.obActivity || 'active';
+        window._obPace = p.obPace || 'lose_1';
+        userProfile = p.profile;
+        userTargets = p.targets;
+        userGoals = p.goals;
+        await Promise.all([
+          saveSetting('profile', p.profile),
+          saveSetting('targets', p.targets),
+          saveSetting('goals', p.goals)
+        ]);
+        if (p.goals?.weightStart) {
+          try { await dbPost('scans', { date: today, weight: p.goals.weightStart }); } catch(e) {}
+        }
+        localStorage.removeItem('pending_onboarding');
+        await showWelcomeScreen();
+        return;
+      } catch(e) {
+        console.warn('Error applying pending onboarding in appInit:', e);
+        localStorage.removeItem('pending_onboarding');
+      }
+    }
     startSignup();
     return; // obFinish() will call appInit() again after onboarding
   }
