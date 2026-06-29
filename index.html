@@ -2045,18 +2045,43 @@ function obBack(step) {
 
 
 // ONBOARDING NUMPAD
-function obOpenNumpad(field) {
+function obOpenNumpad(field, unit) {
   _obNumpadField = field;
-  const existing = document.getElementById('ob-' + field).value;
+  unit = unit || (field.includes('bf') ? '%' : 'lbs');
+  const existing = document.getElementById('ob-' + field)?.value;
   _obNumpadVal = (existing && parseFloat(existing) > 0) ? existing : '';
   const modal = document.getElementById('ob-numpad-modal');
   const title = document.getElementById('ob-numpad-title');
   const display = document.getElementById('ob-numpad-display');
-  const unit = document.getElementById('ob-numpad-unit');
-  title.textContent = field === 'weight' ? 'Current Weight' : 'Goal Weight';
-  unit.textContent = 'lbs';
+  const unitEl = document.getElementById('ob-numpad-unit');
+  const labels = {
+    'weight': 'Current Weight', 'goal-weight': 'Goal Weight',
+    'bf-current': 'Current Body Fat', 'bf-goal': 'Goal Body Fat',
+    'muscle-current': 'Current Muscle Mass', 'muscle-goal': 'Goal Muscle Mass'
+  };
+  title.textContent = labels[field] || field;
+  unitEl.textContent = unit;
   display.textContent = _obNumpadVal || '—';
   modal.style.display = 'flex';
+}
+
+function obSkipSection(section) {
+  document.getElementById('ob-' + section + '-inputs').style.display = 'none';
+  document.getElementById('ob-' + section + '-skipped').style.display = 'block';
+  document.getElementById('ob-' + section + '-skip-btn').style.display = 'none';
+  // Clear values
+  ['current','goal'].forEach(f => {
+    const el = document.getElementById('ob-' + section + '-' + f);
+    if (el) el.value = '';
+    const disp = document.getElementById('ob-' + section + '-' + f + '-display');
+    if (disp) { disp.textContent = f === 'current' ? (section === 'bf' ? 'Current body fat %' : 'Current muscle mass') : (section === 'bf' ? 'Goal body fat %' : 'Goal muscle mass'); disp.style.color = '#ADADAD'; }
+  });
+}
+
+function obUnskipSection(section) {
+  document.getElementById('ob-' + section + '-inputs').style.display = 'block';
+  document.getElementById('ob-' + section + '-skipped').style.display = 'none';
+  document.getElementById('ob-' + section + '-skip-btn').style.display = 'block';
 }
 
 function obNumpadPress(key) {
@@ -2080,8 +2105,9 @@ function obNumpadConfirm() {
   const val = parseFloat(_obNumpadVal);
   if (!isNaN(val) && val > 0) {
     document.getElementById('ob-' + _obNumpadField).value = val;
+    const unit = document.getElementById('ob-numpad-unit').textContent || 'lbs';
     const display = document.getElementById('ob-' + _obNumpadField + '-display');
-    if (display) { display.textContent = val + ' lbs'; display.style.color = '#0F0F0F'; }
+    if (display) { display.textContent = val + ' ' + unit; display.style.color = '#0F0F0F'; }
     const btn = document.getElementById('ob-' + _obNumpadField + '-btn');
     if (btn) btn.style.borderColor = '#0F0F0F';
   }
@@ -2401,11 +2427,15 @@ async function handleSignUp() {
         const age = parseInt(document.getElementById('ob-age').value) || 30;
         const weight = parseFloat(document.getElementById('ob-weight').value) || 180;
         const goalWeight = parseFloat(document.getElementById('ob-goal-weight')?.value) || weight;
+        const bfCurrent = parseFloat(document.getElementById('ob-bf-current')?.value) || null;
+        const bfGoal = parseFloat(document.getElementById('ob-bf-goal')?.value) || null;
+        const muscleCurrent = parseFloat(document.getElementById('ob-muscle-current')?.value) || null;
+        const muscleGoal = parseFloat(document.getElementById('ob-muscle-goal')?.value) || null;
         localStorage.setItem('pending_onboarding', JSON.stringify({
           name,
           profile: { heightIn: ft * 12 + inn, age, gender: _obGender || 'male', activity: _obActivity || 'active', name, primaryGoal: _obGoalType, weeklyPace: _obPace },
           targets: { calories: pendingPlan.calories, protein: pendingPlan.protein, carbs: Math.round((pendingPlan.calories * 0.35) / 4), fat: Math.round((pendingPlan.calories * 0.25) / 9) },
-          goals: { weightStart: weight, weightGoal: goalWeight, bfCurrent: null, bfGoal: null, bfTrackingOn: true, muscleCurrent: null, muscleGoal: null, muscleTrackingOn: true, muscleMethod: null, primaryGoal: _obGoalType },
+          goals: { weightStart: weight, weightGoal: goalWeight, bfCurrent, bfGoal, bfTrackingOn: true, muscleCurrent, muscleGoal, muscleTrackingOn: true, muscleMethod: null, primaryGoal: _obGoalType },
           plan: pendingPlan,
           obGoalType: _obGoalType,
           obName: name,
@@ -2530,11 +2560,15 @@ async function obSaveAndWelcome() {
   const age = parseInt(document.getElementById('ob-age').value) || 30;
   const weight = parseFloat(document.getElementById('ob-weight').value) || 180;
   const goalWeight = parseFloat(document.getElementById('ob-goal-weight')?.value) || weight;
+  const bfCurrent = parseFloat(document.getElementById('ob-bf-current')?.value) || null;
+  const bfGoal = parseFloat(document.getElementById('ob-bf-goal')?.value) || null;
+  const muscleCurrent = parseFloat(document.getElementById('ob-muscle-current')?.value) || null;
+  const muscleGoal = parseFloat(document.getElementById('ob-muscle-goal')?.value) || null;
   const name = window._obName || '';
 
   userProfile = { heightIn: ft * 12 + inn, age, gender: _obGender || 'male', activity: _obActivity || 'active', name, primaryGoal: _obGoalType, weeklyPace: _obPace };
   userTargets = { calories: plan.calories, protein: plan.protein, carbs: Math.round((plan.calories * 0.35) / 4), fat: Math.round((plan.calories * 0.25) / 9) };
-  userGoals = { weightStart: weight, weightGoal: goalWeight, bfCurrent: null, bfGoal: null, bfTrackingOn: true, muscleCurrent: null, muscleGoal: null, muscleTrackingOn: true, muscleMethod: null, primaryGoal: _obGoalType };
+  userGoals = { weightStart: weight, weightGoal: goalWeight, bfCurrent, bfGoal, bfTrackingOn: true, muscleCurrent, muscleGoal, muscleTrackingOn: true, muscleMethod: null, primaryGoal: _obGoalType };
 
   await Promise.all([saveSetting('goals', userGoals), saveSetting('targets', userTargets), saveSetting('profile', userProfile)]);
   localStorage.setItem('ff_onboarded', '1');
@@ -5909,6 +5943,61 @@ init();
         </button>
         <div id="ob-weight-warning" style="font-size:12px;color:#EF4444;margin-top:6px;display:none"></div>
         <div style="font-size:12px;color:#ADADAD;margin-top:6px">Don't worry, this doesn't affect your daily calorie goal and you can always change it later.</div>
+      </div>
+
+      <!-- Divider -->
+      <div style="height:1px;background:#F3F4F6;margin:4px 0 20px"></div>
+
+      <!-- Body Fat % -->
+      <input type="hidden" id="ob-bf-current" value="" />
+      <input type="hidden" id="ob-bf-goal" value="" />
+      <div style="margin-bottom:20px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <div style="font-size:13px;font-weight:700;color:#666">Current body fat %</div>
+          <button onclick="obSkipSection('bf')" id="ob-bf-skip-btn" style="background:none;border:none;font-size:12px;color:#ADADAD;cursor:pointer;font-weight:600">Skip — add later</button>
+        </div>
+        <div id="ob-bf-inputs">
+          <button onclick="obOpenNumpad('bf-current','%')" id="ob-bf-current-btn"
+            style="width:100%;padding:14px 16px;border:2px solid #E8E8E8;border-radius:12px;font-size:16px;font-weight:600;background:white;cursor:pointer;display:flex;align-items:center;justify-content:space-between;box-sizing:border-box;margin-bottom:10px">
+            <span id="ob-bf-current-display" style="color:#ADADAD">Current body fat %</span>
+            <span style="font-size:13px;color:#ADADAD;font-weight:700">%</span>
+          </button>
+          <button onclick="obOpenNumpad('bf-goal','%')" id="ob-bf-goal-btn"
+            style="width:100%;padding:14px 16px;border:2px solid #E8E8E8;border-radius:12px;font-size:16px;font-weight:600;background:white;cursor:pointer;display:flex;align-items:center;justify-content:space-between;box-sizing:border-box">
+            <span id="ob-bf-goal-display" style="color:#ADADAD">Goal body fat %</span>
+            <span style="font-size:13px;color:#ADADAD;font-weight:700">%</span>
+          </button>
+          <div style="font-size:12px;color:#ADADAD;margin-top:6px">Not sure? Skip for now — you can set this in Goals anytime.</div>
+        </div>
+        <div id="ob-bf-skipped" style="display:none;padding:10px 14px;background:#F9FAFB;border-radius:10px;font-size:13px;color:#ADADAD">
+          Body fat tracking skipped — <button onclick="obUnskipSection('bf')" style="background:none;border:none;color:#F97316;font-size:13px;font-weight:700;cursor:pointer;padding:0">Add it</button>
+        </div>
+      </div>
+
+      <!-- Skeletal Muscle Mass -->
+      <input type="hidden" id="ob-muscle-current" value="" />
+      <input type="hidden" id="ob-muscle-goal" value="" />
+      <div style="margin-bottom:20px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <div style="font-size:13px;font-weight:700;color:#666">Skeletal muscle mass</div>
+          <button onclick="obSkipSection('muscle')" id="ob-muscle-skip-btn" style="background:none;border:none;font-size:12px;color:#ADADAD;cursor:pointer;font-weight:600">Skip — add later</button>
+        </div>
+        <div id="ob-muscle-inputs">
+          <button onclick="obOpenNumpad('muscle-current','lbs')" id="ob-muscle-current-btn"
+            style="width:100%;padding:14px 16px;border:2px solid #E8E8E8;border-radius:12px;font-size:16px;font-weight:600;background:white;cursor:pointer;display:flex;align-items:center;justify-content:space-between;box-sizing:border-box;margin-bottom:10px">
+            <span id="ob-muscle-current-display" style="color:#ADADAD">Current muscle mass</span>
+            <span style="font-size:13px;color:#ADADAD;font-weight:700">lbs</span>
+          </button>
+          <button onclick="obOpenNumpad('muscle-goal','lbs')" id="ob-muscle-goal-btn"
+            style="width:100%;padding:14px 16px;border:2px solid #E8E8E8;border-radius:12px;font-size:16px;font-weight:600;background:white;cursor:pointer;display:flex;align-items:center;justify-content:space-between;box-sizing:border-box">
+            <span id="ob-muscle-goal-display" style="color:#ADADAD">Goal muscle mass</span>
+            <span style="font-size:13px;color:#ADADAD;font-weight:700">lbs</span>
+          </button>
+          <div style="font-size:12px;color:#ADADAD;margin-top:6px">Usually from an InBody scan. Skip if you don't have this yet.</div>
+        </div>
+        <div id="ob-muscle-skipped" style="display:none;padding:10px 14px;background:#F9FAFB;border-radius:10px;font-size:13px;color:#ADADAD">
+          Muscle mass tracking skipped — <button onclick="obUnskipSection('muscle')" style="background:none;border:none;color:#F97316;font-size:13px;font-weight:700;cursor:pointer;padding:0">Add it</button>
+        </div>
       </div>
 
       <div id="ob-step4-error" style="font-size:13px;color:#EF4444;margin-bottom:8px;display:none"></div>
