@@ -4189,10 +4189,19 @@ async function loadGoals() {
 }
 
 function updateGoalsDisplay() {
-  // Show name in profile display if set
-  if (userProfile?.name) {
-    document.getElementById('disp-name').textContent = userProfile.name;
-    document.getElementById('disp-name-row').style.display = 'block';
+  // Update profile display
+  if (userProfile) {
+    const ft = Math.floor((userProfile.heightIn || 69) / 12);
+    const inn = (userProfile.heightIn || 69) % 12;
+    document.getElementById('disp-height').textContent = `${ft}'${inn}"`;
+    document.getElementById('disp-age').textContent = userProfile.age || '—';
+    document.getElementById('disp-gender').textContent = userProfile.gender === 'female' ? 'Female' : 'Male';
+    const actLabels = { sedentary: 'Sedentary', light: 'Lightly Active', moderate: 'Moderately Active', active: 'Very Active', athlete: 'Athlete' };
+    document.getElementById('disp-activity').textContent = actLabels[userProfile.activity] || '—';
+    if (userProfile.name) {
+      document.getElementById('disp-name').textContent = userProfile.name;
+      document.getElementById('disp-name-row').style.display = 'block';
+    }
   }
   document.getElementById('disp-calories').textContent = userTargets.calories.toLocaleString();
   document.getElementById('disp-protein').textContent = userTargets.protein + 'g';
