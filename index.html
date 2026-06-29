@@ -2531,19 +2531,18 @@ async function loadTodayWorkouts() {
 
 function renderMealSection(meals, indices, showEmpty) {
   if (!meals.length) return showEmpty ? '<div class="empty" style="padding:10px 0;font-size:12px">Nothing logged</div>' : '';
-  return meals.map((m, si) => {
-    const i = indices[si];
+  return meals.map((m) => {
     return `<div class="meal-row">
       <div class="meal-info" style="min-width:0;flex:1">
         <div class="meal-name" style="display:flex;align-items:flex-start;gap:4px">
           <span style="flex:1;word-break:break-word">${m.name}</span>
-          <button data-edit="${i}" style="background:none;border:none;cursor:pointer;font-size:11px;color:#ADADAD;padding:0 2px;flex-shrink:0;margin-top:1px">✏️</button>
+          <button data-edit="${m.id}" style="background:none;border:none;cursor:pointer;font-size:11px;color:#ADADAD;padding:0 2px;flex-shrink:0;margin-top:1px">✏️</button>
         </div>
         <div class="meal-meta">Protein:${m.protein}g · Carbs:${m.carbs}g · Fat:${m.fat}g · Fiber:${m.fiber||0}g · Chol:${m.cholesterol||0}mg</div>
       </div>
       <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
         <span style="font-size:14px;font-weight:600;color:#111">${m.calories} kcal</span>
-        <button class="delete-btn" data-delete="${i}">×</button>
+        <button class="delete-btn" data-delete="${m.id}">×</button>
       </div>
     </div>`;
   }).join('');
@@ -2561,28 +2560,27 @@ function renderMeals() {
     { type: 'snack', label: '🍎 Snacks', icon: '🍎' },
   ];
 
-  const ungrouped = currentMeals.map((m, i) => ({ m, i })).filter(({ m }) => !m.meal_type);
+  const ungrouped = currentMeals.filter(m => !m.meal_type);
 
   let html = '';
 
   sections.forEach(({ type, label }) => {
-    const items = currentMeals.map((m, i) => ({ m, i })).filter(({ m }) => m.meal_type === type);
-    const sectionCals = items.reduce((a, { m }) => a + (+m.calories || 0), 0);
+    const items = currentMeals.filter(m => m.meal_type === type);
+    const sectionCals = items.reduce((a, m) => a + (+m.calories || 0), 0);
     html += `<div style="margin-bottom:14px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
         <div style="font-size:12px;font-weight:700;color:#666;text-transform:uppercase;letter-spacing:0.5px">${label}</div>
         ${sectionCals > 0 ? `<div style="font-size:12px;color:#ADADAD">${sectionCals} kcal</div>` : ''}
       </div>
-      ${renderMealSection(items.map(({ m }) => m), items.map(({ i }) => i), false)}
+      ${renderMealSection(items, [], false)}
       ${items.length === 0 ? '<div style="font-size:12px;color:#DADADA;padding:4px 0">Nothing logged yet</div>' : ''}
     </div>`;
   });
 
-  // Show ungrouped meals at top if any
   if (ungrouped.length) {
     html = `<div style="margin-bottom:14px">
       <div style="font-size:12px;font-weight:700;color:#666;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Other</div>
-      ${renderMealSection(ungrouped.map(({ m }) => m), ungrouped.map(({ i }) => i), false)}
+      ${renderMealSection(ungrouped, [], false)}
     </div>` + html;
   }
 
@@ -2590,12 +2588,18 @@ function renderMeals() {
 
   el.querySelectorAll('[data-edit]').forEach(btn => {
     btn.addEventListener('click', () => {
-      const m = currentMeals[+btn.dataset.edit];
+      const m = currentMeals.find(meal => meal.id === btn.dataset.edit);
+      if (!m) return;
       openEditMealModal(m.id, m.name, m.calories, m.protein, m.carbs, m.fat, m.fiber, m.cholesterol, m.meal_type, 'today');
     });
   });
   el.querySelectorAll('[data-delete]').forEach(btn => {
-    btn.addEventListener('click', () => confirmDeleteMeal(+btn.dataset.delete));
+    btn.addEventListener('click', () => {
+      const m = currentMeals.find(meal => meal.id === btn.dataset.delete);
+      if (!m) return;
+      if (!confirm(`Delete "${m.name}"?`)) return;
+      dbDelete('meals', m.id).then(() => loadTodayMeals()).then(() => toast('Meal removed'));
+    });
   });
 }
 
