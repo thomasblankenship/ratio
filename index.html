@@ -1174,37 +1174,6 @@
   </div>
 </div>
 
-<!-- Onboarding Numpad Modal -->
-<div id="ob-numpad-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10000;align-items:flex-end;justify-content:center">
-  <div style="background:white;border-radius:20px 20px 0 0;padding:24px 20px 40px;width:100%;max-width:480px">
-    <div style="text-align:center;margin-bottom:16px">
-      <div id="ob-numpad-title" style="font-size:13px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Weight</div>
-      <div style="display:flex;align-items:baseline;justify-content:center;gap:8px">
-        <div id="ob-numpad-display" style="font-size:52px;font-weight:700;color:#0F0F0F;letter-spacing:-2px;min-height:64px;line-height:1">—</div>
-        <div id="ob-numpad-unit" style="font-size:18px;font-weight:700;color:#ADADAD">lbs</div>
-      </div>
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">
-      <button class="numpad-btn" onclick="obNumpadPress('1')">1</button>
-      <button class="numpad-btn" onclick="obNumpadPress('2')">2</button>
-      <button class="numpad-btn" onclick="obNumpadPress('3')">3</button>
-      <button class="numpad-btn" onclick="obNumpadPress('4')">4</button>
-      <button class="numpad-btn" onclick="obNumpadPress('5')">5</button>
-      <button class="numpad-btn" onclick="obNumpadPress('6')">6</button>
-      <button class="numpad-btn" onclick="obNumpadPress('7')">7</button>
-      <button class="numpad-btn" onclick="obNumpadPress('8')">8</button>
-      <button class="numpad-btn" onclick="obNumpadPress('9')">9</button>
-      <button class="numpad-btn" onclick="obNumpadPress('.')">.</button>
-      <button class="numpad-btn" onclick="obNumpadPress('0')">0</button>
-      <button class="numpad-btn" onclick="obNumpadPress('del')" style="font-size:18px">⌫</button>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-      <button onclick="obNumpadCancel()" style="padding:16px;border:1px solid #E8E8E8;border-radius:12px;background:white;font-size:15px;font-weight:600;cursor:pointer">Cancel</button>
-      <button onclick="obNumpadConfirm()" style="padding:16px;border:none;border-radius:12px;background:#F97316;color:white;font-size:15px;font-weight:700;cursor:pointer">Done</button>
-    </div>
-  </div>
-</div>
-
 <div id="log-entry-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:600;align-items:flex-end;justify-content:center">
   <div style="background:white;border-radius:20px 20px 0 0;padding:24px;width:100%;max-width:520px">
     <div style="font-size:16px;font-weight:700;margin-bottom:4px" id="log-modal-title">Record Weight</div>
@@ -6092,5 +6061,36 @@ init();
 
 
 </div><!-- end app-shell -->
+
+<!-- Onboarding Numpad Modal (outside app-shell so it works while app-shell is hidden) -->
+<div id="ob-numpad-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10000;align-items:flex-end;justify-content:center">
+  <div style="background:white;border-radius:20px 20px 0 0;padding:24px 20px 40px;width:100%;max-width:480px">
+    <div style="text-align:center;margin-bottom:16px">
+      <div id="ob-numpad-title" style="font-size:13px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Weight</div>
+      <div style="display:flex;align-items:baseline;justify-content:center;gap:8px">
+        <div id="ob-numpad-display" style="font-size:52px;font-weight:700;color:#0F0F0F;letter-spacing:-2px;min-height:64px;line-height:1">—</div>
+        <div id="ob-numpad-unit" style="font-size:18px;font-weight:700;color:#ADADAD">lbs</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">
+      <button class="numpad-btn" onclick="obNumpadPress('1')">1</button>
+      <button class="numpad-btn" onclick="obNumpadPress('2')">2</button>
+      <button class="numpad-btn" onclick="obNumpadPress('3')">3</button>
+      <button class="numpad-btn" onclick="obNumpadPress('4')">4</button>
+      <button class="numpad-btn" onclick="obNumpadPress('5')">5</button>
+      <button class="numpad-btn" onclick="obNumpadPress('6')">6</button>
+      <button class="numpad-btn" onclick="obNumpadPress('7')">7</button>
+      <button class="numpad-btn" onclick="obNumpadPress('8')">8</button>
+      <button class="numpad-btn" onclick="obNumpadPress('9')">9</button>
+      <button class="numpad-btn" onclick="obNumpadPress('.')">.</button>
+      <button class="numpad-btn" onclick="obNumpadPress('0')">0</button>
+      <button class="numpad-btn" onclick="obNumpadPress('del')" style="font-size:18px">⌫</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <button onclick="obNumpadCancel()" style="padding:16px;border:1px solid #E8E8E8;border-radius:12px;background:white;font-size:15px;font-weight:600;cursor:pointer">Cancel</button>
+      <button onclick="obNumpadConfirm()" style="padding:16px;border:none;border-radius:12px;background:#F97316;color:white;font-size:15px;font-weight:700;cursor:pointer">Done</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
