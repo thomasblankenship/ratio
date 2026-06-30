@@ -1748,7 +1748,7 @@ const OB_ACTIVITY_MULTIPLIERS = {
 function obShowStep(n) {
   document.querySelectorAll('.ob-screen').forEach(el => { el.style.display = 'none'; });
   const el = document.getElementById('ob-step-' + n);
-  if (!el) return;
+  if (!el) { console.warn('[obShowStep] step element not found:', n); return; }
   el.style.display = 'flex';
   el.style.flexDirection = 'column';
   el.style.position = 'fixed';
@@ -1756,8 +1756,8 @@ function obShowStep(n) {
   el.style.left = '0';
   el.style.right = '0';
   el.style.bottom = '0';
-  el.style.width = window.innerWidth + 'px';
-  el.style.height = window.innerHeight + 'px';
+  el.style.width = '100%';
+  el.style.height = '100%';
   el.style.zIndex = '9999';
   el.style.overflowY = 'hidden';
   _obCurrentStep = n;
@@ -2687,8 +2687,14 @@ function obRestoreProgress() {
     _obActivity = snap.obActivity || null;
     _obPace = snap.obPace || null;
     document.querySelectorAll('.ob-screen').forEach(el => { el.style.display = 'none'; });
-    document.getElementById('auth-screen').style.display = 'none';
+    const authEl = document.getElementById('auth-screen');
+    if (authEl) authEl.style.display = 'none';
+    // Onboarding step screens live inside #app-shell — must be visible or they're invisible too
+    const shellEl = document.getElementById('app-shell');
+    if (shellEl) shellEl.style.display = 'block';
+    console.log('[ob_progress] calling obShowStep with', snap.step || 1);
     obShowStep(snap.step || 1);
+    console.log('[ob_progress] obShowStep returned, current display:', document.getElementById('ob-step-' + (snap.step || 1))?.style.display);
     // Restore field values once the right screen is visible
     Object.entries(snap.fields || {}).forEach(([id, val]) => {
       const el = document.getElementById(id);
