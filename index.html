@@ -573,7 +573,10 @@
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
           <div class="card-title" style="margin-bottom:0">My Meals</div>
-          <button onclick="openMealBuilder()" style="background:var(--accent);color:white;border:none;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;cursor:pointer">+ Create</button>
+          <div style="display:flex;gap:8px">
+            <button onclick="openUrlImport()" style="background:none;border:1px solid #E8E8E8;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;color:#666;cursor:pointer">🔗 URL</button>
+            <button onclick="openMealBuilder()" style="background:var(--accent);color:white;border:none;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;cursor:pointer">+ Create</button>
+          </div>
         </div>
         <div id="saved-meals-list"><div class="loading">Loading...</div></div>
       </div>
@@ -4053,19 +4056,41 @@ function closeMealBuilder() {
   document.getElementById('meal-builder-modal').style.display = 'none';
 }
 
+// Lookup map so food data never gets embedded in onclick HTML attributes
+const _mbFoodCache = {};
+let _mbFoodCacheIdx = 0;
+function _mbCacheFood(food) {
+  const key = 'f' + (_mbFoodCacheIdx++);
+  _mbFoodCache[key] = food;
+  return key;
+}
+function mbFoodBtn(food) {
+  const key = _mbCacheFood(food);
+  return `<button onclick="_mbOpenKey('${key}')" style="background:linear-gradient(135deg,#F97316,#FB7185);color:white;border:none;border-radius:14px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer">+ Add</button>`;
+}
+function _mbOpenKey(key) {
+  const food = _mbFoodCache[key];
+  if (food) mbOpenServingObj(food);
+}
+function mbOpenServingObj(food) {
+  _mbActiveFood = food;
+  document.getElementById('mb-serving-name').textContent = food.name;
+  document.getElementById('mb-serving-per').textContent = food.calories + ' kcal · ' + food.protein + 'g P per ' + food.unit;
+  document.getElementById('mb-serving-unit-label').textContent = food.unit;
+  document.getElementById('mb-serving-qty').value = '1';
+  mbUpdateServingPreview();
+  document.getElementById('mb-serving-modal').style.display = 'flex';
+}
+
 function mbRenderSavedFoods() {
   const el = document.getElementById('mb-saved-foods');
   if (!savedFoods.length) { el.innerHTML = '<div style="font-size:13px;color:#ADADAD">No saved foods yet</div>'; return; }
-  el.innerHTML = `<div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px">Your Saved Foods</div>` +
-    savedFoods.map(f => `
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #F4F4F4">
-        <div>
-          <div style="font-size:14px;font-weight:500">${f.name}</div>
-          <div style="font-size:11px;color:#ADADAD">${f.cals_per_unit || f.calories_per_unit || 0} kcal · ${f.protein_per_unit}g P per ${f.unit}</div>
-        </div>
-        <button onclick="mbOpenServing(${JSON.stringify(JSON.stringify({id:f.id,name:f.name,calories:f.cals_per_unit||f.calories_per_unit||0,protein:f.protein_per_unit,carbs:f.carbs_per_unit||0,fat:f.fat_per_unit||0,fiber:f.fiber_per_unit||0,unit:f.unit}))})"
-          style="background:linear-gradient(135deg,#F97316,#FB7185);color:white;border:none;border-radius:14px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer">+ Add</button>
-      </div>`).join('');
+  let html = '<div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px">Your Saved Foods</div>';
+  savedFoods.forEach(f => {
+    const food = {id:f.id, name:f.name, calories:f.cals_per_unit||f.calories_per_unit||0, protein:f.protein_per_unit, carbs:f.carbs_per_unit||0, fat:f.fat_per_unit||0, fiber:f.fiber_per_unit||0, unit:f.unit};
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #F4F4F4"><div><div style="font-size:14px;font-weight:500">' + f.name + '</div><div style="font-size:11px;color:#ADADAD">' + food.calories + ' kcal · ' + food.protein + 'g P per ' + food.unit + '</div></div>' + mbFoodBtn(food) + '</div>';
+  });
+  el.innerHTML = html;
 }
 
 let _mbSearchTimeout = null;
@@ -4099,28 +4124,18 @@ async function mbSearchDB(query) {
 
     let html = '';
     if (localMatches.length) {
-      html += `<div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px">Your Saved Foods</div>`;
-      html += localMatches.map(f => `
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #F4F4F4">
-          <div>
-            <div style="font-size:14px;font-weight:500">${f.name}</div>
-            <div style="font-size:11px;color:#ADADAD">${f.cals_per_unit || f.calories_per_unit || 0} kcal · ${f.protein_per_unit}g P per ${f.unit}</div>
-          </div>
-          <button onclick="mbOpenServing(${JSON.stringify(JSON.stringify({id:f.id,name:f.name,calories:f.cals_per_unit||f.calories_per_unit||0,protein:f.protein_per_unit,carbs:f.carbs_per_unit||0,fat:f.fat_per_unit||0,fiber:f.fiber_per_unit||0,unit:f.unit}))})"
-            style="background:linear-gradient(135deg,#F97316,#FB7185);color:white;border:none;border-radius:14px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer">+ Add</button>
-        </div>`).join('');
+      html += '<div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px">Your Saved Foods</div>';
+      localMatches.forEach(f => {
+        const food = {id:f.id, name:f.name, calories:f.cals_per_unit||f.calories_per_unit||0, protein:f.protein_per_unit, carbs:f.carbs_per_unit||0, fat:f.fat_per_unit||0, fiber:f.fiber_per_unit||0, unit:f.unit};
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #F4F4F4"><div><div style="font-size:14px;font-weight:500">' + f.name + '</div><div style="font-size:11px;color:#ADADAD">' + food.calories + ' kcal · ' + food.protein + 'g P per ' + food.unit + '</div></div>' + mbFoodBtn(food) + '</div>';
+      });
     }
     if (usdaResults.length) {
-      html += `<div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.8px;margin:10px 0 6px">Food Database</div>`;
-      html += usdaResults.map(f => `
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #F4F4F4">
-          <div>
-            <div style="font-size:14px;font-weight:500">${f.name}</div>
-            <div style="font-size:11px;color:#ADADAD">${f.calories} kcal · ${f.protein}g P · ${f.serving_size}</div>
-          </div>
-          <button onclick="mbOpenServing(${JSON.stringify(JSON.stringify({name:f.name,calories:f.calories,protein:f.protein,carbs:f.carbs,fat:f.fat,fiber:f.fiber||0,unit:f.serving_size}))})"
-            style="background:linear-gradient(135deg,#F97316,#FB7185);color:white;border:none;border-radius:14px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer">+ Add</button>
-        </div>`).join('');
+      html += '<div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.8px;margin:10px 0 6px">Food Database</div>';
+      usdaResults.forEach(f => {
+        const food = {name:f.name, calories:f.calories, protein:f.protein, carbs:f.carbs, fat:f.fat, fiber:f.fiber||0, unit:f.serving_size};
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #F4F4F4"><div><div style="font-size:14px;font-weight:500">' + f.name + '</div><div style="font-size:11px;color:#ADADAD">' + f.calories + ' kcal · ' + f.protein + 'g P · ' + f.serving_size + '</div></div>' + mbFoodBtn(food) + '</div>';
+      });
     }
     resultsEl.innerHTML = html;
   } catch(e) {
@@ -4128,14 +4143,91 @@ async function mbSearchDB(query) {
   }
 }
 
+function mbOpenManual() {
+  ['mb-manual-name','mb-manual-cals','mb-manual-protein','mb-manual-carbs','mb-manual-fat'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  document.getElementById('mb-manual-modal').style.display = 'flex';
+}
+
+function mbAddManual() {
+  const name = document.getElementById('mb-manual-name').value.trim();
+  if (!name) { toast('Enter an ingredient name'); return; }
+  const cals = parseFloat(document.getElementById('mb-manual-cals').value) || 0;
+  const protein = parseFloat(document.getElementById('mb-manual-protein').value) || 0;
+  const carbs = parseFloat(document.getElementById('mb-manual-carbs').value) || 0;
+  const fat = parseFloat(document.getElementById('mb-manual-fat').value) || 0;
+  _mbIngredients.push({ name, qty: 1, unit: 'serving', calories: cals, protein, carbs, fat, fiber: 0 });
+  document.getElementById('mb-manual-modal').style.display = 'none';
+  mbRenderIngredients();
+  mbUpdateTotals();
+}
+
+function openUrlImport() {
+  document.getElementById('url-import-input').value = '';
+  document.getElementById('url-import-status').style.display = 'none';
+  document.getElementById('url-import-result').style.display = 'none';
+  document.getElementById('url-import-btn').textContent = 'Import';
+  document.getElementById('url-import-btn').onclick = urlImportFetch;
+  document.getElementById('url-import-modal').style.display = 'flex';
+}
+
+async function urlImportFetch() {
+  const url = document.getElementById('url-import-input').value.trim();
+  if (!url) { toast('Enter a URL'); return; }
+  const statusEl = document.getElementById('url-import-status');
+  const btn = document.getElementById('url-import-btn');
+  statusEl.textContent = 'Fetching recipe...';
+  statusEl.style.display = 'block';
+  btn.textContent = 'Loading...';
+  btn.disabled = true;
+  try {
+    const res = await fetch(`${WORKER_URL}/recipe-url`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url })
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    // Show result
+    document.getElementById('url-import-meal-name').textContent = data.name || 'Imported Recipe';
+    document.getElementById('url-import-macros').textContent = `${data.calories} kcal · ${data.protein}g P · ${data.carbs}g C · ${data.fat}g F per serving`;
+    document.getElementById('url-import-ingredients').innerHTML = (data.ingredients || []).map(i =>
+      `<div>• ${i.name}${i.amount ? ' — ' + i.amount : ''}</div>`).join('');
+    document.getElementById('url-import-result').style.display = 'block';
+    statusEl.textContent = 'Recipe found! Review and save as a meal.';
+    btn.textContent = 'Save as Meal';
+    btn.disabled = false;
+    btn.onclick = () => urlImportSave(data);
+  } catch(e) {
+    statusEl.textContent = 'Could not import recipe — try a different URL.';
+    btn.textContent = 'Try Again';
+    btn.disabled = false;
+    btn.onclick = urlImportFetch;
+  }
+}
+
+async function urlImportSave(data) {
+  // Pre-fill the meal builder with imported data
+  document.getElementById('url-import-modal').style.display = 'none';
+  _mbIngredients = (data.ingredients || []).map(ing => ({
+    name: ing.name,
+    qty: 1,
+    unit: ing.amount || 'serving',
+    calories: ing.calories || 0,
+    protein: ing.protein || 0,
+    carbs: ing.carbs || 0,
+    fat: ing.fat || 0,
+    fiber: ing.fiber || 0
+  }));
+  document.getElementById('meal-builder-name').value = data.name || '';
+  mbRenderIngredients();
+  mbUpdateTotals();
+  document.getElementById('meal-builder-modal').style.display = 'flex';
+}
+
 function mbOpenServing(jsonStr) {
-  _mbActiveFood = JSON.parse(jsonStr);
-  document.getElementById('mb-serving-name').textContent = _mbActiveFood.name;
-  document.getElementById('mb-serving-per').textContent = `${_mbActiveFood.calories} kcal · ${_mbActiveFood.protein}g P per ${_mbActiveFood.unit}`;
-  document.getElementById('mb-serving-unit-label').textContent = _mbActiveFood.unit;
-  document.getElementById('mb-serving-qty').value = '1';
-  mbUpdateServingPreview();
-  document.getElementById('mb-serving-modal').style.display = 'flex';
+  mbOpenServingObj(JSON.parse(jsonStr));
 }
 
 function mbUpdateServingPreview() {
@@ -6879,7 +6971,10 @@ if (document.readyState === 'loading') {
     <div id="mb-ingredients-list" style="margin-bottom:16px"></div>
 
     <!-- Search -->
-    <div style="font-size:13px;font-weight:700;color:#0F0F0F;margin-bottom:8px">Add Ingredient</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div style="font-size:13px;font-weight:700;color:#0F0F0F">Add Ingredient</div>
+      <button onclick="mbOpenManual()" style="background:none;border:1px solid #E8E8E8;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;color:#666;cursor:pointer">+ Manual</button>
+    </div>
     <div style="position:relative;margin-bottom:10px">
       <input type="text" id="mb-search-input" placeholder="🔍 Search saved foods or database..."
         style="width:100%;padding:10px 12px;border:1px solid #E8E8E8;border-radius:10px;font-size:14px;outline:none;box-sizing:border-box"
@@ -6911,6 +7006,44 @@ if (document.readyState === 'loading') {
     <div style="display:flex;gap:10px">
       <button onclick="document.getElementById('mb-serving-modal').style.display='none'" style="flex:1;padding:14px;border:1px solid #E8E8E8;border-radius:12px;background:white;font-size:15px;font-weight:600;cursor:pointer">Cancel</button>
       <button onclick="mbAddIngredient()" style="flex:1;padding:14px;border:none;border-radius:12px;background:var(--accent);color:white;font-size:15px;font-weight:700;cursor:pointer">Add</button>
+    </div>
+  </div>
+</div>
+
+<!-- MEAL BUILDER MANUAL INGREDIENT MODAL -->
+<div id="mb-manual-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:900;align-items:flex-end;justify-content:center">
+  <div style="background:white;border-radius:20px 20px 0 0;padding:24px 20px 40px;width:100%;max-width:480px">
+    <div style="font-size:16px;font-weight:700;margin-bottom:16px">Add Ingredient Manually</div>
+    <input type="text" id="mb-manual-name" placeholder="Ingredient name" style="width:100%;padding:12px;border:1.5px solid #E8E8E8;border-radius:10px;font-size:15px;outline:none;box-sizing:border-box;margin-bottom:10px" />
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+      <div><div style="font-size:11px;font-weight:600;color:#ADADAD;margin-bottom:4px">Calories</div><input type="number" id="mb-manual-cals" placeholder="0" inputmode="decimal" style="width:100%;padding:10px;border:1.5px solid #E8E8E8;border-radius:10px;font-size:15px;outline:none;box-sizing:border-box" /></div>
+      <div><div style="font-size:11px;font-weight:600;color:#ADADAD;margin-bottom:4px">Protein (g)</div><input type="number" id="mb-manual-protein" placeholder="0" inputmode="decimal" style="width:100%;padding:10px;border:1.5px solid #E8E8E8;border-radius:10px;font-size:15px;outline:none;box-sizing:border-box" /></div>
+      <div><div style="font-size:11px;font-weight:600;color:#ADADAD;margin-bottom:4px">Carbs (g)</div><input type="number" id="mb-manual-carbs" placeholder="0" inputmode="decimal" style="width:100%;padding:10px;border:1.5px solid #E8E8E8;border-radius:10px;font-size:15px;outline:none;box-sizing:border-box" /></div>
+      <div><div style="font-size:11px;font-weight:600;color:#ADADAD;margin-bottom:4px">Fat (g)</div><input type="number" id="mb-manual-fat" placeholder="0" inputmode="decimal" style="width:100%;padding:10px;border:1.5px solid #E8E8E8;border-radius:10px;font-size:15px;outline:none;box-sizing:border-box" /></div>
+    </div>
+    <div style="display:flex;gap:10px">
+      <button onclick="document.getElementById('mb-manual-modal').style.display='none'" style="flex:1;padding:14px;border:1px solid #E8E8E8;border-radius:12px;background:white;font-size:15px;font-weight:600;cursor:pointer">Cancel</button>
+      <button onclick="mbAddManual()" style="flex:1;padding:14px;border:none;border-radius:12px;background:var(--accent);color:white;font-size:15px;font-weight:700;cursor:pointer">Add</button>
+    </div>
+  </div>
+</div>
+
+<!-- URL RECIPE IMPORT MODAL -->
+<div id="url-import-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:900;align-items:flex-end;justify-content:center">
+  <div style="background:white;border-radius:20px 20px 0 0;padding:24px 20px 40px;width:100%;max-width:480px">
+    <div style="font-size:16px;font-weight:700;margin-bottom:6px">Import Recipe from URL</div>
+    <div style="font-size:13px;color:#ADADAD;margin-bottom:16px">Paste a recipe URL and we'll extract the ingredients and nutrition info.</div>
+    <input type="url" id="url-import-input" placeholder="https://..." inputmode="url"
+      style="width:100%;padding:12px 14px;border:1.5px solid #E8E8E8;border-radius:10px;font-size:15px;outline:none;box-sizing:border-box;margin-bottom:10px" />
+    <div id="url-import-status" style="font-size:13px;color:#ADADAD;margin-bottom:12px;display:none"></div>
+    <div id="url-import-result" style="display:none;background:#F9FAFB;border-radius:12px;padding:14px;margin-bottom:14px">
+      <div id="url-import-meal-name" style="font-size:15px;font-weight:700;margin-bottom:6px"></div>
+      <div id="url-import-macros" style="font-size:12px;color:#ADADAD;margin-bottom:10px"></div>
+      <div id="url-import-ingredients" style="font-size:13px;color:#444;line-height:1.6"></div>
+    </div>
+    <div style="display:flex;gap:10px">
+      <button onclick="document.getElementById('url-import-modal').style.display='none'" style="flex:1;padding:14px;border:1px solid #E8E8E8;border-radius:12px;background:white;font-size:15px;font-weight:600;cursor:pointer">Cancel</button>
+      <button id="url-import-btn" onclick="urlImportFetch()" style="flex:1;padding:14px;border:none;border-radius:12px;background:var(--accent);color:white;font-size:15px;font-weight:700;cursor:pointer">Import</button>
     </div>
   </div>
 </div>
