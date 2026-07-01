@@ -1921,6 +1921,14 @@ function obSelectPace(pace) {
   } else {
     warnEl.style.display = 'none';
   }
+  // Live preview — update calories and goal date as user selects pace
+  const plan = obCalcPlan();
+  const previewPanel = document.getElementById('ob-pace-preview');
+  const previewCals = document.getElementById('ob-pace-preview-cals');
+  const previewDate = document.getElementById('ob-pace-preview-date');
+  if (previewPanel) previewPanel.style.display = 'flex';
+  if (previewCals) previewCals.textContent = plan.calories.toLocaleString() + ' cal/day';
+  if (previewDate) previewDate.textContent = plan.goalDateStr ? '🎯 Goal: ' + plan.goalDateStr : '';
   obSaveProgress();
 }
 
@@ -6399,6 +6407,14 @@ if (document.readyState === 'loading') {
       <div style="font-size:26px;font-weight:800;color:#0F0F0F;letter-spacing:-0.5px;margin-bottom:20px" id="ob-pace-title">What is your weekly goal?</div>
       <div id="ob-pace-options" style="display:flex;flex-direction:column;gap:8px"></div>
       <div id="ob-step6-warning" style="font-size:13px;color:#F97316;margin-top:12px;padding:10px 14px;background:#FFF7ED;border-radius:10px;display:none"></div>
+      <!-- Live preview -->
+      <div id="ob-pace-preview" style="margin-top:16px;padding:14px 16px;background:#F9FAFB;border-radius:12px;display:none;flex-direction:column;gap:4px">
+        <div style="font-size:12px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Your plan</div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div id="ob-pace-preview-cals" style="font-size:20px;font-weight:800;color:#F97316"></div>
+          <div id="ob-pace-preview-date" style="font-size:13px;font-weight:600;color:#666"></div>
+        </div>
+      </div>
     </div>
     <div style="padding:20px 24px 40px;display:flex;gap:10px">
       <button onclick="obBack(6)" style="padding:16px 20px;border:1px solid #E8E8E8;border-radius:14px;background:white;font-size:20px;cursor:pointer">←</button>
