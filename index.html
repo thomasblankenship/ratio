@@ -286,7 +286,7 @@
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
           <div>
             <div style="font-size:11px;font-weight:700;color:#F97316;text-transform:uppercase;letter-spacing:1px">Today's Goal</div>
-            <div style="font-size:13px;color:#666;margin-top:2px">2,250 kcal target</div>
+            <div style="font-size:13px;color:#666;margin-top:2px" id="today-goal-target">2,250 kcal target</div>
           </div>
           <div id="score-inline"></div>
         </div>
@@ -1552,12 +1552,15 @@ function toggleMealForm() {
 // ===== UNIFIED FOOD SEARCH (Dashboard + History) =====
 // Renders local matches (My Meals / Saved Foods) INSTANTLY, then streams in
 // Food Database (USDA) results a moment later without blocking the UI.
+// A request sequence guard ensures a slow response for an earlier keystroke
+// can never overwrite the results of a later, faster-finishing keystroke.
 let _dashMealSearchTimeout = null;
+let _searchReqId = 0;
 function dashMealSearch(query) {
   clearTimeout(_dashMealSearchTimeout);
   const el = document.getElementById('dash-meal-results');
   if (!query || query.length < 2) { el.style.display = 'none'; return; }
-  _dashMealSearchTimeout = setTimeout(() => _runFoodSearch(query, 'dash'), 150);
+  _dashMealSearchTimeout = setTimeout(() => _runFoodSearch(query, 'dash'), 120);
 }
 
 let _histMealSearchTimeout = null;
@@ -1565,7 +1568,7 @@ function histMealSearch(query) {
   clearTimeout(_histMealSearchTimeout);
   const el = document.getElementById('hist-meal-results');
   if (!query || query.length < 2) { el.style.display = 'none'; return; }
-  _histMealSearchTimeout = setTimeout(() => _runFoodSearch(query, 'hist'), 150);
+  _histMealSearchTimeout = setTimeout(() => _runFoodSearch(query, 'hist'), 120);
 }
 
 const _dashPickCache = {};
@@ -1623,16 +1626,19 @@ function _renderLocalMatches(query, ctx) {
 
 async function _runFoodSearch(query, ctx) {
   const el = document.getElementById(ctx === 'dash' ? 'dash-meal-results' : 'hist-meal-results');
+  const myReqId = ++_searchReqId;
   try {
     // Data should already be loaded eagerly at appInit — only await if genuinely missing
     if (!savedFoods.length) savedFoods = await dbGet('saved_foods', 'order=name.asc') || [];
     if (!savedMeals.length) savedMeals = await dbGet('saved_meals', 'order=created_at.desc') || [];
+    if (myReqId !== _searchReqId) return; // a newer keystroke has already started a search
 
     // Show local matches immediately — no waiting on network
     _renderLocalMatches(query, ctx);
 
     // Fetch database results in the background and slot them in when ready
     const usdaData = await fetch(`${WORKER_URL}/search?q=${encodeURIComponent(query)}`).then(r => r.json()).catch(() => ({ results: [] }));
+    if (myReqId !== _searchReqId) return; // stale response — a newer search superseded this one, discard
     const usdaResults = (usdaData.results || []).slice(0, 6);
     const slot = document.getElementById(`${ctx}-usda-slot`);
     if (!slot) return; // user already closed/changed the search
@@ -3543,6 +3549,8 @@ function updateMacroBars(t) {
   const offset = circumference - (calPct * circumference);
   document.getElementById('cal-ring-fill').style.strokeDashoffset = offset;
   document.getElementById('ring-cals').textContent = t.calories;
+  const goalTargetEl = document.getElementById('today-goal-target');
+  if (goalTargetEl) goalTargetEl.textContent = TARGETS.calories.toLocaleString() + ' kcal target';
 
   // Burned from workouts
   const burned = currentWorkouts.reduce((a, w) => a + (+w.calories||0), 0);
@@ -4414,6 +4422,7 @@ function mbRenderSavedFoods() {
 }
 
 let _mbSearchTimeout = null;
+let _mbSearchReqId = 0;
 function mbSearchInput(query) {
   clearTimeout(_mbSearchTimeout);
   const resultsEl = document.getElementById('mb-search-results');
@@ -4427,7 +4436,7 @@ function mbSearchInput(query) {
   resultsEl.style.display = 'block';
   // Render local matches immediately (no waiting on network)
   mbRenderLocalMatches(query);
-  _mbSearchTimeout = setTimeout(() => mbSearchDB(query), 150);
+  _mbSearchTimeout = setTimeout(() => mbSearchDB(query), 120);
 }
 
 function mbRenderLocalMatches(query) {
@@ -4446,9 +4455,11 @@ function mbRenderLocalMatches(query) {
 }
 
 async function mbSearchDB(query) {
+  const myReqId = ++_mbSearchReqId;
   try {
     const res = await fetch(`${WORKER_URL}/search?q=${encodeURIComponent(query)}`);
     const data = await res.json();
+    if (myReqId !== _mbSearchReqId) return; // a newer keystroke already superseded this search
     const usdaResults = data.results || [];
     const slot = document.getElementById('mb-usda-slot');
     if (!slot) return; // search box changed/closed already
