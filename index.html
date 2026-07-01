@@ -569,7 +569,14 @@
     <!-- MEALS -->
     <div id="tab-meals" style="display:none">
 
-      <!-- MY FOODS -->
+      <!-- MY MEALS -->
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+          <div class="card-title" style="margin-bottom:0">My Meals</div>
+          <button onclick="openMealBuilder()" style="background:var(--accent);color:white;border:none;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;cursor:pointer">+ Create</button>
+        </div>
+        <div id="saved-meals-list"><div class="loading">Loading...</div></div>
+      </div>
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
           <div class="card-title" style="margin-bottom:0">My Foods</div>
@@ -3880,24 +3887,39 @@ async function testWorker() {
 async function searchFoodDatabase(query) {
   const resultsEl = document.getElementById('food-search-results');
   try {
-    // Search local saved foods first
-    const localMatches = savedFoods.filter(f => f.name.toLowerCase().includes(query.toLowerCase()));
+    const q = query.toLowerCase();
+    const localMatches = savedFoods.filter(f => f.name.toLowerCase().includes(q));
+    const mealMatches = savedMeals.filter(m => m.name.toLowerCase().includes(q));
 
     // Search USDA via Worker
     const res = await fetch(`${WORKER_URL}/search?q=${encodeURIComponent(query)}`);
     const data = await res.json();
     const usdaResults = data.results || [];
 
-    if (!localMatches.length && !usdaResults.length) {
+    if (!localMatches.length && !mealMatches.length && !usdaResults.length) {
       resultsEl.innerHTML = '<div style="color:#ADADAD;font-size:13px;padding:8px 0">No results found — try scanning or adding manually</div>';
       return;
     }
 
     let html = '';
 
-    // Local saved foods first
+    // My Meals first
+    if (mealMatches.length) {
+      html += `<div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px">My Meals</div>`;
+      html += mealMatches.map(m => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #F4F4F4">
+          <div>
+            <div style="font-size:14px;font-weight:500">${m.name}</div>
+            <div style="font-size:11px;color:#ADADAD">${m.calories} kcal · ${m.protein}g P · ${m.carbs}g C · ${m.fat}g F</div>
+            <div style="font-size:11px;color:#ADADAD">${(m.ingredients||[]).length} ingredient${(m.ingredients||[]).length !== 1 ? 's' : ''}</div>
+          </div>
+          <button type="button" onclick="logSavedMeal('${m.id}')" style="background:linear-gradient(135deg,#F97316,#FB7185);color:white;border:none;border-radius:14px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer">+ Log</button>
+        </div>`).join('');
+    }
+
+    // Local saved foods
     if (localMatches.length) {
-      html += `<div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px">Your Saved Foods</div>`;
+      html += `<div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.8px;margin:${mealMatches.length ? '10px' : '0'} 0 6px">Your Saved Foods</div>`;
       html += localMatches.map(f => `
         <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #F4F4F4">
           <div>
@@ -3950,11 +3972,266 @@ async function logSearchResult(jsonStr) {
 }
 
 // MEALS TAB
-let savedFoods = [];
-let activeFoodForModal = null;
+let savedMeals = [];
 
 async function loadMealsTab() {
-  await loadSavedFoods();
+  await Promise.all([loadSavedMeals(), loadSavedFoods()]);
+}
+
+// ---- MY MEALS ----
+async function loadSavedMeals() {
+  savedMeals = await dbGet('saved_meals', 'order=created_at.desc');
+  renderSavedMeals();
+}
+
+function renderSavedMeals() {
+  const el = document.getElementById('saved-meals-list');
+  if (!el) return;
+  if (!savedMeals.length) {
+    el.innerHTML = '<div class="empty">No meals saved yet — tap + Create to build your first meal</div>';
+    return;
+  }
+  el.innerHTML = savedMeals.map(m => `
+    <div class="meal-row">
+      <div class="meal-info">
+        <div class="meal-name">${m.name}</div>
+        <div class="meal-meta">${m.calories} kcal · ${m.protein}g P · ${m.carbs}g C · ${m.fat}g F</div>
+        <div style="font-size:11px;color:#ADADAD;margin-top:2px">${(m.ingredients||[]).length} ingredient${(m.ingredients||[]).length !== 1 ? 's' : ''}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button onclick="logSavedMeal('${m.id}')" style="background:var(--accent);color:white;border:none;border-radius:16px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer">+ Log</button>
+        <button onclick="deleteSavedMeal('${m.id}')" style="background:none;border:none;color:#E8E8E8;cursor:pointer;font-size:20px;line-height:1">×</button>
+      </div>
+    </div>`).join('');
+}
+
+async function deleteSavedMeal(id) {
+  if (!confirm('Delete this meal?')) return;
+  await dbDelete('saved_meals', id);
+  savedMeals = savedMeals.filter(m => m.id !== id);
+  renderSavedMeals();
+}
+
+async function logSavedMeal(id) {
+  const meal = savedMeals.find(m => m.id === id);
+  if (!meal) return;
+  const type = window._selectedMealType || 'breakfast';
+  await dbPost('meals', {
+    date: today,
+    meal_type: type,
+    name: meal.name,
+    calories: meal.calories,
+    protein: meal.protein,
+    carbs: meal.carbs,
+    fat: meal.fat,
+    fiber: meal.fiber || 0,
+    cholesterol: 0,
+    serving_size: '1 serving',
+    serving_qty: 1
+  });
+  toast(`"${meal.name}" logged to ${type} ✓`);
+  switchTab('dashboard');
+}
+
+// ---- MEAL BUILDER ----
+let _mbIngredients = [];
+let _mbActiveFood = null;
+
+function openMealBuilder() {
+  _mbIngredients = [];
+  _mbActiveFood = null;
+  document.getElementById('meal-builder-name').value = '';
+  document.getElementById('mb-search-input').value = '';
+  document.getElementById('mb-search-results').style.display = 'none';
+  mbRenderIngredients();
+  mbUpdateTotals();
+  mbRenderSavedFoods();
+  document.getElementById('meal-builder-modal').style.display = 'flex';
+}
+
+function closeMealBuilder() {
+  document.getElementById('meal-builder-modal').style.display = 'none';
+}
+
+function mbRenderSavedFoods() {
+  const el = document.getElementById('mb-saved-foods');
+  if (!savedFoods.length) { el.innerHTML = '<div style="font-size:13px;color:#ADADAD">No saved foods yet</div>'; return; }
+  el.innerHTML = `<div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px">Your Saved Foods</div>` +
+    savedFoods.map(f => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #F4F4F4">
+        <div>
+          <div style="font-size:14px;font-weight:500">${f.name}</div>
+          <div style="font-size:11px;color:#ADADAD">${f.cals_per_unit || f.calories_per_unit || 0} kcal · ${f.protein_per_unit}g P per ${f.unit}</div>
+        </div>
+        <button onclick="mbOpenServing(${JSON.stringify(JSON.stringify({id:f.id,name:f.name,calories:f.cals_per_unit||f.calories_per_unit||0,protein:f.protein_per_unit,carbs:f.carbs_per_unit||0,fat:f.fat_per_unit||0,fiber:f.fiber_per_unit||0,unit:f.unit}))})"
+          style="background:linear-gradient(135deg,#F97316,#FB7185);color:white;border:none;border-radius:14px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer">+ Add</button>
+      </div>`).join('');
+}
+
+let _mbSearchTimeout = null;
+function mbSearchInput(query) {
+  clearTimeout(_mbSearchTimeout);
+  const resultsEl = document.getElementById('mb-search-results');
+  const savedEl = document.getElementById('mb-saved-foods');
+  if (!query || query.length < 2) {
+    resultsEl.style.display = 'none';
+    savedEl.style.display = 'block';
+    return;
+  }
+  savedEl.style.display = 'none';
+  resultsEl.style.display = 'block';
+  resultsEl.innerHTML = '<div style="color:#ADADAD;font-size:13px;padding:8px 0">Searching...</div>';
+  _mbSearchTimeout = setTimeout(() => mbSearchDB(query), 400);
+}
+
+async function mbSearchDB(query) {
+  const resultsEl = document.getElementById('mb-search-results');
+  try {
+    const localMatches = savedFoods.filter(f => f.name.toLowerCase().includes(query.toLowerCase()));
+    const res = await fetch(`${WORKER_URL}/search?q=${encodeURIComponent(query)}`);
+    const data = await res.json();
+    const usdaResults = data.results || [];
+
+    if (!localMatches.length && !usdaResults.length) {
+      resultsEl.innerHTML = '<div style="color:#ADADAD;font-size:13px;padding:8px 0">No results found</div>';
+      return;
+    }
+
+    let html = '';
+    if (localMatches.length) {
+      html += `<div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px">Your Saved Foods</div>`;
+      html += localMatches.map(f => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #F4F4F4">
+          <div>
+            <div style="font-size:14px;font-weight:500">${f.name}</div>
+            <div style="font-size:11px;color:#ADADAD">${f.cals_per_unit || f.calories_per_unit || 0} kcal · ${f.protein_per_unit}g P per ${f.unit}</div>
+          </div>
+          <button onclick="mbOpenServing(${JSON.stringify(JSON.stringify({id:f.id,name:f.name,calories:f.cals_per_unit||f.calories_per_unit||0,protein:f.protein_per_unit,carbs:f.carbs_per_unit||0,fat:f.fat_per_unit||0,fiber:f.fiber_per_unit||0,unit:f.unit}))})"
+            style="background:linear-gradient(135deg,#F97316,#FB7185);color:white;border:none;border-radius:14px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer">+ Add</button>
+        </div>`).join('');
+    }
+    if (usdaResults.length) {
+      html += `<div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.8px;margin:10px 0 6px">Food Database</div>`;
+      html += usdaResults.map(f => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #F4F4F4">
+          <div>
+            <div style="font-size:14px;font-weight:500">${f.name}</div>
+            <div style="font-size:11px;color:#ADADAD">${f.calories} kcal · ${f.protein}g P · ${f.serving_size}</div>
+          </div>
+          <button onclick="mbOpenServing(${JSON.stringify(JSON.stringify({name:f.name,calories:f.calories,protein:f.protein,carbs:f.carbs,fat:f.fat,fiber:f.fiber||0,unit:f.serving_size}))})"
+            style="background:linear-gradient(135deg,#F97316,#FB7185);color:white;border:none;border-radius:14px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer">+ Add</button>
+        </div>`).join('');
+    }
+    resultsEl.innerHTML = html;
+  } catch(e) {
+    resultsEl.innerHTML = '<div style="color:#ADADAD;font-size:13px;padding:8px 0">Search unavailable</div>';
+  }
+}
+
+function mbOpenServing(jsonStr) {
+  _mbActiveFood = JSON.parse(jsonStr);
+  document.getElementById('mb-serving-name').textContent = _mbActiveFood.name;
+  document.getElementById('mb-serving-per').textContent = `${_mbActiveFood.calories} kcal · ${_mbActiveFood.protein}g P per ${_mbActiveFood.unit}`;
+  document.getElementById('mb-serving-unit-label').textContent = _mbActiveFood.unit;
+  document.getElementById('mb-serving-qty').value = '1';
+  mbUpdateServingPreview();
+  document.getElementById('mb-serving-modal').style.display = 'flex';
+}
+
+function mbUpdateServingPreview() {
+  const qty = parseFloat(document.getElementById('mb-serving-qty').value) || 1;
+  const f = _mbActiveFood;
+  if (!f) return;
+  const r = v => Math.round(v * qty * 10) / 10;
+  document.getElementById('mb-preview-cals').textContent = Math.round(f.calories * qty);
+  document.getElementById('mb-preview-protein').textContent = r(f.protein) + 'g';
+  document.getElementById('mb-preview-carbs').textContent = r(f.carbs) + 'g';
+  document.getElementById('mb-preview-fat').textContent = r(f.fat) + 'g';
+}
+
+function mbAddIngredient() {
+  const qty = parseFloat(document.getElementById('mb-serving-qty').value) || 1;
+  const f = _mbActiveFood;
+  if (!f) return;
+  const r = v => Math.round(v * qty * 10) / 10;
+  _mbIngredients.push({
+    name: f.name,
+    qty,
+    unit: f.unit,
+    calories: Math.round(f.calories * qty),
+    protein: r(f.protein),
+    carbs: r(f.carbs),
+    fat: r(f.fat),
+    fiber: r(f.fiber || 0)
+  });
+  document.getElementById('mb-serving-modal').style.display = 'none';
+  document.getElementById('mb-search-input').value = '';
+  document.getElementById('mb-search-results').style.display = 'none';
+  document.getElementById('mb-saved-foods').style.display = 'block';
+  mbRenderIngredients();
+  mbUpdateTotals();
+}
+
+function mbRemoveIngredient(idx) {
+  _mbIngredients.splice(idx, 1);
+  mbRenderIngredients();
+  mbUpdateTotals();
+}
+
+function mbRenderIngredients() {
+  const el = document.getElementById('mb-ingredients-list');
+  if (!_mbIngredients.length) {
+    el.innerHTML = '<div style="font-size:13px;color:#ADADAD;padding:8px 0">No ingredients yet — search below to add</div>';
+    return;
+  }
+  el.innerHTML = _mbIngredients.map((ing, i) => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #F4F4F4">
+      <div>
+        <div style="font-size:14px;font-weight:500">${ing.name}</div>
+        <div style="font-size:11px;color:#ADADAD">${ing.qty} ${ing.unit} · ${ing.calories} kcal · ${ing.protein}g P</div>
+      </div>
+      <button onclick="mbRemoveIngredient(${i})" style="background:none;border:none;color:#E8E8E8;cursor:pointer;font-size:20px;line-height:1;padding:0 4px">×</button>
+    </div>`).join('');
+}
+
+function mbUpdateTotals() {
+  const totals = _mbIngredients.reduce((acc, ing) => {
+    acc.calories += ing.calories;
+    acc.protein += ing.protein;
+    acc.carbs += ing.carbs;
+    acc.fat += ing.fat;
+    return acc;
+  }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
+  document.getElementById('mb-total-cals').textContent = totals.calories;
+  document.getElementById('mb-total-protein').textContent = Math.round(totals.protein * 10) / 10 + 'g';
+  document.getElementById('mb-total-carbs').textContent = Math.round(totals.carbs * 10) / 10 + 'g';
+  document.getElementById('mb-total-fat').textContent = Math.round(totals.fat * 10) / 10 + 'g';
+}
+
+async function saveMeal() {
+  const name = document.getElementById('meal-builder-name').value.trim();
+  if (!name) { toast('Enter a meal name'); return; }
+  if (!_mbIngredients.length) { toast('Add at least one ingredient'); return; }
+  const totals = _mbIngredients.reduce((acc, ing) => {
+    acc.calories += ing.calories;
+    acc.protein += ing.protein;
+    acc.carbs += ing.carbs;
+    acc.fat += ing.fat;
+    acc.fiber += (ing.fiber || 0);
+    return acc;
+  }, { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 });
+  await dbPost('saved_meals', {
+    name,
+    ingredients: _mbIngredients,
+    calories: Math.round(totals.calories),
+    protein: Math.round(totals.protein * 10) / 10,
+    carbs: Math.round(totals.carbs * 10) / 10,
+    fat: Math.round(totals.fat * 10) / 10,
+    fiber: Math.round(totals.fiber * 10) / 10
+  });
+  toast(`"${name}" saved ✓`);
+  closeMealBuilder();
+  await loadSavedMeals();
 }
 
 async function loadSavedFoods() {
@@ -6560,6 +6837,83 @@ if (document.readyState === 'loading') {
 
 </div>
 
+
+<!-- MEAL BUILDER MODAL -->
+<div id="meal-builder-modal" style="display:none;position:fixed;inset:0;background:white;z-index:800;flex-direction:column">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #F4F4F4">
+    <button onclick="closeMealBuilder()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#0F0F0F;padding:0">←</button>
+    <div style="font-size:16px;font-weight:700">Create Meal</div>
+    <button onclick="saveMeal()" style="background:var(--accent);color:white;border:none;border-radius:20px;padding:6px 16px;font-size:13px;font-weight:700;cursor:pointer">Save</button>
+  </div>
+
+  <div style="flex:1;overflow-y:auto;padding:20px">
+    <!-- Meal name -->
+    <input type="text" id="meal-builder-name" placeholder="Meal name (e.g. Chicken Rice Bowl)"
+      style="width:100%;padding:14px 16px;border:1.5px solid #E8E8E8;border-radius:12px;font-size:16px;outline:none;box-sizing:border-box;margin-bottom:16px;font-weight:600" />
+
+    <!-- Macro totals -->
+    <div style="background:#FFF7ED;border-radius:14px;padding:14px 16px;margin-bottom:16px">
+      <div style="font-size:11px;font-weight:700;color:#F97316;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Totals</div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="text-align:center">
+          <div style="font-size:22px;font-weight:800;color:#0F0F0F" id="mb-total-cals">0</div>
+          <div style="font-size:11px;color:#ADADAD;font-weight:600">kcal</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:18px;font-weight:700;color:#0F0F0F" id="mb-total-protein">0g</div>
+          <div style="font-size:11px;color:#ADADAD;font-weight:600">Protein</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:18px;font-weight:700;color:#0F0F0F" id="mb-total-carbs">0g</div>
+          <div style="font-size:11px;color:#ADADAD;font-weight:600">Carbs</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:18px;font-weight:700;color:#0F0F0F" id="mb-total-fat">0g</div>
+          <div style="font-size:11px;color:#ADADAD;font-weight:600">Fat</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Ingredients list -->
+    <div style="font-size:13px;font-weight:700;color:#0F0F0F;margin-bottom:10px">Ingredients</div>
+    <div id="mb-ingredients-list" style="margin-bottom:16px"></div>
+
+    <!-- Search -->
+    <div style="font-size:13px;font-weight:700;color:#0F0F0F;margin-bottom:8px">Add Ingredient</div>
+    <div style="position:relative;margin-bottom:10px">
+      <input type="text" id="mb-search-input" placeholder="🔍 Search saved foods or database..."
+        style="width:100%;padding:10px 12px;border:1px solid #E8E8E8;border-radius:10px;font-size:14px;outline:none;box-sizing:border-box"
+        oninput="mbSearchInput(this.value)" />
+    </div>
+    <div id="mb-search-results" style="display:none;margin-bottom:12px"></div>
+    <div id="mb-saved-foods" style="margin-bottom:12px"></div>
+  </div>
+</div>
+
+<!-- MEAL BUILDER SERVING MODAL -->
+<div id="mb-serving-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:900;align-items:flex-end;justify-content:center">
+  <div style="background:white;border-radius:20px 20px 0 0;padding:24px 20px 40px;width:100%;max-width:480px">
+    <div style="font-size:16px;font-weight:700;margin-bottom:4px" id="mb-serving-name"></div>
+    <div style="font-size:12px;color:#ADADAD;margin-bottom:16px" id="mb-serving-per"></div>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+      <div style="font-size:13px;font-weight:600;color:#666;white-space:nowrap">Qty</div>
+      <input type="number" id="mb-serving-qty" value="1" min="0.1" step="0.1" inputmode="decimal"
+        style="flex:1;padding:12px;border:1.5px solid #E8E8E8;border-radius:10px;font-size:18px;font-weight:700;text-align:center;outline:none"
+        oninput="mbUpdateServingPreview()" />
+      <div style="font-size:13px;font-weight:600;color:#666" id="mb-serving-unit-label"></div>
+    </div>
+    <div style="background:#F9FAFB;border-radius:10px;padding:12px;margin-bottom:20px;display:flex;justify-content:space-around">
+      <div style="text-align:center"><div style="font-size:16px;font-weight:700" id="mb-preview-cals">0</div><div style="font-size:11px;color:#ADADAD">kcal</div></div>
+      <div style="text-align:center"><div style="font-size:16px;font-weight:700" id="mb-preview-protein">0g</div><div style="font-size:11px;color:#ADADAD">Protein</div></div>
+      <div style="text-align:center"><div style="font-size:16px;font-weight:700" id="mb-preview-carbs">0g</div><div style="font-size:11px;color:#ADADAD">Carbs</div></div>
+      <div style="text-align:center"><div style="font-size:16px;font-weight:700" id="mb-preview-fat">0g</div><div style="font-size:11px;color:#ADADAD">Fat</div></div>
+    </div>
+    <div style="display:flex;gap:10px">
+      <button onclick="document.getElementById('mb-serving-modal').style.display='none'" style="flex:1;padding:14px;border:1px solid #E8E8E8;border-radius:12px;background:white;font-size:15px;font-weight:600;cursor:pointer">Cancel</button>
+      <button onclick="mbAddIngredient()" style="flex:1;padding:14px;border:none;border-radius:12px;background:var(--accent);color:white;font-size:15px;font-weight:700;cursor:pointer">Add</button>
+    </div>
+  </div>
+</div>
 
 <!-- DAILY CHECK-IN MODAL -->
 <div id="checkin-modal" style="display:none;position:fixed;inset:0;z-index:950;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px)">
