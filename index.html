@@ -2558,17 +2558,16 @@ async function handleSignUp() {
         console.log('[handleSignUp] newUserId:', newUserId);
         if (newUserId) {
           try {
-            const sbRes = await fetch(`${SUPABASE_URL}/rest/v1/user_settings?on_conflict=user_id,key`, {
+            const sbRes = await fetch(`${WORKER_URL}/save-pending`, {
               method: 'POST',
-              headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates,return=minimal' },
-              body: JSON.stringify({ user_id: newUserId, key: 'pending_onboarding', value: pendingData })
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ user_id: newUserId, data: pendingData })
             });
-            console.log('[handleSignUp] pending_onboarding Supabase save status:', sbRes.status);
-            if (!sbRes.ok) { const t = await sbRes.text(); console.error('[handleSignUp] Supabase save failed:', t); }
-            else { console.log('[handleSignUp] pending_onboarding also saved to Supabase for uid:', newUserId); }
-          } catch(e) { console.warn('Could not save pending to Supabase:', e); }
+            const sbJson = await sbRes.json();
+            console.log('[handleSignUp] /save-pending result:', sbJson);
+          } catch(e) { console.warn('Could not save pending via worker:', e); }
         } else {
-          console.warn('[handleSignUp] No user ID available for Supabase backup');
+          console.warn('[handleSignUp] No user ID available for worker save');
         }
       } catch(e) { console.warn('Could not save pending plan:', e); }
       obClearProgress();
