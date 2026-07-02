@@ -2800,11 +2800,42 @@ async function handleSignUp() {
           obActivity: _obActivity,
           obPace: _obPace
         };
-        await setPendingOnboarding(pendingData);
-        console.log('[handleSignUp] pending_onboarding saved. weight:', weight, 'calories:', pendingPlan.calories, 'name:', name);
-        // Also save to Supabase with the new user's ID so it survives localStorage clearing
+
         const newUserId = data.user?.id || data.id;
         console.log('[handleSignUp] newUserId:', newUserId);
+
+        // Upload all starting photos in PARALLEL while we still have the File objects in memory —
+        // sequential uploads were the main source of the multi-second delay here.
+        const photoKeys = Object.keys(_obPhotos);
+        console.log('[handleSignUp] _obPhotos keys:', photoKeys);
+        if (photoKeys.length > 0 && newUserId) {
+          if (btn) btn.textContent = `Uploading ${photoKeys.length} photo${photoKeys.length > 1 ? 's' : ''}...`;
+          const photoDate = document.getElementById('ob-photo-date')?.value || new Date().toISOString().slice(0,10);
+          const uploadResults = await Promise.allSettled(
+            Object.entries(_obPhotos).map(async ([angle, file]) => {
+              const path = `${photoDate}/${angle}.jpg`;
+              const res = await fetch(`${SUPABASE_URL}/storage/v1/object/progress-photos/${path}`, {
+                method: 'POST',
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'image/jpeg', 'x-upsert': 'true' },
+                body: file
+              });
+              if (!res.ok) throw new Error(`upload failed for ${angle}: ${res.status}`);
+              const url = `${SUPABASE_URL}/storage/v1/object/public/progress-photos/${path}`;
+              return { angle, url, date: photoDate };
+            })
+          );
+          const uploadedPhotos = uploadResults.filter(r => r.status === 'fulfilled').map(r => r.value);
+          uploadResults.forEach((r, i) => { if (r.status === 'rejected') console.warn('[handleSignUp] photo upload failed:', Object.keys(_obPhotos)[i], r.reason); });
+          console.log('[handleSignUp] photos uploaded:', uploadedPhotos.length, 'of', photoKeys.length);
+          if (uploadedPhotos.length > 0) pendingData.startingPhotos = uploadedPhotos;
+          _obPhotos = {};
+        }
+
+        if (btn) btn.textContent = 'Finishing up...';
+        await setPendingOnboarding(pendingData);
+        console.log('[handleSignUp] pending_onboarding saved. weight:', weight, 'calories:', pendingPlan.calories, 'name:', name);
+
+        // Single save to Supabase (via worker, service role) — includes photo URLs if any were uploaded
         if (newUserId) {
           try {
             const sbRes = await fetch(`${WORKER_URL}/save-pending`, {
@@ -2815,41 +2846,6 @@ async function handleSignUp() {
             const sbJson = await sbRes.json();
             console.log('[handleSignUp] /save-pending result:', sbJson);
           } catch(e) { console.warn('Could not save pending via worker:', e); }
-
-          // Upload starting photos now while we still have the File objects in memory
-          console.log('[handleSignUp] _obPhotos keys:', Object.keys(_obPhotos));
-          if (Object.keys(_obPhotos).length > 0) {
-            const photoDate = document.getElementById('ob-photo-date')?.value || new Date().toISOString().slice(0,10);
-            const uploadedPhotos = [];
-            for (const [angle, file] of Object.entries(_obPhotos)) {
-              try {
-                const path = `${photoDate}/${angle}.jpg`;
-                const res = await fetch(`${SUPABASE_URL}/storage/v1/object/progress-photos/${path}`, {
-                  method: 'POST',
-                  headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'image/jpeg', 'x-upsert': 'true' },
-                  body: file
-                });
-                if (res.ok) {
-                  const url = `${SUPABASE_URL}/storage/v1/object/public/progress-photos/${path}`;
-                  uploadedPhotos.push({ angle, url, date: photoDate });
-                  console.log('[handleSignUp] photo uploaded:', angle);
-                } else { console.warn('[handleSignUp] photo upload failed:', angle, res.status); }
-              } catch(e) { console.warn('[handleSignUp] photo upload error:', angle, e); }
-            }
-            // Save photo URLs back to pending so they get inserted into progress_photos on login
-            if (uploadedPhotos.length > 0) {
-              pendingData.startingPhotos = uploadedPhotos;
-              try {
-                await fetch(`${WORKER_URL}/save-pending`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ user_id: newUserId, data: pendingData })
-                });
-                console.log('[handleSignUp] pending updated with', uploadedPhotos.length, 'photo URLs');
-              } catch(e) { console.warn('Could not update pending with photos:', e); }
-            }
-            _obPhotos = {};
-          }
         } else {
           console.warn('[handleSignUp] No user ID available for worker save');
         }
@@ -3126,19 +3122,20 @@ async function obFinish() {
   // Called from step 9 "Let's Start Tracking" button - upload starting photos then go to welcome screen
   document.querySelectorAll('.ob-screen').forEach(el => { el.style.display = 'none'; });
 
-  // Upload each angle photo collected during onboarding
+  // Upload all angle photos in parallel
   if (_currentUser && Object.keys(_obPhotos).length > 0) {
     const date = document.getElementById('ob-photo-date')?.value || new Date().toISOString().slice(0,10);
-    for (const [angle, file] of Object.entries(_obPhotos)) {
-      try {
+    const results = await Promise.allSettled(
+      Object.entries(_obPhotos).map(async ([angle, file]) => {
         const path = `${date}/${angle}.jpg`;
         const uploadRes = await storageUpload('progress-photos', path, file);
-        if (!uploadRes.error) {
-          const url = storageUrl('progress-photos', path) + '?t=' + Date.now();
-          await dbPost('progress_photos', { date, photo_url: url, angle, notes: 'Starting photo' });
-        }
-      } catch(e) { console.warn(`Starting photo upload failed (${angle}):`, e); }
-    }
+        if (uploadRes.error) throw new Error(uploadRes.error);
+        const url = storageUrl('progress-photos', path) + '?t=' + Date.now();
+        await dbPost('progress_photos', { date, photo_url: url, angle, notes: 'Starting photo' });
+        return angle;
+      })
+    );
+    results.forEach((r, i) => { if (r.status === 'rejected') console.warn(`Starting photo upload failed (${Object.keys(_obPhotos)[i]}):`, r.reason); });
     _obPhotos = {};
   }
 
