@@ -2302,7 +2302,7 @@ async function obNext(step) {
 
   if (step === 4) {
     const weight = parseFloat(document.getElementById('ob-weight').value);
-    if (!weight || weight < 50 || weight > 500) { if (errEl) { errEl.textContent = 'Please enter a valid weight.'; errEl.style.display = 'block'; } return; }
+    if (!weight || weight < 50 || weight > 700) { if (errEl) { errEl.textContent = 'Please enter a valid weight.'; errEl.style.display = 'block'; } return; }
     if (_obGoalType !== 'maintain') {
       const goalWeight = parseFloat(document.getElementById('ob-goal-weight').value);
       if (goalWeight) {
