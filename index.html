@@ -4561,18 +4561,47 @@ function mbOpenManual() {
   ['mb-manual-name','mb-manual-cals','mb-manual-protein','mb-manual-carbs','mb-manual-fat','mb-manual-fiber'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
+  document.getElementById('mb-manual-qty').value = '1';
+  document.getElementById('mb-manual-unit-select').value = 'g';
+
+  // Build unit wheel, same pattern used everywhere else in the app
+  const container = document.getElementById('mb-manual-unit-scroll');
+  container.innerHTML = '';
+  const units = [...FOOD_ALL_UNITS];
+  const itemH = 40;
+  const top = document.createElement('div'); top.style.minHeight = itemH + 'px'; container.appendChild(top);
+  units.forEach(u => {
+    const el = document.createElement('div');
+    el.style.cssText = `min-height:${itemH}px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;scroll-snap-align:center;color:#0F0F0F;`;
+    el.textContent = u;
+    container.appendChild(el);
+  });
+  const bot = document.createElement('div'); bot.style.minHeight = itemH + 'px'; container.appendChild(bot);
+  const startIdx = units.indexOf('g');
+  if (startIdx >= 0) setTimeout(() => { container.scrollTop = startIdx * itemH; }, 100);
+  let scrollT;
+  container.onscroll = () => {
+    clearTimeout(scrollT);
+    scrollT = setTimeout(() => {
+      const idx = Math.min(Math.round(container.scrollTop / itemH), units.length - 1);
+      document.getElementById('mb-manual-unit-select').value = units[idx];
+    }, 80);
+  };
+
   document.getElementById('mb-manual-modal').style.display = 'flex';
 }
 
 function mbAddManual() {
   const name = document.getElementById('mb-manual-name').value.trim();
   if (!name) { toast('Enter an ingredient name'); return; }
+  const qty = parseFloat(document.getElementById('mb-manual-qty').value) || 1;
+  const unit = document.getElementById('mb-manual-unit-select')?.value || 'g';
   const cals = parseFloat(document.getElementById('mb-manual-cals').value) || 0;
   const protein = parseFloat(document.getElementById('mb-manual-protein').value) || 0;
   const carbs = parseFloat(document.getElementById('mb-manual-carbs').value) || 0;
   const fat = parseFloat(document.getElementById('mb-manual-fat').value) || 0;
   const fiber = parseFloat(document.getElementById('mb-manual-fiber').value) || 0;
-  _mbIngredients.push({ name, qty: 1, unit: 'serving', calories: cals, protein, carbs, fat, fiber });
+  _mbIngredients.push({ name, qty, unit, calories: cals, protein, carbs, fat, fiber });
   document.getElementById('mb-manual-modal').style.display = 'none';
   mbRenderIngredients();
   mbUpdateTotals();
@@ -7590,9 +7619,25 @@ if (document.readyState === 'loading') {
 
 <!-- MEAL BUILDER MANUAL INGREDIENT MODAL -->
 <div id="mb-manual-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:900;align-items:flex-end;justify-content:center">
-  <div style="background:white;border-radius:20px 20px 0 0;padding:24px 20px 40px;width:100%;max-width:480px">
+  <div style="background:white;border-radius:20px 20px 0 0;padding:24px;width:100%;max-width:520px">
     <div style="font-size:16px;font-weight:700;margin-bottom:16px">Add Ingredient Manually</div>
-    <input type="text" id="mb-manual-name" placeholder="Ingredient name" style="width:100%;padding:12px;border:1.5px solid #E8E8E8;border-radius:10px;font-size:15px;outline:none;box-sizing:border-box;margin-bottom:10px" />
+    <input type="text" id="mb-manual-name" placeholder="Ingredient name" style="width:100%;padding:12px;border:1.5px solid #E8E8E8;border-radius:10px;font-size:15px;outline:none;box-sizing:border-box;margin-bottom:14px" />
+
+    <div style="margin-bottom:12px">
+      <div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Amount</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <input type="number" min="0" id="mb-manual-qty" placeholder="1" value="1" step="0.1"
+          style="width:100%;padding:10px 12px;border:1px solid #E8E8E8;border-radius:8px;font-size:16px;font-weight:600;outline:none;box-sizing:border-box" />
+        <div style="background:white;border-radius:10px;overflow:hidden;border:1px solid #E8E8E8;position:relative">
+          <div style="font-size:10px;color:#ADADAD;text-align:center;padding:4px 0;border-bottom:1px solid #F4F4F4">Unit</div>
+          <div id="mb-manual-unit-scroll" style="height:120px;overflow-y:scroll;scroll-snap-type:y mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none"></div>
+          <div style="pointer-events:none;position:absolute;left:0;right:0;height:40px;top:64px;border-top:1px solid #F97316;border-bottom:1px solid #F97316;background:rgba(249,115,22,0.06)"></div>
+        </div>
+        <input type="hidden" id="mb-manual-unit-select" value="serving" />
+      </div>
+      <div style="font-size:11px;color:#ADADAD;margin-top:6px">Nutrition below should reflect this amount</div>
+    </div>
+
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
       <div><div style="font-size:11px;font-weight:600;color:#ADADAD;margin-bottom:4px">Calories</div><input type="number" id="mb-manual-cals" placeholder="0" inputmode="decimal" style="width:100%;padding:10px;border:1.5px solid #E8E8E8;border-radius:10px;font-size:15px;outline:none;box-sizing:border-box" /></div>
       <div><div style="font-size:11px;font-weight:600;color:#ADADAD;margin-bottom:4px">Protein (g)</div><input type="number" id="mb-manual-protein" placeholder="0" inputmode="decimal" style="width:100%;padding:10px;border:1.5px solid #E8E8E8;border-radius:10px;font-size:15px;outline:none;box-sizing:border-box" /></div>
