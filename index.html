@@ -2678,6 +2678,13 @@ function showAuthTab(tab) {
 }
 
 function startSignup() {
+  // Critical safety: clear any residual authenticated session before starting
+  // a new account. Without this, if someone is already signed in and starts
+  // a fresh signup in the same tab, any save that fires before the new
+  // account's real session takes over could silently overwrite the
+  // ALREADY-signed-in person's real data instead of the new account's.
+  _currentUser = null;
+  _authToken = null;
   document.getElementById('auth-screen').style.display = 'none';
   document.querySelectorAll('.ob-screen').forEach(el => { el.style.display = 'none'; });
   obShowStep(1);
@@ -2740,6 +2747,25 @@ async function handleLogin() {
       } catch(e) { console.warn('Could not fetch pending from Supabase:', e); }
     }
     console.log('[handleLogin] pending_onboarding exists:', !!pending, pending ? JSON.parse(pending)?.profile?.name : 'none');
+    // CRITICAL SAFETY CHECK: pending onboarding data is stored locally on the
+    // device, not scoped to any particular account. If a DIFFERENT signup was
+    // left incomplete on this device/browser (e.g. hit an email verification
+    // limit), its leftover pending data must never be applied to whoever logs
+    // in next. Only apply it to an account that doesn't have a profile yet —
+    // and only if the pending data's own user_id (if present) matches.
+    if (pending && profile) {
+      console.warn('[handleLogin] Ignoring pending_onboarding — this account already has a profile. This pending data belongs to a different, incomplete signup.');
+      pending = null;
+    }
+    if (pending) {
+      try {
+        const p = JSON.parse(pending);
+        if (p.userId && _currentUser?.id && p.userId !== _currentUser.id) {
+          console.warn('[handleLogin] Ignoring pending_onboarding — it belongs to a different user_id than the one currently signed in.');
+          pending = null;
+        }
+      } catch(e) { /* fall through, JSON.parse below will also fail and be caught */ }
+    }
     if (pending) {
       try {
         const p = JSON.parse(pending);
@@ -2923,6 +2949,7 @@ async function handleSignUp() {
         };
         newUserId = data.user?.id || data.id;
         console.log('[handleSignUp] newUserId:', newUserId);
+        pendingData.userId = newUserId;
 
         // Save the essential data locally right away — this is fast (no network) and is
         // what protects the core profile/targets/goals if the tab gets interrupted next.
@@ -3318,6 +3345,15 @@ async function appInit() {
       } catch(e) { console.warn('Could not fetch pending from Supabase:', e); }
     }
     console.log('[appInit] pending_onboarding exists:', !!pending);
+    if (pending) {
+      try {
+        const p = JSON.parse(pending);
+        if (p.userId && _currentUser?.id && p.userId !== _currentUser.id) {
+          console.warn('[appInit] Ignoring pending_onboarding — it belongs to a different user_id than the one currently signed in.');
+          pending = null;
+        }
+      } catch(e) { /* fall through, JSON.parse below will also fail and be caught */ }
+    }
     if (pending && _currentUser) {
         try {
           const p = JSON.parse(pending);
