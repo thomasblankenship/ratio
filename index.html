@@ -4282,8 +4282,9 @@ function openLogMealModal(id) {
   if (!meal) return;
   _logMealId = id;
   document.getElementById('log-meal-name').textContent = meal.name;
-  const count = (meal.ingredients || []).length;
-  document.getElementById('log-meal-ingredients-count').textContent = `${count} ingredient${count !== 1 ? 's' : ''}`;
+  document.getElementById('log-meal-per').textContent = `${meal.calories} kcal per 1 serving`;
+  document.getElementById('log-meal-qty').value = '1';
+  buildUnitWheel('log-meal-unit-scroll', 'log-meal-unit', 'serving', updateLogMealPreview);
 
   const defaultType = window._modalLogDate ? (window._selectedHistMealType || 'breakfast') : (window._selectedMealType || 'breakfast');
   document.querySelectorAll('.log-meal-type-btn').forEach(b => {
@@ -4294,15 +4295,21 @@ function openLogMealModal(id) {
   });
   window._logMealType = defaultType;
 
-  document.getElementById('log-meal-fields').innerHTML = nutritionCardHTML('log-meal', { skipName: true, skipServing: true });
-  document.getElementById('log-meal-cals').value = meal.calories || 0;
-  document.getElementById('log-meal-protein').value = meal.protein || 0;
-  document.getElementById('log-meal-carbs').value = meal.carbs || 0;
-  document.getElementById('log-meal-fat').value = meal.fat || 0;
-  document.getElementById('log-meal-fiber').value = meal.fiber || 0;
-  document.getElementById('log-meal-cholesterol').value = 0;
-
+  updateLogMealPreview();
   document.getElementById('log-meal-modal').style.display = 'flex';
+}
+
+function updateLogMealPreview() {
+  const meal = savedMeals.find(m => m.id === _logMealId);
+  if (!meal) return;
+  const qty = parseFloat(document.getElementById('log-meal-qty').value) || 0;
+  const r = v => Math.round((v || 0) * qty * 10) / 10;
+  document.getElementById('log-meal-preview-cals').textContent = Math.round((meal.calories || 0) * qty);
+  document.getElementById('log-meal-preview-protein').textContent = r(meal.protein);
+  document.getElementById('log-meal-preview-carbs').textContent = r(meal.carbs);
+  document.getElementById('log-meal-preview-fat').textContent = r(meal.fat);
+  document.getElementById('log-meal-preview-fiber').textContent = r(meal.fiber);
+  document.getElementById('log-meal-preview-chol').textContent = 0;
 }
 
 function selectLogMealType(type, btn) {
@@ -4318,18 +4325,21 @@ function selectLogMealType(type, btn) {
 async function confirmLogSavedMeal() {
   const meal = savedMeals.find(m => m.id === _logMealId);
   if (!meal) return;
+  const qty = parseFloat(document.getElementById('log-meal-qty').value) || 1;
+  const unit = document.getElementById('log-meal-unit')?.value || 'serving';
   const type = window._logMealType || 'breakfast';
   const targetDate = window._modalLogDate || today;
+  const label = (unit === 'serving' && qty === 1) ? meal.name : `${meal.name} (${qty} ${unit})`;
   await dbPost('meals', {
     date: targetDate,
     meal_type: type,
-    name: meal.name,
-    calories: +document.getElementById('log-meal-cals').value || 0,
-    protein: +document.getElementById('log-meal-protein').value || 0,
-    carbs: +document.getElementById('log-meal-carbs').value || 0,
-    fat: +document.getElementById('log-meal-fat').value || 0,
-    fiber: +document.getElementById('log-meal-fiber').value || 0,
-    cholesterol: +document.getElementById('log-meal-cholesterol').value || 0,
+    name: label,
+    calories: Math.round((meal.calories || 0) * qty),
+    protein: Math.round((meal.protein || 0) * qty * 10) / 10,
+    carbs: Math.round((meal.carbs || 0) * qty * 10) / 10,
+    fat: Math.round((meal.fat || 0) * qty * 10) / 10,
+    fiber: Math.round((meal.fiber || 0) * qty * 10) / 10,
+    cholesterol: 0,
     time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   });
   document.getElementById('log-meal-modal').style.display = 'none';
@@ -7651,24 +7661,41 @@ if (document.readyState === 'loading') {
 <!-- LOG MEAL MODAL (My Meals -> +Log) -->
 <div id="log-meal-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:900;align-items:flex-end;justify-content:center">
   <div style="background:white;border-radius:20px 20px 0 0;padding:24px;width:100%;max-width:520px">
-    <div style="font-size:16px;font-weight:700;margin-bottom:4px" id="log-meal-name"></div>
-    <div style="font-size:12px;color:#ADADAD;margin-bottom:14px" id="log-meal-ingredients-count"></div>
-
-    <div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Meal Type</div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:14px">
-      <button class="log-meal-type-btn" type="button" data-type="breakfast" onclick="selectLogMealType('breakfast',this)" style="padding:8px 4px;border:1px solid #F97316;border-radius:8px;background:#FFF7ED;color:#F97316;font-size:11px;font-weight:600;cursor:pointer">🍳 Breakfast</button>
-      <button class="log-meal-type-btn" type="button" data-type="lunch" onclick="selectLogMealType('lunch',this)" style="padding:8px 4px;border:1px solid #E8E8E8;border-radius:8px;background:white;color:#666;font-size:11px;font-weight:600;cursor:pointer">🥗 Lunch</button>
-      <button class="log-meal-type-btn" type="button" data-type="dinner" onclick="selectLogMealType('dinner',this)" style="padding:8px 4px;border:1px solid #E8E8E8;border-radius:8px;background:white;color:#666;font-size:11px;font-weight:600;cursor:pointer">🍽️ Dinner</button>
-      <button class="log-meal-type-btn" type="button" data-type="snack" onclick="selectLogMealType('snack',this)" style="padding:8px 4px;border:1px solid #E8E8E8;border-radius:8px;background:white;color:#666;font-size:11px;font-weight:600;cursor:pointer">🍎 Snack</button>
+    <div style="font-size:16px;font-weight:700;color:#0F0F0F;margin-bottom:4px" id="log-meal-name"></div>
+    <div style="font-size:12px;color:#ADADAD;margin-bottom:16px" id="log-meal-per"></div>
+    <div style="margin-bottom:12px">
+      <div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Amount</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <input type="number" min="0" id="log-meal-qty" placeholder="1" value="1" step="0.1" oninput="updateLogMealPreview()"
+          style="width:100%;padding:10px 12px;border:1px solid #E8E8E8;border-radius:8px;font-size:16px;font-weight:600;outline:none;box-sizing:border-box" />
+        <div style="background:white;border-radius:10px;overflow:hidden;border:1px solid #E8E8E8;position:relative">
+          <div style="font-size:10px;color:#ADADAD;text-align:center;padding:4px 0;border-bottom:1px solid #F4F4F4">Unit</div>
+          <div id="log-meal-unit-scroll" style="height:120px;overflow-y:scroll;scroll-snap-type:y mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none"></div>
+          <div style="pointer-events:none;position:absolute;left:0;right:0;height:40px;top:64px;border-top:1px solid #F97316;border-bottom:1px solid #F97316;background:rgba(249,115,22,0.06)"></div>
+        </div>
+        <input type="hidden" id="log-meal-unit" value="serving" />
+      </div>
     </div>
-
-    <div style="background:#FFF7ED;border-radius:10px;padding:14px;margin-bottom:14px">
-      <div id="log-meal-fields"></div>
+    <div style="background:#FFF7ED;border-radius:10px;padding:12px;margin-bottom:16px;display:grid;grid-template-columns:repeat(6,1fr);text-align:center">
+      <div><div style="font-size:15px;font-weight:700;color:#F97316" id="log-meal-preview-cals">0</div><div style="font-size:9px;color:#ADADAD">kcal</div></div>
+      <div><div style="font-size:15px;font-weight:700;color:#F97316" id="log-meal-preview-protein">0</div><div style="font-size:9px;color:#ADADAD">protein</div></div>
+      <div><div style="font-size:15px;font-weight:700;color:#FB7185" id="log-meal-preview-carbs">0</div><div style="font-size:9px;color:#ADADAD">carbs</div></div>
+      <div><div style="font-size:15px;font-weight:700;color:#FBBF24" id="log-meal-preview-fat">0</div><div style="font-size:9px;color:#ADADAD">fat</div></div>
+      <div><div style="font-size:15px;font-weight:700;color:#16A34A" id="log-meal-preview-fiber">0</div><div style="font-size:9px;color:#ADADAD">fiber</div></div>
+      <div><div style="font-size:15px;font-weight:700;color:#8B5CF6" id="log-meal-preview-chol">0</div><div style="font-size:9px;color:#ADADAD">chol mg</div></div>
     </div>
-
-    <div style="display:flex;gap:10px">
-      <button onclick="document.getElementById('log-meal-modal').style.display='none'" style="flex:1;padding:14px;border:1px solid #E8E8E8;border-radius:12px;background:white;font-size:15px;font-weight:600;cursor:pointer">Cancel</button>
-      <button onclick="confirmLogSavedMeal()" style="flex:1;padding:14px;border:none;border-radius:12px;background:var(--accent);color:white;font-size:15px;font-weight:700;cursor:pointer">Log Now</button>
+    <div style="margin-bottom:12px">
+      <div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Add to</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">
+        <button type="button" class="log-meal-type-btn active" data-type="breakfast" onclick="selectLogMealType('breakfast',this)" style="padding:8px 4px;border:1px solid #F97316;border-radius:8px;background:#FFF7ED;color:#F97316;font-size:10px;font-weight:600;cursor:pointer">🍳 Breakfast</button>
+        <button type="button" class="log-meal-type-btn" data-type="lunch" onclick="selectLogMealType('lunch',this)" style="padding:8px 4px;border:1px solid #E8E8E8;border-radius:8px;background:white;color:#666;font-size:10px;font-weight:600;cursor:pointer">🥗 Lunch</button>
+        <button type="button" class="log-meal-type-btn" data-type="dinner" onclick="selectLogMealType('dinner',this)" style="padding:8px 4px;border:1px solid #E8E8E8;border-radius:8px;background:white;color:#666;font-size:10px;font-weight:600;cursor:pointer">🍽️ Dinner</button>
+        <button type="button" class="log-meal-type-btn" data-type="snack" onclick="selectLogMealType('snack',this)" style="padding:8px 4px;border:1px solid #E8E8E8;border-radius:8px;background:white;color:#666;font-size:10px;font-weight:600;cursor:pointer">🍎 Snack</button>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <button class="btn btn-secondary" onclick="document.getElementById('log-meal-modal').style.display='none'" style="background:#F4F4F4;color:#0F0F0F">Cancel</button>
+      <button class="btn" onclick="confirmLogSavedMeal()">Add to Today</button>
     </div>
   </div>
 </div>
