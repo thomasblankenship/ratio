@@ -2802,11 +2802,27 @@ async function handleLogin() {
   }
 }
 
-// Runs after the verify-email screen is already showing — uploads starting
-// photos and syncs the final pending data to Supabase via the worker, without
-// blocking the screen transition the user sees.
-async function _finishSignUpInBackground(pendingData, newUserId) {
+// Runs after the verify-email screen is already showing — claims the username,
+// uploads starting photos, and syncs the final pending data to Supabase via
+// the worker, without blocking the screen transition the user sees.
+async function _finishSignUpInBackground(pendingData, newUserId, username) {
   try {
+    // Claim the username so it's usable for the very first sign-in — done
+    // here (detached) rather than blocking the UI, since it's a network call
+    // and every extra awaited network call before the verify screen shows is
+    // another chance for the person to background the tab mid-flow.
+    if (newUserId && username) {
+      try {
+        const claimRes = await fetch(`${WORKER_URL}/claim-username`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: newUserId, username })
+        });
+        const claimData = await claimRes.json();
+        console.log('[bgFinish] username claim result:', claimData);
+      } catch(e) { console.warn('[bgFinish] username claim request failed:', e); }
+    }
+
     const photoKeys = Object.keys(_obPhotos);
     console.log('[bgFinish] _obPhotos keys:', photoKeys);
     if (photoKeys.length > 0) {
@@ -2908,21 +2924,6 @@ async function handleSignUp() {
         newUserId = data.user?.id || data.id;
         console.log('[handleSignUp] newUserId:', newUserId);
 
-        // Claim the username right now so it's usable for the very first
-        // sign-in — don't wait for the post-verification pending-data merge,
-        // since a username that doesn't exist yet can't be signed in with.
-        if (newUserId && username) {
-          try {
-            const claimRes = await fetch(`${WORKER_URL}/claim-username`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ user_id: newUserId, username })
-            });
-            const claimData = await claimRes.json();
-            console.log('[handleSignUp] username claim result:', claimData);
-          } catch(e) { console.warn('[handleSignUp] username claim request failed:', e); }
-        }
-
         // Save the essential data locally right away — this is fast (no network) and is
         // what protects the core profile/targets/goals if the tab gets interrupted next.
         await setPendingOnboarding(pendingData);
@@ -2939,9 +2940,9 @@ async function handleSignUp() {
       document.getElementById('auth-verify-panel').style.display = 'flex';
       document.getElementById('auth-verify-email-text').textContent = `We sent a verification link to ${email}. Click it to activate your account, then sign in.`;
 
-      // Continue photo upload + Supabase worker sync in the background, not blocking the screen transition.
+      // Continue username claim + photo upload + Supabase worker sync in the background, not blocking the screen transition.
       if (pendingData && newUserId) {
-        _finishSignUpInBackground(pendingData, newUserId);
+        _finishSignUpInBackground(pendingData, newUserId, username);
       }
     }
   } catch(e) {
