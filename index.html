@@ -4644,7 +4644,10 @@ async function urlImportFetch() {
     btn.disabled = false;
     btn.onclick = () => urlImportSave(data);
   } catch(e) {
-    statusEl.textContent = 'Could not import recipe — try a different URL.';
+    console.error('[urlImportFetch] error:', e);
+    statusEl.textContent = e.message && e.message !== 'Failed to fetch'
+      ? e.message
+      : 'Could not import recipe — try a different URL.';
     btn.textContent = 'Try Again';
     btn.disabled = false;
     btn.onclick = urlImportFetch;
