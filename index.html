@@ -389,35 +389,8 @@
             <div id="dash-meal-results" onmousedown="event.preventDefault()"
               style="display:none;position:absolute;left:0;right:0;top:100%;background:white;border:1px solid #E8E8E8;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.1);z-index:200;max-height:280px;overflow-y:auto;-webkit-overflow-scrolling:touch;margin-top:4px"></div>
           </div>
-          <div class="form-row form-group">
-            <div>
-              <div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Calories</div>
-              <input type="number" id="meal-cals" placeholder="0" min="0" step="1" inputmode="numeric" oninput="this.value=this.value.replace(/[^0-9]/g,'');if(this.value<0)this.value=0">
-            </div>
-            <div>
-              <div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Protein (g)</div>
-              <input type="number" id="meal-protein" placeholder="0" min="0" step="0.1" onblur="if(+this.value<0)this.value=0;this.value=Math.round(+this.value*10)/10||0">
-            </div>
-          </div>
-          <div class="form-row form-group">
-            <div>
-              <div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Carbs (g)</div>
-              <input type="number" id="meal-carbs" placeholder="0" min="0" step="0.1" onblur="if(+this.value<0)this.value=0;this.value=Math.round(+this.value*10)/10||0">
-            </div>
-            <div>
-              <div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Fat (g)</div>
-              <input type="number" id="meal-fat" placeholder="0" min="0" step="0.1" onblur="if(+this.value<0)this.value=0;this.value=Math.round(+this.value*10)/10||0">
-            </div>
-          </div>
-          <div class="form-row form-group">
-            <div>
-              <div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Fiber (g)</div>
-              <input type="number" id="meal-fiber" placeholder="0" min="0" step="0.1" onblur="if(+this.value<0)this.value=0;this.value=Math.round(+this.value*10)/10||0">
-            </div>
-            <div>
-              <div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Cholesterol (mg)</div>
-              <input type="number" id="meal-cholesterol" placeholder="0" min="0" step="1" onblur="if(+this.value<0)this.value=0;this.value=Math.round(+this.value)||0">
-            </div>
+          <div style="background:#FFF7ED;border-radius:10px;padding:14px;margin-bottom:12px">
+            <div id="meal-nutrition-fields"></div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px">
             <button class="btn" onclick="saveFoodFromForm()" style="background:var(--gray-100);color:var(--black)">Save Food</button>
@@ -528,35 +501,8 @@
               <div id="hist-meal-results" onmousedown="event.preventDefault()"
                 style="display:none;position:absolute;left:0;right:0;top:100%;background:white;border:1px solid #E8E8E8;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.1);z-index:200;max-height:280px;overflow-y:auto;-webkit-overflow-scrolling:touch;margin-top:4px"></div>
             </div>
-            <div class="form-row form-group">
-              <div>
-                <div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Calories</div>
-                <input type="number" id="hist-meal-cals" placeholder="0" min="0" step="1" inputmode="numeric" oninput="this.value=this.value.replace(/[^0-9]/g,'');if(this.value<0)this.value=0">
-              </div>
-              <div>
-                <div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Protein (g)</div>
-                <input type="number" id="hist-meal-protein" placeholder="0" min="0" step="0.1" onblur="if(+this.value<0)this.value=0;this.value=Math.round(+this.value*10)/10||0">
-              </div>
-            </div>
-            <div class="form-row form-group">
-              <div>
-                <div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Carbs (g)</div>
-                <input type="number" id="hist-meal-carbs" placeholder="0" min="0" step="0.1" onblur="if(+this.value<0)this.value=0;this.value=Math.round(+this.value*10)/10||0">
-              </div>
-              <div>
-                <div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Fat (g)</div>
-                <input type="number" id="hist-meal-fat" placeholder="0" min="0" step="0.1" onblur="if(+this.value<0)this.value=0;this.value=Math.round(+this.value*10)/10||0">
-              </div>
-            </div>
-            <div class="form-row form-group">
-              <div>
-                <div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Fiber (g)</div>
-                <input type="number" id="hist-meal-fiber" placeholder="0" min="0" step="0.1" onblur="if(+this.value<0)this.value=0;this.value=Math.round(+this.value*10)/10||0">
-              </div>
-              <div>
-                <div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Cholesterol (mg)</div>
-                <input type="number" id="hist-meal-cholesterol" placeholder="0" min="0" step="1" onblur="if(+this.value<0)this.value=0;this.value=Math.round(+this.value)||0">
-              </div>
+            <div style="background:#FFF7ED;border-radius:10px;padding:14px;margin-bottom:12px">
+              <div id="hist-meal-nutrition-fields"></div>
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px">
               <button class="btn" onclick="saveHistFoodFromForm()" style="background:var(--gray-100);color:var(--black)">Save Food</button>
@@ -614,57 +560,9 @@
             <button onclick="toggleAddFood()" style="background:var(--accent);color:white;border:none;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;cursor:pointer">+ Add</button>
           </div>
         </div>
-        <div id="add-food-form" style="display:none;background:var(--gray-50);border-radius:10px;padding:12px;margin-bottom:12px">
-          <div class="form-group"><input type="text" id="food-name" placeholder="Food name (e.g. Chicken Breast)" /></div>
-          <div class="form-row form-group">
-            <div>
-              <div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Calories per serving</div>
-              <input type="number" id="food-cals" placeholder="0" min="0" step="1" inputmode="numeric" oninput="this.value=this.value.replace(/[^0-9]/g,'');if(this.value<0)this.value=0">
-            </div>
-            <div>
-              <div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Serving size</div>
-              <div style="display:flex;gap:6px">
-                <input type="number" id="food-serving-qty" placeholder="1" min="0.1" step="0.1" inputmode="decimal" style="width:70px;padding:10px 8px;border:1px solid #E8E8E8;border-radius:8px;font-size:14px;outline:none;text-align:center" />
-                <select id="food-unit" style="flex:1;padding:10px 8px;border:1px solid #E8E8E8;border-radius:8px;font-size:14px;outline:none;background:white">
-                <option value="oz">oz</option>
-                <option value="g">g</option>
-                <option value="cup">cup</option>
-                <option value="tbsp">tbsp</option>
-                <option value="tsp">tsp</option>
-                <option value="each">each</option>
-                <option value="slice">slice</option>
-                <option value="serving">serving</option>
-                <option value="lb">lb</option>
-                <option value="ml">ml</option>
-                </select>
-              </div>
-            </div>
-          </div>
-          <div class="form-row form-group">
-            <div>
-              <div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Protein per serving</div>
-              <input type="number" id="food-protein" placeholder="0" min="0" step="0.1" onblur="if(+this.value<0)this.value=0;this.value=Math.round(+this.value*10)/10||0">
-            </div>
-            <div>
-              <div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Carbs per serving</div>
-              <input type="number" id="food-carbs" placeholder="0" min="0" step="0.1" onblur="if(+this.value<0)this.value=0;this.value=Math.round(+this.value*10)/10||0">
-            </div>
-          </div>
-          <div class="form-row form-group">
-            <div>
-              <div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Fat per serving</div>
-              <input type="number" id="food-fat" placeholder="0" min="0" step="0.1" onblur="if(+this.value<0)this.value=0;this.value=Math.round(+this.value*10)/10||0">
-            </div>
-            <div>
-              <div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Fiber per serving</div>
-              <input type="number" id="food-fiber" placeholder="0" min="0" step="0.1" onblur="if(+this.value<0)this.value=0;this.value=Math.round(+this.value*10)/10||0">
-            </div>
-            <div class="form-group">
-              <div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Cholesterol (mg)</div>
-              <input type="number" id="food-cholesterol" placeholder="0" min="0" step="1" onblur="if(+this.value<0)this.value=0;this.value=Math.round(+this.value)||0">
-            </div>
-          </div>
-          <button class="btn" onclick="saveFood()">Save Food</button>
+        <div id="add-food-form" style="display:none;background:#FFF7ED;border-radius:10px;padding:14px;margin-bottom:12px">
+          <div id="add-food-form-fields"></div>
+          <button class="btn" onclick="saveFood()" style="margin-top:14px">Save Food</button>
           <button class="btn" onclick="toggleAddFood()" style="background:#FEF2F2;color:#DC2626;margin-top:8px">Cancel</button>
         </div>
         <!-- Food search -->
@@ -1569,11 +1467,10 @@ function toggleMealForm() {
     window._foodModalType = 'breakfast';
     selectMealType('breakfast', null);
     document.getElementById('dash-meal-results').style.display = 'none';
-    // Clear all fields for a fresh form each time
-    ['meal-name','meal-cals','meal-protein','meal-carbs','meal-fat','meal-fiber','meal-cholesterol'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.value = '';
-    });
+    document.getElementById('meal-name').value = '';
+    document.getElementById('meal-nutrition-fields').innerHTML = nutritionCardHTML('meal', { skipName: true });
+    buildUnitWheel('meal-unit-scroll', 'meal-unit', 'g');
+    document.getElementById('meal-qty').value = '1';
   }
 }
 
@@ -1724,9 +1621,9 @@ function _searchPick(key, ctx) {
     window._modalLogDate = null;
   }
 
-  // Saved meal — log the whole thing directly
+  // Saved meal — open confirmation modal (same pattern as saved-food/USDA picks)
   if (d.mealId) {
-    logSavedMeal(d.mealId);
+    openLogMealModal(d.mealId);
     return;
   }
 
@@ -3676,10 +3573,13 @@ function updateMacroBars(t) {
 }
 
 async function addMeal() {
-  const name = document.getElementById('meal-name').value.trim();
+  const rawName = document.getElementById('meal-name').value.trim();
   const cals = Math.round(+document.getElementById('meal-cals').value || 0);
-  if (!name || !cals) { toast('Enter meal name and calories'); return; }
+  if (!rawName || !cals) { toast('Enter meal name and calories'); return; }
   const mealType = window._selectedMealType || 'breakfast';
+  const qty = document.getElementById('meal-qty')?.value || '1';
+  const unit = document.getElementById('meal-unit')?.value || 'serving';
+  const name = `${rawName} (${qty} ${unit})`;
   const meal = {
     date: logDate,
     name,
@@ -3694,11 +3594,10 @@ async function addMeal() {
   };
   console.log('Logging meal with type:', mealType, meal);
   await dbPost('meals', meal);
-  ['meal-name','meal-cals','meal-protein','meal-carbs','meal-fat','meal-fiber','meal-cholesterol'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('meal-form').style.display='none';
   document.getElementById('add-meal-btn').style.display='block';
   window._selectedMealType = 'breakfast';
-window._foodModalType = 'breakfast';
+  window._foodModalType = 'breakfast';
   selectMealType('breakfast', null);
   await loadTodayMeals();
   toast('Meal added ✓');
@@ -3880,10 +3779,10 @@ function toggleHistoryAddForm(type) {
     form.style.display = 'block';
     btn.style.display = 'none';
     if (type === 'meal') {
-      ['hist-meal-name','hist-meal-cals','hist-meal-protein','hist-meal-carbs','hist-meal-fat','hist-meal-fiber','hist-meal-cholesterol'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.value = '';
-      });
+      document.getElementById('hist-meal-name').value = '';
+      document.getElementById('hist-meal-nutrition-fields').innerHTML = nutritionCardHTML('hist-meal', { skipName: true });
+      buildUnitWheel('hist-meal-unit-scroll', 'hist-meal-unit', 'g');
+      document.getElementById('hist-meal-qty').value = '1';
       window._selectedHistMealType = 'breakfast';
       selectHistMealType('breakfast', null);
       document.getElementById('hist-meal-results').style.display = 'none';
@@ -4364,7 +4263,7 @@ function renderSavedMeals() {
         <div style="font-size:11px;color:#ADADAD;margin-top:2px">${(m.ingredients||[]).length} ingredient${(m.ingredients||[]).length !== 1 ? 's' : ''}</div>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
-        <button onclick="logSavedMeal('${m.id}')" style="background:var(--accent);color:white;border:none;border-radius:16px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer">+ Log</button>
+        <button onclick="openLogMealModal('${m.id}')" style="background:var(--accent);color:white;border:none;border-radius:16px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer">+ Log</button>
         <button onclick="deleteSavedMeal('${m.id}')" style="background:none;border:none;color:#E8E8E8;cursor:pointer;font-size:20px;line-height:1">×</button>
       </div>
     </div>`).join('');
@@ -4375,6 +4274,74 @@ async function deleteSavedMeal(id) {
   await dbDelete('saved_meals', id);
   savedMeals = savedMeals.filter(m => m.id !== id);
   renderSavedMeals();
+}
+
+let _logMealId = null;
+function openLogMealModal(id) {
+  const meal = savedMeals.find(m => m.id === id);
+  if (!meal) return;
+  _logMealId = id;
+  document.getElementById('log-meal-name').textContent = meal.name;
+  const count = (meal.ingredients || []).length;
+  document.getElementById('log-meal-ingredients-count').textContent = `${count} ingredient${count !== 1 ? 's' : ''}`;
+
+  const defaultType = window._modalLogDate ? (window._selectedHistMealType || 'breakfast') : (window._selectedMealType || 'breakfast');
+  document.querySelectorAll('.log-meal-type-btn').forEach(b => {
+    const active = b.dataset.type === defaultType;
+    b.style.border = active ? '1px solid #F97316' : '1px solid #E8E8E8';
+    b.style.background = active ? '#FFF7ED' : 'white';
+    b.style.color = active ? '#F97316' : '#666';
+  });
+  window._logMealType = defaultType;
+
+  document.getElementById('log-meal-fields').innerHTML = nutritionCardHTML('log-meal', { skipName: true, skipServing: true });
+  document.getElementById('log-meal-cals').value = meal.calories || 0;
+  document.getElementById('log-meal-protein').value = meal.protein || 0;
+  document.getElementById('log-meal-carbs').value = meal.carbs || 0;
+  document.getElementById('log-meal-fat').value = meal.fat || 0;
+  document.getElementById('log-meal-fiber').value = meal.fiber || 0;
+  document.getElementById('log-meal-cholesterol').value = 0;
+
+  document.getElementById('log-meal-modal').style.display = 'flex';
+}
+
+function selectLogMealType(type, btn) {
+  window._logMealType = type;
+  document.querySelectorAll('.log-meal-type-btn').forEach(b => {
+    const active = b.dataset.type === type;
+    b.style.border = active ? '1px solid #F97316' : '1px solid #E8E8E8';
+    b.style.background = active ? '#FFF7ED' : 'white';
+    b.style.color = active ? '#F97316' : '#666';
+  });
+}
+
+async function confirmLogSavedMeal() {
+  const meal = savedMeals.find(m => m.id === _logMealId);
+  if (!meal) return;
+  const type = window._logMealType || 'breakfast';
+  const targetDate = window._modalLogDate || today;
+  await dbPost('meals', {
+    date: targetDate,
+    meal_type: type,
+    name: meal.name,
+    calories: +document.getElementById('log-meal-cals').value || 0,
+    protein: +document.getElementById('log-meal-protein').value || 0,
+    carbs: +document.getElementById('log-meal-carbs').value || 0,
+    fat: +document.getElementById('log-meal-fat').value || 0,
+    fiber: +document.getElementById('log-meal-fiber').value || 0,
+    cholesterol: +document.getElementById('log-meal-cholesterol').value || 0,
+    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  });
+  document.getElementById('log-meal-modal').style.display = 'none';
+  toast(`"${meal.name}" logged to ${type} ✓`);
+  if (window._modalLogDate) {
+    const d = window._modalLogDate;
+    window._modalLogDate = null;
+    showHistoryDetail(d);
+    loadDayTotals();
+  } else {
+    switchTab('dashboard');
+  }
 }
 
 async function logSavedMeal(id) {
@@ -4392,8 +4359,7 @@ async function logSavedMeal(id) {
     fat: meal.fat,
     fiber: meal.fiber || 0,
     cholesterol: 0,
-    serving_size: '1 serving',
-    serving_qty: 1
+    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   });
   toast(`"${meal.name}" logged to ${type} ✓`);
   if (window._modalLogDate) {
@@ -4558,36 +4524,9 @@ async function mbSearchDB(query) {
 }
 
 function mbOpenManual() {
-  ['mb-manual-name','mb-manual-cals','mb-manual-protein','mb-manual-carbs','mb-manual-fat','mb-manual-fiber'].forEach(id => {
-    const el = document.getElementById(id); if (el) el.value = '';
-  });
+  document.getElementById('mb-manual-fields').innerHTML = nutritionCardHTML('mb-manual', { namePlaceholder: 'Ingredient name' });
+  buildUnitWheel('mb-manual-unit-scroll', 'mb-manual-unit', 'g');
   document.getElementById('mb-manual-qty').value = '1';
-  document.getElementById('mb-manual-unit-select').value = 'g';
-
-  // Build unit wheel, same pattern used everywhere else in the app
-  const container = document.getElementById('mb-manual-unit-scroll');
-  container.innerHTML = '';
-  const units = [...FOOD_ALL_UNITS];
-  const itemH = 40;
-  const top = document.createElement('div'); top.style.minHeight = itemH + 'px'; container.appendChild(top);
-  units.forEach(u => {
-    const el = document.createElement('div');
-    el.style.cssText = `min-height:${itemH}px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;scroll-snap-align:center;color:#0F0F0F;`;
-    el.textContent = u;
-    container.appendChild(el);
-  });
-  const bot = document.createElement('div'); bot.style.minHeight = itemH + 'px'; container.appendChild(bot);
-  const startIdx = units.indexOf('g');
-  if (startIdx >= 0) setTimeout(() => { container.scrollTop = startIdx * itemH; }, 100);
-  let scrollT;
-  container.onscroll = () => {
-    clearTimeout(scrollT);
-    scrollT = setTimeout(() => {
-      const idx = Math.min(Math.round(container.scrollTop / itemH), units.length - 1);
-      document.getElementById('mb-manual-unit-select').value = units[idx];
-    }, 80);
-  };
-
   document.getElementById('mb-manual-modal').style.display = 'flex';
 }
 
@@ -4595,13 +4534,14 @@ function mbAddManual() {
   const name = document.getElementById('mb-manual-name').value.trim();
   if (!name) { toast('Enter an ingredient name'); return; }
   const qty = parseFloat(document.getElementById('mb-manual-qty').value) || 1;
-  const unit = document.getElementById('mb-manual-unit-select')?.value || 'g';
+  const unit = document.getElementById('mb-manual-unit')?.value || 'g';
   const cals = parseFloat(document.getElementById('mb-manual-cals').value) || 0;
   const protein = parseFloat(document.getElementById('mb-manual-protein').value) || 0;
   const carbs = parseFloat(document.getElementById('mb-manual-carbs').value) || 0;
   const fat = parseFloat(document.getElementById('mb-manual-fat').value) || 0;
   const fiber = parseFloat(document.getElementById('mb-manual-fiber').value) || 0;
-  _mbIngredients.push({ name, qty, unit, calories: cals, protein, carbs, fat, fiber });
+  const cholesterol = parseFloat(document.getElementById('mb-manual-cholesterol').value) || 0;
+  _mbIngredients.push({ name, qty, unit, calories: cals, protein, carbs, fat, fiber, cholesterol });
   document.getElementById('mb-manual-modal').style.display = 'none';
   mbRenderIngredients();
   mbUpdateTotals();
@@ -4816,19 +4756,16 @@ function toggleAddFood() {
   const isHidden = el.style.display === 'none';
   el.style.display = isHidden ? 'block' : 'none';
   if (isHidden) {
-    // Clear all fields when opening
-    ['food-name','food-cals','food-protein','food-carbs','food-fat','food-fiber'].forEach(id => document.getElementById(id).value = '');
-    document.getElementById('food-serving-qty').value = '';
-    document.getElementById('food-unit').value = 'oz';
+    document.getElementById('add-food-form-fields').innerHTML = nutritionCardHTML('food', { namePlaceholder: 'Food name (e.g. Chicken Breast)' });
+    buildUnitWheel('food-unit-scroll', 'food-unit', 'g');
+    document.getElementById('food-qty').value = '1';
   }
 }
 
 async function saveFood() {
   const name = document.getElementById('food-name').value.trim();
-  const calsRaw = document.getElementById('food-cals').value.replace(/[^0-9.]/g, '');
-  const cals = parseFloat(calsRaw) || 0;
-  console.log('saveFood name:', name, 'cals:', cals, 'raw:', document.getElementById('food-cals').value);
-  const servingQty = document.getElementById('food-serving-qty').value || '1';
+  const cals = parseFloat(document.getElementById('food-cals').value) || 0;
+  const servingQty = document.getElementById('food-qty').value || '1';
   const servingUnit = document.getElementById('food-unit').value;
   const unit = (+servingQty === 1 || servingQty === '1') ? servingUnit : `${servingQty} ${servingUnit}`;
   if (!name) { toast('Enter a food name'); return; }
@@ -4841,7 +4778,6 @@ async function saveFood() {
     fiber_per_unit: +document.getElementById('food-fiber').value || 0,
     cholesterol_per_unit: +document.getElementById('food-cholesterol').value || 0,
   });
-  ['food-name','food-cals','food-protein','food-carbs','food-fat','food-fiber','food-cholesterol'].forEach(id => document.getElementById(id).value = ''); document.getElementById('food-unit').value = 'oz'; document.getElementById('food-serving-qty').value = '';
   toggleAddFood();
   await loadSavedFoods();
   toast('Food saved ✓');
@@ -4852,10 +4788,12 @@ async function saveFoodFromForm() {
   const name = document.getElementById('meal-name').value.trim();
   const cals = +document.getElementById('meal-cals').value;
   if (!name) { toast('Fill in meal details first'); return; }
-  // Save to saved_foods as "1 serving" entry
+  const qty = document.getElementById('meal-qty')?.value || '1';
+  const unitVal = document.getElementById('meal-unit')?.value || 'serving';
+  const unit = (+qty === 1) ? unitVal : `${qty} ${unitVal}`;
   await dbPost('saved_foods', {
     name,
-    unit: 'serving',
+    unit,
     calories_per_unit: cals,
     protein_per_unit: +document.getElementById('meal-protein').value || 0,
     carbs_per_unit: +document.getElementById('meal-carbs').value || 0,
@@ -4871,13 +4809,15 @@ async function saveMealFromForm() {
   const name = document.getElementById('meal-name').value.trim();
   const cals = +document.getElementById('meal-cals').value;
   if (!name) { toast('Fill in meal details first'); return; }
+  const qty = parseFloat(document.getElementById('meal-qty')?.value) || 1;
+  const unit = document.getElementById('meal-unit')?.value || 'serving';
   const protein = +document.getElementById('meal-protein').value || 0;
   const carbs = +document.getElementById('meal-carbs').value || 0;
   const fat = +document.getElementById('meal-fat').value || 0;
   const fiber = +document.getElementById('meal-fiber').value || 0;
   await dbPost('saved_meals', {
     name,
-    ingredients: [{ name, qty: 1, unit: 'serving', calories: cals, protein, carbs, fat, fiber }],
+    ingredients: [{ name, qty, unit, calories: cals, protein, carbs, fat, fiber }],
     calories: cals,
     protein,
     carbs,
@@ -4939,6 +4879,80 @@ function getUnitMultiplier(fromUnit, toUnit) {
 let _foodModalUnit = 'g';
 const FOOD_COUNT_UNITS = ['each','serving','slice','piece','cup','tbsp','tsp','scoop','packet','bar','can','bottle'];
 const FOOD_ALL_UNITS = ['g','oz','each','slice','piece','serving','cup','tbsp','tsp','scoop'];
+
+// Shared unit-wheel builder used by every manual food/meal entry screen.
+// scrollContainerId: the scrollable div that shows the unit list
+// hiddenInputId: hidden input that stores the currently-selected unit
+// defaultUnit: unit to start scrolled to
+// onChange: optional callback fired whenever the selected unit changes
+function buildUnitWheel(scrollContainerId, hiddenInputId, defaultUnit, onChange) {
+  const container = document.getElementById(scrollContainerId);
+  const hiddenInput = document.getElementById(hiddenInputId);
+  if (!container || !hiddenInput) return;
+  hiddenInput.value = defaultUnit;
+  container.innerHTML = '';
+  const units = [...FOOD_ALL_UNITS];
+  if (!units.includes(defaultUnit)) units.unshift(defaultUnit);
+  const itemH = 40;
+  const top = document.createElement('div'); top.style.minHeight = itemH + 'px'; container.appendChild(top);
+  units.forEach(u => {
+    const el = document.createElement('div');
+    el.style.cssText = `min-height:${itemH}px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;scroll-snap-align:center;color:#0F0F0F;`;
+    el.textContent = u;
+    container.appendChild(el);
+  });
+  const bot = document.createElement('div'); bot.style.minHeight = itemH + 'px'; container.appendChild(bot);
+  const startIdx = units.indexOf(defaultUnit);
+  if (startIdx >= 0) setTimeout(() => { container.scrollTop = startIdx * itemH; }, 100);
+  let scrollT;
+  container.onscroll = () => {
+    clearTimeout(scrollT);
+    scrollT = setTimeout(() => {
+      const idx = Math.min(Math.round(container.scrollTop / itemH), units.length - 1);
+      hiddenInput.value = units[idx];
+      if (onChange) onChange(units[idx]);
+    }, 80);
+  };
+}
+
+// Shared markup for the color-coded, editable nutrition row + serving size
+// wheel. Every manual food/meal entry screen uses this same structure so the
+// experience is uniform. `prefix` becomes the id prefix for each field.
+function nutritionCardHTML(prefix, opts = {}) {
+  const namePlaceholder = opts.namePlaceholder || 'Food name';
+  const nameField = opts.skipName ? '' : `
+    <input type="text" id="${prefix}-name" placeholder="${namePlaceholder}" autocomplete="off"
+      style="width:100%;padding:12px;border:1px solid #E8E8E8;border-radius:8px;font-size:15px;font-weight:600;outline:none;box-sizing:border-box;margin-bottom:12px;background:white" />`;
+  const servingSection = opts.skipServing ? '' : `
+    <div style="font-size:11px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Serving Size</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <input type="number" id="${prefix}-qty" value="1" min="0" step="0.1" inputmode="decimal"
+        style="background:white;border-radius:10px;border:1px solid #E8E8E8;padding:16px 12px;text-align:center;font-size:28px;font-weight:700;color:#0F0F0F;min-height:120px;outline:none;box-sizing:border-box" />
+      <div style="background:white;border-radius:10px;overflow:hidden;border:1px solid #E8E8E8;position:relative">
+        <div style="font-size:10px;color:#ADADAD;text-align:center;padding:4px 0;border-bottom:1px solid #F4F4F4">Unit</div>
+        <div id="${prefix}-unit-scroll" style="height:120px;overflow-y:scroll;scroll-snap-type:y mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none"></div>
+        <div style="pointer-events:none;position:absolute;left:0;right:0;height:40px;top:64px;border-top:1px solid #F97316;border-bottom:1px solid #F97316;background:rgba(249,115,22,0.06)"></div>
+      </div>
+      <input type="hidden" id="${prefix}-unit" value="serving" />
+    </div>`;
+  return `
+    ${nameField}
+    <div style="display:grid;grid-template-columns:repeat(6,1fr);text-align:center;gap:4px;margin-bottom:${opts.skipServing ? '0' : '14px'}">
+      <div><input type="number" id="${prefix}-cals" value="0" inputmode="decimal" onfocus="this.select()"
+        style="width:100%;text-align:center;border:none;background:none;outline:none;font-size:15px;font-weight:700;color:#F97316;padding:0"><div style="font-size:9px;color:#ADADAD">kcal</div></div>
+      <div><input type="number" id="${prefix}-protein" value="0" inputmode="decimal" onfocus="this.select()"
+        style="width:100%;text-align:center;border:none;background:none;outline:none;font-size:15px;font-weight:700;color:#F97316;padding:0"><div style="font-size:9px;color:#ADADAD">protein</div></div>
+      <div><input type="number" id="${prefix}-carbs" value="0" inputmode="decimal" onfocus="this.select()"
+        style="width:100%;text-align:center;border:none;background:none;outline:none;font-size:15px;font-weight:700;color:#FB7185;padding:0"><div style="font-size:9px;color:#ADADAD">carbs</div></div>
+      <div><input type="number" id="${prefix}-fat" value="0" inputmode="decimal" onfocus="this.select()"
+        style="width:100%;text-align:center;border:none;background:none;outline:none;font-size:15px;font-weight:700;color:#FBBF24;padding:0"><div style="font-size:9px;color:#ADADAD">fat</div></div>
+      <div><input type="number" id="${prefix}-fiber" value="0" inputmode="decimal" onfocus="this.select()"
+        style="width:100%;text-align:center;border:none;background:none;outline:none;font-size:15px;font-weight:700;color:#16A34A;padding:0"><div style="font-size:9px;color:#ADADAD">fiber</div></div>
+      <div><input type="number" id="${prefix}-cholesterol" value="0" inputmode="decimal" onfocus="this.select()"
+        style="width:100%;text-align:center;border:none;background:none;outline:none;font-size:15px;font-weight:700;color:#8B5CF6;padding:0"><div style="font-size:9px;color:#ADADAD">chol mg</div></div>
+    </div>
+    ${servingSection}`;
+}
 
 function _buildFoodUnitWheel() {
   const container = document.getElementById('food-modal-unit-scroll');
@@ -7624,33 +7638,37 @@ if (document.readyState === 'loading') {
 <div id="mb-manual-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:900;align-items:flex-end;justify-content:center">
   <div style="background:white;border-radius:20px 20px 0 0;padding:24px;width:100%;max-width:520px">
     <div style="font-size:16px;font-weight:700;margin-bottom:16px">Add Ingredient Manually</div>
-    <input type="text" id="mb-manual-name" placeholder="Ingredient name" style="width:100%;padding:12px;border:1.5px solid #E8E8E8;border-radius:10px;font-size:15px;outline:none;box-sizing:border-box;margin-bottom:14px" />
-
-    <div style="margin-bottom:12px">
-      <div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Amount</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <input type="number" min="0" id="mb-manual-qty" placeholder="1" value="1" step="0.1"
-          style="width:100%;padding:10px 12px;border:1px solid #E8E8E8;border-radius:8px;font-size:16px;font-weight:600;outline:none;box-sizing:border-box" />
-        <div style="background:white;border-radius:10px;overflow:hidden;border:1px solid #E8E8E8;position:relative">
-          <div style="font-size:10px;color:#ADADAD;text-align:center;padding:4px 0;border-bottom:1px solid #F4F4F4">Unit</div>
-          <div id="mb-manual-unit-scroll" style="height:120px;overflow-y:scroll;scroll-snap-type:y mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none"></div>
-          <div style="pointer-events:none;position:absolute;left:0;right:0;height:40px;top:64px;border-top:1px solid #F97316;border-bottom:1px solid #F97316;background:rgba(249,115,22,0.06)"></div>
-        </div>
-        <input type="hidden" id="mb-manual-unit-select" value="serving" />
-      </div>
-      <div style="font-size:11px;color:#ADADAD;margin-top:6px">Nutrition below should reflect this amount</div>
-    </div>
-
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
-      <div><div style="font-size:11px;font-weight:600;color:#ADADAD;margin-bottom:4px">Calories</div><input type="number" id="mb-manual-cals" placeholder="0" inputmode="decimal" style="width:100%;padding:10px;border:1.5px solid #E8E8E8;border-radius:10px;font-size:15px;outline:none;box-sizing:border-box" /></div>
-      <div><div style="font-size:11px;font-weight:600;color:#ADADAD;margin-bottom:4px">Protein (g)</div><input type="number" id="mb-manual-protein" placeholder="0" inputmode="decimal" style="width:100%;padding:10px;border:1.5px solid #E8E8E8;border-radius:10px;font-size:15px;outline:none;box-sizing:border-box" /></div>
-      <div><div style="font-size:11px;font-weight:600;color:#ADADAD;margin-bottom:4px">Carbs (g)</div><input type="number" id="mb-manual-carbs" placeholder="0" inputmode="decimal" style="width:100%;padding:10px;border:1.5px solid #E8E8E8;border-radius:10px;font-size:15px;outline:none;box-sizing:border-box" /></div>
-      <div><div style="font-size:11px;font-weight:600;color:#ADADAD;margin-bottom:4px">Fat (g)</div><input type="number" id="mb-manual-fat" placeholder="0" inputmode="decimal" style="width:100%;padding:10px;border:1.5px solid #E8E8E8;border-radius:10px;font-size:15px;outline:none;box-sizing:border-box" /></div>
-      <div><div style="font-size:11px;font-weight:600;color:#ADADAD;margin-bottom:4px">Fiber (g)</div><input type="number" id="mb-manual-fiber" placeholder="0" inputmode="decimal" style="width:100%;padding:10px;border:1.5px solid #E8E8E8;border-radius:10px;font-size:15px;outline:none;box-sizing:border-box" /></div>
+    <div style="background:#FFF7ED;border-radius:10px;padding:14px;margin-bottom:14px">
+      <div id="mb-manual-fields"></div>
     </div>
     <div style="display:flex;gap:10px">
       <button onclick="document.getElementById('mb-manual-modal').style.display='none'" style="flex:1;padding:14px;border:1px solid #E8E8E8;border-radius:12px;background:white;font-size:15px;font-weight:600;cursor:pointer">Cancel</button>
       <button onclick="mbAddManual()" style="flex:1;padding:14px;border:none;border-radius:12px;background:var(--accent);color:white;font-size:15px;font-weight:700;cursor:pointer">Add</button>
+    </div>
+  </div>
+</div>
+
+<!-- LOG MEAL MODAL (My Meals -> +Log) -->
+<div id="log-meal-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:900;align-items:flex-end;justify-content:center">
+  <div style="background:white;border-radius:20px 20px 0 0;padding:24px;width:100%;max-width:520px">
+    <div style="font-size:16px;font-weight:700;margin-bottom:4px" id="log-meal-name"></div>
+    <div style="font-size:12px;color:#ADADAD;margin-bottom:14px" id="log-meal-ingredients-count"></div>
+
+    <div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Meal Type</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:14px">
+      <button class="log-meal-type-btn" type="button" data-type="breakfast" onclick="selectLogMealType('breakfast',this)" style="padding:8px 4px;border:1px solid #F97316;border-radius:8px;background:#FFF7ED;color:#F97316;font-size:11px;font-weight:600;cursor:pointer">🍳 Breakfast</button>
+      <button class="log-meal-type-btn" type="button" data-type="lunch" onclick="selectLogMealType('lunch',this)" style="padding:8px 4px;border:1px solid #E8E8E8;border-radius:8px;background:white;color:#666;font-size:11px;font-weight:600;cursor:pointer">🥗 Lunch</button>
+      <button class="log-meal-type-btn" type="button" data-type="dinner" onclick="selectLogMealType('dinner',this)" style="padding:8px 4px;border:1px solid #E8E8E8;border-radius:8px;background:white;color:#666;font-size:11px;font-weight:600;cursor:pointer">🍽️ Dinner</button>
+      <button class="log-meal-type-btn" type="button" data-type="snack" onclick="selectLogMealType('snack',this)" style="padding:8px 4px;border:1px solid #E8E8E8;border-radius:8px;background:white;color:#666;font-size:11px;font-weight:600;cursor:pointer">🍎 Snack</button>
+    </div>
+
+    <div style="background:#FFF7ED;border-radius:10px;padding:14px;margin-bottom:14px">
+      <div id="log-meal-fields"></div>
+    </div>
+
+    <div style="display:flex;gap:10px">
+      <button onclick="document.getElementById('log-meal-modal').style.display='none'" style="flex:1;padding:14px;border:1px solid #E8E8E8;border-radius:12px;background:white;font-size:15px;font-weight:600;cursor:pointer">Cancel</button>
+      <button onclick="confirmLogSavedMeal()" style="flex:1;padding:14px;border:none;border-radius:12px;background:var(--accent);color:white;font-size:15px;font-weight:700;cursor:pointer">Log Now</button>
     </div>
   </div>
 </div>
