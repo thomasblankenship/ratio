@@ -386,8 +386,8 @@
           <div class="form-group" style="position:relative">
             <input type="text" id="meal-name" placeholder="Meal name (e.g. Chicken + Rice)" autocomplete="off"
               oninput="dashMealSearch(this.value)" onblur="setTimeout(()=>{ document.getElementById('dash-meal-results').style.display='none'; },400)" />
-            <div id="dash-meal-results" onmousedown="event.preventDefault()" ontouchstart="event.preventDefault()"
-              style="display:none;position:absolute;left:0;right:0;top:100%;background:white;border:1px solid #E8E8E8;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.1);z-index:200;max-height:280px;overflow-y:auto;margin-top:4px"></div>
+            <div id="dash-meal-results" onmousedown="event.preventDefault()"
+              style="display:none;position:absolute;left:0;right:0;top:100%;background:white;border:1px solid #E8E8E8;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.1);z-index:200;max-height:280px;overflow-y:auto;-webkit-overflow-scrolling:touch;margin-top:4px"></div>
           </div>
           <div class="form-row form-group">
             <div>
@@ -525,8 +525,8 @@
             <div class="form-group" style="position:relative">
               <input type="text" id="hist-meal-name" placeholder="Meal name (e.g. Chicken + Rice)" autocomplete="off"
                 oninput="histMealSearch(this.value)" onblur="setTimeout(()=>{ document.getElementById('hist-meal-results').style.display='none'; },400)" />
-              <div id="hist-meal-results" onmousedown="event.preventDefault()" ontouchstart="event.preventDefault()"
-                style="display:none;position:absolute;left:0;right:0;top:100%;background:white;border:1px solid #E8E8E8;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.1);z-index:200;max-height:280px;overflow-y:auto;margin-top:4px"></div>
+              <div id="hist-meal-results" onmousedown="event.preventDefault()"
+                style="display:none;position:absolute;left:0;right:0;top:100%;background:white;border:1px solid #E8E8E8;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.1);z-index:200;max-height:280px;overflow-y:auto;-webkit-overflow-scrolling:touch;margin-top:4px"></div>
             </div>
             <div class="form-row form-group">
               <div>
