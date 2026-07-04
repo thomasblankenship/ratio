@@ -203,7 +203,7 @@
       <div style="font-size:14px;color:#ADADAD;margin-bottom:32px">Sign in to your account</div>
       <div id="auth-error" style="font-size:13px;color:#EF4444;margin-bottom:12px;min-height:20px;text-align:center"></div>
       <div id="auth-login-form">
-        <div style="margin-bottom:12px"><input id="auth-email" type="email" placeholder="Email" autocomplete="email" style="width:100%;padding:14px 16px;border:1.5px solid #E8E8E8;border-radius:12px;font-size:15px;outline:none;box-sizing:border-box" /></div>
+        <div style="margin-bottom:12px"><input id="auth-email" type="text" placeholder="Email or Username" autocomplete="username" autocapitalize="off" autocorrect="off" style="width:100%;padding:14px 16px;border:1.5px solid #E8E8E8;border-radius:12px;font-size:15px;outline:none;box-sizing:border-box" /></div>
         <div style="margin-bottom:20px;position:relative">
           <input id="auth-password" type="password" placeholder="Password" autocomplete="current-password" style="width:100%;padding:14px 48px 14px 16px;border:1.5px solid #E8E8E8;border-radius:12px;font-size:15px;outline:none;box-sizing:border-box" onkeydown="if(event.key==='Enter')handleLogin()" />
           <button type="button" onclick="togglePw('auth-password',this)" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:0;font-size:18px;line-height:1;color:#ADADAD">👁️</button>
@@ -1055,6 +1055,25 @@
     <div style="background:#F9F9F9;border-radius:12px;padding:14px 16px;margin-bottom:4px">
       <div style="font-size:12px;color:#ADADAD;margin-bottom:2px">Signed in as</div>
       <div id="settings-email" style="font-size:14px;font-weight:600;color:#0F0F0F"></div>
+    </div>
+
+    <!-- Username -->
+    <div style="background:#F9F9F9;border-radius:12px;padding:14px 16px;margin-bottom:16px">
+      <div style="font-size:12px;color:#ADADAD;margin-bottom:2px">Username</div>
+      <div id="settings-username-display" style="display:flex;justify-content:space-between;align-items:center">
+        <div id="settings-username" style="font-size:14px;font-weight:600;color:#0F0F0F"></div>
+        <button onclick="openUsernameEdit()" style="background:none;border:none;color:#F97316;font-size:13px;font-weight:600;cursor:pointer">Change</button>
+      </div>
+      <div id="settings-username-edit" style="display:none;margin-top:8px">
+        <input type="text" id="settings-username-input" placeholder="e.g. semmes_b" autocomplete="off" autocapitalize="off" autocorrect="off"
+          oninput="settingsCheckUsername(this.value)"
+          style="width:100%;padding:10px 12px;border:1.5px solid #E8E8E8;border-radius:10px;font-size:14px;outline:none;box-sizing:border-box" />
+        <div id="settings-username-status" style="font-size:12px;margin-top:6px;display:none"></div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button onclick="closeUsernameEdit()" style="flex:1;padding:10px;border:1px solid #E8E8E8;border-radius:10px;background:white;font-size:13px;font-weight:600;cursor:pointer">Cancel</button>
+          <button onclick="saveUsernameChange()" style="flex:1;padding:10px;border:none;border-radius:10px;background:#F97316;color:white;font-size:13px;font-weight:700;cursor:pointer">Save</button>
+        </div>
+      </div>
     </div>
 
     <!-- Password reset -->
@@ -2264,6 +2283,7 @@ async function obNext(step) {
   if (step === 7) {
     // Validate form fields first before advancing to photo step
     const name = document.getElementById('ob-signup-name')?.value.trim();
+    const username = document.getElementById('ob-signup-username')?.value.trim().toLowerCase();
     const email = document.getElementById('ob-signup-email')?.value.trim();
     const password = document.getElementById('ob-signup-password')?.value;
     const confirm = document.getElementById('ob-signup-confirm')?.value;
@@ -2271,6 +2291,15 @@ async function obNext(step) {
     const emailErrEl = document.getElementById('ob-signup-email-error');
     if (emailErrEl) emailErrEl.style.display = 'none';
     if (!name) { if (signupErrEl) { signupErrEl.textContent = 'Please enter your name'; signupErrEl.style.display = 'block'; } return; }
+    if (!username) { if (signupErrEl) { signupErrEl.textContent = 'Please choose a username'; signupErrEl.style.display = 'block'; } return; }
+    if (!/^[a-z0-9._]{3,20}$/.test(username)) {
+      if (signupErrEl) { signupErrEl.textContent = 'Username must be 3-20 characters: letters, numbers, periods, underscores only'; signupErrEl.style.display = 'block'; }
+      return;
+    }
+    if (window._obUsernameAvailable === false) {
+      if (signupErrEl) { signupErrEl.textContent = 'That username is already taken'; signupErrEl.style.display = 'block'; }
+      return;
+    }
     if (!email) { if (signupErrEl) { signupErrEl.textContent = 'Please enter your email'; signupErrEl.style.display = 'block'; } return; }
     // Basic email format check (same shape Supabase itself requires) — catches
     // typos like missing @ or domain before we ever hit the network.
@@ -2283,6 +2312,7 @@ async function obNext(step) {
     if (password !== confirm) { if (signupErrEl) { signupErrEl.textContent = 'Passwords do not match'; signupErrEl.style.display = 'block'; } return; }
     // Store validated values so handleSignUp can use them after step 8
     window._obSignupName = name;
+    window._obSignupUsername = username;
     window._obSignupEmail = email;
     window._obSignupPassword = password;
     obShowStep(8);
@@ -2310,6 +2340,44 @@ function obBack(step) {
 
 
 // ONBOARDING NUMPAD
+let _obUsernameCheckTimeout = null;
+function obCheckUsername(value) {
+  clearTimeout(_obUsernameCheckTimeout);
+  const statusEl = document.getElementById('ob-signup-username-status');
+  const username = (value || '').trim().toLowerCase();
+  window._obUsernameAvailable = null;
+  if (!username) { statusEl.style.display = 'none'; return; }
+  if (!/^[a-z0-9._]{3,20}$/.test(username)) {
+    statusEl.textContent = '3-20 characters: letters, numbers, periods, underscores only';
+    statusEl.style.color = '#EF4444';
+    statusEl.style.display = 'block';
+    return;
+  }
+  statusEl.textContent = 'Checking availability...';
+  statusEl.style.color = '#ADADAD';
+  statusEl.style.display = 'block';
+  _obUsernameCheckTimeout = setTimeout(async () => {
+    try {
+      const res = await fetch(`${WORKER_URL}/check-username?username=${encodeURIComponent(username)}`);
+      const data = await res.json();
+      // Ignore stale responses if the field has changed since this check started
+      if (document.getElementById('ob-signup-username').value.trim().toLowerCase() !== username) return;
+      window._obUsernameAvailable = !!data.available;
+      if (data.available) {
+        statusEl.textContent = '✓ Username available';
+        statusEl.style.color = '#16A34A';
+      } else {
+        statusEl.textContent = data.error || 'That username is already taken';
+        statusEl.style.color = '#EF4444';
+      }
+      statusEl.style.display = 'block';
+    } catch(e) {
+      statusEl.style.display = 'none';
+      window._obUsernameAvailable = null;
+    }
+  }, 400);
+}
+
 function obOpenNumpad(field, unit) {
   _obNumpadField = field;
   unit = unit || (field.includes('bf') ? '%' : 'lbs');
@@ -2606,12 +2674,37 @@ function startSignup() {
 }
 
 async function handleLogin() {
-  const email = document.getElementById('auth-email').value.trim();
+  const rawInput = document.getElementById('auth-email').value.trim();
   const password = document.getElementById('auth-password').value;
   const btn = document.getElementById('auth-login-btn');
   const errEl = document.getElementById('auth-error');
-  if (!email || !password) { errEl.textContent = 'Enter email and password'; return; }
+  errEl.textContent = '';
+  if (!rawInput || !password) { errEl.textContent = 'Enter your email/username and password'; return; }
   btn.textContent = 'Signing in...'; btn.disabled = true;
+
+  let email = rawInput;
+  if (!rawInput.includes('@')) {
+    // Looks like a username, not an email — resolve it server-side first
+    try {
+      const res = await fetch(`${WORKER_URL}/resolve-username`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: rawInput })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.email) {
+        errEl.textContent = data.error || 'No account found with that username';
+        btn.textContent = 'Sign In'; btn.disabled = false;
+        return;
+      }
+      email = data.email;
+    } catch(e) {
+      errEl.textContent = 'Could not look up that username — check your connection and try again';
+      btn.textContent = 'Sign In'; btn.disabled = false;
+      return;
+    }
+  }
+
   try {
     await signIn(email, password);
     document.getElementById('auth-screen').style.display = 'none';
@@ -2663,6 +2756,13 @@ async function handleLogin() {
               console.log('[handleLogin] photo row inserted:', photo.angle, inserted);
             } catch(e) { console.error('[handleLogin] photo row insert failed', photo.angle, e); }
           }
+        }
+        // Claim the chosen username now that we're authenticated. If it got
+        // taken by someone else in the meantime, don't block account setup —
+        // just skip it; the person can pick a new one in Settings.
+        if (p.username) {
+          try { await dbPost('usernames', { username: p.username }); }
+          catch(e) { console.warn('[handleLogin] username claim failed (may be taken):', e); }
         }
         await clearPendingOnboarding(); obClearProgress();
         fetch(`${SUPABASE_URL}/rest/v1/user_settings?user_id=eq.${_currentUser.id}&key=eq.pending_onboarding`, {
@@ -2730,6 +2830,7 @@ async function _finishSignUpInBackground(pendingData, newUserId) {
 
 async function handleSignUp() {
   const name = window._obSignupName || document.getElementById('ob-signup-name')?.value.trim();
+  const username = window._obSignupUsername || document.getElementById('ob-signup-username')?.value.trim().toLowerCase();
   const email = window._obSignupEmail || document.getElementById('ob-signup-email')?.value.trim();
   const password = window._obSignupPassword || document.getElementById('ob-signup-password')?.value;
   const confirm = document.getElementById('ob-signup-confirm')?.value;
@@ -2751,6 +2852,7 @@ async function handleSignUp() {
     const data = await signUp(email, password, name);
     // Store name in ob flow
     window._obName = name;
+    window._obUsername = username;
     if (data.access_token) {
       // Auto-confirmed (email confirmation disabled)
       _authToken = data.access_token;
@@ -2776,6 +2878,7 @@ async function handleSignUp() {
         const muscleGoal = parseFloat(document.getElementById('ob-muscle-goal')?.value) || null;
         pendingData = {
           name,
+          username,
           profile: { heightIn: ft * 12 + inn, age, gender: _obGender || 'male', activity: _obActivity || 'active', name, primaryGoal: _obGoalType, weeklyPace: _obPace },
           targets: { calories: pendingPlan.calories, protein: pendingPlan.protein, carbs: Math.round((pendingPlan.calories * 0.35) / 4), fat: Math.round((pendingPlan.calories * 0.25) / 9) },
           goals: { weightStart: weight, weightGoal: goalWeight, bfCurrent, bfGoal, bfTrackingOn: true, muscleCurrent, muscleGoal, muscleTrackingOn: true, muscleMethod: null, primaryGoal: _obGoalType },
@@ -3048,6 +3151,10 @@ async function obSaveAndWelcome() {
 
   await Promise.all([saveSetting('goals', userGoals), saveSetting('targets', userTargets), saveSetting('profile', userProfile)]);
   console.log('[obSaveAndWelcome] saves fired. uid:', _currentUser?.id?.slice(0,8), 'hasToken:', !!_authToken, 'tokenPrefix:', _authToken?.slice(0,20));
+  if (window._obUsername) {
+    try { await dbPost('usernames', { username: window._obUsername }); }
+    catch(e) { console.warn('[obSaveAndWelcome] username claim failed (may be taken):', e); }
+  }
   // Verify profile saved — if not, the JWT may be invalid (unconfirmed user)
   const check = await loadSetting('profile');
   if (!check) {
@@ -3203,6 +3310,10 @@ async function appInit() {
             for (const photo of p.startingPhotos) {
               try { await dbPost('progress_photos', { date: photo.date, photo_url: photo.url, angle: photo.angle, notes: 'Starting photo' }); } catch(e) { console.warn('[appInit] photo row insert failed', e); }
             }
+          }
+          if (p.username) {
+            try { await dbPost('usernames', { username: p.username }); }
+            catch(e) { console.warn('[appInit] username claim failed (may be taken):', e); }
           }
           await clearPendingOnboarding(); obClearProgress();
           fetch(`${SUPABASE_URL}/rest/v1/user_settings?user_id=eq.${_currentUser.id}&key=eq.pending_onboarding`, {
@@ -6352,7 +6463,85 @@ function showSettings() {
   document.getElementById('settings-reset-msg').style.display = 'none';
   document.getElementById('settings-reset-btn').textContent = '🔑 Reset Password';
   document.getElementById('settings-reset-btn').disabled = false;
+  document.getElementById('settings-username-edit').style.display = 'none';
+  document.getElementById('settings-username-display').style.display = 'flex';
+  document.getElementById('settings-username').textContent = 'Loading...';
+  loadCurrentUsername();
   document.getElementById('settings-modal').style.display = 'flex';
+}
+
+async function loadCurrentUsername() {
+  try {
+    const rows = await dbGet('usernames', `user_id=eq.${_currentUser.id}&select=username`);
+    document.getElementById('settings-username').textContent = rows?.[0]?.username ? '@' + rows[0].username : 'Not set';
+  } catch(e) {
+    document.getElementById('settings-username').textContent = 'Not set';
+  }
+}
+
+function openUsernameEdit() {
+  document.getElementById('settings-username-display').style.display = 'none';
+  const editEl = document.getElementById('settings-username-edit');
+  editEl.style.display = 'block';
+  document.getElementById('settings-username-input').value = '';
+  document.getElementById('settings-username-status').style.display = 'none';
+  window._settingsUsernameAvailable = null;
+}
+
+function closeUsernameEdit() {
+  document.getElementById('settings-username-edit').style.display = 'none';
+  document.getElementById('settings-username-display').style.display = 'flex';
+}
+
+let _settingsUsernameCheckTimeout = null;
+function settingsCheckUsername(value) {
+  clearTimeout(_settingsUsernameCheckTimeout);
+  const statusEl = document.getElementById('settings-username-status');
+  const username = (value || '').trim().toLowerCase();
+  window._settingsUsernameAvailable = null;
+  if (!username) { statusEl.style.display = 'none'; return; }
+  if (!/^[a-z0-9._]{3,20}$/.test(username)) {
+    statusEl.textContent = '3-20 characters: letters, numbers, periods, underscores only';
+    statusEl.style.color = '#EF4444';
+    statusEl.style.display = 'block';
+    return;
+  }
+  statusEl.textContent = 'Checking availability...';
+  statusEl.style.color = '#ADADAD';
+  statusEl.style.display = 'block';
+  _settingsUsernameCheckTimeout = setTimeout(async () => {
+    try {
+      const res = await fetch(`${WORKER_URL}/check-username?username=${encodeURIComponent(username)}`);
+      const data = await res.json();
+      if (document.getElementById('settings-username-input').value.trim().toLowerCase() !== username) return;
+      window._settingsUsernameAvailable = !!data.available;
+      statusEl.textContent = data.available ? '✓ Username available' : (data.error || 'That username is already taken');
+      statusEl.style.color = data.available ? '#16A34A' : '#EF4444';
+      statusEl.style.display = 'block';
+    } catch(e) {
+      statusEl.style.display = 'none';
+    }
+  }, 400);
+}
+
+async function saveUsernameChange() {
+  const username = document.getElementById('settings-username-input').value.trim().toLowerCase();
+  if (!username) { toast('Enter a username'); return; }
+  if (!/^[a-z0-9._]{3,20}$/.test(username)) { toast('Username must be 3-20 characters: letters, numbers, periods, underscores only'); return; }
+  if (window._settingsUsernameAvailable === false) { toast('That username is already taken'); return; }
+  try {
+    // Upsert so this works whether the person already has a username row or not
+    await fetch(`${SUPABASE_URL}/rest/v1/usernames?on_conflict=user_id`, {
+      method: 'POST',
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${_authToken}`, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+      body: JSON.stringify({ user_id: _currentUser.id, username })
+    });
+    document.getElementById('settings-username').textContent = '@' + username;
+    closeUsernameEdit();
+    toast('Username updated ✓');
+  } catch(e) {
+    toast('Could not save username — it may already be taken');
+  }
 }
 
 async function handleSettingsReset() {
@@ -7439,6 +7628,14 @@ if (document.readyState === 'loading') {
         <div style="font-size:13px;font-weight:700;color:#666;margin-bottom:6px">What should we call you?</div>
         <input id="ob-signup-name" type="text" placeholder="First name" autocomplete="given-name"
           style="width:100%;padding:14px 16px;border:1.5px solid #E8E8E8;border-radius:12px;font-size:16px;outline:none;box-sizing:border-box" />
+      </div>
+      <div style="margin-bottom:12px">
+        <div style="font-size:13px;font-weight:700;color:#666;margin-bottom:6px">Username</div>
+        <input id="ob-signup-username" type="text" placeholder="e.g. semmes_b" autocomplete="off" autocapitalize="off" autocorrect="off"
+          oninput="obCheckUsername(this.value)"
+          style="width:100%;padding:14px 16px;border:1.5px solid #E8E8E8;border-radius:12px;font-size:16px;outline:none;box-sizing:border-box" />
+        <div id="ob-signup-username-status" style="font-size:12px;margin-top:6px;display:none"></div>
+        <div style="font-size:12px;color:#ADADAD;margin-top:6px">Sign in with this instead of your email — 3-20 characters, letters/numbers/periods/underscores.</div>
       </div>
       <div style="margin-bottom:12px">
         <div style="font-size:13px;font-weight:700;color:#666;margin-bottom:6px">Email</div>
