@@ -4652,7 +4652,7 @@ function mbRenderSavedFoods() {
   if (!savedFoods.length) { el.innerHTML = '<div style="font-size:13px;color:#ADADAD">No saved foods yet</div>'; return; }
   let html = '<div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px">Your Saved Foods</div>';
   savedFoods.forEach(f => {
-    const _p = _parseUnitString(f.unit); const food = {id:f.id, name:f.name, calories:f.cals_per_unit||f.calories_per_unit||0, protein:f.protein_per_unit, carbs:f.carbs_per_unit||0, fat:f.fat_per_unit||0, fiber:f.fiber_per_unit||0, unit:_p.unit, unit_size:_p.qty};
+    const _p = _parseUnitString(f.unit); const food = {id:f.id, name:f.name, calories:f.cals_per_unit||f.calories_per_unit||0, protein:f.protein_per_unit, carbs:f.carbs_per_unit||0, fat:f.fat_per_unit||0, fiber:f.fiber_per_unit||0, cholesterol:f.cholesterol_per_unit||0, unit:_p.unit, unit_size:_p.qty};
     html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #F4F4F4"><div><div style="font-size:14px;font-weight:500">' + f.name + '</div><div style="font-size:11px;color:#ADADAD">' + food.calories + ' kcal · ' + food.protein + 'g P per ' + food.unit + '</div></div>' + mbFoodBtn(food) + '</div>';
   });
   el.innerHTML = html;
@@ -4683,7 +4683,7 @@ function mbRenderLocalMatches(query) {
   if (localMatches.length) {
     html += '<div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px">Your Saved Foods</div>';
     localMatches.forEach(f => {
-      const _p = _parseUnitString(f.unit); const food = {id:f.id, name:f.name, calories:f.cals_per_unit||f.calories_per_unit||0, protein:f.protein_per_unit, carbs:f.carbs_per_unit||0, fat:f.fat_per_unit||0, fiber:f.fiber_per_unit||0, unit:_p.unit, unit_size:_p.qty};
+      const _p = _parseUnitString(f.unit); const food = {id:f.id, name:f.name, calories:f.cals_per_unit||f.calories_per_unit||0, protein:f.protein_per_unit, carbs:f.carbs_per_unit||0, fat:f.fat_per_unit||0, fiber:f.fiber_per_unit||0, cholesterol:f.cholesterol_per_unit||0, unit:_p.unit, unit_size:_p.qty};
       html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #F4F4F4"><div><div style="font-size:14px;font-weight:500">' + f.name + '</div><div style="font-size:11px;color:#ADADAD">' + food.calories + ' kcal · ' + food.protein + 'g P per ' + food.unit + '</div></div>' + mbFoodBtn(food) + '</div>';
     });
   }
@@ -4709,7 +4709,7 @@ async function mbSearchDB(query) {
 
     let html = '<div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.8px;margin:10px 0 6px">Food Database</div>';
     usdaResults.forEach(f => {
-      const food = {name:f.name, calories:f.calories, protein:f.protein, carbs:f.carbs, fat:f.fat, fiber:f.fiber||0, unit:f.serving_size};
+      const food = {name:f.name, calories:f.calories, protein:f.protein, carbs:f.carbs, fat:f.fat, fiber:f.fiber||0, cholesterol:f.cholesterol||0, unit:f.serving_size};
       html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #F4F4F4"><div><div style="font-size:14px;font-weight:500">' + f.name + '</div><div style="font-size:11px;color:#ADADAD">' + f.calories + ' kcal · ' + f.protein + 'g P · ' + f.serving_size + '</div></div>' + mbFoodBtn(food) + '</div>';
     });
     slot.outerHTML = html;
@@ -4848,7 +4848,8 @@ function mbAddIngredient() {
     protein: r(f.protein),
     carbs: r(f.carbs),
     fat: r(f.fat),
-    fiber: r(f.fiber || 0)
+    fiber: r(f.fiber || 0),
+    cholesterol: r(f.cholesterol || 0)
   });
   document.getElementById('mb-serving-modal').style.display = 'none';
   document.getElementById('mb-search-input').value = '';
@@ -4886,12 +4887,16 @@ function mbUpdateTotals() {
     acc.protein += ing.protein;
     acc.carbs += ing.carbs;
     acc.fat += ing.fat;
+    acc.fiber += (ing.fiber || 0);
+    acc.cholesterol += (ing.cholesterol || 0);
     return acc;
-  }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
+  }, { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, cholesterol: 0 });
   document.getElementById('mb-total-cals').textContent = totals.calories;
   document.getElementById('mb-total-protein').textContent = Math.round(totals.protein * 10) / 10 + 'g';
   document.getElementById('mb-total-carbs').textContent = Math.round(totals.carbs * 10) / 10 + 'g';
   document.getElementById('mb-total-fat').textContent = Math.round(totals.fat * 10) / 10 + 'g';
+  document.getElementById('mb-total-fiber').textContent = Math.round(totals.fiber * 10) / 10 + 'g';
+  document.getElementById('mb-total-cholesterol').textContent = Math.round(totals.cholesterol) + 'mg';
 }
 
 async function saveMeal() {
@@ -7842,22 +7847,30 @@ if (document.readyState === 'loading') {
     <!-- Macro totals -->
     <div style="background:#FFF7ED;border-radius:14px;padding:14px 16px;margin-bottom:16px">
       <div style="font-size:11px;font-weight:700;color:#F97316;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Totals</div>
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <div style="text-align:center">
-          <div style="font-size:22px;font-weight:800;color:#0F0F0F" id="mb-total-cals">0</div>
-          <div style="font-size:11px;color:#ADADAD;font-weight:600">kcal</div>
+      <div style="display:grid;grid-template-columns:repeat(6,1fr);text-align:center">
+        <div>
+          <div style="font-size:16px;font-weight:800;color:#F97316" id="mb-total-cals">0</div>
+          <div style="font-size:9px;color:#ADADAD;font-weight:600">kcal</div>
         </div>
-        <div style="text-align:center">
-          <div style="font-size:18px;font-weight:700;color:#0F0F0F" id="mb-total-protein">0g</div>
-          <div style="font-size:11px;color:#ADADAD;font-weight:600">Protein</div>
+        <div>
+          <div style="font-size:16px;font-weight:800;color:#F97316" id="mb-total-protein">0g</div>
+          <div style="font-size:9px;color:#ADADAD;font-weight:600">Protein</div>
         </div>
-        <div style="text-align:center">
-          <div style="font-size:18px;font-weight:700;color:#0F0F0F" id="mb-total-carbs">0g</div>
-          <div style="font-size:11px;color:#ADADAD;font-weight:600">Carbs</div>
+        <div>
+          <div style="font-size:16px;font-weight:800;color:#FB7185" id="mb-total-carbs">0g</div>
+          <div style="font-size:9px;color:#ADADAD;font-weight:600">Carbs</div>
         </div>
-        <div style="text-align:center">
-          <div style="font-size:18px;font-weight:700;color:#0F0F0F" id="mb-total-fat">0g</div>
-          <div style="font-size:11px;color:#ADADAD;font-weight:600">Fat</div>
+        <div>
+          <div style="font-size:16px;font-weight:800;color:#FBBF24" id="mb-total-fat">0g</div>
+          <div style="font-size:9px;color:#ADADAD;font-weight:600">Fat</div>
+        </div>
+        <div>
+          <div style="font-size:16px;font-weight:800;color:#16A34A" id="mb-total-fiber">0g</div>
+          <div style="font-size:9px;color:#ADADAD;font-weight:600">Fiber</div>
+        </div>
+        <div>
+          <div style="font-size:16px;font-weight:800;color:#8B5CF6" id="mb-total-cholesterol">0mg</div>
+          <div style="font-size:9px;color:#ADADAD;font-weight:600">Chol</div>
         </div>
       </div>
     </div>
@@ -7867,10 +7880,7 @@ if (document.readyState === 'loading') {
     <div id="mb-ingredients-list" style="margin-bottom:16px"></div>
 
     <!-- Search -->
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-      <div style="font-size:13px;font-weight:700;color:#0F0F0F">Add Ingredient</div>
-      <button onclick="mbOpenManual()" style="background:none;border:1px solid #E8E8E8;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;color:#666;cursor:pointer">+ Manual</button>
-    </div>
+    <button onclick="mbOpenManual()" style="background:var(--accent);color:white;border:none;border-radius:20px;padding:6px 16px;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:10px">+ Ingredient</button>
     <div style="position:relative;margin-bottom:10px">
       <input type="text" id="mb-search-input" placeholder="🔍 Search saved foods or database..."
         style="width:100%;padding:10px 12px;border:1px solid #E8E8E8;border-radius:10px;font-size:14px;outline:none;box-sizing:border-box"
