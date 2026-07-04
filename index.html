@@ -3026,7 +3026,7 @@ function obSaveProgress() {
     const fieldIds = [
       'ob-height-ft','ob-height-in','ob-age','ob-weight','ob-goal-weight',
       'ob-bf-current','ob-bf-goal','ob-muscle-current','ob-muscle-goal',
-      'ob-signup-name','ob-signup-email'
+      'ob-signup-name','ob-signup-username','ob-signup-email'
     ];
     const fields = {};
     fieldIds.forEach(id => { const el = document.getElementById(id); if (el) fields[id] = el.value; });
@@ -3107,6 +3107,9 @@ function obRestoreProgress() {
       const btn = document.getElementById('ob-goal-' + _obGoalType);
       if (btn) { btn.style.border = '2px solid #F97316'; btn.style.background = '#FFF7ED'; }
     }
+    // Re-check username availability so the status indicator matches the restored value
+    const usernameEl = document.getElementById('ob-signup-username');
+    if (usernameEl?.value) obCheckUsername(usernameEl.value);
     _obRestoring = false;
     // Now that fields are restored, save again so the snapshot reflects the restored state
     obSaveProgress();
