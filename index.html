@@ -208,6 +208,10 @@
           <input id="auth-password" type="password" placeholder="Password" autocomplete="current-password" style="width:100%;padding:14px 48px 14px 16px;border:1.5px solid #E8E8E8;border-radius:12px;font-size:15px;outline:none;box-sizing:border-box" onkeydown="if(event.key==='Enter')handleLogin()" />
           <button type="button" onclick="togglePw('auth-password',this)" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:0;font-size:18px;line-height:1;color:#ADADAD">👁️</button>
         </div>
+        <label style="display:flex;align-items:center;gap:8px;margin-bottom:20px;cursor:pointer;user-select:none">
+          <input type="checkbox" id="auth-remember-me" style="width:18px;height:18px;accent-color:#F97316;cursor:pointer" />
+          <span style="font-size:14px;color:#666">Remember me</span>
+        </label>
         <button id="auth-login-btn" onclick="handleLogin()" style="width:100%;padding:16px;background:#F97316;color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:12px">Sign In</button>
         <button onclick="showResetForm()" style="width:100%;padding:10px;background:none;border:none;font-size:13px;color:#ADADAD;cursor:pointer">Forgot password?</button>
       </div>
@@ -1065,7 +1069,7 @@
         <button onclick="openUsernameEdit()" style="background:none;border:none;color:#F97316;font-size:13px;font-weight:600;cursor:pointer">Change</button>
       </div>
       <div id="settings-username-edit" style="display:none;margin-top:8px">
-        <input type="text" id="settings-username-input" placeholder="e.g. semmes_b" autocomplete="off" autocapitalize="off" autocorrect="off"
+        <input type="text" id="settings-username-input" placeholder="e.g. alexfit22" autocomplete="off" autocapitalize="off" autocorrect="off"
           oninput="settingsCheckUsername(this.value)"
           style="width:100%;padding:10px 12px;border:1.5px solid #E8E8E8;border-radius:10px;font-size:14px;outline:none;box-sizing:border-box" />
         <div id="settings-username-status" style="font-size:12px;margin-top:6px;display:none"></div>
@@ -2652,6 +2656,12 @@ function showSignIn() {
   document.getElementById('auth-reset-form').style.display = 'none';
   const errEl = document.getElementById('auth-error');
   if (errEl) errEl.textContent = '';
+  // Pre-fill remembered email/username if the person checked "Remember me" before
+  const remembered = localStorage.getItem('remembered_login');
+  if (remembered) {
+    document.getElementById('auth-email').value = remembered;
+    document.getElementById('auth-remember-me').checked = true;
+  }
 }
 
 function showResetForm() {
@@ -2707,6 +2717,13 @@ async function handleLogin() {
 
   try {
     await signIn(email, password);
+    // Remember the raw identifier the person typed (username or email), not the resolved email
+    const rememberMe = document.getElementById('auth-remember-me')?.checked;
+    if (rememberMe) {
+      localStorage.setItem('remembered_login', rawInput);
+    } else {
+      localStorage.removeItem('remembered_login');
+    }
     document.getElementById('auth-screen').style.display = 'none';
     // Check if first-time login (no profile yet)
     const profile = await loadSetting('profile');
@@ -6473,7 +6490,7 @@ function showSettings() {
 async function loadCurrentUsername() {
   try {
     const rows = await dbGet('usernames', `user_id=eq.${_currentUser.id}&select=username`);
-    document.getElementById('settings-username').textContent = rows?.[0]?.username ? '@' + rows[0].username : 'Not set';
+    document.getElementById('settings-username').textContent = rows?.[0]?.username || 'Not set';
   } catch(e) {
     document.getElementById('settings-username').textContent = 'Not set';
   }
@@ -6536,7 +6553,7 @@ async function saveUsernameChange() {
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${_authToken}`, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates,return=minimal' },
       body: JSON.stringify({ user_id: _currentUser.id, username })
     });
-    document.getElementById('settings-username').textContent = '@' + username;
+    document.getElementById('settings-username').textContent = username;
     closeUsernameEdit();
     toast('Username updated ✓');
   } catch(e) {
@@ -7631,7 +7648,7 @@ if (document.readyState === 'loading') {
       </div>
       <div style="margin-bottom:12px">
         <div style="font-size:13px;font-weight:700;color:#666;margin-bottom:6px">Username</div>
-        <input id="ob-signup-username" type="text" placeholder="e.g. semmes_b" autocomplete="off" autocapitalize="off" autocorrect="off"
+        <input id="ob-signup-username" type="text" placeholder="e.g. alexfit22" autocomplete="off" autocapitalize="off" autocorrect="off"
           oninput="obCheckUsername(this.value)"
           style="width:100%;padding:14px 16px;border:1.5px solid #E8E8E8;border-radius:12px;font-size:16px;outline:none;box-sizing:border-box" />
         <div id="ob-signup-username-status" style="font-size:12px;margin-top:6px;display:none"></div>
