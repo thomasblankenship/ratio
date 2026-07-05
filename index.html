@@ -3145,7 +3145,7 @@ async function handleChangePassword(token) {
 let _obRestoring = false;
 
 function obSaveProgress(preserveTimestamp) {
-  if (_obRestoring) { console.log('[ob_progress] save blocked — _obRestoring is true'); return; }
+  if (_obRestoring) return; // don't save while we're in the middle of restoring
   if (!_obCurrentStep || _obCurrentStep < 1) return;
   try {
     const fieldIds = [
@@ -3175,7 +3175,7 @@ function obSaveProgress(preserveTimestamp) {
       savedAt
     };
     localStorage.setItem('ob_progress', JSON.stringify(snapshot));
-    console.log('[ob_progress] saved at step', _obCurrentStep, preserveTimestamp ? '(PRESERVED timestamp: ' + new Date(savedAt).toLocaleTimeString() + ')' : '(FRESH timestamp: ' + new Date(savedAt).toLocaleTimeString() + ')', fields);
+    console.log('[ob_progress] saved at step', _obCurrentStep, fields);
   } catch(e) { console.warn('obSaveProgress failed:', e); }
 }
 
@@ -3191,7 +3191,8 @@ function obRestoreProgress() {
     // filling out the form, not to resume a signup from hours or days ago.
     // A short window keeps that safety net without making a fresh visit to
     // the site feel like it's remembering things it shouldn't.
-    if (!snap.savedAt || Date.now() - snap.savedAt > 1 * 60 * 1000) { // TEMP: 1 min for testing, restore to 15 * 60 * 1000 after confirming
+    if (!snap.savedAt || Date.now() - snap.savedAt > 15 * 60 * 1000) {
+      console.log('[ob_progress] snapshot expired — discarding, not restoring');
       localStorage.removeItem('ob_progress');
       return false;
     }
@@ -3204,7 +3205,6 @@ function obRestoreProgress() {
       return false;
     }
     _obRestoring = true;
-    console.log('[ob_progress] _obRestoring set to TRUE');
     _obGoalType = snap.obGoalType || null;
     _obGender = snap.obGender || null;
     _obActivity = snap.obActivity || null;
