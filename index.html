@@ -4478,9 +4478,9 @@ function renderSavedMeals() {
   el.innerHTML = sorted.map(m => `
     <div class="meal-row">
       <div class="meal-info">
-        <div class="meal-name">
-          <button onclick="togglePinMeal('${m.id}')" style="background:none;border:none;cursor:pointer;font-size:14px;padding:0 4px 0 0;vertical-align:middle;color:${m.pinned ? '#F97316' : '#D1D5DB'}">${m.pinned ? '★' : '☆'}</button>
-          ${m.name}
+        <div class="meal-name" style="display:flex;align-items:flex-start;gap:4px">
+          <button onclick="togglePinMeal('${m.id}')" style="background:none;border:none;cursor:pointer;font-size:14px;padding:2px 0 0 0;line-height:1;flex-shrink:0;color:${m.pinned ? '#F97316' : '#D1D5DB'}">${m.pinned ? '★' : '☆'}</button>
+          <span style="flex:1">${m.name}</span>
         </div>
         <div class="meal-meta">${m.calories} kcal · ${m.protein}g P · ${m.carbs}g C · ${m.fat}g F</div>
         <div style="font-size:11px;color:#ADADAD;margin-top:2px">${(m.ingredients||[]).length} ingredient${(m.ingredients||[]).length !== 1 ? 's' : ''}</div>
@@ -4996,10 +4996,9 @@ function renderSavedFoods() {
   el.innerHTML = sorted.map(f => `
     <div class="meal-row">
       <div class="meal-info">
-        <div class="meal-name">
-          <button onclick="togglePinFood('${f.id}')" style="background:none;border:none;cursor:pointer;font-size:14px;padding:0 4px 0 0;vertical-align:middle;color:${f.pinned ? '#F97316' : '#D1D5DB'}">${f.pinned ? '★' : '☆'}</button>
-          ${f.name}
-          <button onclick="openEditFoodModal('${f.id}')" style="background:none;border:none;cursor:pointer;font-size:12px;color:#ADADAD;padding:0 4px;vertical-align:middle">✏️</button>
+        <div class="meal-name" style="display:flex;align-items:flex-start;gap:4px">
+          <button onclick="togglePinFood('${f.id}')" style="background:none;border:none;cursor:pointer;font-size:14px;padding:2px 0 0 0;line-height:1;flex-shrink:0;color:${f.pinned ? '#F97316' : '#D1D5DB'}">${f.pinned ? '★' : '☆'}</button>
+          <span style="flex:1">${f.name} <button onclick="openEditFoodModal('${f.id}')" style="background:none;border:none;cursor:pointer;font-size:12px;color:#ADADAD;padding:0 4px;vertical-align:middle">✏️</button></span>
         </div>
         <div class="meal-meta">${f.cals_per_unit || f.calories_per_unit || 0} kcal · ${f.protein_per_unit}g P per ${f.unit}</div>
       </div>
