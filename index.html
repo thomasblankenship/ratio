@@ -1573,15 +1573,15 @@ function _renderLocalMatches(query, ctx) {
     html += `<div style="padding:6px 12px;font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.8px;background:#F9FAFB">My Meals</div>`;
     html += mealMatches.map(m => {
       const k = _dashCache({mealId:m.id, name:m.name, cals:m.calories, protein:m.protein, carbs:m.carbs, fat:m.fat, fiber:m.fiber||0, chol:0});
-      return _searchRow(m.name, `${m.calories} kcal · ${m.protein}g P · ${m.carbs}g C · ${m.fat}g F`, k, ctx);
+      return _searchRow(m.name, nutritionMetaString(m), k, ctx);
     }).join('');
   }
   if (foodMatches.length) {
     html += `<div style="padding:6px 12px;font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.8px;background:#F9FAFB">Saved Foods</div>`;
     html += foodMatches.slice(0,6).map(f => {
       const cals = f.cals_per_unit || f.calories_per_unit || 0;
-      const k = _dashCache({savedFoodId:f.id, name:f.name, cals, protein:f.protein_per_unit, carbs:f.carbs_per_unit||0, fat:f.fat_per_unit||0, fiber:f.fiber_per_unit||0, chol:0});
-      return _searchRow(f.name, `${cals} kcal · ${f.protein_per_unit}g P per ${f.unit}`, k, ctx);
+      const k = _dashCache({savedFoodId:f.id, name:f.name, cals, protein:f.protein_per_unit, carbs:f.carbs_per_unit||0, fat:f.fat_per_unit||0, fiber:f.fiber_per_unit||0, chol:f.cholesterol_per_unit||0});
+      return _searchRow(f.name, nutritionMetaString(f, {perUnit: f.unit}), k, ctx);
     }).join('');
   }
   // Placeholder for database results, filled in once USDA responds
@@ -1617,7 +1617,7 @@ async function _runFoodSearch(query, ctx) {
       let dbHtml = `<div style="padding:6px 12px;font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.8px;background:#F9FAFB">Food Database</div>`;
       dbHtml += usdaResults.map(f => {
         const k = _dashCache({name:f.name, cals:f.calories, protein:f.protein, carbs:f.carbs, fat:f.fat, fiber:f.fiber||0, chol:f.cholesterol||0, unit:f.serving_size});
-        return _searchRow(f.name, `${f.calories} kcal · ${f.protein}g P · ${f.serving_size}`, k, ctx);
+        return _searchRow(f.name, nutritionMetaString(f, {perUnit: f.serving_size}), k, ctx);
       }).join('');
       slot.outerHTML = dbHtml;
       el.style.display = 'block';
@@ -3591,7 +3591,7 @@ function renderMealSection(meals, indices, showEmpty) {
           <span style="flex:1;word-break:break-word">${m.name}</span>
           <button data-edit="${m.id}" style="background:none;border:none;cursor:pointer;font-size:11px;color:#ADADAD;padding:0 2px;flex-shrink:0;margin-top:1px">✏️</button>
         </div>
-        <div class="meal-meta">Protein:${m.protein}g · Carbs:${m.carbs}g · Fat:${m.fat}g · Fiber:${m.fiber||0}g · Chol:${m.cholesterol||0}mg</div>
+        <div class="meal-meta">${nutritionMetaString(m, {skipCals: true})}</div>
       </div>
       <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
         <span style="font-size:14px;font-weight:600;color:#111">${m.calories} kcal</span>
@@ -3984,7 +3984,7 @@ async function showHistoryDetail(date) {
           <span style="flex:1;word-break:break-word">${m.name}</span>
           <button data-hist-edit="${i}" style="background:none;border:none;cursor:pointer;font-size:11px;color:#ADADAD;padding:0 2px;flex-shrink:0;margin-top:1px">✏️</button>
         </div>
-        <div class="meal-meta">Protein:${m.protein}g · Carbs:${m.carbs}g · Fat:${m.fat}g · Fiber:${m.fiber||0}g</div>
+        <div class="meal-meta">${nutritionMetaString(m, {skipCals: true})}</div>
       </div>
       <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
         <span style="font-size:14px;font-weight:600;color:#111">${m.calories} kcal</span>
@@ -4456,7 +4456,7 @@ async function searchFoodDatabase(query) {
         <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #F4F4F4">
           <div>
             <div style="font-size:14px;font-weight:500">${m.name}</div>
-            <div style="font-size:11px;color:#ADADAD">${m.calories} kcal · ${m.protein}g P · ${m.carbs}g C · ${m.fat}g F</div>
+            <div style="font-size:11px;color:#ADADAD">${nutritionMetaString(m)}</div>
             <div style="font-size:11px;color:#ADADAD">${(m.ingredients||[]).length} ingredient${(m.ingredients||[]).length !== 1 ? 's' : ''}</div>
           </div>
           <button type="button" onclick="openLogMealModal('${m.id}')" style="background:linear-gradient(135deg,#F97316,#FB7185);color:white;border:none;border-radius:14px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer">+ Log</button>
@@ -4470,7 +4470,7 @@ async function searchFoodDatabase(query) {
         <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #F4F4F4">
           <div>
             <div style="font-size:14px;font-weight:500">${f.name}</div>
-            <div style="font-size:11px;color:#ADADAD">${f.cals_per_unit || f.calories_per_unit || 0} kcal · ${f.protein_per_unit}g P per ${f.unit}</div>
+            <div style="font-size:11px;color:#ADADAD">${nutritionMetaString(f, {perUnit: f.unit})}</div>
           </div>
           <button type="button" onclick="openFoodModal('${f.id}')" style="background:linear-gradient(135deg,#F97316,#FB7185);color:white;border:none;border-radius:14px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer">+ Log</button>
         </div>`).join('');
@@ -4483,7 +4483,7 @@ async function searchFoodDatabase(query) {
         <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #F4F4F4">
           <div>
             <div style="font-size:14px;font-weight:500">${f.name}</div>
-            <div style="font-size:11px;color:#ADADAD">${f.calories} kcal · ${f.protein}g P · ${f.serving_size}</div>
+            <div style="font-size:11px;color:#ADADAD">${nutritionMetaString(f, {perUnit: f.serving_size})}</div>
           </div>
           <button type="button" onclick='logSearchResult(${JSON.stringify(JSON.stringify(f))})' style="background:linear-gradient(135deg,#F97316,#FB7185);color:white;border:none;border-radius:14px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer">+ Log</button>
         </div>`).join('');
@@ -4558,12 +4558,14 @@ function renderSavedMeals() {
   el.innerHTML = sorted.map(m => `
     <div class="meal-row">
       <div class="meal-info">
-        <div class="meal-name" style="display:flex;align-items:flex-start;gap:4px">
+        <div style="display:flex;align-items:flex-start;gap:4px">
           <button onclick="togglePinMeal('${m.id}')" style="background:none;border:none;cursor:pointer;font-size:14px;padding:2px 0 0 0;line-height:1;flex-shrink:0;color:${m.pinned ? '#F97316' : '#D1D5DB'}">${m.pinned ? '★' : '☆'}</button>
-          <span style="flex:1">${m.name}</span>
+          <div style="flex:1">
+            <div class="meal-name">${m.name}</div>
+            <div class="meal-meta">${nutritionMetaString(m)}</div>
+            <div style="font-size:11px;color:#ADADAD;margin-top:2px">${(m.ingredients||[]).length} ingredient${(m.ingredients||[]).length !== 1 ? 's' : ''}</div>
+          </div>
         </div>
-        <div class="meal-meta">${m.calories} kcal · ${m.protein}g P · ${m.carbs}g C · ${m.fat}g F</div>
-        <div style="font-size:11px;color:#ADADAD;margin-top:2px">${(m.ingredients||[]).length} ingredient${(m.ingredients||[]).length !== 1 ? 's' : ''}</div>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
         <button onclick="openLogMealModal('${m.id}')" style="background:var(--accent);color:white;border:none;border-radius:16px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer">+ Log</button>
@@ -4792,7 +4794,7 @@ function mbRenderSavedFoods() {
   let html = '<div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px">Your Saved Foods</div>';
   savedFoods.forEach(f => {
     const _p = _parseUnitString(f.unit); const food = {id:f.id, name:f.name, calories:f.cals_per_unit||f.calories_per_unit||0, protein:f.protein_per_unit, carbs:f.carbs_per_unit||0, fat:f.fat_per_unit||0, fiber:f.fiber_per_unit||0, cholesterol:f.cholesterol_per_unit||0, unit:_p.unit, unit_size:_p.qty};
-    html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #F4F4F4"><div><div style="font-size:14px;font-weight:500">' + f.name + '</div><div style="font-size:11px;color:#ADADAD">' + food.calories + ' kcal · ' + food.protein + 'g P per ' + food.unit + '</div></div>' + mbFoodBtn(food) + '</div>';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #F4F4F4"><div><div style="font-size:14px;font-weight:500">' + f.name + '</div><div style="font-size:11px;color:#ADADAD">' + nutritionMetaString(food, {perUnit: food.unit}) + '</div></div>' + mbFoodBtn(food) + '</div>';
   });
   el.innerHTML = html;
 }
@@ -4823,7 +4825,7 @@ function mbRenderLocalMatches(query) {
     html += '<div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px">Your Saved Foods</div>';
     localMatches.forEach(f => {
       const _p = _parseUnitString(f.unit); const food = {id:f.id, name:f.name, calories:f.cals_per_unit||f.calories_per_unit||0, protein:f.protein_per_unit, carbs:f.carbs_per_unit||0, fat:f.fat_per_unit||0, fiber:f.fiber_per_unit||0, cholesterol:f.cholesterol_per_unit||0, unit:_p.unit, unit_size:_p.qty};
-      html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #F4F4F4"><div><div style="font-size:14px;font-weight:500">' + f.name + '</div><div style="font-size:11px;color:#ADADAD">' + food.calories + ' kcal · ' + food.protein + 'g P per ' + food.unit + '</div></div>' + mbFoodBtn(food) + '</div>';
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #F4F4F4"><div><div style="font-size:14px;font-weight:500">' + f.name + '</div><div style="font-size:11px;color:#ADADAD">' + nutritionMetaString(food, {perUnit: food.unit}) + '</div></div>' + mbFoodBtn(food) + '</div>';
     });
   }
   html += '<div id="mb-usda-slot"></div>';
@@ -4849,7 +4851,7 @@ async function mbSearchDB(query) {
     let html = '<div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.8px;margin:10px 0 6px">Food Database</div>';
     usdaResults.forEach(f => {
       const food = {name:f.name, calories:f.calories, protein:f.protein, carbs:f.carbs, fat:f.fat, fiber:f.fiber||0, cholesterol:f.cholesterol||0, unit:f.serving_size};
-      html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #F4F4F4"><div><div style="font-size:14px;font-weight:500">' + f.name + '</div><div style="font-size:11px;color:#ADADAD">' + f.calories + ' kcal · ' + f.protein + 'g P · ' + f.serving_size + '</div></div>' + mbFoodBtn(food) + '</div>';
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #F4F4F4"><div><div style="font-size:14px;font-weight:500">' + f.name + '</div><div style="font-size:11px;color:#ADADAD">' + nutritionMetaString(food, {perUnit: f.serving_size}) + '</div></div>' + mbFoodBtn(food) + '</div>';
     });
     slot.outerHTML = html;
   } catch(e) { console.error('[mbSearchDB] error:', e); }
@@ -4907,7 +4909,7 @@ async function urlImportFetch() {
     if (data.error) throw new Error(data.error);
     // Show result
     document.getElementById('url-import-meal-name').textContent = data.name || 'Imported Recipe';
-    document.getElementById('url-import-macros').textContent = `${data.calories} kcal · ${data.protein}g P · ${data.carbs}g C · ${data.fat}g F per serving`;
+    document.getElementById('url-import-macros').textContent = nutritionMetaString(data, {perUnit: 'serving'});
     document.getElementById('url-import-ingredients').innerHTML = (data.ingredients || []).map(i =>
       `<div>• ${i.name}${i.amount ? ' — ' + i.amount : ''}</div>`).join('');
     document.getElementById('url-import-result').style.display = 'block';
@@ -5014,7 +5016,7 @@ function mbRenderIngredients() {
     <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #F4F4F4">
       <div>
         <div style="font-size:14px;font-weight:500">${ing.name}</div>
-        <div style="font-size:11px;color:#ADADAD">${ing.qty} ${ing.unit} · ${ing.calories} kcal · ${ing.protein}g P</div>
+        <div style="font-size:11px;color:#ADADAD">${ing.qty} ${ing.unit} | ${nutritionMetaString(ing)}</div>
       </div>
       <button onclick="mbRemoveIngredient(${i})" style="background:none;border:none;color:#E8E8E8;cursor:pointer;font-size:20px;line-height:1;padding:0 4px">×</button>
     </div>`).join('');
@@ -5076,11 +5078,13 @@ function renderSavedFoods() {
   el.innerHTML = sorted.map(f => `
     <div class="meal-row">
       <div class="meal-info">
-        <div class="meal-name" style="display:flex;align-items:flex-start;gap:4px">
+        <div style="display:flex;align-items:flex-start;gap:4px">
           <button onclick="togglePinFood('${f.id}')" style="background:none;border:none;cursor:pointer;font-size:14px;padding:2px 0 0 0;line-height:1;flex-shrink:0;color:${f.pinned ? '#F97316' : '#D1D5DB'}">${f.pinned ? '★' : '☆'}</button>
-          <span style="flex:1">${f.name} <button onclick="openEditFoodModal('${f.id}')" style="background:none;border:none;cursor:pointer;font-size:12px;color:#ADADAD;padding:0 4px;vertical-align:middle">✏️</button></span>
+          <div style="flex:1">
+            <div class="meal-name">${f.name} <button onclick="openEditFoodModal('${f.id}')" style="background:none;border:none;cursor:pointer;font-size:12px;color:#ADADAD;padding:0 4px;vertical-align:middle">✏️</button></div>
+            <div class="meal-meta">${nutritionMetaString(f, {perUnit: f.unit})}</div>
+          </div>
         </div>
-        <div class="meal-meta">${f.cals_per_unit || f.calories_per_unit || 0} kcal · ${f.protein_per_unit}g P per ${f.unit}</div>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
         <button onclick="openFoodModal('${f.id}')" style="background:var(--accent);color:white;border:none;border-radius:16px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer">+ Log</button>
@@ -5242,6 +5246,24 @@ const FOOD_ALL_UNITS = ['g','oz','each','slice','piece','serving','cup','tbsp','
 // hiddenInputId: hidden input that stores the currently-selected unit
 // defaultUnit: unit to start scrolled to
 // onChange: optional callback fired whenever the selected unit changes
+// Shared formatter for the nutrition summary line shown under a food/meal
+// name throughout the app (Dashboard, History, Meals, search results, etc.)
+// so it's the exact same format everywhere: calories + all 5 macros, with a
+// "per {unit}" suffix for per-serving items like saved foods.
+function nutritionMetaString(item, opts = {}) {
+  const cals = item.calories ?? item.cals_per_unit ?? item.calories_per_unit ?? 0;
+  const protein = item.protein ?? item.protein_per_unit ?? 0;
+  const carbs = item.carbs ?? item.carbs_per_unit ?? 0;
+  const fat = item.fat ?? item.fat_per_unit ?? 0;
+  const fiber = item.fiber ?? item.fiber_per_unit ?? 0;
+  const chol = item.cholesterol ?? item.cholesterol_per_unit ?? 0;
+  let str = opts.skipCals
+    ? `Protein:${protein}g | Carbs:${carbs}g | Fat:${fat}g | Fiber:${fiber}g | Chol:${chol}mg`
+    : `${cals} kcal | Protein:${protein}g | Carbs:${carbs}g | Fat:${fat}g | Fiber:${fiber}g | Chol:${chol}mg`;
+  if (opts.perUnit) str += ` per ${opts.perUnit}`;
+  return str;
+}
+
 function buildUnitWheel(scrollContainerId, hiddenInputId, defaultUnit, onChange) {
   const container = document.getElementById(scrollContainerId);
   const hiddenInput = document.getElementById(hiddenInputId);
