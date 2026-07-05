@@ -3361,9 +3361,10 @@ async function obSaveAndWelcome() {
   obClearProgress();
   if (weight) { try { await dbPost('scans', { date: today, weight }); } catch(e) {} }
 
-  // Show plan summary (step 9)
-  obShowPlan();
-  obShowStep(9);
+  // Show the "your plan is ready" welcome screen — same design used everywhere
+  // else this plan summary appears, so there's one consistent look.
+  document.querySelectorAll('.ob-screen').forEach(el => { el.style.display = 'none'; });
+  await showWelcomeScreen();
 }
 
 async function obFinish() {
@@ -3387,7 +3388,13 @@ async function obFinish() {
     _obPhotos = {};
   }
 
-  await showWelcomeScreen();
+  // Step 9 already showed the plan (calories/protein/goal date) with its own
+  // "Let's Start Tracking" button — showing showWelcomeScreen() here as well
+  // would just repeat the same information a second time with another
+  // redundant button tap. Go straight into the app instead.
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app-shell').style.display = 'block';
+  await appInit();
 }
 
 async function showWelcomeScreen() {
@@ -3432,6 +3439,24 @@ async function showWelcomeScreen() {
 
 async function dismissWelcome() {
   document.getElementById('welcome-screen').style.display = 'none';
+
+  // Upload any starting photos collected during onboarding before entering the app
+  if (_currentUser && Object.keys(_obPhotos).length > 0) {
+    const date = document.getElementById('ob-photo-date')?.value || new Date().toISOString().slice(0,10);
+    const results = await Promise.allSettled(
+      Object.entries(_obPhotos).map(async ([angle, file]) => {
+        const path = `${date}/${angle}.jpg`;
+        const uploadRes = await storageUpload('progress-photos', path, file);
+        if (uploadRes.error) throw new Error(uploadRes.error);
+        const url = storageUrl('progress-photos', path) + '?t=' + Date.now();
+        await dbPost('progress_photos', { date, photo_url: url, angle, notes: 'Starting photo' });
+        return angle;
+      })
+    );
+    results.forEach((r, i) => { if (r.status === 'rejected') console.warn(`Starting photo upload failed (${Object.keys(_obPhotos)[i]}):`, r.reason); });
+    _obPhotos = {};
+  }
+
   document.getElementById('app-shell').style.display = 'block';
   await appInit();
 }
@@ -8075,11 +8100,11 @@ if (document.readyState === 'loading') {
   </div>
 
   <!-- Step 9: Your Plan is Ready -->
-  <div class="ob-screen" id="ob-step-9" style="position:fixed;top:0;left:0;right:0;bottom:0;background:#0F0F0F;display:none;flex-direction:column;z-index:9999;overflow-y:auto;align-items:center;justify-content:center;padding:32px;text-align:center">
+  <div class="ob-screen" id="ob-step-9" style="position:fixed;top:0;left:0;right:0;bottom:0;background:linear-gradient(160deg,#FFF7ED,#fff);display:none;flex-direction:column;z-index:9999;overflow-y:auto;align-items:center;justify-content:center;padding:32px;text-align:center">
     <div style="width:100%;max-width:420px;display:flex;flex-direction:column;align-items:center">
-    <div style="font-size:32px;font-weight:800;color:white;letter-spacing:-0.5px;margin-bottom:8px">Your plan is ready! 🎉</div>
-    <div id="ob-plan-name" style="font-size:16px;color:rgba(255,255,255,0.6);margin-bottom:32px"></div>
-    <div style="background:white;border-radius:20px;padding:24px;width:100%;margin-bottom:24px">
+    <div style="font-size:32px;font-weight:800;color:#0F0F0F;letter-spacing:-0.5px;margin-bottom:8px">Your plan is ready! 🎉</div>
+    <div id="ob-plan-name" style="font-size:16px;color:#666;margin-bottom:32px"></div>
+    <div style="background:white;border-radius:20px;padding:24px;width:100%;margin-bottom:24px;box-shadow:0 2px 12px rgba(0,0,0,0.06)">
       <div style="display:flex;flex-direction:column;gap:16px">
         <div style="display:flex;align-items:center;gap:14px">
           <div style="width:44px;height:44px;background:#FFF7ED;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px">🥩</div>
