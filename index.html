@@ -3145,7 +3145,7 @@ async function handleChangePassword(token) {
 let _obRestoring = false;
 
 function obSaveProgress(preserveTimestamp) {
-  if (_obRestoring) return; // don't save while we're in the middle of restoring
+  if (_obRestoring) { console.log('[ob_progress] save blocked — _obRestoring is true'); return; }
   if (!_obCurrentStep || _obCurrentStep < 1) return;
   try {
     const fieldIds = [
@@ -3175,7 +3175,7 @@ function obSaveProgress(preserveTimestamp) {
       savedAt
     };
     localStorage.setItem('ob_progress', JSON.stringify(snapshot));
-    console.log('[ob_progress] saved at step', _obCurrentStep, fields);
+    console.log('[ob_progress] saved at step', _obCurrentStep, preserveTimestamp ? '(PRESERVED timestamp: ' + new Date(savedAt).toLocaleTimeString() + ')' : '(FRESH timestamp: ' + new Date(savedAt).toLocaleTimeString() + ')', fields);
   } catch(e) { console.warn('obSaveProgress failed:', e); }
 }
 
@@ -3204,6 +3204,7 @@ function obRestoreProgress() {
       return false;
     }
     _obRestoring = true;
+    console.log('[ob_progress] _obRestoring set to TRUE');
     _obGoalType = snap.obGoalType || null;
     _obGender = snap.obGender || null;
     _obActivity = snap.obActivity || null;
