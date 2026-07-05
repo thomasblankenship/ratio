@@ -3173,8 +3173,12 @@ function obRestoreProgress() {
     if (!raw) return false;
     const snap = JSON.parse(raw);
     console.log('[ob_progress] found snapshot:', snap);
-    // Discard stale progress (older than 24h)
-    if (!snap.savedAt || Date.now() - snap.savedAt > 24 * 60 * 60 * 1000) {
+    // Discard stale progress — this is meant to protect against a brief
+    // interruption (app backgrounded, accidental reload) while actively
+    // filling out the form, not to resume a signup from hours or days ago.
+    // A short window keeps that safety net without making a fresh visit to
+    // the site feel like it's remembering things it shouldn't.
+    if (!snap.savedAt || Date.now() - snap.savedAt > 15 * 60 * 1000) {
       localStorage.removeItem('ob_progress');
       return false;
     }
