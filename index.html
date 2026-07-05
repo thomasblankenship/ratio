@@ -2220,7 +2220,10 @@ function obShowPlan() {
     muscle_gain: 'Muscle Building',
     maintain: 'Maintenance & Performance'
   };
-  document.getElementById('ob-plan-name').textContent = goalLabels[_obGoalType] || '';
+  const name = window._obName || document.getElementById('ob-signup-name')?.value.trim() || '';
+  document.getElementById('ob-plan-name').textContent = name
+    ? `${name} — ${goalLabels[_obGoalType] || ''}`
+    : (goalLabels[_obGoalType] || '');
   document.getElementById('ob-plan-protein').textContent = plan.protein + 'g protein daily';
   document.getElementById('ob-plan-calories').textContent = plan.calories.toLocaleString() + ' calories daily';
   document.getElementById('ob-plan-date').textContent = plan.goalDateStr;
@@ -8073,6 +8076,7 @@ if (document.readyState === 'loading') {
 
   <!-- Step 9: Your Plan is Ready -->
   <div class="ob-screen" id="ob-step-9" style="position:fixed;top:0;left:0;right:0;bottom:0;background:#0F0F0F;display:none;flex-direction:column;z-index:9999;overflow-y:auto;align-items:center;justify-content:center;padding:32px;text-align:center">
+    <div style="width:100%;max-width:420px;display:flex;flex-direction:column;align-items:center">
     <div style="font-size:32px;font-weight:800;color:white;letter-spacing:-0.5px;margin-bottom:8px">Your plan is ready! 🎉</div>
     <div id="ob-plan-name" style="font-size:16px;color:rgba(255,255,255,0.6);margin-bottom:32px"></div>
     <div style="background:white;border-radius:20px;padding:24px;width:100%;margin-bottom:24px">
@@ -8092,6 +8096,7 @@ if (document.readyState === 'loading') {
       </div>
     </div>
     <button onclick="obFinish()" style="width:100%;padding:18px;background:#F97316;color:white;border:none;border-radius:14px;font-size:17px;font-weight:800;cursor:pointer;letter-spacing:-0.3px">Let's Start Tracking 🚀</button>
+    </div>
   </div>
 
 <!-- MEAL BUILDER MODAL -->
