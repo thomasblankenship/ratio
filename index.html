@@ -3191,7 +3191,7 @@ function obRestoreProgress() {
     // filling out the form, not to resume a signup from hours or days ago.
     // A short window keeps that safety net without making a fresh visit to
     // the site feel like it's remembering things it shouldn't.
-    if (!snap.savedAt || Date.now() - snap.savedAt > 15 * 60 * 1000) {
+    if (!snap.savedAt || Date.now() - snap.savedAt > 1 * 60 * 1000) { // TEMP: 1 min for testing, restore to 15 * 60 * 1000 after confirming
       localStorage.removeItem('ob_progress');
       return false;
     }
