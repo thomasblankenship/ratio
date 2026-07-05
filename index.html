@@ -544,6 +544,23 @@
     <!-- MEALS -->
     <div id="tab-meals" style="display:none">
 
+      <!-- SHARED SCAN / LABEL -->
+      <div class="card">
+        <div class="card-title">Quick Add</div>
+        <div style="font-size:12px;color:#ADADAD;margin-bottom:10px">Scan a barcode or photograph a nutrition label — then choose to save it as a Food or a Meal.</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <button onclick="openBarcodeScannerFromMealsTab()" style="background:#0F0F0F;color:white;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:600;cursor:pointer">📷 Scan Barcode</button>
+          <button onclick="openLabelModalFromMealsTab()" style="background:#0F0F0F;color:white;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:600;cursor:pointer">🏷️ Photo Label</button>
+        </div>
+      </div>
+
+      <!-- MEALS TAB SUB-NAV -->
+      <div style="display:flex;background:#F4F4F4;border-radius:12px;padding:4px;margin-bottom:16px">
+        <button id="meals-subtab-btn-foods" onclick="switchMealsSubTab('foods')" style="flex:1;padding:10px;border:none;border-radius:9px;background:white;color:#0F0F0F;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,0.08)">My Foods</button>
+        <button id="meals-subtab-btn-meals" onclick="switchMealsSubTab('meals')" style="flex:1;padding:10px;border:none;border-radius:9px;background:transparent;color:#ADADAD;font-size:14px;font-weight:700;cursor:pointer">My Meals</button>
+      </div>
+
+      <div id="meals-subtab-meals" style="display:none">
       <!-- MY MEALS -->
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
@@ -555,14 +572,13 @@
         </div>
         <div id="saved-meals-list"><div class="loading">Loading...</div></div>
       </div>
+      </div>
+
+      <div id="meals-subtab-foods">
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
           <div class="card-title" style="margin-bottom:0">My Foods</div>
-          <div style="display:flex;gap:6px">
-            <button onclick="openBarcodeScanner()" style="background:#0F0F0F;color:white;border:none;border-radius:20px;padding:4px 10px;font-size:12px;font-weight:600;cursor:pointer">📷 Scan</button>
-            <button onclick="openLabelModal()" style="background:#0F0F0F;color:white;border:none;border-radius:20px;padding:4px 10px;font-size:12px;font-weight:600;cursor:pointer">🏷️ Label</button>
-            <button onclick="toggleAddFood()" style="background:var(--accent);color:white;border:none;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;cursor:pointer">+ Add</button>
-          </div>
+          <button onclick="toggleAddFood()" style="background:var(--accent);color:white;border:none;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;cursor:pointer">+ Add</button>
         </div>
         <div id="add-food-form" style="display:none;background:#FFF7ED;border-radius:10px;padding:14px;margin-bottom:12px">
           <div id="add-food-form-fields"></div>
@@ -577,6 +593,7 @@
         </div>
         <div id="food-search-results" style="display:none;margin-bottom:12px"></div>
         <div id="saved-foods-list"><div class="loading">Loading...</div></div>
+      </div>
       </div>
 
     </div>
@@ -1379,9 +1396,10 @@
       <div style="font-size:11px;color:#ADADAD;text-align:center;margin-top:8px">Scroll to change unit</div>
     </div>
     <div id="label-loading" style="display:none;text-align:center;padding:16px;color:#ADADAD;font-size:13px">🤖 Claude is reading the label...</div>
-    <div id="label-actions" style="display:none;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+    <div id="label-actions" style="display:none;display:grid;grid-template-columns:1fr 1fr;gap:8px">
       <button onclick="closeLabelModal()" style="background:#F4F4F4;color:#0F0F0F;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:600;cursor:pointer">Cancel</button>
       <button onclick="saveLabelAsFood()" style="background:#F4F4F4;color:#0F0F0F;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:600;cursor:pointer">Save Food</button>
+      <button onclick="saveLabelAsMeal()" style="background:#F4F4F4;color:#0F0F0F;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:600;cursor:pointer">Save as Meal</button>
       <button onclick="logLabelAsFood()" style="background:linear-gradient(135deg,#F97316,#FB7185);color:white;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:600;cursor:pointer">Log Now</button>
     </div>
     <button id="label-cancel-btn" onclick="closeLabelModal()" style="width:100%;background:#F4F4F4;color:#0F0F0F;border:none;border-radius:8px;padding:11px;font-size:14px;font-weight:600;cursor:pointer;margin-top:0">Cancel</button>
@@ -1678,6 +1696,7 @@ function _searchPick(key, ctx) {
     serving_size: d.unit || '1 serving',
     unit: d.unit || '1 serving'
   };
+  window._scanTarget = null;
   showLabelResult(labelScannedData);
   openLabelModal(true);
 }
@@ -4410,6 +4429,7 @@ async function logSearchResult(jsonStr) {
     serving_size: f.serving_size,
     unit: f.serving_size
   };
+  window._scanTarget = null;
   showLabelResult(labelScannedData);
   openLabelModal(true);
   // Clear search
@@ -4420,6 +4440,22 @@ async function logSearchResult(jsonStr) {
 
 // MEALS TAB
 let savedMeals = [];
+
+function switchMealsSubTab(tab) {
+  const foodsPanel = document.getElementById('meals-subtab-foods');
+  const mealsPanel = document.getElementById('meals-subtab-meals');
+  const foodsBtn = document.getElementById('meals-subtab-btn-foods');
+  const mealsBtn = document.getElementById('meals-subtab-btn-meals');
+  const showFoods = tab === 'foods';
+  foodsPanel.style.display = showFoods ? 'block' : 'none';
+  mealsPanel.style.display = showFoods ? 'none' : 'block';
+  foodsBtn.style.background = showFoods ? 'white' : 'transparent';
+  foodsBtn.style.color = showFoods ? '#0F0F0F' : '#ADADAD';
+  foodsBtn.style.boxShadow = showFoods ? '0 1px 3px rgba(0,0,0,0.08)' : 'none';
+  mealsBtn.style.background = showFoods ? 'transparent' : 'white';
+  mealsBtn.style.color = showFoods ? '#ADADAD' : '#0F0F0F';
+  mealsBtn.style.boxShadow = showFoods ? 'none' : '0 1px 3px rgba(0,0,0,0.08)';
+}
 
 async function loadMealsTab() {
   await Promise.all([loadSavedMeals(), loadSavedFoods()]);
@@ -4438,10 +4474,14 @@ function renderSavedMeals() {
     el.innerHTML = '<div class="empty">No meals saved yet — tap + Create to build your first meal</div>';
     return;
   }
-  el.innerHTML = savedMeals.map(m => `
+  const sorted = [...savedMeals].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
+  el.innerHTML = sorted.map(m => `
     <div class="meal-row">
       <div class="meal-info">
-        <div class="meal-name">${m.name}</div>
+        <div class="meal-name">
+          <button onclick="togglePinMeal('${m.id}')" style="background:none;border:none;cursor:pointer;font-size:14px;padding:0 4px 0 0;vertical-align:middle;color:${m.pinned ? '#F97316' : '#D1D5DB'}">${m.pinned ? '★' : '☆'}</button>
+          ${m.name}
+        </div>
         <div class="meal-meta">${m.calories} kcal · ${m.protein}g P · ${m.carbs}g C · ${m.fat}g F</div>
         <div style="font-size:11px;color:#ADADAD;margin-top:2px">${(m.ingredients||[]).length} ingredient${(m.ingredients||[]).length !== 1 ? 's' : ''}</div>
       </div>
@@ -4450,6 +4490,25 @@ function renderSavedMeals() {
         <button onclick="deleteSavedMeal('${m.id}')" style="background:none;border:none;color:#E8E8E8;cursor:pointer;font-size:20px;line-height:1">×</button>
       </div>
     </div>`).join('');
+}
+
+async function togglePinMeal(id) {
+  const meal = savedMeals.find(m => m.id === id);
+  if (!meal) return;
+  const newPinned = !meal.pinned;
+  meal.pinned = newPinned; // optimistic update
+  renderSavedMeals();
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/saved_meals?id=eq.${id}`, {
+      method: 'PATCH',
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${_authToken || SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pinned: newPinned })
+    });
+  } catch(e) {
+    meal.pinned = !newPinned; // revert on failure
+    renderSavedMeals();
+    toast('Could not update pin');
+  }
 }
 
 async function deleteSavedMeal(id) {
@@ -4933,10 +4992,12 @@ async function loadSavedFoods() {
 function renderSavedFoods() {
   const el = document.getElementById('saved-foods-list');
   if (!savedFoods.length) { el.innerHTML = '<div class="empty">No foods saved yet — tap + Add to get started</div>'; return; }
-  el.innerHTML = savedFoods.map(f => `
+  const sorted = [...savedFoods].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
+  el.innerHTML = sorted.map(f => `
     <div class="meal-row">
       <div class="meal-info">
         <div class="meal-name">
+          <button onclick="togglePinFood('${f.id}')" style="background:none;border:none;cursor:pointer;font-size:14px;padding:0 4px 0 0;vertical-align:middle;color:${f.pinned ? '#F97316' : '#D1D5DB'}">${f.pinned ? '★' : '☆'}</button>
           ${f.name}
           <button onclick="openEditFoodModal('${f.id}')" style="background:none;border:none;cursor:pointer;font-size:12px;color:#ADADAD;padding:0 4px;vertical-align:middle">✏️</button>
         </div>
@@ -4947,6 +5008,25 @@ function renderSavedFoods() {
         <button onclick="deleteSavedFood('${f.id}')" style="background:none;border:none;color:#E8E8E8;cursor:pointer;font-size:20px;line-height:1">×</button>
       </div>
     </div>`).join('');
+}
+
+async function togglePinFood(id) {
+  const food = savedFoods.find(f => f.id === id);
+  if (!food) return;
+  const newPinned = !food.pinned;
+  food.pinned = newPinned; // optimistic update
+  renderSavedFoods();
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/saved_foods?id=eq.${id}`, {
+      method: 'PATCH',
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${_authToken || SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pinned: newPinned })
+    });
+  } catch(e) {
+    food.pinned = !newPinned; // revert on failure
+    renderSavedFoods();
+    toast('Could not update pin');
+  }
 }
 
 function toggleAddFood() {
@@ -5698,7 +5778,10 @@ function showLabelResult(data) {
   document.getElementById('label-cancel-btn').style.display = 'none';
   const actions = document.getElementById('label-actions');
   actions.style.display = 'grid';
-  if (!document.getElementById('fill-form-btn')) {
+  // Remove any stale Fill Meal Form button from a previous context before deciding whether to add it back
+  const existingFillBtn = document.getElementById('fill-form-btn');
+  if (existingFillBtn) existingFillBtn.remove();
+  if (window._scanTarget === 'meal') {
     const fillBtn = document.createElement('button');
     fillBtn.id = 'fill-form-btn';
     fillBtn.textContent = 'Fill Meal Form';
@@ -5706,6 +5789,39 @@ function showLabelResult(data) {
     fillBtn.onclick = () => { fillMealFormFromScan(labelScannedData); closeLabelModal(); };
     actions.appendChild(fillBtn);
   }
+  if (window._scanTarget === 'meals-tab') {
+    const saveMealBtn = document.createElement('button');
+    saveMealBtn.id = 'fill-form-btn';
+    saveMealBtn.textContent = 'Save as Meal';
+    saveMealBtn.style.cssText = 'background:linear-gradient(135deg,#F97316,#FB7185);color:white;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:600;cursor:pointer;grid-column:1/-1;margin-top:4px;width:100%';
+    saveMealBtn.onclick = () => saveScannedAsMeal();
+    actions.appendChild(saveMealBtn);
+  }
+}
+
+async function saveScannedAsMeal() {
+  if (!labelScannedData || !labelScannedData.name) { toast('No food data loaded'); return; }
+  const chosenUnit = _labelUnit;
+  const chosenServing = _labelServingVal;
+  const canonicalUnit = LABEL_COUNT_SET.has(chosenUnit) ? `${chosenServing} ${chosenUnit}` : `${_labelServingG}g`;
+  const name = labelScannedData.name;
+  const calories = labelScannedData.calories || 0;
+  const protein = labelScannedData.protein || 0;
+  const carbs = labelScannedData.carbs || 0;
+  const fat = labelScannedData.fat || 0;
+  const fiber = labelScannedData.fiber || 0;
+  await dbPost('saved_meals', {
+    name,
+    ingredients: [{ name, qty: chosenServing, unit: canonicalUnit, calories, protein, carbs, fat, fiber }],
+    calories,
+    protein,
+    carbs,
+    fat,
+    fiber
+  });
+  savedMeals = await dbGet('saved_meals', 'order=created_at.desc') || [];
+  closeLabelModal();
+  toast(`"${name}" saved to My Meals ✓`);
 }
 
 async function logLabelAsFood() {
@@ -5758,6 +5874,37 @@ async function saveLabelAsFood() {
   await loadSavedFoods();
   closeLabelModal();
   toast(`${labelScannedData.name} saved to My Foods ✓`);
+}
+
+async function saveLabelAsMeal() {
+  if (!labelScannedData || !labelScannedData.name) { toast('No food data'); return; }
+  const chosenUnit = _labelUnit;
+  const chosenServing = _labelServingVal;
+  const canonicalUnit2 = LABEL_COUNT_SET.has(chosenUnit) ? `${chosenServing} ${chosenUnit}` : `${_labelServingG}g`;
+  const ing = {
+    name: labelScannedData.name,
+    qty: chosenServing,
+    unit: canonicalUnit2,
+    calories: labelScannedData.calories || 0,
+    protein: labelScannedData.protein || 0,
+    carbs: labelScannedData.carbs || 0,
+    fat: labelScannedData.fat || 0,
+    fiber: labelScannedData.fiber || 0,
+    cholesterol: labelScannedData.cholesterol || 0
+  };
+  await dbPost('saved_meals', {
+    name: labelScannedData.name,
+    ingredients: [ing],
+    calories: ing.calories,
+    protein: ing.protein,
+    carbs: ing.carbs,
+    fat: ing.fat,
+    fiber: ing.fiber
+  });
+  savedMeals = await dbGet('saved_meals', 'order=created_at.desc') || [];
+  renderSavedMeals();
+  closeLabelModal();
+  toast(`${labelScannedData.name} saved to My Meals ✓`);
 }
 
 // GOALS & TARGETS
@@ -6984,6 +7131,17 @@ function openBarcodeScannerForMeal() {
 // Open label modal and pre-fill meal form  
 function openLabelModalForMeal() {
   window._scanTarget = 'meal';
+  openLabelModal();
+}
+
+// Shared "Quick Add" entry points from the Meals tab — no manual form to fill,
+// just the normal Save Food / Save as Meal / Log Now choice on the result screen.
+function openBarcodeScannerFromMealsTab() {
+  window._scanTarget = 'meals-tab';
+  openBarcodeScanner();
+}
+function openLabelModalFromMealsTab() {
+  window._scanTarget = 'meals-tab';
   openLabelModal();
 }
 
