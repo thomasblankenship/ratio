@@ -7629,7 +7629,11 @@ document.addEventListener('input', (e) => {
 
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden' && _obCurrentStep && _obCurrentStep > 0) {
-    obSaveProgress();
+    // Backgrounding the tab is a defensive safety-net save, not new user
+    // activity — it must preserve the existing timestamp rather than
+    // refreshing it, otherwise ordinary tab-switching during a wait would
+    // reset the staleness clock indefinitely and it could never expire.
+    obSaveProgress(true);
   }
 });
 
