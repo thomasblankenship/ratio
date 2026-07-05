@@ -228,8 +228,13 @@
   <div id="auth-verify-panel" style="display:none;flex:1;flex-direction:column;align-items:center;justify-content:center;padding:40px 28px;text-align:center">
     <div style="font-size:56px;margin-bottom:20px">📧</div>
     <div style="font-size:24px;font-weight:800;color:#0F0F0F;margin-bottom:8px">Check your email</div>
-    <div id="auth-verify-email-text" style="font-size:15px;color:#666;line-height:1.6;margin-bottom:32px">We sent a verification link to your email. Click it to activate your account, then sign in below.</div>
-    <button onclick="showSignIn()" style="width:100%;max-width:380px;padding:16px;background:#F97316;color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer">Go to Sign In</button>
+    <div id="auth-verify-email-text" style="font-size:15px;color:#666;line-height:1.6;margin-bottom:28px">We sent a 6-digit code to your email.</div>
+    <input id="auth-otp-input" type="text" inputmode="numeric" maxlength="6" placeholder="000000" autocomplete="one-time-code"
+      style="width:100%;max-width:220px;padding:16px;text-align:center;font-size:28px;font-weight:800;letter-spacing:8px;border:1.5px solid #E8E8E8;border-radius:12px;outline:none;box-sizing:border-box;margin-bottom:14px"
+      oninput="this.value=this.value.replace(/[^0-9]/g,'')" onkeydown="if(event.key==='Enter')verifyOtpCode()" />
+    <div id="auth-otp-error" style="font-size:13px;color:#EF4444;margin-bottom:14px;display:none"></div>
+    <button id="auth-otp-verify-btn" onclick="verifyOtpCode()" style="width:100%;max-width:380px;padding:16px;background:#F97316;color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:12px">Verify & Continue</button>
+    <button onclick="resendOtpCode()" id="auth-otp-resend-btn" style="background:none;border:none;font-size:13px;color:#ADADAD;cursor:pointer">Didn't get a code? Resend</button>
   </div>
 
 </div>
@@ -2709,6 +2714,71 @@ function startSignup() {
   obShowStep(1);
 }
 
+// Verifies the 6-digit signup code without ever leaving the page. Since the
+// person never navigates away, all onboarding form values, selected photos,
+// and in-memory state (_obPhotos, _obGoalType, etc.) are still exactly as
+// they left them — no restore-from-storage needed at all.
+async function verifyOtpCode() {
+  const code = document.getElementById('auth-otp-input').value.trim();
+  const email = window._pendingSignupEmail;
+  const errEl = document.getElementById('auth-otp-error');
+  const btn = document.getElementById('auth-otp-verify-btn');
+  errEl.style.display = 'none';
+
+  if (!email) { errEl.textContent = 'Something went wrong — please sign up again.'; errEl.style.display = 'block'; return; }
+  if (!/^\d{6}$/.test(code)) { errEl.textContent = 'Enter the 6-digit code from your email.'; errEl.style.display = 'block'; return; }
+
+  btn.textContent = 'Verifying...'; btn.disabled = true;
+  try {
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/verify`, {
+      method: 'POST',
+      headers: { 'apikey': SUPABASE_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'signup', email, token: code })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.access_token) {
+      errEl.textContent = data.error_description || data.msg || 'That code is invalid or expired — try again or resend.';
+      errEl.style.display = 'block';
+      btn.textContent = 'Verify & Continue'; btn.disabled = false;
+      return;
+    }
+
+    // Success — we're now authenticated as the account we just created.
+    _authToken = data.access_token;
+    _currentUser = data.user;
+    document.getElementById('auth-screen').style.display = 'none';
+
+    // The onboarding form values are all still sitting in the DOM exactly as
+    // the person left them, so we can finish signup the same way the
+    // auto-confirm path already does — no pending-data restore involved.
+    await obSaveAndWelcome();
+    obClearProgress();
+  } catch(e) {
+    console.error('[verifyOtpCode] error:', e);
+    errEl.textContent = 'Could not verify right now — check your connection and try again.';
+    errEl.style.display = 'block';
+    btn.textContent = 'Verify & Continue'; btn.disabled = false;
+  }
+}
+
+async function resendOtpCode() {
+  const email = window._pendingSignupEmail;
+  const btn = document.getElementById('auth-otp-resend-btn');
+  if (!email) return;
+  btn.textContent = 'Sending...'; btn.disabled = true;
+  try {
+    await fetch(`${SUPABASE_URL}/auth/v1/resend`, {
+      method: 'POST',
+      headers: { 'apikey': SUPABASE_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'signup', email })
+    });
+    toast('New code sent ✓');
+  } catch(e) {
+    toast('Could not resend — try again shortly');
+  }
+  setTimeout(() => { btn.textContent = "Didn't get a code? Resend"; btn.disabled = false; }, 15000);
+}
+
 async function handleLogin() {
   const rawInput = document.getElementById('auth-email').value.trim();
   const password = document.getElementById('auth-password').value;
@@ -2976,17 +3046,26 @@ async function handleSignUp() {
         console.log('[handleSignUp] pending_onboarding saved locally. weight:', weight, 'calories:', pendingPlan.calories, 'name:', name);
       } catch(e) { console.warn('Could not save pending plan:', e); }
 
-      // Show the verify-email screen immediately — the heavier network work
-      // (photo upload + Supabase sync) continues in the background below.
-      obClearProgress();
+      // Show the code-entry screen immediately. We deliberately do NOT clear
+      // ob_progress or any form values here — the person stays on this same
+      // page, so once they type the code back in, we can finish signup
+      // directly from the live in-memory form data instead of restoring
+      // anything from storage. We only hide the onboarding screens visually
+      // so the code-entry screen (lower z-index) is actually visible on top.
+      window._pendingSignupEmail = email;
       document.querySelectorAll('.ob-screen').forEach(el => { el.style.display = 'none'; });
       document.getElementById('auth-screen').style.display = 'flex';
       document.getElementById('auth-landing').style.display = 'none';
       document.getElementById('auth-signin-panel').style.display = 'none';
       document.getElementById('auth-verify-panel').style.display = 'flex';
-      document.getElementById('auth-verify-email-text').textContent = `We sent a verification link to ${email}. Click it to activate your account, then sign in.`;
+      document.getElementById('auth-verify-email-text').textContent = `We sent a 6-digit code to ${email}. Enter it below to finish creating your account.`;
+      document.getElementById('auth-otp-input').value = '';
+      document.getElementById('auth-otp-error').style.display = 'none';
+      setTimeout(() => document.getElementById('auth-otp-input')?.focus(), 100);
 
-      // Continue username claim + photo upload + Supabase worker sync in the background, not blocking the screen transition.
+      // Still save pending data + continue username claim/photo upload/sync in
+      // the background as a safety net — if the person closes the tab before
+      // entering the code, this lets a later sign-in still recover everything.
       if (pendingData && newUserId) {
         _finishSignUpInBackground(pendingData, newUserId, username);
       }
