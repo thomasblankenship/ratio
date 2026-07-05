@@ -553,10 +553,17 @@
       <div class="card">
         <div class="card-title">Quick Add</div>
         <div style="font-size:12px;color:#ADADAD;margin-bottom:10px">Scan a barcode or photograph a nutrition label — then choose to save it as a Food or a Meal.</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
           <button onclick="openBarcodeScannerFromMealsTab()" style="background:#0F0F0F;color:white;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:600;cursor:pointer">📷 Scan Barcode</button>
           <button onclick="openLabelModalFromMealsTab()" style="background:#0F0F0F;color:white;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:600;cursor:pointer">🏷️ Photo Label</button>
         </div>
+        <!-- Food/meal search — always visible regardless of which sub-tab is active -->
+        <div style="position:relative">
+          <input type="text" id="food-search-input" placeholder="🔍 Search foods, meals, or database..."
+            style="width:100%;padding:10px 12px;border:1px solid #E8E8E8;border-radius:10px;font-size:14px;outline:none;box-sizing:border-box"
+            oninput="onFoodSearchInput(this.value)" />
+        </div>
+        <div id="food-search-results" style="display:none;margin-top:12px"></div>
       </div>
 
       <!-- MEALS TAB SUB-NAV -->
@@ -590,13 +597,6 @@
           <button class="btn" onclick="saveFood()" style="margin-top:14px">Save Food</button>
           <button class="btn" onclick="toggleAddFood()" style="background:#FEF2F2;color:#DC2626;margin-top:8px">Cancel</button>
         </div>
-        <!-- Food search -->
-        <div style="margin-bottom:12px;position:relative">
-          <input type="text" id="food-search-input" placeholder="🔍 Search food database..."
-            style="width:100%;padding:10px 12px;border:1px solid #E8E8E8;border-radius:10px;font-size:14px;outline:none;box-sizing:border-box"
-            oninput="onFoodSearchInput(this.value)" />
-        </div>
-        <div id="food-search-results" style="display:none;margin-bottom:12px"></div>
         <div id="saved-foods-list"><div class="loading">Loading...</div></div>
       </div>
       </div>
@@ -4459,7 +4459,7 @@ async function searchFoodDatabase(query) {
             <div style="font-size:11px;color:#ADADAD">${m.calories} kcal · ${m.protein}g P · ${m.carbs}g C · ${m.fat}g F</div>
             <div style="font-size:11px;color:#ADADAD">${(m.ingredients||[]).length} ingredient${(m.ingredients||[]).length !== 1 ? 's' : ''}</div>
           </div>
-          <button type="button" onclick="logSavedMeal('${m.id}')" style="background:linear-gradient(135deg,#F97316,#FB7185);color:white;border:none;border-radius:14px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer">+ Log</button>
+          <button type="button" onclick="openLogMealModal('${m.id}')" style="background:linear-gradient(135deg,#F97316,#FB7185);color:white;border:none;border-radius:14px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer">+ Log</button>
         </div>`).join('');
     }
 
