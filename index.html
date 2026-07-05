@@ -7629,11 +7629,15 @@ document.addEventListener('input', (e) => {
 
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden' && _obCurrentStep && _obCurrentStep > 0) {
-    // Backgrounding the tab is a defensive safety-net save, not new user
-    // activity — it must preserve the existing timestamp rather than
-    // refreshing it, otherwise ordinary tab-switching during a wait would
-    // reset the staleness clock indefinitely and it could never expire.
-    obSaveProgress(true);
+    // visibilitychange fires not only when the user switches tabs, but also
+    // the instant a page begins reloading (as the browser tears the old page
+    // down). If there's nothing already saved, don't manufacture a brand new
+    // entry here — that would silently recreate progress that was deliberately
+    // cleared, and would defeat the staleness check on every single refresh.
+    // Only re-affirm data that's genuinely already there.
+    if (localStorage.getItem('ob_progress')) {
+      obSaveProgress(true);
+    }
   }
 });
 
