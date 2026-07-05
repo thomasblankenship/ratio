@@ -3144,7 +3144,7 @@ async function handleChangePassword(token) {
 // if iOS reclaims the WebView memory while backgrounded (common during app switches).
 let _obRestoring = false;
 
-function obSaveProgress() {
+function obSaveProgress(preserveTimestamp) {
   if (_obRestoring) return; // don't save while we're in the middle of restoring
   if (!_obCurrentStep || _obCurrentStep < 1) return;
   try {
@@ -3155,11 +3155,24 @@ function obSaveProgress() {
     ];
     const fields = {};
     fieldIds.forEach(id => { const el = document.getElementById(id); if (el) fields[id] = el.value; });
+    // Normally every save refreshes savedAt to "now", since it reflects real
+    // activity. The one exception is the re-save that happens right after
+    // restoring existing progress — that's not new activity, just re-writing
+    // the same data back, so it must keep the ORIGINAL timestamp. Otherwise
+    // simply reloading the page to check whether progress has gone stale
+    // would itself reset the clock, and it could never actually expire.
+    let savedAt = Date.now();
+    if (preserveTimestamp) {
+      try {
+        const existing = JSON.parse(localStorage.getItem('ob_progress') || 'null');
+        if (existing?.savedAt) savedAt = existing.savedAt;
+      } catch(e) {}
+    }
     const snapshot = {
       step: _obCurrentStep,
       obGoalType: _obGoalType, obGender: _obGender, obActivity: _obActivity, obPace: _obPace,
       fields,
-      savedAt: Date.now()
+      savedAt
     };
     localStorage.setItem('ob_progress', JSON.stringify(snapshot));
     console.log('[ob_progress] saved at step', _obCurrentStep, fields);
@@ -3240,8 +3253,10 @@ function obRestoreProgress() {
     const usernameEl = document.getElementById('ob-signup-username');
     if (usernameEl?.value) obCheckUsername(usernameEl.value);
     _obRestoring = false;
-    // Now that fields are restored, save again so the snapshot reflects the restored state
-    obSaveProgress();
+    // Now that fields are restored, save again so the snapshot reflects the
+    // restored state — but keep the ORIGINAL timestamp, since this isn't new
+    // activity and shouldn't reset the staleness clock.
+    obSaveProgress(true);
     console.log('[ob_progress] restored to step', snap.step);
     return true;
   } catch(e) { console.warn('obRestoreProgress failed:', e); _obRestoring = false; return false; }
