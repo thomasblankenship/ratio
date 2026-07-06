@@ -464,14 +464,6 @@
           <button class="btn" onclick="toggleWorkoutForm()" style="background:#FEF2F2;color:#DC2626;margin-top:8px">Cancel</button>
         </div>
       </div>
-
-      <!-- BROWSE EXERCISES -->
-      <div class="card" style="background:linear-gradient(160deg,#FFF7ED,#FFF1F2);border:1px solid #FFE4CC">
-        <div class="card-title">Browse Exercises</div>
-        <div style="font-size:12px;color:#666;margin-bottom:12px">Not sure what to do at the gym? Pick a muscle group.</div>
-        <div id="exercise-muscle-chips" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px"></div>
-        <div id="exercise-browse-list" style="display:flex;flex-direction:column;gap:8px;margin-top:8px"></div>
-      </div>
     </div>
 
     <!-- HISTORY -->
@@ -1072,6 +1064,14 @@
           <button onclick="loadAiWorkout()" style="width:100%;background:var(--accent);color:white;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer">✨ Get Today's Workout</button>
         </div>
         <div id="coach-workout-results"></div>
+
+        <!-- BROWSE EXERCISES -->
+        <div class="card" style="background:linear-gradient(160deg,#FFF7ED,#FFF1F2);border:1px solid #FFE4CC;margin-top:12px">
+          <div class="card-title">Browse Exercises</div>
+          <div style="font-size:12px;color:#666;margin-bottom:12px">Not sure what to do at the gym? Pick a muscle group.</div>
+          <div id="exercise-muscle-chips" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px"></div>
+          <div id="exercise-browse-list" style="display:flex;flex-direction:column;gap:8px;margin-top:8px"></div>
+        </div>
       </div>
 
       <!-- ASK COACH -->
@@ -4882,7 +4882,29 @@ function renderAiWorkout(w) {
           <div style="font-size:14px;font-weight:600;color:#0F0F0F">${ex.name}</div>
           <div style="font-size:12px;color:#ADADAD">${ex.sets} sets × ${ex.reps}${ex.notes ? ' — ' + ex.notes : ''}</div>
         </div>`).join('')}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px">
+        <button onclick="cancelAiWorkout()" style="padding:12px;border:none;border-radius:10px;background:#FEF2F2;color:#DC2626;font-size:14px;font-weight:700;cursor:pointer">Cancel</button>
+        <button onclick='logAiWorkoutSuggestion(${JSON.stringify(w).replace(/'/g, "&#39;")})' style="padding:12px;border:none;border-radius:10px;background:var(--accent);color:white;font-size:14px;font-weight:700;cursor:pointer">Log Workout</button>
+      </div>
     </div>`;
+}
+
+function cancelAiWorkout() {
+  document.getElementById('coach-workout-results').innerHTML = '';
+}
+
+async function logAiWorkoutSuggestion(w) {
+  await dbPost('workouts', {
+    date: today,
+    name: w.title,
+    duration: +w.duration_min || 0,
+    calories: 0,
+    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  });
+  document.getElementById('coach-workout-results').innerHTML = '';
+  if (typeof switchTab === 'function') switchTab('today');
+  await loadTodayWorkouts();
+  toast(`"${w.title}" logged ✓`);
 }
 
 let _coachChatHistory = [];
