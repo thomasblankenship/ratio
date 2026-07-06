@@ -147,7 +147,7 @@
     .upload-icon { font-size: 28px; margin-bottom: 6px; }
     .angle-selector { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 8px; }
     .angle-btn { padding: 8px; border: 1px solid var(--gray-200); border-radius: 8px; background: none; font-size: 12px; font-weight: 500; color: var(--gray-600); cursor: pointer; transition: all 0.15s; font-family: inherit; }
-    .angle-btn.selected { background: var(--black); color: var(--white); border-color: var(--black); }
+    .angle-btn.selected { background: var(--accent); color: var(--white); border-color: var(--accent); }
 
     /* LIGHTBOX */
     .lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 1000; align-items: center; justify-content: center; }
@@ -1008,10 +1008,12 @@
         <div id="photo-preview" style="display:none;margin-bottom:12px">
           <img id="preview-img" style="width:100%;border-radius:10px;max-height:280px;object-fit:cover" />
         </div>
-        <label for="photo-input" style="display:block;border:2px dashed var(--gray-200);border-radius:10px;padding:24px;text-align:center;color:var(--gray-400);font-size:13px;cursor:pointer;transition:border-color 0.15s;margin-bottom:8px" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--gray-200)'">
-          <div style="font-size:28px;margin-bottom:6px">📷</div>
-          <div>Tap to select photo</div>
-          <div style="font-size:11px;margin-top:4px">JPG or PNG</div>
+        <label for="photo-input" style="display:block;background:linear-gradient(160deg,#FFF7ED,#FFF1F2);border-radius:12px;padding:28px 20px;text-align:center;cursor:pointer;margin-bottom:8px">
+          <div style="width:48px;height:48px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;margin:0 auto 12px">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          </div>
+          <div style="font-size:14px;font-weight:500;color:#0F0F0F;margin-bottom:2px">Add a progress photo</div>
+          <div style="font-size:12px;color:#999">JPG or PNG</div>
         </label>
         <input type="file" id="photo-input" accept="image/*" style="display:none" onchange="previewPhoto(event)" />
         <button class="btn" id="upload-btn" onclick="uploadPhoto()" style="display:none">Upload Photo</button>
