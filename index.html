@@ -271,6 +271,7 @@
         </button>
       </div>
     </div>
+    <div style="position:relative">
     <div class="tabs">
       <button class="tab-btn active" onclick="switchTab('today')">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
@@ -296,6 +297,10 @@
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z"/></svg>
         AI Coach
       </button>
+    </div>
+    <div id="tabs-scroll-hint" style="position:absolute;right:0;top:0;bottom:0;width:20px;display:flex;align-items:center;justify-content:center;pointer-events:none;background:linear-gradient(to right, rgba(255,255,255,0), var(--bg, #fff) 70%);transition:opacity 0.2s">
+      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#F97316" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </div>
     </div>
   </div>
 
@@ -4587,7 +4592,12 @@ function renderSavedMeals() {
   const el = document.getElementById('saved-meals-list');
   if (!el) return;
   if (!savedMeals.length) {
-    el.innerHTML = '<div class="empty">No meals saved yet — tap + Create to build your first meal</div>';
+    el.innerHTML = `
+      <div style="text-align:center;padding:32px 16px">
+        <div style="font-size:48px;margin-bottom:16px">🍱</div>
+        <div style="font-size:19px;font-weight:800;color:#F97316;margin-bottom:8px;letter-spacing:-0.3px">Log Your Go-To Meals Faster</div>
+        <div style="font-size:14px;color:#ADADAD;line-height:1.6;max-width:280px;margin:0 auto">Create and save your favorite meals to log them again with just one tap.</div>
+      </div>`;
     return;
   }
   const sorted = [...savedMeals].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
@@ -5181,7 +5191,15 @@ async function loadSavedFoods() {
 
 function renderSavedFoods() {
   const el = document.getElementById('saved-foods-list');
-  if (!savedFoods.length) { el.innerHTML = '<div class="empty">No foods saved yet — tap + Add to get started</div>'; return; }
+  if (!savedFoods.length) {
+    el.innerHTML = `
+      <div style="text-align:center;padding:32px 16px">
+        <div style="font-size:48px;margin-bottom:16px">🥗</div>
+        <div style="font-size:19px;font-weight:800;color:#F97316;margin-bottom:8px;letter-spacing:-0.3px">Build Your Food Library</div>
+        <div style="font-size:14px;color:#ADADAD;line-height:1.6;max-width:280px;margin:0 auto">Save the foods you eat often so logging them takes just one tap next time.</div>
+      </div>`;
+    return;
+  }
   const sorted = [...savedFoods].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
   el.innerHTML = sorted.map(f => `
     <div class="meal-row">
@@ -7738,6 +7756,18 @@ document.addEventListener('input', (e) => {
     clearTimeout(_obSaveDebounce);
     _obSaveDebounce = setTimeout(obSaveProgress, 400);
   }
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+  const tabsEl = document.querySelector('.tabs');
+  const hintEl = document.getElementById('tabs-scroll-hint');
+  if (!tabsEl || !hintEl) return;
+  const updateHint = () => {
+    const atEnd = tabsEl.scrollLeft + tabsEl.clientWidth >= tabsEl.scrollWidth - 4;
+    hintEl.style.opacity = atEnd ? '0' : '1';
+  };
+  tabsEl.addEventListener('scroll', updateHint);
+  updateHint();
 });
 
 document.addEventListener('visibilitychange', () => {
