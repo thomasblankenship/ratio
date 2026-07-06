@@ -4294,12 +4294,16 @@ function updateCompare() {
 let dayTotalsCache = {};
 
 async function loadDayTotals() {
-  const meals = await dbGet('meals', 'select=date,calories,protein');
+  const meals = await dbGet('meals', 'select=date,calories,protein,carbs,fat,fiber,cholesterol');
   dayTotalsCache = {};
   meals.forEach(m => {
-    if (!dayTotalsCache[m.date]) dayTotalsCache[m.date] = { calories: 0, protein: 0 };
+    if (!dayTotalsCache[m.date]) dayTotalsCache[m.date] = { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, cholesterol: 0 };
     dayTotalsCache[m.date].calories += +m.calories || 0;
     dayTotalsCache[m.date].protein += +m.protein || 0;
+    dayTotalsCache[m.date].carbs += +m.carbs || 0;
+    dayTotalsCache[m.date].fat += +m.fat || 0;
+    dayTotalsCache[m.date].fiber += +m.fiber || 0;
+    dayTotalsCache[m.date].cholesterol += +m.cholesterol || 0;
   });
   renderCalendar();
   renderHistoryList();
@@ -4390,7 +4394,7 @@ function renderHistoryList() {
     return `<div class="day-row" onclick="showHistoryDetail('${d}')">
       <div>
         <div class="day-date">${dateLabel}</div>
-        <div class="day-meta">${t.calories} cal | ${Math.round(t.protein * 10) / 10}g protein</div>
+        <div class="day-meta">${nutritionMetaString(t)}</div>
       </div>
       <div class="day-right">
         ${s ? `<span class="score-badge ${s[1]}">${s[0]}</span>` : ''}
@@ -5251,12 +5255,14 @@ const FOOD_ALL_UNITS = ['g','oz','each','slice','piece','serving','cup','tbsp','
 // so it's the exact same format everywhere: calories + all 5 macros, with a
 // "per {unit}" suffix for per-serving items like saved foods.
 function nutritionMetaString(item, opts = {}) {
-  const cals = item.calories ?? item.cals_per_unit ?? item.calories_per_unit ?? 0;
-  const protein = item.protein ?? item.protein_per_unit ?? 0;
-  const carbs = item.carbs ?? item.carbs_per_unit ?? 0;
-  const fat = item.fat ?? item.fat_per_unit ?? 0;
-  const fiber = item.fiber ?? item.fiber_per_unit ?? 0;
-  const chol = item.cholesterol ?? item.cholesterol_per_unit ?? 0;
+  const r1 = v => Math.round((v || 0) * 10) / 10;
+  const r0 = v => Math.round(v || 0);
+  const cals = r0(item.calories ?? item.cals_per_unit ?? item.calories_per_unit ?? 0);
+  const protein = r1(item.protein ?? item.protein_per_unit ?? 0);
+  const carbs = r1(item.carbs ?? item.carbs_per_unit ?? 0);
+  const fat = r1(item.fat ?? item.fat_per_unit ?? 0);
+  const fiber = r1(item.fiber ?? item.fiber_per_unit ?? 0);
+  const chol = r0(item.cholesterol ?? item.cholesterol_per_unit ?? 0);
   let str = opts.skipCals
     ? `Protein:${protein}g | Carbs:${carbs}g | Fat:${fat}g | Fiber:${fiber}g | Chol:${chol}mg`
     : `${cals} kcal | Protein:${protein}g | Carbs:${carbs}g | Fat:${fat}g | Fiber:${fiber}g | Chol:${chol}mg`;
