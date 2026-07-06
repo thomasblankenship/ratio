@@ -1126,6 +1126,35 @@
       </div>
     </div>
 
+    <!-- AI Coach preferences -->
+    <div style="background:#F9F9F9;border-radius:12px;padding:14px 16px;margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
+        <div style="font-size:12px;color:#ADADAD">AI Coach preferences</div>
+        <button onclick="openPreferencesEdit()" style="background:none;border:none;color:#F97316;font-size:13px;font-weight:600;cursor:pointer">Edit</button>
+      </div>
+      <div id="settings-preferences-summary" style="font-size:13px;color:#0F0F0F;margin-top:4px">Loading...</div>
+      <div id="settings-preferences-edit" style="display:none;margin-top:10px">
+        <div style="font-size:11px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Allergies / foods to avoid</div>
+        <div id="settings-allergy-chips" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+          <button type="button" class="settings-allergy-chip" data-allergy="Dairy" onclick="settingsToggleAllergy(this)" style="padding:7px 12px;border:1.5px solid #E8E8E8;border-radius:20px;background:white;color:#0F0F0F;font-size:12px;font-weight:600;cursor:pointer">Dairy</button>
+          <button type="button" class="settings-allergy-chip" data-allergy="Gluten" onclick="settingsToggleAllergy(this)" style="padding:7px 12px;border:1.5px solid #E8E8E8;border-radius:20px;background:white;color:#0F0F0F;font-size:12px;font-weight:600;cursor:pointer">Gluten</button>
+          <button type="button" class="settings-allergy-chip" data-allergy="Nuts" onclick="settingsToggleAllergy(this)" style="padding:7px 12px;border:1.5px solid #E8E8E8;border-radius:20px;background:white;color:#0F0F0F;font-size:12px;font-weight:600;cursor:pointer">Nuts</button>
+          <button type="button" class="settings-allergy-chip" data-allergy="Shellfish" onclick="settingsToggleAllergy(this)" style="padding:7px 12px;border:1.5px solid #E8E8E8;border-radius:20px;background:white;color:#0F0F0F;font-size:12px;font-weight:600;cursor:pointer">Shellfish</button>
+          <button type="button" class="settings-allergy-chip" data-allergy="Eggs" onclick="settingsToggleAllergy(this)" style="padding:7px 12px;border:1.5px solid #E8E8E8;border-radius:20px;background:white;color:#0F0F0F;font-size:12px;font-weight:600;cursor:pointer">Eggs</button>
+          <button type="button" class="settings-allergy-chip" data-allergy="Soy" onclick="settingsToggleAllergy(this)" style="padding:7px 12px;border:1.5px solid #E8E8E8;border-radius:20px;background:white;color:#0F0F0F;font-size:12px;font-weight:600;cursor:pointer">Soy</button>
+        </div>
+        <input type="text" id="settings-allergy-other" placeholder="Other allergies (optional)"
+          style="width:100%;padding:10px 12px;border:1.5px solid #E8E8E8;border-radius:10px;font-size:13px;outline:none;box-sizing:border-box;margin-bottom:10px" />
+        <div style="font-size:11px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Favorite foods</div>
+        <textarea id="settings-favorite-foods" rows="2" placeholder="e.g. chicken breast, rice, Greek yogurt..."
+          style="width:100%;padding:10px 12px;border:1.5px solid #E8E8E8;border-radius:10px;font-size:13px;outline:none;box-sizing:border-box;resize:vertical;font-family:inherit;margin-bottom:10px"></textarea>
+        <div style="display:flex;gap:8px">
+          <button onclick="closePreferencesEdit()" style="flex:1;padding:10px;border:1px solid #E8E8E8;border-radius:10px;background:white;font-size:13px;font-weight:600;cursor:pointer">Cancel</button>
+          <button onclick="savePreferencesChange()" style="flex:1;padding:10px;border:none;border-radius:10px;background:#F97316;color:white;font-size:13px;font-weight:700;cursor:pointer">Save</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Password reset -->
     <div id="settings-reset-wrap" style="margin-bottom:16px">
       <button onclick="handleSettingsReset()" id="settings-reset-btn" style="width:100%;padding:13px 16px;border:1px solid #E8E8E8;border-radius:12px;background:white;font-size:14px;font-weight:600;color:#0F0F0F;cursor:pointer;text-align:left;margin-top:4px">🔑 Reset Password</button>
@@ -1151,10 +1180,45 @@
 
 <!-- AI COACH (placeholder — to be built out) -->
 <div id="tab-aicoach" style="display:none">
-  <div class="card" style="text-align:center;padding:48px 24px">
-    <div style="font-size:40px;margin-bottom:16px">✨</div>
-    <div style="font-size:18px;font-weight:700;color:#0F0F0F;margin-bottom:8px">AI Coach</div>
-    <div style="font-size:14px;color:#ADADAD;line-height:1.6">Coming soon — your personal nutrition and training coach, right here in the app.</div>
+  <!-- AI COACH SUB-NAV -->
+  <div style="display:flex;background:#F4F4F4;border-radius:12px;padding:4px;margin-bottom:16px">
+    <button id="coach-subtab-btn-meals" onclick="switchCoachSubTab('meals')" style="flex:1;padding:10px 4px;border:none;border-radius:9px;background:white;color:#0F0F0F;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,0.08)">🍽️ Meal Ideas</button>
+    <button id="coach-subtab-btn-workouts" onclick="switchCoachSubTab('workouts')" style="flex:1;padding:10px 4px;border:none;border-radius:9px;background:transparent;color:#ADADAD;font-size:13px;font-weight:700;cursor:pointer">💪 Workouts</button>
+    <button id="coach-subtab-btn-chat" onclick="switchCoachSubTab('chat')" style="flex:1;padding:10px 4px;border:none;border-radius:9px;background:transparent;color:#ADADAD;font-size:13px;font-weight:700;cursor:pointer">💬 Ask Coach</button>
+  </div>
+
+  <!-- MEAL IDEAS -->
+  <div id="coach-subtab-meals">
+    <div class="card" style="background:linear-gradient(160deg,#FFF7ED,#FFF1F2);border:1px solid #FFE4CC">
+      <div class="card-title">Meal Ideas</div>
+      <div style="font-size:12px;color:#666;margin-bottom:12px" id="coach-meals-remaining-label">Suggestions to help fill out today's remaining macros.</div>
+      <button onclick="loadAiMealIdeas()" style="width:100%;background:var(--accent);color:white;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer">✨ Get Meal Ideas</button>
+    </div>
+    <div id="coach-meals-results"></div>
+  </div>
+
+  <!-- WORKOUTS -->
+  <div id="coach-subtab-workouts" style="display:none">
+    <div class="card" style="background:linear-gradient(160deg,#FFF7ED,#FFF1F2);border:1px solid #FFE4CC">
+      <div class="card-title">Today's Workout</div>
+      <div style="font-size:12px;color:#666;margin-bottom:12px">A workout suggestion based on your goal and recent training.</div>
+      <button onclick="loadAiWorkout()" style="width:100%;background:var(--accent);color:white;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer">✨ Get Today's Workout</button>
+    </div>
+    <div id="coach-workout-results"></div>
+  </div>
+
+  <!-- ASK COACH -->
+  <div id="coach-subtab-chat" style="display:none">
+    <div class="card" style="background:linear-gradient(160deg,#FFF7ED,#FFF1F2);border:1px solid #FFE4CC;padding:0;overflow:hidden">
+      <div id="coach-chat-messages" style="max-height:420px;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px">
+        <div style="font-size:13px;color:#999;text-align:center;padding:12px 0">Ask me anything about your nutrition, goals, or training. I can see your targets and today's progress.</div>
+      </div>
+      <div style="display:flex;gap:8px;padding:12px;border-top:1px solid #FFE4CC;background:white">
+        <input type="text" id="coach-chat-input" placeholder="Ask your coach..." onkeydown="if(event.key==='Enter')sendCoachChatMessage()"
+          style="flex:1;padding:10px 12px;border:1px solid #E8E8E8;border-radius:20px;font-size:14px;outline:none" />
+        <button onclick="sendCoachChatMessage()" style="background:var(--accent);color:white;border:none;border-radius:20px;padding:10px 18px;font-size:14px;font-weight:700;cursor:pointer">Send</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -2370,9 +2434,26 @@ async function obNext(step) {
     const skip = arguments[1] === true;
     if (skip) _obPhotos = {};
     // _obPhotos is already populated by obPhotoSelected — just proceed
+    obShowStep(9);
+    return;
+  }
+
+  if (step === 9) {
+    // Allergies/favorite foods are optional either way — gather whatever's there and proceed
+    window._obAllergies = Array.from(document.querySelectorAll('.ob-allergy-chip.ob-allergy-selected')).map(el => el.dataset.allergy);
+    window._obAllergiesOther = document.getElementById('ob-allergy-other')?.value.trim() || '';
+    window._obFavoriteFoods = document.getElementById('ob-favorite-foods')?.value.trim() || '';
     await handleSignUp();
     return;
   }
+}
+
+function obToggleAllergy(el) {
+  el.classList.toggle('ob-allergy-selected');
+  const selected = el.classList.contains('ob-allergy-selected');
+  el.style.background = selected ? '#FFF7ED' : 'white';
+  el.style.borderColor = selected ? '#F97316' : '#E8E8E8';
+  el.style.color = selected ? '#F97316' : '#0F0F0F';
 }
 
 function obBack(step) {
@@ -2895,7 +2976,8 @@ async function handleLogin() {
         const results = await Promise.allSettled([
           saveSetting('profile', p.profile),
           saveSetting('targets', p.targets),
-          saveSetting('goals', p.goals)
+          saveSetting('goals', p.goals),
+          saveSetting('preferences', p.preferences || { allergies: [], allergiesOther: '', favoriteFoods: '' })
         ]);
         results.forEach((r, i) => { if (r.status === 'rejected') console.error('[pending_onboarding] saveSetting failed index', i, r.reason); });
         // Verify at least profile saved
@@ -3055,6 +3137,7 @@ async function handleSignUp() {
           profile: { heightIn: ft * 12 + inn, age, gender: _obGender || 'male', activity: _obActivity || 'active', name, primaryGoal: _obGoalType, weeklyPace: _obPace },
           targets: { calories: pendingPlan.calories, protein: pendingPlan.protein, carbs: Math.round((pendingPlan.calories * 0.35) / 4), fat: Math.round((pendingPlan.calories * 0.25) / 9) },
           goals: { weightStart: weight, weightGoal: goalWeight, bfCurrent, bfGoal, bfTrackingOn: true, muscleCurrent, muscleGoal, muscleTrackingOn: true, muscleMethod: null, primaryGoal: _obGoalType },
+          preferences: { allergies: window._obAllergies || [], allergiesOther: window._obAllergiesOther || '', favoriteFoods: window._obFavoriteFoods || '' },
           plan: pendingPlan,
           obGoalType: _obGoalType,
           obName: name,
@@ -3355,7 +3438,8 @@ async function obSaveAndWelcome() {
   userTargets = { calories: plan.calories, protein: plan.protein, carbs: Math.round((plan.calories * 0.35) / 4), fat: Math.round((plan.calories * 0.25) / 9) };
   userGoals = { weightStart: weight, weightGoal: goalWeight, bfCurrent, bfGoal, bfTrackingOn: true, muscleCurrent, muscleGoal, muscleTrackingOn: true, muscleMethod: null, primaryGoal: _obGoalType };
 
-  await Promise.all([saveSetting('goals', userGoals), saveSetting('targets', userTargets), saveSetting('profile', userProfile)]);
+  const preferences = { allergies: window._obAllergies || [], allergiesOther: window._obAllergiesOther || '', favoriteFoods: window._obFavoriteFoods || '' };
+  await Promise.all([saveSetting('goals', userGoals), saveSetting('targets', userTargets), saveSetting('profile', userProfile), saveSetting('preferences', preferences)]);
   console.log('[obSaveAndWelcome] saves fired. uid:', _currentUser?.id?.slice(0,8), 'hasToken:', !!_authToken, 'tokenPrefix:', _authToken?.slice(0,20));
   if (window._obUsername) {
     try { await dbPost('usernames', { username: window._obUsername }); }
@@ -3507,7 +3591,8 @@ async function appInit() {
           const results = await Promise.allSettled([
             saveSetting('profile', p.profile),
             saveSetting('targets', p.targets),
-            saveSetting('goals', p.goals)
+            saveSetting('goals', p.goals),
+            saveSetting('preferences', p.preferences || { allergies: [], allergiesOther: '', favoriteFoods: '' })
           ]);
           results.forEach((r, i) => { if (r.status === 'rejected') console.error('[appInit pending] saveSetting failed index', i, r.reason); });
           const check = await loadSetting('profile');
@@ -4582,6 +4667,181 @@ function switchMealsSubTab(tab) {
   mealsBtn.style.background = showFoods ? 'transparent' : 'white';
   mealsBtn.style.color = showFoods ? '#ADADAD' : '#0F0F0F';
   mealsBtn.style.boxShadow = showFoods ? 'none' : '0 1px 3px rgba(0,0,0,0.08)';
+}
+
+// ===== AI COACH =====
+function switchCoachSubTab(tab) {
+  const panels = { meals: 'coach-subtab-meals', workouts: 'coach-subtab-workouts', chat: 'coach-subtab-chat' };
+  const btns = { meals: 'coach-subtab-btn-meals', workouts: 'coach-subtab-btn-workouts', chat: 'coach-subtab-btn-chat' };
+  Object.keys(panels).forEach(key => {
+    document.getElementById(panels[key]).style.display = key === tab ? 'block' : 'none';
+    const btn = document.getElementById(btns[key]);
+    btn.style.background = key === tab ? 'white' : 'transparent';
+    btn.style.color = key === tab ? '#0F0F0F' : '#ADADAD';
+    btn.style.boxShadow = key === tab ? '0 1px 3px rgba(0,0,0,0.08)' : 'none';
+  });
+}
+
+async function loadAiMealIdeas() {
+  const resultsEl = document.getElementById('coach-meals-results');
+  resultsEl.innerHTML = `<div class="card" style="text-align:center;padding:24px;color:#ADADAD;font-size:13px">✨ Thinking of ideas that fit your day...</div>`;
+
+  const todayMeals = await dbGet('meals', `date=eq.${today}`) || [];
+  const totals = todayMeals.reduce((a, m) => ({
+    calories: a.calories + (+m.calories || 0), protein: a.protein + (+m.protein || 0),
+    carbs: a.carbs + (+m.carbs || 0), fat: a.fat + (+m.fat || 0)
+  }), { calories: 0, protein: 0, carbs: 0, fat: 0 });
+  const remaining = {
+    calories: Math.max(0, Math.round((userTargets.calories || 0) - totals.calories)),
+    protein: Math.max(0, Math.round((userTargets.protein || 0) - totals.protein)),
+    carbs: Math.max(0, Math.round((userTargets.carbs || 0) - totals.carbs)),
+    fat: Math.max(0, Math.round((userTargets.fat || 0) - totals.fat))
+  };
+  document.getElementById('coach-meals-remaining-label').textContent =
+    `You have ${remaining.calories} kcal, ${remaining.protein}g protein left today.`;
+
+  const prefs = window._currentPreferences || await loadSetting('preferences') || {};
+
+  try {
+    const res = await fetch(`${WORKER_URL}/ai-meal-ideas`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        remaining,
+        savedFoods: (savedFoods || []).map(f => ({ name: f.name, calories: f.cals_per_unit || f.calories_per_unit || 0, protein: f.protein_per_unit, carbs: f.carbs_per_unit || 0, fat: f.fat_per_unit || 0, unit: f.unit })),
+        savedMeals: (savedMeals || []).map(m => ({ name: m.name, calories: m.calories, protein: m.protein, carbs: m.carbs, fat: m.fat })),
+        allergies: prefs.allergies || [],
+        allergiesOther: prefs.allergiesOther || '',
+        favoriteFoods: prefs.favoriteFoods || ''
+      })
+    });
+    const data = await res.json();
+    if (data.error || !data.suggestions) {
+      resultsEl.innerHTML = `<div class="card" style="text-align:center;padding:24px;color:#EF4444;font-size:13px">${data.error || 'Could not generate ideas right now'}</div>`;
+      return;
+    }
+    renderAiMealIdeas(data.suggestions);
+  } catch(e) {
+    resultsEl.innerHTML = `<div class="card" style="text-align:center;padding:24px;color:#EF4444;font-size:13px">Could not reach the coach right now — try again shortly</div>`;
+  }
+}
+
+function renderAiMealIdeas(suggestions) {
+  const resultsEl = document.getElementById('coach-meals-results');
+  if (!suggestions.length) { resultsEl.innerHTML = '<div class="card" style="text-align:center;padding:24px;color:#ADADAD;font-size:13px">No suggestions right now — try again</div>'; return; }
+  resultsEl.innerHTML = suggestions.map((s, i) => `
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+        <div style="font-size:14px;font-weight:700;color:#0F0F0F;flex:1">${s.name}</div>
+        <div style="font-size:10px;font-weight:700;color:#F97316;background:#FFF7ED;border-radius:10px;padding:2px 8px;white-space:nowrap;margin-left:8px">${s.type === 'new' ? 'NEW IDEA' : s.type === 'saved_meal' ? 'YOUR MEAL' : 'YOUR FOOD'}</div>
+      </div>
+      <div style="font-size:12px;color:#ADADAD;margin-bottom:6px">${nutritionMetaString(s)}</div>
+      <div style="font-size:12px;color:#666;margin-bottom:10px;font-style:italic">${s.reason || ''}</div>
+      ${s.ingredients?.length ? `<div style="font-size:12px;color:#666;margin-bottom:10px">${s.ingredients.map(ing => `• ${ing}`).join('<br>')}</div>` : ''}
+      <button onclick='logAiMealSuggestion(${JSON.stringify(s).replace(/'/g, "&#39;")})' style="width:100%;background:var(--accent);color:white;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer">+ Log This</button>
+    </div>`).join('');
+}
+
+async function logAiMealSuggestion(s) {
+  await dbPost('meals', {
+    date: today,
+    meal_type: window._selectedMealType || 'snack',
+    name: s.name,
+    calories: Math.round(s.calories || 0),
+    protein: Math.round((s.protein || 0) * 10) / 10,
+    carbs: Math.round((s.carbs || 0) * 10) / 10,
+    fat: Math.round((s.fat || 0) * 10) / 10,
+    fiber: 0,
+    cholesterol: 0,
+    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  });
+  toast(`"${s.name}" logged ✓`);
+}
+
+async function loadAiWorkout() {
+  const resultsEl = document.getElementById('coach-workout-results');
+  resultsEl.innerHTML = `<div class="card" style="text-align:center;padding:24px;color:#ADADAD;font-size:13px">✨ Building today's workout...</div>`;
+
+  const recentWorkouts = await dbGet('workouts', 'order=date.desc&limit=7') || [];
+
+  try {
+    const res = await fetch(`${WORKER_URL}/ai-workout`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        primaryGoal: userProfile.primaryGoal || 'maintain',
+        activity: userProfile.activity || 'moderate',
+        recentWorkouts: recentWorkouts.map(w => ({ date: w.date, type: w.name, duration: w.duration }))
+      })
+    });
+    const data = await res.json();
+    if (data.error || !data.exercises) {
+      resultsEl.innerHTML = `<div class="card" style="text-align:center;padding:24px;color:#EF4444;font-size:13px">${data.error || 'Could not generate a workout right now'}</div>`;
+      return;
+    }
+    renderAiWorkout(data);
+  } catch(e) {
+    resultsEl.innerHTML = `<div class="card" style="text-align:center;padding:24px;color:#EF4444;font-size:13px">Could not reach the coach right now — try again shortly</div>`;
+  }
+}
+
+function renderAiWorkout(w) {
+  const resultsEl = document.getElementById('coach-workout-results');
+  resultsEl.innerHTML = `
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <div style="font-size:16px;font-weight:800;color:#0F0F0F">${w.title}</div>
+        <div style="font-size:12px;color:#ADADAD">${w.duration_min} min</div>
+      </div>
+      <div style="font-size:12px;color:#666;margin-bottom:14px;font-style:italic">${w.reason || ''}</div>
+      ${(w.exercises || []).map(ex => `
+        <div style="padding:10px 0;border-bottom:1px solid var(--gray-100)">
+          <div style="font-size:14px;font-weight:600;color:#0F0F0F">${ex.name}</div>
+          <div style="font-size:12px;color:#ADADAD">${ex.sets} sets × ${ex.reps}${ex.notes ? ' — ' + ex.notes : ''}</div>
+        </div>`).join('')}
+    </div>`;
+}
+
+let _coachChatHistory = [];
+async function sendCoachChatMessage() {
+  const input = document.getElementById('coach-chat-input');
+  const message = input.value.trim();
+  if (!message) return;
+  input.value = '';
+  const messagesEl = document.getElementById('coach-chat-messages');
+  messagesEl.innerHTML += `<div style="align-self:flex-end;max-width:80%;background:var(--accent);color:white;padding:10px 14px;border-radius:14px 14px 4px 14px;font-size:14px">${message}</div>`;
+  messagesEl.innerHTML += `<div id="coach-chat-typing" style="font-size:12px;color:#ADADAD;padding:4px 0">Coach is typing...</div>`;
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+
+  const todayMeals = await dbGet('meals', `date=eq.${today}`) || [];
+  const todayTotals = todayMeals.reduce((a, m) => ({ calories: a.calories + (+m.calories||0), protein: a.protein + (+m.protein||0) }), { calories: 0, protein: 0 });
+  const prefs = window._currentPreferences || await loadSetting('preferences') || {};
+
+  try {
+    const res = await fetch(`${WORKER_URL}/ai-coach-chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message,
+        history: _coachChatHistory,
+        context: {
+          primaryGoal: userProfile.primaryGoal, activity: userProfile.activity,
+          targets: userTargets, todayTotals,
+          allergies: prefs.allergies, allergiesOther: prefs.allergiesOther, favoriteFoods: prefs.favoriteFoods
+        }
+      })
+    });
+    const data = await res.json();
+    document.getElementById('coach-chat-typing')?.remove();
+    const reply = data.reply || data.error || 'Sorry, I could not respond right now.';
+    messagesEl.innerHTML += `<div style="align-self:flex-start;max-width:80%;background:white;border:1px solid #F4F4F4;color:#0F0F0F;padding:10px 14px;border-radius:14px 14px 14px 4px;font-size:14px;white-space:pre-wrap">${reply}</div>`;
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+    _coachChatHistory.push({ role: 'user', content: message });
+    _coachChatHistory.push({ role: 'assistant', content: reply });
+  } catch(e) {
+    document.getElementById('coach-chat-typing')?.remove();
+    messagesEl.innerHTML += `<div style="align-self:flex-start;color:#EF4444;font-size:13px">Could not reach the coach right now — try again shortly</div>`;
+  }
 }
 
 async function loadMealsTab() {
@@ -6943,8 +7203,61 @@ function showSettings() {
   document.getElementById('settings-username-edit').style.display = 'none';
   document.getElementById('settings-username-display').style.display = 'flex';
   document.getElementById('settings-username').textContent = 'Loading...';
+  document.getElementById('settings-preferences-edit').style.display = 'none';
+  document.getElementById('settings-preferences-summary').textContent = 'Loading...';
   loadCurrentUsername();
+  loadPreferencesSummary();
   document.getElementById('settings-modal').style.display = 'flex';
+}
+
+async function loadPreferencesSummary() {
+  const prefs = await loadSetting('preferences');
+  const el = document.getElementById('settings-preferences-summary');
+  const allergies = [...(prefs?.allergies || [])];
+  if (prefs?.allergiesOther) allergies.push(prefs.allergiesOther);
+  const parts = [];
+  parts.push(allergies.length ? `Avoids: ${allergies.join(', ')}` : 'No allergies set');
+  parts.push(prefs?.favoriteFoods ? `Favorites: ${prefs.favoriteFoods}` : 'No favorite foods set');
+  el.textContent = parts.join(' • ');
+  window._currentPreferences = prefs || { allergies: [], allergiesOther: '', favoriteFoods: '' };
+}
+
+function openPreferencesEdit() {
+  document.getElementById('settings-preferences-edit').style.display = 'block';
+  const prefs = window._currentPreferences || { allergies: [], allergiesOther: '', favoriteFoods: '' };
+  document.querySelectorAll('.settings-allergy-chip').forEach(chip => {
+    const selected = (prefs.allergies || []).includes(chip.dataset.allergy);
+    chip.classList.toggle('settings-allergy-selected', selected);
+    chip.style.background = selected ? '#FFF7ED' : 'white';
+    chip.style.borderColor = selected ? '#F97316' : '#E8E8E8';
+    chip.style.color = selected ? '#F97316' : '#0F0F0F';
+  });
+  document.getElementById('settings-allergy-other').value = prefs.allergiesOther || '';
+  document.getElementById('settings-favorite-foods').value = prefs.favoriteFoods || '';
+}
+
+function closePreferencesEdit() {
+  document.getElementById('settings-preferences-edit').style.display = 'none';
+}
+
+function settingsToggleAllergy(el) {
+  el.classList.toggle('settings-allergy-selected');
+  const selected = el.classList.contains('settings-allergy-selected');
+  el.style.background = selected ? '#FFF7ED' : 'white';
+  el.style.borderColor = selected ? '#F97316' : '#E8E8E8';
+  el.style.color = selected ? '#F97316' : '#0F0F0F';
+}
+
+async function savePreferencesChange() {
+  const allergies = Array.from(document.querySelectorAll('.settings-allergy-chip.settings-allergy-selected')).map(el => el.dataset.allergy);
+  const allergiesOther = document.getElementById('settings-allergy-other').value.trim();
+  const favoriteFoods = document.getElementById('settings-favorite-foods').value.trim();
+  const prefs = { allergies, allergiesOther, favoriteFoods };
+  await saveSetting('preferences', prefs);
+  window._currentPreferences = prefs;
+  closePreferencesEdit();
+  loadPreferencesSummary();
+  toast('Preferences updated ✓');
 }
 
 async function loadCurrentUsername() {
@@ -8232,13 +8545,56 @@ if (document.readyState === 'loading') {
     <div style="padding:20px 24px 40px;display:flex;flex-direction:column;gap:10px">
       <div style="display:flex;gap:10px">
         <button onclick="obBack(8)" style="padding:16px 20px;border:1px solid #E8E8E8;border-radius:14px;background:white;font-size:20px;cursor:pointer">←</button>
-        <button id="ob-photo-next-btn" onclick="obNext(8)" style="flex:1;padding:16px;background:#F97316;color:white;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer">Create Account</button>
+        <button id="ob-photo-next-btn" onclick="obNext(8)" style="flex:1;padding:16px;background:#F97316;color:white;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer">Next</button>
       </div>
       <button onclick="obNext(8, true)" style="width:100%;padding:12px;background:none;border:none;font-size:14px;color:#ADADAD;cursor:pointer">Skip for now</button>
     </div>
   </div>
 
-  <!-- Step 9: Your Plan is Ready -->
+  <!-- Step 9: Allergies & Favorite Foods -->
+  <div class="ob-screen" id="ob-step-9" style="position:fixed;top:0;left:0;right:0;bottom:0;background:white;display:none;flex-direction:column;z-index:9999">
+    <div style="padding:24px 24px 0;flex:1;overflow-y:auto;min-height:0">
+      <div style="display:flex;gap:4px;margin-bottom:32px">
+        <div style="flex:1;height:4px;background:#F97316;border-radius:2px"></div>
+        <div style="flex:1;height:4px;background:#F97316;border-radius:2px"></div>
+        <div style="flex:1;height:4px;background:#F97316;border-radius:2px"></div>
+        <div style="flex:1;height:4px;background:#F97316;border-radius:2px"></div>
+        <div style="flex:1;height:4px;background:#F97316;border-radius:2px"></div>
+        <div style="flex:1;height:4px;background:#F97316;border-radius:2px"></div>
+        <div style="flex:1;height:4px;background:#F97316;border-radius:2px"></div>
+        <div style="flex:1;height:4px;background:#F97316;border-radius:2px"></div>
+        <div style="flex:1;height:4px;background:#F97316;border-radius:2px"></div>
+      </div>
+      <div style="font-size:13px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Almost there</div>
+      <div style="font-size:26px;font-weight:800;color:#0F0F0F;letter-spacing:-0.5px;margin-bottom:8px">Help your AI Coach learn faster</div>
+      <div style="font-size:14px;color:#6B7280;margin-bottom:24px;line-height:1.5">The more we know up front, the better your meal and workout suggestions will be from day one — and they'll only get smarter as you log more.</div>
+
+      <div style="font-size:13px;font-weight:700;color:#0F0F0F;margin-bottom:10px">Any food allergies or things to avoid?</div>
+      <div id="ob-allergy-chips" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+        <button type="button" class="ob-allergy-chip" data-allergy="Dairy" onclick="obToggleAllergy(this)" style="padding:8px 14px;border:1.5px solid #E8E8E8;border-radius:20px;background:white;color:#0F0F0F;font-size:13px;font-weight:600;cursor:pointer">Dairy</button>
+        <button type="button" class="ob-allergy-chip" data-allergy="Gluten" onclick="obToggleAllergy(this)" style="padding:8px 14px;border:1.5px solid #E8E8E8;border-radius:20px;background:white;color:#0F0F0F;font-size:13px;font-weight:600;cursor:pointer">Gluten</button>
+        <button type="button" class="ob-allergy-chip" data-allergy="Nuts" onclick="obToggleAllergy(this)" style="padding:8px 14px;border:1.5px solid #E8E8E8;border-radius:20px;background:white;color:#0F0F0F;font-size:13px;font-weight:600;cursor:pointer">Nuts</button>
+        <button type="button" class="ob-allergy-chip" data-allergy="Shellfish" onclick="obToggleAllergy(this)" style="padding:8px 14px;border:1.5px solid #E8E8E8;border-radius:20px;background:white;color:#0F0F0F;font-size:13px;font-weight:600;cursor:pointer">Shellfish</button>
+        <button type="button" class="ob-allergy-chip" data-allergy="Eggs" onclick="obToggleAllergy(this)" style="padding:8px 14px;border:1.5px solid #E8E8E8;border-radius:20px;background:white;color:#0F0F0F;font-size:13px;font-weight:600;cursor:pointer">Eggs</button>
+        <button type="button" class="ob-allergy-chip" data-allergy="Soy" onclick="obToggleAllergy(this)" style="padding:8px 14px;border:1.5px solid #E8E8E8;border-radius:20px;background:white;color:#0F0F0F;font-size:13px;font-weight:600;cursor:pointer">Soy</button>
+      </div>
+      <input type="text" id="ob-allergy-other" placeholder="Other allergies or foods to avoid (optional)"
+        style="width:100%;padding:12px 14px;border:1.5px solid #E8E8E8;border-radius:10px;font-size:14px;outline:none;box-sizing:border-box;margin-bottom:24px" />
+
+      <div style="font-size:13px;font-weight:700;color:#0F0F0F;margin-bottom:10px">A few foods you eat often or love?</div>
+      <textarea id="ob-favorite-foods" rows="3" placeholder="e.g. chicken breast, rice, Greek yogurt, avocado..."
+        style="width:100%;padding:12px 14px;border:1.5px solid #E8E8E8;border-radius:10px;font-size:14px;outline:none;box-sizing:border-box;resize:vertical;font-family:inherit;margin-bottom:8px"></textarea>
+      <div style="font-size:12px;color:#ADADAD;margin-bottom:16px">This is optional and you can update it anytime in Settings.</div>
+    </div>
+    <div style="padding:20px 24px 40px;display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;gap:10px">
+        <button onclick="obBack(9)" style="padding:16px 20px;border:1px solid #E8E8E8;border-radius:14px;background:white;font-size:20px;cursor:pointer">←</button>
+        <button onclick="obNext(9)" style="flex:1;padding:16px;background:#F97316;color:white;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer">Create Account</button>
+      </div>
+      <button onclick="obNext(9, true)" style="width:100%;padding:12px;background:none;border:none;font-size:14px;color:#ADADAD;cursor:pointer">Skip for now</button>
+    </div>
+  </div>
+
 <!-- MEAL BUILDER MODAL -->
 <div id="meal-builder-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:800;flex-direction:column;align-items:center">
   <div style="background:white;width:100%;max-width:520px;height:100%;display:flex;flex-direction:column;overflow:hidden">
