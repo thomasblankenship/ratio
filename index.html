@@ -1034,6 +1034,50 @@
         <div id="photos-list"><div class="loading">Loading...</div></div>
       </div>
     </div>
+
+    <!-- AI COACH -->
+    <div id="tab-aicoach" style="display:none">
+      <!-- AI COACH SUB-NAV -->
+      <div style="display:flex;background:#F4F4F4;border-radius:12px;padding:4px;margin-bottom:16px">
+        <button id="coach-subtab-btn-meals" onclick="switchCoachSubTab('meals')" style="flex:1;padding:10px 4px;border:none;border-radius:9px;background:white;color:#0F0F0F;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,0.08)">🍽️ Meal Ideas</button>
+        <button id="coach-subtab-btn-workouts" onclick="switchCoachSubTab('workouts')" style="flex:1;padding:10px 4px;border:none;border-radius:9px;background:transparent;color:#ADADAD;font-size:13px;font-weight:700;cursor:pointer">💪 Workouts</button>
+        <button id="coach-subtab-btn-chat" onclick="switchCoachSubTab('chat')" style="flex:1;padding:10px 4px;border:none;border-radius:9px;background:transparent;color:#ADADAD;font-size:13px;font-weight:700;cursor:pointer">💬 Ask Coach</button>
+      </div>
+
+      <!-- MEAL IDEAS -->
+      <div id="coach-subtab-meals">
+        <div class="card" style="background:linear-gradient(160deg,#FFF7ED,#FFF1F2);border:1px solid #FFE4CC">
+          <div class="card-title">Meal Ideas</div>
+          <div style="font-size:12px;color:#666;margin-bottom:12px" id="coach-meals-remaining-label">Suggestions to help fill out today's remaining macros.</div>
+          <button onclick="loadAiMealIdeas()" style="width:100%;background:var(--accent);color:white;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer">✨ Get Meal Ideas</button>
+        </div>
+        <div id="coach-meals-results"></div>
+      </div>
+
+      <!-- WORKOUTS -->
+      <div id="coach-subtab-workouts" style="display:none">
+        <div class="card" style="background:linear-gradient(160deg,#FFF7ED,#FFF1F2);border:1px solid #FFE4CC">
+          <div class="card-title">Today's Workout</div>
+          <div style="font-size:12px;color:#666;margin-bottom:12px">A workout suggestion based on your goal and recent training.</div>
+          <button onclick="loadAiWorkout()" style="width:100%;background:var(--accent);color:white;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer">✨ Get Today's Workout</button>
+        </div>
+        <div id="coach-workout-results"></div>
+      </div>
+
+      <!-- ASK COACH -->
+      <div id="coach-subtab-chat" style="display:none">
+        <div class="card" style="background:linear-gradient(160deg,#FFF7ED,#FFF1F2);border:1px solid #FFE4CC;padding:0;overflow:hidden">
+          <div id="coach-chat-messages" style="max-height:420px;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px">
+            <div style="font-size:13px;color:#999;text-align:center;padding:12px 0">Ask me anything about your nutrition, goals, or training. I can see your targets and today's progress.</div>
+          </div>
+          <div style="display:flex;gap:8px;padding:12px;border-top:1px solid #FFE4CC;background:white">
+            <input type="text" id="coach-chat-input" placeholder="Ask your coach..." onkeydown="if(event.key==='Enter')sendCoachChatMessage()"
+              style="flex:1;padding:10px 12px;border:1px solid #E8E8E8;border-radius:20px;font-size:14px;outline:none" />
+            <button onclick="sendCoachChatMessage()" style="background:var(--accent);color:white;border:none;border-radius:20px;padding:10px 18px;font-size:14px;font-weight:700;cursor:pointer">Send</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1174,50 +1218,6 @@
         Contact Support
       </a>
       <div style="font-size:11px;color:#DADADA;margin-top:4px">sb@funolio.com</div>
-    </div>
-  </div>
-</div>
-
-<!-- AI COACH (placeholder — to be built out) -->
-<div id="tab-aicoach" style="display:none">
-  <!-- AI COACH SUB-NAV -->
-  <div style="display:flex;background:#F4F4F4;border-radius:12px;padding:4px;margin-bottom:16px">
-    <button id="coach-subtab-btn-meals" onclick="switchCoachSubTab('meals')" style="flex:1;padding:10px 4px;border:none;border-radius:9px;background:white;color:#0F0F0F;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,0.08)">🍽️ Meal Ideas</button>
-    <button id="coach-subtab-btn-workouts" onclick="switchCoachSubTab('workouts')" style="flex:1;padding:10px 4px;border:none;border-radius:9px;background:transparent;color:#ADADAD;font-size:13px;font-weight:700;cursor:pointer">💪 Workouts</button>
-    <button id="coach-subtab-btn-chat" onclick="switchCoachSubTab('chat')" style="flex:1;padding:10px 4px;border:none;border-radius:9px;background:transparent;color:#ADADAD;font-size:13px;font-weight:700;cursor:pointer">💬 Ask Coach</button>
-  </div>
-
-  <!-- MEAL IDEAS -->
-  <div id="coach-subtab-meals">
-    <div class="card" style="background:linear-gradient(160deg,#FFF7ED,#FFF1F2);border:1px solid #FFE4CC">
-      <div class="card-title">Meal Ideas</div>
-      <div style="font-size:12px;color:#666;margin-bottom:12px" id="coach-meals-remaining-label">Suggestions to help fill out today's remaining macros.</div>
-      <button onclick="loadAiMealIdeas()" style="width:100%;background:var(--accent);color:white;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer">✨ Get Meal Ideas</button>
-    </div>
-    <div id="coach-meals-results"></div>
-  </div>
-
-  <!-- WORKOUTS -->
-  <div id="coach-subtab-workouts" style="display:none">
-    <div class="card" style="background:linear-gradient(160deg,#FFF7ED,#FFF1F2);border:1px solid #FFE4CC">
-      <div class="card-title">Today's Workout</div>
-      <div style="font-size:12px;color:#666;margin-bottom:12px">A workout suggestion based on your goal and recent training.</div>
-      <button onclick="loadAiWorkout()" style="width:100%;background:var(--accent);color:white;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer">✨ Get Today's Workout</button>
-    </div>
-    <div id="coach-workout-results"></div>
-  </div>
-
-  <!-- ASK COACH -->
-  <div id="coach-subtab-chat" style="display:none">
-    <div class="card" style="background:linear-gradient(160deg,#FFF7ED,#FFF1F2);border:1px solid #FFE4CC;padding:0;overflow:hidden">
-      <div id="coach-chat-messages" style="max-height:420px;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px">
-        <div style="font-size:13px;color:#999;text-align:center;padding:12px 0">Ask me anything about your nutrition, goals, or training. I can see your targets and today's progress.</div>
-      </div>
-      <div style="display:flex;gap:8px;padding:12px;border-top:1px solid #FFE4CC;background:white">
-        <input type="text" id="coach-chat-input" placeholder="Ask your coach..." onkeydown="if(event.key==='Enter')sendCoachChatMessage()"
-          style="flex:1;padding:10px 12px;border:1px solid #E8E8E8;border-radius:20px;font-size:14px;outline:none" />
-        <button onclick="sendCoachChatMessage()" style="background:var(--accent);color:white;border:none;border-radius:20px;padding:10px 18px;font-size:14px;font-weight:700;cursor:pointer">Send</button>
-      </div>
     </div>
   </div>
 </div>
