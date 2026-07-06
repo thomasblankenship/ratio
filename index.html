@@ -4724,6 +4724,10 @@ function openMealBuilder() {
   document.getElementById('meal-builder-name').value = '';
   document.getElementById('mb-search-input').value = '';
   document.getElementById('mb-search-results').style.display = 'none';
+  document.getElementById('mb-instructions-text').value = '';
+  document.getElementById('mb-instructions-body').style.display = 'none';
+  document.getElementById('mb-instructions-chevron').style.transform = 'rotate(0deg)';
+  updateMbInstructionsCount();
   mbRenderIngredients();
   mbUpdateTotals();
   mbRenderSavedFoods();
@@ -4732,6 +4736,22 @@ function openMealBuilder() {
 
 function closeMealBuilder() {
   document.getElementById('meal-builder-modal').style.display = 'none';
+}
+
+function toggleMbInstructions() {
+  const body = document.getElementById('mb-instructions-body');
+  const chevron = document.getElementById('mb-instructions-chevron');
+  const isOpen = body.style.display !== 'none';
+  body.style.display = isOpen ? 'none' : 'block';
+  chevron.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
+}
+
+function updateMbInstructionsCount() {
+  const text = document.getElementById('mb-instructions-text').value.trim();
+  const countEl = document.getElementById('mb-instructions-count');
+  if (!text) { countEl.textContent = ''; return; }
+  const stepCount = text.split('\n').filter(l => l.trim()).length;
+  countEl.textContent = `(${stepCount} step${stepCount !== 1 ? 's' : ''})`;
 }
 
 // Lookup map so food data never gets embedded in onclick HTML attributes
@@ -4919,7 +4939,8 @@ async function urlImportFetch() {
     document.getElementById('url-import-meal-name').textContent = data.name || 'Imported Recipe';
     document.getElementById('url-import-macros').textContent = nutritionMetaString(data, {perUnit: 'serving'});
     document.getElementById('url-import-ingredients').innerHTML = (data.ingredients || []).map(i =>
-      `<div>• ${i.name}${i.amount ? ' — ' + i.amount : ''}</div>`).join('');
+      `<div>• ${i.name}${i.amount ? ' — ' + i.amount : ''}</div>`).join('') +
+      (data.instructions?.length ? `<div style="margin-top:10px;color:#F97316;font-weight:600">📋 ${data.instructions.length} cooking step${data.instructions.length !== 1 ? 's' : ''} found — editable in the next screen</div>` : '');
     document.getElementById('url-import-result').style.display = 'block';
     statusEl.textContent = 'Recipe found! Review and save as a meal.';
     btn.textContent = 'Save as Meal';
@@ -4950,6 +4971,23 @@ async function urlImportSave(data) {
     fiber: ing.fiber || 0
   }));
   document.getElementById('meal-builder-name').value = data.name || '';
+
+  // Pre-fill instructions (fully editable afterward) and auto-expand since
+  // they were just imported — the person will likely want to glance at them.
+  const instructions = data.instructions || [];
+  const instructionsText = instructions.map((step, i) => `${i + 1}. ${step}`).join('\n');
+  document.getElementById('mb-instructions-text').value = instructionsText;
+  updateMbInstructionsCount();
+  const body = document.getElementById('mb-instructions-body');
+  const chevron = document.getElementById('mb-instructions-chevron');
+  if (instructions.length) {
+    body.style.display = 'block';
+    chevron.style.transform = 'rotate(180deg)';
+  } else {
+    body.style.display = 'none';
+    chevron.style.transform = 'rotate(0deg)';
+  }
+
   mbRenderIngredients();
   mbUpdateTotals();
   document.getElementById('meal-builder-modal').style.display = 'flex';
@@ -5063,6 +5101,7 @@ async function saveMeal() {
   await dbPost('saved_meals', {
     name,
     ingredients: _mbIngredients,
+    instructions: document.getElementById('mb-instructions-text').value.trim() || null,
     calories: Math.round(totals.calories),
     protein: Math.round(totals.protein * 10) / 10,
     carbs: Math.round(totals.carbs * 10) / 10,
@@ -8143,6 +8182,17 @@ if (document.readyState === 'loading') {
     </div>
     <div id="mb-search-results" style="display:none;margin-bottom:12px"></div>
     <div id="mb-saved-foods" style="margin-bottom:12px"></div>
+
+    <!-- Instructions (collapsible — can be long, especially imported from a URL) -->
+    <button type="button" onclick="toggleMbInstructions()" style="width:100%;display:flex;justify-content:space-between;align-items:center;background:none;border:none;border-top:1px solid #F4F4F4;padding:14px 0 10px;cursor:pointer;margin-top:6px">
+      <span style="font-size:13px;font-weight:700;color:#0F0F0F">📋 Instructions <span id="mb-instructions-count" style="color:#ADADAD;font-weight:400"></span></span>
+      <span id="mb-instructions-chevron" style="color:#ADADAD;font-size:12px;transition:transform 0.15s">▼</span>
+    </button>
+    <div id="mb-instructions-body" style="display:none;padding-bottom:16px">
+      <textarea id="mb-instructions-text" rows="8" placeholder="Add cooking steps here (optional)..."
+        style="width:100%;padding:12px 14px;border:1px solid #E8E8E8;border-radius:10px;font-size:14px;line-height:1.6;outline:none;box-sizing:border-box;resize:vertical;font-family:inherit"
+        oninput="updateMbInstructionsCount()"></textarea>
+    </div>
   </div>
   </div>
 </div>
