@@ -3617,13 +3617,14 @@ function renderMeals() {
 
   let html = '';
 
-  sections.forEach(({ type, label }) => {
+  sections.forEach(({ type, label }, i) => {
     const items = currentMeals.filter(m => m.meal_type === type);
     const sectionCals = items.reduce((a, m) => a + (+m.calories || 0), 0);
-    html += `<div style="margin-bottom:14px">
+    const sectionProtein = Math.round(items.reduce((a, m) => a + (+m.protein || 0), 0) * 10) / 10;
+    html += `<div style="margin-bottom:14px;${i > 0 ? 'border-top:1px solid var(--gray-100);padding-top:14px' : ''}">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
         <div style="font-size:12px;font-weight:700;color:#666;text-transform:uppercase;letter-spacing:0.5px">${label}</div>
-        ${sectionCals > 0 ? `<div style="font-size:12px;color:#ADADAD">${sectionCals} kcal</div>` : ''}
+        ${sectionCals > 0 ? `<div style="font-size:12px;color:#ADADAD">${sectionCals} kcal | ${sectionProtein}g protein</div>` : ''}
       </div>
       ${renderMealSection(items, [], false)}
       ${items.length === 0 ? '<div style="font-size:12px;color:#DADADA;padding:4px 0">Nothing logged yet</div>' : ''}
@@ -4001,17 +4002,20 @@ async function showHistoryDetail(date) {
     if (ungrouped.length) {
       mealsHtml += `<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:700;color:#999;text-transform:uppercase;margin-bottom:4px">Other</div>${ungrouped.map(({m,i}) => histMealRow(m,i)).join('')}</div>`;
     }
+    let renderedSections = 0;
     mealSections.forEach(({ type, label }) => {
       const items = meals.map((m,i) => ({m,i})).filter(({m}) => m.meal_type === type);
       if (!items.length) return;
       const sectionCals = items.reduce((a,{m}) => a + (+m.calories||0), 0);
-      mealsHtml += `<div style="margin-bottom:12px">
+      const sectionProtein = Math.round(items.reduce((a,{m}) => a + (+m.protein||0), 0) * 10) / 10;
+      mealsHtml += `<div style="margin-bottom:12px;${renderedSections > 0 ? 'border-top:1px solid var(--gray-100);padding-top:12px' : ''}">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
           <div style="font-size:11px;font-weight:700;color:#999;text-transform:uppercase">${label}</div>
-          <div style="font-size:11px;color:#ADADAD">${sectionCals} kcal</div>
+          <div style="font-size:11px;color:#ADADAD">${sectionCals} kcal | ${sectionProtein}g protein</div>
         </div>
         ${items.map(({m,i}) => histMealRow(m,i)).join('')}
       </div>`;
+      renderedSections++;
     });
   }
   detailMealsEl.innerHTML = mealsHtml;
