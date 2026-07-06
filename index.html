@@ -2675,6 +2675,7 @@ async function signOut() {
   localStorage.removeItem('sb_session');
   _authToken = null;
   _currentUser = null;
+  resetAppState();
   showAuthScreen();
 }
 
@@ -2721,13 +2722,14 @@ function showAuthTab(tab) {
 }
 
 function startSignup() {
-  // Critical safety: clear any residual authenticated session before starting
-  // a new account. Without this, if someone is already signed in and starts
-  // a fresh signup in the same tab, any save that fires before the new
-  // account's real session takes over could silently overwrite the
-  // ALREADY-signed-in person's real data instead of the new account's.
+  // Critical safety: clear any residual authenticated session AND any cached
+  // data (scans, goals, foods, meals, etc.) before starting a new account.
+  // Without this, if someone is already signed in and starts a fresh signup
+  // in the same tab, stale data from the previous account can either get
+  // saved under the new account, or simply linger and render for it later.
   _currentUser = null;
   _authToken = null;
+  resetAppState();
   document.getElementById('auth-screen').style.display = 'none';
   document.querySelectorAll('.ob-screen').forEach(el => { el.style.display = 'none'; });
   obShowStep(1);
@@ -2806,6 +2808,10 @@ async function handleLogin() {
   errEl.textContent = '';
   if (!rawInput || !password) { errEl.textContent = 'Enter your email/username and password'; return; }
   btn.textContent = 'Signing in...'; btn.disabled = true;
+  // Defense-in-depth: clear any cached data from a previous session before
+  // signing in, in case this sign-in happens without an explicit sign-out
+  // first (e.g. a different account signing in on the same device/tab).
+  resetAppState();
 
   let email = rawInput;
   if (!rawInput.includes('@')) {
@@ -6146,6 +6152,24 @@ let userGoals = {
 };
 
 let userProfile = { heightIn: 69, age: 43, gender: 'male', activity: 'active' };
+
+// Clears every piece of cached app data tied to whoever was previously signed
+// in. Must be called whenever a session ends or a new one begins (sign out,
+// starting a fresh signup, etc.) — without this, stale data from a previous
+// account can render before a fresh fetch for the new account completes, or
+// if that fetch is ever skipped, silently show forever.
+function resetAppState() {
+  currentMeals = [];
+  currentWorkouts = [];
+  allScans = [];
+  allPhotos = [];
+  dayTotalsCache = {};
+  savedMeals = [];
+  savedFoods = [];
+  userTargets = { calories: 2250, protein: 160, carbs: 150, fat: 65 };
+  userGoals = { weightStart: null, weightGoal: null, bfCurrent: null, bfGoal: null };
+  userProfile = { heightIn: 69, age: 43, gender: 'male', activity: 'active' };
+}
 
 // Chart range state
 let weightChartRange = '6M';
