@@ -4749,7 +4749,6 @@ function openMealBuilder() {
   updateMbInstructionsCount();
   mbRenderIngredients();
   mbUpdateTotals();
-  mbRenderSavedFoods();
   document.getElementById('meal-builder-modal').style.display = 'flex';
 }
 
@@ -4779,7 +4778,6 @@ function openEditSavedMeal(id) {
 
   mbRenderIngredients();
   mbUpdateTotals();
-  mbRenderSavedFoods();
   document.getElementById('meal-builder-modal').style.display = 'flex';
 }
 
@@ -4866,29 +4864,16 @@ function _parseUnitString(storedUnit) {
   return { qty: 1, unit: s };
 }
 
-function mbRenderSavedFoods() {
-  const el = document.getElementById('mb-saved-foods');
-  if (!savedFoods.length) { el.innerHTML = '<div style="font-size:13px;color:#ADADAD">No saved foods yet</div>'; return; }
-  let html = '<div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px">Your Saved Foods</div>';
-  savedFoods.forEach(f => {
-    const _p = _parseUnitString(f.unit); const food = {id:f.id, name:f.name, calories:f.cals_per_unit||f.calories_per_unit||0, protein:f.protein_per_unit, carbs:f.carbs_per_unit||0, fat:f.fat_per_unit||0, fiber:f.fiber_per_unit||0, cholesterol:f.cholesterol_per_unit||0, unit:_p.unit, unit_size:_p.qty};
-    html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #F4F4F4"><div><div style="font-size:14px;font-weight:500">' + f.name + '</div><div style="font-size:11px;color:#ADADAD">' + nutritionMetaString(food, {perUnit: food.unit}) + '</div></div>' + mbFoodBtn(food) + '</div>';
-  });
-  el.innerHTML = html;
-}
-
 let _mbSearchTimeout = null;
 let _mbSearchReqId = 0;
 function mbSearchInput(query) {
   clearTimeout(_mbSearchTimeout);
   const resultsEl = document.getElementById('mb-search-results');
-  const savedEl = document.getElementById('mb-saved-foods');
   if (!query || query.length < 2) {
     resultsEl.style.display = 'none';
-    savedEl.style.display = 'block';
+    resultsEl.innerHTML = '';
     return;
   }
-  savedEl.style.display = 'none';
   resultsEl.style.display = 'block';
   // Render local matches immediately (no waiting on network)
   mbRenderLocalMatches(query);
@@ -5093,7 +5078,6 @@ function mbAddIngredient() {
   document.getElementById('mb-serving-modal').style.display = 'none';
   document.getElementById('mb-search-input').value = '';
   document.getElementById('mb-search-results').style.display = 'none';
-  document.getElementById('mb-saved-foods').style.display = 'block';
   mbRenderIngredients();
   mbUpdateTotals();
 }
@@ -8245,7 +8229,6 @@ if (document.readyState === 'loading') {
         oninput="mbSearchInput(this.value)" />
     </div>
     <div id="mb-search-results" style="display:none;margin-bottom:12px"></div>
-    <div id="mb-saved-foods" style="margin-bottom:12px"></div>
 
     <!-- Instructions (collapsible — can be long, especially imported from a URL) -->
     <button type="button" onclick="toggleMbInstructions()" style="width:100%;display:flex;justify-content:space-between;align-items:center;background:none;border:none;border-top:1px solid #F4F4F4;padding:14px 0 10px;cursor:pointer;margin-top:6px">
