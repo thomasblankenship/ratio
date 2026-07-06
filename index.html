@@ -292,6 +292,10 @@
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
         Photos
       </button>
+      <button class="tab-btn" onclick="switchTab('aicoach')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z"/></svg>
+        AI Coach
+      </button>
     </div>
   </div>
 
@@ -1140,6 +1144,15 @@
   </div>
 </div>
 
+<!-- AI COACH (placeholder — to be built out) -->
+<div id="tab-aicoach" style="display:none">
+  <div class="card" style="text-align:center;padding:48px 24px">
+    <div style="font-size:40px;margin-bottom:16px">✨</div>
+    <div style="font-size:18px;font-weight:700;color:#0F0F0F;margin-bottom:8px">AI Coach</div>
+    <div style="font-size:14px;color:#ADADAD;line-height:1.6">Coming soon — your personal nutrition and training coach, right here in the app.</div>
+  </div>
+</div>
+
 <div id="goal-numpad-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:700;align-items:flex-end;justify-content:center">
   <div style="background:white;border-radius:20px 20px 0 0;padding:24px 20px 40px;width:100%;max-width:480px">
     <div style="text-align:center;margin-bottom:16px">
@@ -1753,11 +1766,11 @@ function changeLogDate(dir) {
 }
 
 function switchTab(tab) {
-  ['today','history','meals','progress','photos'].forEach(t => {
+  ['today','history','meals','progress','photos','aicoach'].forEach(t => {
     document.getElementById(`tab-${t}`).style.display = t === tab ? 'block' : 'none';
   });
   document.querySelectorAll('.tab-btn').forEach((btn, i) => {
-    btn.classList.toggle('active', ['today','history','meals','progress','photos'][i] === tab);
+    btn.classList.toggle('active', ['today','history','meals','progress','photos','aicoach'][i] === tab);
   });
   if (tab === 'meals') loadMealsTab();
   if (tab === 'progress') { loadGoals().then(() => { loadScans(); updateGoalsDisplay(); }); }
