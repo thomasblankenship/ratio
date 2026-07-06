@@ -4569,7 +4569,7 @@ function renderSavedMeals() {
         <div style="display:flex;align-items:flex-start;gap:4px">
           <button onclick="togglePinMeal('${m.id}')" style="background:none;border:none;cursor:pointer;font-size:14px;padding:2px 0 0 0;line-height:1;flex-shrink:0;color:${m.pinned ? '#F97316' : '#D1D5DB'}">${m.pinned ? '★' : '☆'}</button>
           <div style="flex:1">
-            <div class="meal-name">${m.name}</div>
+            <div class="meal-name">${m.name} <button onclick="openEditSavedMeal('${m.id}')" style="background:none;border:none;cursor:pointer;font-size:12px;color:#ADADAD;padding:0 4px;vertical-align:middle">✏️</button></div>
             <div class="meal-meta">${nutritionMetaString(m)}</div>
             <div style="font-size:11px;color:#ADADAD;margin-top:2px">${(m.ingredients||[]).length} ingredient${(m.ingredients||[]).length !== 1 ? 's' : ''}</div>
           </div>
@@ -4718,9 +4718,13 @@ async function logSavedMeal(id) {
 let _mbIngredients = [];
 let _mbActiveFood = null;
 
+let _mbEditingMealId = null;
+
 function openMealBuilder() {
   _mbIngredients = [];
   _mbActiveFood = null;
+  _mbEditingMealId = null;
+  document.getElementById('meal-builder-title').textContent = 'Create Meal';
   document.getElementById('meal-builder-name').value = '';
   document.getElementById('mb-search-input').value = '';
   document.getElementById('mb-search-results').style.display = 'none';
@@ -4734,7 +4738,38 @@ function openMealBuilder() {
   document.getElementById('meal-builder-modal').style.display = 'flex';
 }
 
+function openEditSavedMeal(id) {
+  const meal = savedMeals.find(m => m.id === id);
+  if (!meal) return;
+  _mbEditingMealId = id;
+  _mbActiveFood = null;
+  _mbIngredients = JSON.parse(JSON.stringify(meal.ingredients || [])); // deep copy so cancel doesn't mutate the saved version
+  document.getElementById('meal-builder-title').textContent = 'Edit Meal';
+  document.getElementById('meal-builder-name').value = meal.name || '';
+  document.getElementById('mb-search-input').value = '';
+  document.getElementById('mb-search-results').style.display = 'none';
+
+  const instructionsText = meal.instructions || '';
+  document.getElementById('mb-instructions-text').value = instructionsText;
+  updateMbInstructionsCount();
+  const body = document.getElementById('mb-instructions-body');
+  const chevron = document.getElementById('mb-instructions-chevron');
+  if (instructionsText.trim()) {
+    body.style.display = 'block';
+    chevron.style.transform = 'rotate(180deg)';
+  } else {
+    body.style.display = 'none';
+    chevron.style.transform = 'rotate(0deg)';
+  }
+
+  mbRenderIngredients();
+  mbUpdateTotals();
+  mbRenderSavedFoods();
+  document.getElementById('meal-builder-modal').style.display = 'flex';
+}
+
 function closeMealBuilder() {
+  _mbEditingMealId = null;
   document.getElementById('meal-builder-modal').style.display = 'none';
 }
 
@@ -4960,6 +4995,8 @@ async function urlImportFetch() {
 async function urlImportSave(data) {
   // Pre-fill the meal builder with imported data
   document.getElementById('url-import-modal').style.display = 'none';
+  _mbEditingMealId = null;
+  document.getElementById('meal-builder-title').textContent = 'Create Meal';
   _mbIngredients = (data.ingredients || []).map(ing => ({
     name: ing.name,
     qty: 1,
@@ -5098,7 +5135,7 @@ async function saveMeal() {
     acc.fiber += (ing.fiber || 0);
     return acc;
   }, { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 });
-  await dbPost('saved_meals', {
+  const payload = {
     name,
     ingredients: _mbIngredients,
     instructions: document.getElementById('mb-instructions-text').value.trim() || null,
@@ -5107,8 +5144,20 @@ async function saveMeal() {
     carbs: Math.round(totals.carbs * 10) / 10,
     fat: Math.round(totals.fat * 10) / 10,
     fiber: Math.round(totals.fiber * 10) / 10
-  });
-  toast(`"${name}" saved ✓`);
+  };
+
+  if (_mbEditingMealId) {
+    await fetch(`${SUPABASE_URL}/rest/v1/saved_meals?id=eq.${_mbEditingMealId}`, {
+      method: 'PATCH',
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${_authToken || SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    toast(`"${name}" updated ✓`);
+  } else {
+    await dbPost('saved_meals', payload);
+    toast(`"${name}" saved ✓`);
+  }
+  _mbEditingMealId = null;
   closeMealBuilder();
   await loadSavedMeals();
 }
@@ -8129,7 +8178,7 @@ if (document.readyState === 'loading') {
   <div style="background:white;width:100%;max-width:520px;height:100%;display:flex;flex-direction:column;overflow:hidden">
   <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #F4F4F4">
     <button onclick="closeMealBuilder()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#0F0F0F;padding:0">←</button>
-    <div style="font-size:16px;font-weight:700">Create Meal</div>
+    <div style="font-size:16px;font-weight:700" id="meal-builder-title">Create Meal</div>
     <button onclick="saveMeal()" style="background:var(--accent);color:white;border:none;border-radius:20px;padding:6px 16px;font-size:13px;font-weight:700;cursor:pointer">Save</button>
   </div>
 
