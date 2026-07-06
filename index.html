@@ -470,7 +470,7 @@
           <!-- Legend -->
           <div style="margin-top:10px;background:#F7F7F7;border-radius:8px;padding:8px 12px">
             <div style="font-size:10px;color:#888;line-height:1.6">
-              ⭐ 85–100% cals + protein hit &nbsp;·&nbsp; ✅ cals or protein &nbsp;·&nbsp; ❌ over limit
+              ⭐ 85–100% cals + protein hit &nbsp;|&nbsp; ✅ cals or protein &nbsp;|&nbsp; ❌ over limit
             </div>
           </div>
         </div>
@@ -3670,7 +3670,7 @@ function renderWorkouts() {
           ${w.name}
           <button data-wedit="${i}" style="background:none;border:none;cursor:pointer;font-size:11px;color:#ADADAD;padding:0 2px;flex-shrink:0">✏️</button>
         </div>
-        <div style="font-size:11px;color:var(--gray-400);margin-top:2px">${w.time || ''} · ${w.duration} min</div>
+        <div style="font-size:11px;color:var(--gray-400);margin-top:2px">${w.time || ''} | ${w.duration} min</div>
       </div>
       <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
         <div class="workout-cals">−${w.calories} cal</div>
@@ -3747,7 +3747,7 @@ function renderRecentWorkouts() {
     <div data-fill-workout="${i}" style="display:flex;justify-content:space-between;align-items:center;background:white;border:1px solid #E8E8E8;border-radius:10px;padding:10px 12px;cursor:pointer">
       <div>
         <div style="font-size:13px;font-weight:500;color:#0F0F0F">${w.name}</div>
-        <div style="font-size:11px;color:#ADADAD;margin-top:2px">${w.duration} min · ${w.calories} cal</div>
+        <div style="font-size:11px;color:#ADADAD;margin-top:2px">${w.duration} min | ${w.calories} cal</div>
       </div>
       <div style="background:linear-gradient(135deg,#F97316,#FB7185);color:white;border:none;border-radius:14px;padding:4px 12px;font-size:12px;font-weight:600">Fill In</div>
     </div>`).join('');
@@ -4390,7 +4390,7 @@ function renderHistoryList() {
     return `<div class="day-row" onclick="showHistoryDetail('${d}')">
       <div>
         <div class="day-date">${dateLabel}</div>
-        <div class="day-meta">${t.calories} cal · ${Math.round(t.protein * 10) / 10}g protein</div>
+        <div class="day-meta">${t.calories} cal | ${Math.round(t.protein * 10) / 10}g protein</div>
       </div>
       <div class="day-right">
         ${s ? `<span class="score-badge ${s[1]}">${s[0]}</span>` : ''}
@@ -6408,7 +6408,7 @@ function renderWeightChart() {
     if (goalDate) {
       const goalDateLabel = goalDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
       const daysLeft = Math.round((goalDate - new Date()) / 86400000);
-      if (weightToGoEl) weightToGoEl.textContent = `${lbsLeft} lbs ${dir} · Est. ${goalDateLabel} (${daysLeft} days)`;
+      if (weightToGoEl) weightToGoEl.textContent = `${lbsLeft} lbs ${dir} | Est. ${goalDateLabel} (${daysLeft} days)`;
 
       // Build projected line: from last actual point → goal date
       // Only add future projection points
@@ -6558,7 +6558,7 @@ function renderBfChart() {
       const bfDir = userGoals.bfGoal < anchorBf.body_fat ? 'to lose' : 'to gain';
       const bfDateLabel = goalDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
       const bfDaysLeft = Math.round((goalDate - new Date()) / 86400000);
-      bfToGoEl.textContent = `${bfLeft}% body fat ${bfDir} · Est. ${bfDateLabel} (${bfDaysLeft} days)`;
+      bfToGoEl.textContent = `${bfLeft}% body fat ${bfDir} | Est. ${bfDateLabel} (${bfDaysLeft} days)`;
     }
 
     const anchorBfDate = new Date(anchorBf.date+'T12:00:00');
@@ -6735,7 +6735,7 @@ function renderMuscleChart() {
       const mDir = userGoals.muscleGoal > anchorM.muscle_mass ? 'to gain' : 'to maintain';
       const mDateLabel = goalDateM.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
       const mDaysLeft = Math.round((goalDateM - new Date()) / 86400000);
-      muscleToGoEl.textContent = `${mLeft} lbs muscle ${mDir} · Est. ${mDateLabel} (${mDaysLeft} days)`;
+      muscleToGoEl.textContent = `${mLeft} lbs muscle ${mDir} | Est. ${mDateLabel} (${mDaysLeft} days)`;
     }
 
     const anchorMDate=new Date(anchorM.date+'T12:00:00');
@@ -6984,7 +6984,7 @@ function renderScans() {
     return `
     <div style="display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid #F5F5F5">
       <div style="font-size:13px;color:#666">${new Date(s.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
-      <div style="font-size:13px;display:flex;gap:10px;align-items:center">${parts.join(' · ')}
+      <div style="font-size:13px;display:flex;gap:10px;align-items:center">${parts.join(' | ')}
         <button onclick="editScan('${s.id}','${s.date}',${s.weight||'null'},${s.body_fat||'null'},${s.muscle_mass||'null'})" style="background:none;border:none;color:#ADADAD;cursor:pointer;font-size:12px;line-height:1;padding:0 4px">edit</button>
         <button onclick="deleteScan('${s.id}')" style="background:none;border:none;color:#E8E8E8;cursor:pointer;font-size:18px;line-height:1;padding:0 0 0 4px">×</button>
       </div>
