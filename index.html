@@ -4874,9 +4874,9 @@ function switchCoachSubTab(tab) {
   });
 }
 
-async function loadAiMealIdeas() {
+async function loadAiMealIdeas(isRefresh) {
   const resultsEl = document.getElementById('coach-meals-results');
-  resultsEl.innerHTML = `<div class="card" style="text-align:center;padding:24px;color:#ADADAD;font-size:13px">✨ Thinking of ideas that fit your day...</div>`;
+  resultsEl.innerHTML = `<div class="card" style="text-align:center;padding:24px;color:#ADADAD;font-size:13px">✨ ${isRefresh ? 'Finding different ideas...' : 'Thinking of ideas that fit your day...'}</div>`;
 
   const todayMeals = await dbGet('meals', `date=eq.${today}`) || [];
   const totals = todayMeals.reduce((a, m) => ({
@@ -4894,6 +4894,8 @@ async function loadAiMealIdeas() {
 
   const prefs = window._currentPreferences || await loadSetting('preferences') || {};
 
+  if (!isRefresh) window._shownMealSuggestions = [];
+
   try {
     const res = await fetch(`${WORKER_URL}/ai-meal-ideas`, {
       method: 'POST',
@@ -4904,7 +4906,8 @@ async function loadAiMealIdeas() {
         savedMeals: (savedMeals || []).map(m => ({ name: m.name, calories: m.calories, protein: m.protein, carbs: m.carbs, fat: m.fat })),
         allergies: prefs.allergies || [],
         allergiesOther: prefs.allergiesOther || '',
-        favoriteFoods: prefs.favoriteFoods || ''
+        favoriteFoods: prefs.favoriteFoods || '',
+        exclude: window._shownMealSuggestions || []
       })
     });
     const data = await res.json();
@@ -4912,6 +4915,7 @@ async function loadAiMealIdeas() {
       resultsEl.innerHTML = `<div class="card" style="text-align:center;padding:24px;color:#EF4444;font-size:13px">${data.error || 'Could not generate ideas right now'}</div>`;
       return;
     }
+    window._shownMealSuggestions = [...(window._shownMealSuggestions || []), ...data.suggestions.map(s => s.name)];
     renderAiMealIdeas(data.suggestions);
   } catch(e) {
     resultsEl.innerHTML = `<div class="card" style="text-align:center;padding:24px;color:#EF4444;font-size:13px">Could not reach the coach right now — try again shortly</div>`;
@@ -4921,7 +4925,7 @@ async function loadAiMealIdeas() {
 function renderAiMealIdeas(suggestions) {
   const resultsEl = document.getElementById('coach-meals-results');
   if (!suggestions.length) { resultsEl.innerHTML = '<div class="card" style="text-align:center;padding:24px;color:#ADADAD;font-size:13px">No suggestions right now — try again</div>'; return; }
-  resultsEl.innerHTML = suggestions.map((s, i) => `
+  resultsEl.innerHTML = suggestions.slice(0, 3).map((s, i) => `
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
         <div style="font-size:14px;font-weight:700;color:#0F0F0F;flex:1">${s.name}</div>
@@ -4931,7 +4935,8 @@ function renderAiMealIdeas(suggestions) {
       <div style="font-size:12px;color:#666;margin-bottom:10px;font-style:italic">${s.reason || ''}</div>
       ${s.ingredients?.length ? `<div style="font-size:12px;color:#666;margin-bottom:10px">${s.ingredients.map(ing => `• ${ing}`).join('<br>')}</div>` : ''}
       <button onclick='logAiMealSuggestion(${JSON.stringify(s).replace(/'/g, "&#39;")})' style="width:100%;background:var(--accent);color:white;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer">+ Log This</button>
-    </div>`).join('');
+    </div>`).join('') + `
+    <button onclick="loadAiMealIdeas(true)" style="width:100%;background:white;color:#F97316;border:1px solid #FFE4CC;border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;margin-top:4px">🔄 Not feeling these? Show different ideas</button>`;
 }
 
 async function logAiMealSuggestion(s) {
