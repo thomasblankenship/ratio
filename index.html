@@ -4994,7 +4994,10 @@ function renderAiMealIdeas(suggestions) {
         <div style="font-size:11px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">How To Make It</div>
         <ol style="padding-left:18px;margin:0 0 12px;display:flex;flex-direction:column;gap:6px;font-size:12px;color:#666;line-height:1.4">${s.instructions.map(step => `<li>${step}</li>`).join('')}</ol>
       ` : ''}
-      <button onclick='logAiMealSuggestion(${JSON.stringify(s).replace(/'/g, "&#39;")})' style="width:100%;background:var(--accent);color:white;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer">+ Log This</button>
+      <div style="display:grid;grid-template-columns:${s.type === 'new' || s.type === 'curated_meal' ? '1fr 1fr' : '1fr'};gap:8px">
+        <button onclick='logAiMealSuggestion(${JSON.stringify(s).replace(/'/g, "&#39;")})' style="width:100%;background:var(--accent);color:white;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer">+ Log This</button>
+        ${s.type === 'new' || s.type === 'curated_meal' ? `<button onclick='saveAiSuggestionToMyMeals(${JSON.stringify(s).replace(/'/g, "&#39;")})' style="width:100%;background:white;color:#F97316;border:1px solid #FFE4CC;border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer">💾 Save to My Meals</button>` : ''}
+      </div>
     </div>`).join('') + `
     <button onclick="loadAiMealIdeas(true)" style="width:100%;background:white;color:#F97316;border:1px solid #FFE4CC;border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;margin-top:4px">🔄 Not feeling these? Show different ideas</button>`;
 }
@@ -5013,6 +5016,21 @@ async function logAiMealSuggestion(s) {
     time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   });
   toast(`"${s.name}" logged ✓`);
+}
+
+async function saveAiSuggestionToMyMeals(s) {
+  await dbPost('saved_meals', {
+    name: s.name,
+    ingredients: (s.ingredients || []).map(desc => ({ name: desc, qty: 1, unit: '', calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 })),
+    instructions: (s.instructions || []).join('\n'),
+    calories: Math.round(s.calories || 0),
+    protein: Math.round((s.protein || 0) * 10) / 10,
+    carbs: Math.round((s.carbs || 0) * 10) / 10,
+    fat: Math.round((s.fat || 0) * 10) / 10,
+    fiber: Math.round((s.fiber || 0) * 10) / 10
+  });
+  savedMeals = await dbGet('saved_meals', 'order=created_at.desc') || [];
+  toast(`"${s.name}" saved to My Meals ✓`);
 }
 
 async function loadAiWorkout() {
