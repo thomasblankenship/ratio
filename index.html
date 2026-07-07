@@ -4978,14 +4978,14 @@ function renderAiMealIdeas(suggestions) {
 async function logAiMealSuggestion(s) {
   await dbPost('meals', {
     date: today,
-    meal_type: window._selectedMealType || 'snack',
+    meal_type: window._coachMealType || 'snack',
     name: s.name,
     calories: Math.round(s.calories || 0),
     protein: Math.round((s.protein || 0) * 10) / 10,
     carbs: Math.round((s.carbs || 0) * 10) / 10,
     fat: Math.round((s.fat || 0) * 10) / 10,
-    fiber: 0,
-    cholesterol: 0,
+    fiber: Math.round((s.fiber || 0) * 10) / 10,
+    cholesterol: Math.round(s.cholesterol || 0),
     time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   });
   toast(`"${s.name}" logged ✓`);
