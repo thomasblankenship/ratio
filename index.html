@@ -4970,6 +4970,10 @@ function renderAiMealIdeas(suggestions) {
       <div style="font-size:12px;color:#ADADAD;margin-bottom:6px">${nutritionMetaString(s)}</div>
       <div style="font-size:12px;color:#666;margin-bottom:10px;font-style:italic">${s.reason || ''}</div>
       ${s.ingredients?.length ? `<div style="font-size:12px;color:#666;margin-bottom:10px">${s.ingredients.map(ing => `• ${ing}`).join('<br>')}</div>` : ''}
+      ${s.instructions?.length ? `
+        <div style="font-size:11px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">How To Make It</div>
+        <ol style="padding-left:18px;margin:0 0 12px;display:flex;flex-direction:column;gap:6px;font-size:12px;color:#666;line-height:1.4">${s.instructions.map(step => `<li>${step}</li>`).join('')}</ol>
+      ` : ''}
       <button onclick='logAiMealSuggestion(${JSON.stringify(s).replace(/'/g, "&#39;")})' style="width:100%;background:var(--accent);color:white;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer">+ Log This</button>
     </div>`).join('') + `
     <button onclick="loadAiMealIdeas(true)" style="width:100%;background:white;color:#F97316;border:1px solid #FFE4CC;border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;margin-top:4px">🔄 Not feeling these? Show different ideas</button>`;
