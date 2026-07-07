@@ -2109,11 +2109,12 @@ let selectedPhotoFile = null;
 
 
 // API helpers
-async function dbGet(table, filters = '') {
+async function dbGet(table, filters = '', skipUserFilter = false) {
   try {
     const orderParam = filters.includes('order=') ? '' : '&order=created_at.asc';
-    // Always filter by user_id if logged in (belt-and-suspenders on top of RLS)
-    const userFilter = _currentUser?.id && !filters.includes('user_id=') ? `&user_id=eq.${_currentUser.id}` : '';
+    // Always filter by user_id if logged in (belt-and-suspenders on top of RLS) —
+    // unless skipUserFilter is set, for tables meant to be shared across all accounts
+    const userFilter = (!skipUserFilter && _currentUser?.id && !filters.includes('user_id=')) ? `&user_id=eq.${_currentUser.id}` : '';
     const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${filters}${orderParam}${userFilter}`, {
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${_authToken || SUPABASE_KEY}` }
     });
@@ -4941,6 +4942,7 @@ async function loadAiMealIdeas(isRefresh) {
     `Sizing a ${MEAL_TYPE_LABELS[mealType]} — you have ${remaining.calories} kcal, ${remaining.protein}g protein left today overall.`;
 
   const prefs = window._currentPreferences || await loadSetting('preferences') || {};
+  const curatedMeals = await dbGet('curated_meals', '', true) || [];
 
   if (!isRefresh) window._shownMealSuggestions = [];
 
@@ -4955,6 +4957,7 @@ async function loadAiMealIdeas(isRefresh) {
         remainingMealTypesAfterThis: remainingTypesAfterThis,
         savedFoods: (savedFoods || []).map(f => ({ name: f.name, calories: f.cals_per_unit || f.calories_per_unit || 0, protein: f.protein_per_unit, carbs: f.carbs_per_unit || 0, fat: f.fat_per_unit || 0, unit: f.unit })),
         savedMeals: (savedMeals || []).map(m => ({ name: m.name, calories: m.calories, protein: m.protein, carbs: m.carbs, fat: m.fat })),
+        curatedMeals: curatedMeals.map(m => ({ name: m.name, category: m.category, source: m.source, calories: m.calories, protein: m.protein, carbs: m.carbs, fat: m.fat, fiber: m.fiber, cholesterol: m.cholesterol, ingredients: m.ingredients, instructions: m.instructions, tags: m.tags })),
         allergies: prefs.allergies || [],
         allergiesOther: prefs.allergiesOther || '',
         favoriteFoods: prefs.favoriteFoods || '',
@@ -4976,12 +4979,14 @@ async function loadAiMealIdeas(isRefresh) {
 function renderAiMealIdeas(suggestions) {
   const resultsEl = document.getElementById('coach-meals-results');
   if (!suggestions.length) { resultsEl.innerHTML = '<div class="card" style="text-align:center;padding:24px;color:#ADADAD;font-size:13px">No suggestions right now — try again</div>'; return; }
+  const badgeLabel = { new: 'NEW IDEA', saved_meal: 'YOUR MEAL', saved_food: 'YOUR FOOD', curated_meal: 'VERIFIED' };
   resultsEl.innerHTML = suggestions.slice(0, 3).map((s, i) => `
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
         <div style="font-size:14px;font-weight:700;color:#0F0F0F;flex:1">${s.name}</div>
-        <div style="font-size:10px;font-weight:700;color:#F97316;background:#FFF7ED;border-radius:10px;padding:2px 8px;white-space:nowrap;margin-left:8px">${s.type === 'new' ? 'NEW IDEA' : s.type === 'saved_meal' ? 'YOUR MEAL' : 'YOUR FOOD'}</div>
+        <div style="font-size:10px;font-weight:700;color:#F97316;background:#FFF7ED;border-radius:10px;padding:2px 8px;white-space:nowrap;margin-left:8px">${badgeLabel[s.type] || 'YOUR FOOD'}</div>
       </div>
+      ${s.source ? `<div style="font-size:11px;color:#F97316;font-weight:600;margin-bottom:4px">from ${s.source}</div>` : ''}
       <div style="font-size:12px;color:#ADADAD;margin-bottom:6px">${nutritionMetaString(s)}</div>
       <div style="font-size:12px;color:#666;margin-bottom:10px;font-style:italic">${s.reason || ''}</div>
       ${s.ingredients?.length ? `<div style="font-size:12px;color:#666;margin-bottom:10px">${s.ingredients.map(ing => `• ${ing}`).join('<br>')}</div>` : ''}
