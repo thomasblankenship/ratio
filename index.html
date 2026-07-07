@@ -1930,13 +1930,20 @@ let currentExerciseGroup = null;
 
 const EXERCISE_GROUP_ABBR = { Chest:'CH', Back:'BK', Shoulders:'SH', Abs:'AB', Legs:'LG', Biceps:'BI', Triceps:'TR' };
 
+// Custom muscle-highlight icons, added one at a time as they're made.
+// Falls back to the group's first exercise thumbnail until an icon exists here.
+const MUSCLE_GROUP_ICON = {
+  Abs: 'https://raw.githubusercontent.com/thomasblankenship/ratio/main/icons/abs-icon.jpg'
+};
+
 function renderExerciseMuscleList() {
   const listEl = document.getElementById('exercise-muscle-list');
   if (!listEl) return;
   listEl.innerHTML = Object.keys(EXERCISE_LIBRARY).map(g => {
     const exercises = EXERCISE_LIBRARY[g] || [];
     const count = exercises.length;
-    const cover = exercises[0] ? (exercises[0].poster || (exercises[0].images && exercises[0].images[0]) || '') : '';
+    const fallbackCover = exercises[0] ? (exercises[0].poster || (exercises[0].images && exercises[0].images[0]) || '') : '';
+    const cover = MUSCLE_GROUP_ICON[g] || fallbackCover;
     return `
     <button type="button" onclick="selectExerciseGroup('${g}')" style="display:flex;align-items:center;gap:14px;width:100%;text-align:left;padding:12px;border:none;border-radius:12px;background:white;box-shadow:0 1px 3px rgba(0,0,0,0.06);cursor:pointer">
       <img src="${cover}" loading="lazy" style="width:44px;height:44px;border-radius:12px;object-fit:cover;background:#F4F4F4;flex-shrink:0" />
