@@ -4957,7 +4957,7 @@ async function loadAiMealIdeas(isRefresh) {
         remainingMealTypesAfterThis: remainingTypesAfterThis,
         savedFoods: (savedFoods || []).map(f => ({ name: f.name, calories: f.cals_per_unit || f.calories_per_unit || 0, protein: f.protein_per_unit, carbs: f.carbs_per_unit || 0, fat: f.fat_per_unit || 0, unit: f.unit })),
         savedMeals: (savedMeals || []).map(m => ({ name: m.name, calories: m.calories, protein: m.protein, carbs: m.carbs, fat: m.fat })),
-        curatedMeals: curatedMeals.map(m => ({ name: m.name, category: m.category, source: m.source, calories: m.calories, protein: m.protein, carbs: m.carbs, fat: m.fat, fiber: m.fiber, cholesterol: m.cholesterol, ingredients: m.ingredients, instructions: m.instructions, tags: m.tags })),
+        curatedMeals: curatedMeals.map(m => ({ name: m.name, category: m.category, source: m.source, calories: m.calories, protein: m.protein, carbs: m.carbs, fat: m.fat, fiber: m.fiber, cholesterol: m.cholesterol, ingredients: m.ingredients, instructions: m.instructions, tags: m.tags, image_url: m.image_url })),
         allergies: prefs.allergies || [],
         allergiesOther: prefs.allergiesOther || '',
         favoriteFoods: prefs.favoriteFoods || '',
@@ -4981,7 +4981,9 @@ function renderAiMealIdeas(suggestions) {
   if (!suggestions.length) { resultsEl.innerHTML = '<div class="card" style="text-align:center;padding:24px;color:#ADADAD;font-size:13px">No suggestions right now — try again</div>'; return; }
   const badgeLabel = { new: 'NEW IDEA', saved_meal: 'YOUR MEAL', saved_food: 'YOUR FOOD', curated_meal: 'VERIFIED' };
   resultsEl.innerHTML = suggestions.slice(0, 3).map((s, i) => `
-    <div class="card">
+    <div class="card" style="${s.image_url ? 'padding:0;overflow:hidden' : ''}">
+      ${s.image_url ? `<img src="${s.image_url}" loading="lazy" style="width:100%;aspect-ratio:16/9;object-fit:cover;display:block;background:#F4F4F4" onerror="this.style.display='none'" />` : ''}
+      <div style="${s.image_url ? 'padding:16px' : ''}">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
         <div style="font-size:14px;font-weight:700;color:#0F0F0F;flex:1">${s.name}</div>
         <div style="font-size:10px;font-weight:700;color:#F97316;background:#FFF7ED;border-radius:10px;padding:2px 8px;white-space:nowrap;margin-left:8px">${badgeLabel[s.type] || 'YOUR FOOD'}</div>
@@ -4997,6 +4999,7 @@ function renderAiMealIdeas(suggestions) {
       <div style="display:grid;grid-template-columns:${s.type === 'new' || s.type === 'curated_meal' ? '1fr 1fr' : '1fr'};gap:8px">
         <button onclick='logAiMealSuggestion(${JSON.stringify(s).replace(/'/g, "&#39;")})' style="width:100%;background:var(--accent);color:white;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer">+ Log This</button>
         ${s.type === 'new' || s.type === 'curated_meal' ? `<button onclick='saveAiSuggestionToMyMeals(${JSON.stringify(s).replace(/'/g, "&#39;")})' style="width:100%;background:white;color:#F97316;border:1px solid #FFE4CC;border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer">💾 Save to My Meals</button>` : ''}
+      </div>
       </div>
     </div>`).join('') + `
     <button onclick="loadAiMealIdeas(true)" style="width:100%;background:white;color:#F97316;border:1px solid #FFE4CC;border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;margin-top:4px">🔄 Not feeling these? Show different ideas</button>`;
