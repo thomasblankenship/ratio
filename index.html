@@ -1050,6 +1050,8 @@
       <div id="coach-subtab-meals">
         <div class="card" style="background:linear-gradient(160deg,#FFF7ED,#FFF1F2);border:1px solid #FFE4CC">
           <div class="card-title">Meal Ideas</div>
+          <div style="font-size:12px;color:#666;margin-bottom:10px">Which meal are these for?</div>
+          <div id="coach-meal-type-pills" style="display:flex;gap:6px;margin-bottom:12px"></div>
           <div style="font-size:12px;color:#666;margin-bottom:12px" id="coach-meals-remaining-label">Suggestions to help fill out today's remaining macros.</div>
           <button onclick="loadAiMealIdeas()" style="width:100%;background:var(--accent);color:white;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer">✨ Get Meal Ideas</button>
         </div>
@@ -3819,6 +3821,7 @@ async function appInit() {
   updateGoalsDisplay();
   updateLogDateDisplay();
   renderExerciseMuscleList();
+  renderMealTypePills();
   switchTab('today');
   const todayDateEl = document.getElementById('today-date');
   if (todayDateEl) todayDateEl.textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
@@ -4874,10 +4877,38 @@ function switchCoachSubTab(tab) {
   });
 }
 
+const MEAL_TYPE_ORDER = ['breakfast', 'lunch', 'dinner', 'snack'];
+const MEAL_TYPE_LABELS = { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner', snack: 'Snack' };
+
+function guessMealTypeByTime() {
+  const hour = new Date().getHours();
+  if (hour < 11) return 'breakfast';
+  if (hour < 15) return 'lunch';
+  if (hour < 17) return 'snack';
+  return 'dinner';
+}
+
+function renderMealTypePills() {
+  const wrap = document.getElementById('coach-meal-type-pills');
+  if (!wrap) return;
+  if (!window._coachMealType) window._coachMealType = guessMealTypeByTime();
+  wrap.innerHTML = MEAL_TYPE_ORDER.map(t => `
+    <button type="button" onclick="selectCoachMealType('${t}')" data-meal-type="${t}"
+      style="flex:1;padding:8px 4px;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;background:${t === window._coachMealType ? 'var(--accent)' : 'white'};color:${t === window._coachMealType ? 'white' : '#666'}">
+      ${MEAL_TYPE_LABELS[t]}
+    </button>`).join('');
+}
+
+function selectCoachMealType(type) {
+  window._coachMealType = type;
+  renderMealTypePills();
+}
+
 async function loadAiMealIdeas(isRefresh) {
   const resultsEl = document.getElementById('coach-meals-results');
   resultsEl.innerHTML = `<div class="card" style="text-align:center;padding:24px;color:#ADADAD;font-size:13px">✨ ${isRefresh ? 'Finding different ideas...' : 'Thinking of ideas that fit your day...'}</div>`;
 
+  const mealType = window._coachMealType || guessMealTypeByTime();
   const todayMeals = await dbGet('meals', `date=eq.${today}`) || [];
   const totals = todayMeals.reduce((a, m) => ({
     calories: a.calories + (+m.calories || 0), protein: a.protein + (+m.protein || 0),
@@ -4889,8 +4920,10 @@ async function loadAiMealIdeas(isRefresh) {
     carbs: Math.max(0, Math.round((userTargets.carbs || 0) - totals.carbs)),
     fat: Math.max(0, Math.round((userTargets.fat || 0) - totals.fat))
   };
+  const loggedTypes = [...new Set(todayMeals.map(m => m.meal_type).filter(Boolean))];
+  const remainingTypesAfterThis = MEAL_TYPE_ORDER.filter(t => t !== mealType && !loggedTypes.includes(t));
   document.getElementById('coach-meals-remaining-label').textContent =
-    `You have ${remaining.calories} kcal, ${remaining.protein}g protein left today.`;
+    `Sizing a ${MEAL_TYPE_LABELS[mealType]} — you have ${remaining.calories} kcal, ${remaining.protein}g protein left today overall.`;
 
   const prefs = window._currentPreferences || await loadSetting('preferences') || {};
 
@@ -4902,6 +4935,9 @@ async function loadAiMealIdeas(isRefresh) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         remaining,
+        mealType,
+        loggedMealTypes: loggedTypes,
+        remainingMealTypesAfterThis: remainingTypesAfterThis,
         savedFoods: (savedFoods || []).map(f => ({ name: f.name, calories: f.cals_per_unit || f.calories_per_unit || 0, protein: f.protein_per_unit, carbs: f.carbs_per_unit || 0, fat: f.fat_per_unit || 0, unit: f.unit })),
         savedMeals: (savedMeals || []).map(m => ({ name: m.name, calories: m.calories, protein: m.protein, carbs: m.carbs, fat: m.fat })),
         allergies: prefs.allergies || [],
