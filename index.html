@@ -3925,7 +3925,7 @@ function renderMealSection(meals, indices, showEmpty) {
     return `<div class="meal-row">
       <div class="meal-info" style="min-width:0;flex:1">
         <div class="meal-name" style="display:flex;align-items:flex-start;gap:4px">
-          <span style="flex:1;word-break:break-word">${m.name}</span>
+          <span style="word-break:break-word">${m.name}</span>
           <button data-edit="${m.id}" style="background:none;border:none;cursor:pointer;font-size:11px;color:#ADADAD;padding:0 2px;flex-shrink:0;margin-top:1px">✏️</button>
         </div>
         <div class="meal-meta">${nutritionMetaString(m, {skipCals: true})}</div>
@@ -4319,7 +4319,7 @@ async function showHistoryDetail(date) {
     return `<div class="meal-row">
       <div class="meal-info" style="min-width:0;flex:1">
         <div class="meal-name" style="display:flex;align-items:flex-start;gap:4px">
-          <span style="flex:1;word-break:break-word">${m.name}</span>
+          <span style="word-break:break-word">${m.name}</span>
           <button data-hist-edit="${i}" style="background:none;border:none;cursor:pointer;font-size:11px;color:#ADADAD;padding:0 2px;flex-shrink:0;margin-top:1px">✏️</button>
         </div>
         <div class="meal-meta">${nutritionMetaString(m, {skipCals: true})}</div>
