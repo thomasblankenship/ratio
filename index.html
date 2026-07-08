@@ -1947,7 +1947,7 @@ const MUSCLE_GROUP_ICON = {
 function renderExerciseMuscleList() {
   const listEl = document.getElementById('exercise-muscle-list');
   if (!listEl) return;
-  listEl.innerHTML = Object.keys(EXERCISE_LIBRARY).map(g => {
+  listEl.innerHTML = Object.keys(EXERCISE_LIBRARY).sort((a, b) => a.localeCompare(b)).map(g => {
     const exercises = EXERCISE_LIBRARY[g] || [];
     const count = exercises.length;
     const fallbackCover = exercises[0] ? (exercises[0].poster || (exercises[0].images && exercises[0].images[0]) || '') : '';
