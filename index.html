@@ -65,7 +65,7 @@
     /* TABS */
     .tabs { display: flex; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; -webkit-mask-image: linear-gradient(to right, black calc(100% - 16px), transparent 100%); mask-image: linear-gradient(to right, black calc(100% - 16px), transparent 100%); }
     .tabs::-webkit-scrollbar { display: none; }
-    .tab-btn { padding: 10px 5px; font-size: 11px; font-weight: 400; color: var(--gray-400); border: none; background: none; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; white-space: nowrap; display: flex; align-items: center; gap: 3px; flex-shrink: 0; }
+    .tab-btn { padding: 10px 8px; font-size: 13px; font-weight: 500; color: var(--gray-400); border: none; background: none; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; white-space: nowrap; display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
     .tab-btn.active { font-weight: 600; color: var(--accent); border-bottom-color: var(--accent); }
 
     /* CONTENT */
@@ -279,10 +279,6 @@
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
         Today
       </button>
-      <button class="tab-btn" onclick="switchTab('history')">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        History
-      </button>
       <button class="tab-btn" onclick="switchTab('meals')">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h2a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3zm0 0v7"/></svg>
         Meals
@@ -295,9 +291,10 @@
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
         Photos
       </button>
-      <button class="tab-btn" onclick="switchTab('aicoach')">
+      <button class="tab-btn" onclick="switchTab('aicoach')" style="position:relative">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z"/></svg>
         AI Coach
+        <span id="ai-coach-new-badge" style="display:none;position:absolute;top:2px;right:-2px;background:var(--accent);color:white;font-size:8px;font-weight:800;padding:1px 4px;border-radius:6px;letter-spacing:0.3px;line-height:1.4">NEW</span>
       </button>
     </div>
     <div id="tabs-scroll-hint" style="position:absolute;right:0;top:0;bottom:0;width:20px;display:flex;align-items:center;justify-content:center;pointer-events:none;background:linear-gradient(to right, rgba(255,255,255,0), var(--bg, #fff) 70%);transition:opacity 0.2s">
@@ -309,6 +306,14 @@
   <div class="content">
     <!-- TODAY -->
     <div id="tab-today">
+      <!-- TODAY SUB-NAV -->
+      <div style="display:flex;background:#F4F4F4;border-radius:12px;padding:4px;margin-bottom:16px">
+        <button class="today-subtab-btn" data-sub="main" onclick="switchTodaySubTab('main')" style="flex:1;padding:10px 4px;border:none;border-radius:9px;background:white;color:#0F0F0F;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,0.08)">Today</button>
+        <button class="today-subtab-btn" data-sub="history" onclick="switchTodaySubTab('history')" style="flex:1;padding:10px 4px;border:none;border-radius:9px;background:transparent;color:#ADADAD;font-size:13px;font-weight:700;cursor:pointer">History</button>
+        <button class="today-subtab-btn" data-sub="workouts" onclick="switchTodaySubTab('workouts')" style="flex:1;padding:10px 4px;border:none;border-radius:9px;background:transparent;color:#ADADAD;font-size:13px;font-weight:700;cursor:pointer">Workouts</button>
+      </div>
+
+      <div id="today-subtab-main">
 
       <!-- MOTIVATIONAL QUOTE -->
       <div id="quote-card" style="padding:12px 4px 8px;margin-bottom:4px">
@@ -436,6 +441,10 @@
         </div>
       </div>
 
+      </div>
+      <!-- end today-subtab-main -->
+
+      <div id="today-subtab-workouts" style="display:none">
       <!-- WORKOUTS -->
       <div class="card">
         <div class="card-title">Workouts</div>
@@ -466,10 +475,11 @@
           <button class="btn" onclick="toggleWorkoutForm()" style="background:#FEF2F2;color:#DC2626;margin-top:8px">Cancel</button>
         </div>
       </div>
-    </div>
+      </div>
+      <!-- end today-subtab-workouts -->
 
-    <!-- HISTORY -->
-    <div id="tab-history" style="display:none">
+      <div id="today-subtab-history" style="display:none">
+      <!-- HISTORY -->
       <div id="history-list-view">
 
 
@@ -570,6 +580,8 @@
         <!-- Add meal to past day -->
 
       </div>
+      </div>
+      <!-- end today-subtab-history -->
     </div>
 
     <!-- MEALS -->
@@ -1877,14 +1889,35 @@ function changeLogDate(dir) {
 
 function switchTab(tab) {
   window.scrollTo(0, 0);
-  ['today','history','meals','progress','photos','aicoach'].forEach(t => {
+  ['today','meals','progress','photos','aicoach'].forEach(t => {
     document.getElementById(`tab-${t}`).style.display = t === tab ? 'block' : 'none';
   });
   document.querySelectorAll('.tab-btn').forEach((btn, i) => {
-    btn.classList.toggle('active', ['today','history','meals','progress','photos','aicoach'][i] === tab);
+    btn.classList.toggle('active', ['today','meals','progress','photos','aicoach'][i] === tab);
   });
   if (tab === 'meals') loadMealsTab();
   if (tab === 'progress') { loadGoals().then(() => { loadScans(); updateGoalsDisplay(); }); }
+  if (tab === 'aicoach') {
+    const badge = document.getElementById('ai-coach-new-badge');
+    if (badge && badge.style.display !== 'none') {
+      badge.style.display = 'none';
+      saveSetting('ai_coach_badge_seen', true);
+    }
+  }
+}
+
+function switchTodaySubTab(sub) {
+  window.scrollTo(0, 0);
+  ['main','history','workouts'].forEach(s => {
+    document.getElementById(`today-subtab-${s}`).style.display = s === sub ? 'block' : 'none';
+  });
+  document.querySelectorAll('.today-subtab-btn').forEach(btn => {
+    const isActive = btn.dataset.sub === sub;
+    btn.style.background = isActive ? 'white' : 'transparent';
+    btn.style.color = isActive ? '#0F0F0F' : '#ADADAD';
+    btn.style.boxShadow = isActive ? '0 1px 3px rgba(0,0,0,0.08)' : 'none';
+  });
+  if (sub === 'history') { renderCalendar(); renderHistoryList(); }
 }
 
 function selectAngle(angle, btn) {
@@ -3840,6 +3873,12 @@ async function appInit() {
   updateLogDateDisplay();
   renderExerciseMuscleList();
   renderMealTypePills();
+  loadSetting('ai_coach_badge_seen').then(seen => {
+    if (!seen) {
+      const badge = document.getElementById('ai-coach-new-badge');
+      if (badge) badge.style.display = 'block';
+    }
+  });
   switchTab('today');
   const todayDateEl = document.getElementById('today-date');
   if (todayDateEl) todayDateEl.textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
