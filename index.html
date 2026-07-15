@@ -1089,9 +1089,17 @@
           </div>
           <div id="exercise-muscle-list" style="display:flex;flex-direction:column;gap:8px"></div>
 
-          <div id="exercise-group-view" style="display:none">
+          <div id="exercise-legs-subgroup-view" style="display:none">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
               <button onclick="backToMuscleList()" style="width:32px;height:32px;border-radius:50%;background:white;border:none;box-shadow:0 1px 3px rgba(0,0,0,0.08);cursor:pointer;font-size:16px;color:#0F0F0F;flex-shrink:0;display:flex;align-items:center;justify-content:center">←</button>
+              <div style="font-size:17px;font-weight:800;color:#0F0F0F">Legs</div>
+            </div>
+            <div id="legs-subgroup-list" style="display:flex;flex-direction:column;gap:8px"></div>
+          </div>
+
+          <div id="exercise-group-view" style="display:none">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+              <button onclick="exerciseGroupBack()" style="width:32px;height:32px;border-radius:50%;background:white;border:none;box-shadow:0 1px 3px rgba(0,0,0,0.08);cursor:pointer;font-size:16px;color:#0F0F0F;flex-shrink:0;display:flex;align-items:center;justify-content:center">←</button>
               <div style="font-size:17px;font-weight:800;color:#0F0F0F" id="exercise-group-title"></div>
             </div>
             <div id="exercise-group-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px"></div>
@@ -1997,8 +2005,18 @@ function renderExerciseMuscleList() {
   }).join('');
 }
 
+const LEGS_SUBGROUPS = ['Quadriceps', 'Hamstrings', 'Glutes', 'Calves', 'Adductors', 'Abductors'];
+let currentLegsSubgroup = null;
+
 function selectExerciseGroup(group) {
   currentExerciseGroup = group;
+  if (group === 'Legs') {
+    document.getElementById('exercise-muscle-list-header').style.display = 'none';
+    document.getElementById('exercise-muscle-list').style.display = 'none';
+    document.getElementById('exercise-legs-subgroup-view').style.display = 'block';
+    renderLegsSubgroupList();
+    return;
+  }
   document.getElementById('exercise-muscle-list-header').style.display = 'none';
   document.getElementById('exercise-muscle-list').style.display = 'none';
   document.getElementById('exercise-group-view').style.display = 'block';
@@ -2006,24 +2024,69 @@ function selectExerciseGroup(group) {
   renderExerciseGroupGrid(group);
 }
 
+function renderLegsSubgroupList() {
+  const listEl = document.getElementById('legs-subgroup-list');
+  if (!listEl) return;
+  const legsExercises = EXERCISE_LIBRARY.Legs || [];
+  listEl.innerHTML = LEGS_SUBGROUPS.map(sg => {
+    const matches = legsExercises.filter(ex => ex.subgroup === sg);
+    const count = matches.length;
+    const cover = matches[0] ? (matches[0].poster || (matches[0].images && matches[0].images[0]) || '') : '';
+    return `
+    <button type="button" onclick="selectLegsSubgroup('${sg}')" style="display:flex;align-items:center;gap:14px;width:100%;text-align:left;padding:12px;border:none;border-radius:12px;background:white;box-shadow:0 1px 3px rgba(0,0,0,0.06);cursor:pointer">
+      <img src="${cover}" loading="lazy" style="width:44px;height:44px;border-radius:12px;object-fit:cover;background:#F4F4F4;flex-shrink:0" />
+      <div style="flex:1">
+        <div style="font-size:15px;font-weight:700;color:#0F0F0F">${sg}</div>
+        <div style="font-size:12px;color:#999">${count} exercise${count === 1 ? '' : 's'}</div>
+      </div>
+      <span style="color:#CCC;font-size:18px">›</span>
+    </button>`;
+  }).join('');
+}
+
+function selectLegsSubgroup(subgroup) {
+  currentLegsSubgroup = subgroup;
+  document.getElementById('exercise-legs-subgroup-view').style.display = 'none';
+  document.getElementById('exercise-group-view').style.display = 'block';
+  document.getElementById('exercise-group-title').textContent = 'Legs — ' + subgroup;
+  renderExerciseGroupGrid('Legs', subgroup);
+}
+
+function exerciseGroupBack() {
+  if (currentExerciseGroup === 'Legs') {
+    currentLegsSubgroup = null;
+    document.getElementById('exercise-group-view').style.display = 'none';
+    document.getElementById('exercise-legs-subgroup-view').style.display = 'block';
+    renderLegsSubgroupList();
+    return;
+  }
+  backToMuscleList();
+}
+
 function backToMuscleList() {
   currentExerciseGroup = null;
+  currentLegsSubgroup = null;
   document.getElementById('exercise-group-view').style.display = 'none';
+  document.getElementById('exercise-legs-subgroup-view').style.display = 'none';
   document.getElementById('exercise-muscle-list-header').style.display = 'block';
   document.getElementById('exercise-muscle-list').style.display = 'flex';
 }
 
-function renderExerciseGroupGrid(group) {
+function renderExerciseGroupGrid(group, subgroupFilter) {
   const gridEl = document.getElementById('exercise-group-grid');
   if (!gridEl) return;
-  const exercises = EXERCISE_LIBRARY[group] || [];
-  if (!exercises.length) {
+  const allExercises = EXERCISE_LIBRARY[group] || [];
+  // Pair each exercise with its REAL index in the unfiltered array, so
+  // openExerciseDetail still points at the correct entry after filtering.
+  const indexed = allExercises.map((ex, i) => ({ ex, i }));
+  const filtered = subgroupFilter ? indexed.filter(item => item.ex.subgroup === subgroupFilter) : indexed;
+  if (!filtered.length) {
     gridEl.style.display = 'block';
     gridEl.innerHTML = '<div class="empty" style="grid-column:1/-1;text-align:center;padding:24px 0;color:#ADADAD;font-size:13px">No videos in this group yet — check back soon</div>';
     return;
   }
   gridEl.style.display = 'grid';
-  gridEl.innerHTML = exercises.map((ex, i) => {
+  gridEl.innerHTML = filtered.map(({ ex, i }) => {
     const thumb = ex.poster || (ex.images && ex.images[0]) || '';
     return `
     <button type="button" onclick="openExerciseDetail('${group}', ${i})" style="text-align:left;border:none;padding:0;background:white;border-radius:14px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);cursor:pointer">
