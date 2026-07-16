@@ -1985,6 +1985,12 @@ const MUSCLE_GROUP_ICON = {
   Chest: 'https://raw.githubusercontent.com/thomasblankenship/ratio/main/icons/chest-icon.jpg'
 };
 
+// Icons for the Legs subgroup tiles (Quadriceps/Hamstrings/Glutes/Calves/Adductors/Abductors),
+// added one at a time as they're made. Falls back to the subgroup's first exercise thumbnail.
+const LEGS_SUBGROUP_ICON = {
+  Glutes: 'https://raw.githubusercontent.com/thomasblankenship/ratio/main/icons/glutes-icon.png'
+};
+
 function renderExerciseMuscleList() {
   const listEl = document.getElementById('exercise-muscle-list');
   if (!listEl) return;
@@ -2031,7 +2037,8 @@ function renderLegsSubgroupList() {
   listEl.innerHTML = LEGS_SUBGROUPS.map(sg => {
     const matches = legsExercises.filter(ex => ex.subgroup === sg);
     const count = matches.length;
-    const cover = matches[0] ? (matches[0].poster || (matches[0].images && matches[0].images[0]) || '') : '';
+    const fallbackCover = matches[0] ? (matches[0].poster || (matches[0].images && matches[0].images[0]) || '') : '';
+    const cover = LEGS_SUBGROUP_ICON[sg] || fallbackCover;
     return `
     <button type="button" onclick="selectLegsSubgroup('${sg}')" style="display:flex;align-items:center;gap:14px;width:100%;text-align:left;padding:12px;border:none;border-radius:12px;background:white;box-shadow:0 1px 3px rgba(0,0,0,0.06);cursor:pointer">
       <img src="${cover}" loading="lazy" style="width:44px;height:44px;border-radius:12px;object-fit:cover;background:#F4F4F4;flex-shrink:0" />
