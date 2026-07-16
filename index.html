@@ -413,7 +413,13 @@
             <button onclick="openBarcodeScannerForMeal()" style="background:var(--accent);color:white;border:none;border-radius:8px;padding:10px;font-size:12px;font-weight:600;cursor:pointer">📷 Scan Barcode</button>
             <button onclick="openLabelModalForMeal()" style="background:var(--accent);color:white;border:none;border-radius:8px;padding:10px;font-size:12px;font-weight:600;cursor:pointer">🏷️ Photo Label</button>
           </div>
-          <div style="text-align:center;font-size:11px;color:#ADADAD;margin-bottom:10px">— or enter manually —</div>
+          <div class="form-group" style="position:relative;margin-bottom:4px">
+            <input type="text" id="meal-name" placeholder="Search my foods, meals, or database..." autocomplete="off"
+              oninput="dashMealSearch(this.value)" onblur="setTimeout(()=>{ document.getElementById('dash-meal-results').style.display='none'; },400)" />
+            <div id="dash-meal-results" onmousedown="event.preventDefault()"
+              style="display:none;position:absolute;left:0;right:0;top:100%;background:white;border:1px solid #E8E8E8;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.1);z-index:200;max-height:280px;overflow-y:auto;-webkit-overflow-scrolling:touch;margin-top:4px"></div>
+          </div>
+          <div style="text-align:center;font-size:11px;color:#ADADAD;margin-bottom:10px">— or type a new name above and fill in below —</div>
           <div class="form-group">
             <div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Meal Type</div>
             <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px">
@@ -422,12 +428,6 @@
               <button class="meal-type-btn" type="button" data-type="dinner" onclick="selectMealType('dinner',this)" style="padding:8px 4px;border:1px solid #E8E8E8;border-radius:8px;background:white;color:#666;font-size:11px;font-weight:600;cursor:pointer">🍽️ Dinner</button>
               <button class="meal-type-btn" type="button" data-type="snack" onclick="selectMealType('snack',this)" style="padding:8px 4px;border:1px solid #E8E8E8;border-radius:8px;background:white;color:#666;font-size:11px;font-weight:600;cursor:pointer">🍎 Snack</button>
             </div>
-          </div>
-          <div class="form-group" style="position:relative">
-            <input type="text" id="meal-name" placeholder="Meal name (e.g. Chicken + Rice)" autocomplete="off"
-              oninput="dashMealSearch(this.value)" onblur="setTimeout(()=>{ document.getElementById('dash-meal-results').style.display='none'; },400)" />
-            <div id="dash-meal-results" onmousedown="event.preventDefault()"
-              style="display:none;position:absolute;left:0;right:0;top:100%;background:white;border:1px solid #E8E8E8;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.1);z-index:200;max-height:280px;overflow-y:auto;-webkit-overflow-scrolling:touch;margin-top:4px"></div>
           </div>
           <div style="background:#FFF7ED;border-radius:10px;padding:14px;margin-bottom:12px">
             <div id="meal-nutrition-fields"></div>
@@ -530,7 +530,13 @@
               <button onclick="openBarcodeScannerForMeal()" style="background:var(--accent);color:white;border:none;border-radius:8px;padding:10px;font-size:12px;font-weight:600;cursor:pointer">📷 Scan Barcode</button>
               <button onclick="openLabelModalForMeal()" style="background:var(--accent);color:white;border:none;border-radius:8px;padding:10px;font-size:12px;font-weight:600;cursor:pointer">🏷️ Photo Label</button>
             </div>
-            <div style="text-align:center;font-size:11px;color:#ADADAD;margin-bottom:10px">— or enter manually —</div>
+            <div class="form-group" style="position:relative;margin-bottom:4px">
+              <input type="text" id="hist-meal-name" placeholder="Search my foods, meals, or database..." autocomplete="off"
+                oninput="histMealSearch(this.value)" onblur="setTimeout(()=>{ document.getElementById('hist-meal-results').style.display='none'; },400)" />
+              <div id="hist-meal-results" onmousedown="event.preventDefault()"
+                style="display:none;position:absolute;left:0;right:0;top:100%;background:white;border:1px solid #E8E8E8;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.1);z-index:200;max-height:280px;overflow-y:auto;-webkit-overflow-scrolling:touch;margin-top:4px"></div>
+            </div>
+            <div style="text-align:center;font-size:11px;color:#ADADAD;margin-bottom:10px">— or type a new name above and fill in below —</div>
             <div class="form-group">
               <div style="font-size:10px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Meal Type</div>
               <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px">
@@ -539,12 +545,6 @@
                 <button class="hist-meal-type-btn" type="button" data-type="dinner" onclick="selectHistMealType('dinner',this)" style="padding:8px 4px;border:1px solid #E8E8E8;border-radius:8px;background:white;color:#666;font-size:11px;font-weight:600;cursor:pointer">🍽️ Dinner</button>
                 <button class="hist-meal-type-btn" type="button" data-type="snack" onclick="selectHistMealType('snack',this)" style="padding:8px 4px;border:1px solid #E8E8E8;border-radius:8px;background:white;color:#666;font-size:11px;font-weight:600;cursor:pointer">🍎 Snack</button>
               </div>
-            </div>
-            <div class="form-group" style="position:relative">
-              <input type="text" id="hist-meal-name" placeholder="Meal name (e.g. Chicken + Rice)" autocomplete="off"
-                oninput="histMealSearch(this.value)" onblur="setTimeout(()=>{ document.getElementById('hist-meal-results').style.display='none'; },400)" />
-              <div id="hist-meal-results" onmousedown="event.preventDefault()"
-                style="display:none;position:absolute;left:0;right:0;top:100%;background:white;border:1px solid #E8E8E8;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.1);z-index:200;max-height:280px;overflow-y:auto;-webkit-overflow-scrolling:touch;margin-top:4px"></div>
             </div>
             <div style="background:#FFF7ED;border-radius:10px;padding:14px;margin-bottom:12px">
               <div id="hist-meal-nutrition-fields"></div>
