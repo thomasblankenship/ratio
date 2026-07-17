@@ -1134,7 +1134,10 @@
       <div style="position:absolute;bottom:10px;right:12px;background:rgba(0,0,0,0.5);color:white;font-size:10px;font-weight:700;padding:4px 9px;border-radius:20px;letter-spacing:0.3px" id="exercise-anim-label">TAP TO PAUSE</div>
     </div>
     <div style="padding:20px 20px 0">
-      <div style="font-size:19px;font-weight:800;color:#0F0F0F;margin-bottom:6px" id="exercise-detail-name"></div>
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:6px">
+        <div style="font-size:19px;font-weight:800;color:#0F0F0F;flex:1" id="exercise-detail-name"></div>
+        <button type="button" id="exercise-detail-fav-star" onclick="toggleFavoriteExerciseFromDetail(event)" style="border:none;background:none;font-size:24px;line-height:1;cursor:pointer;flex-shrink:0;color:#CCC">☆</button>
+      </div>
       <div style="display:flex;gap:6px;margin-bottom:16px" id="exercise-detail-badges"></div>
       <div id="exercise-detail-muscles" style="margin-bottom:18px"></div>
       <div style="font-size:11px;font-weight:700;color:#ADADAD;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px">How To</div>
@@ -1996,6 +1999,51 @@ const LEGS_SUBGROUP_ICON = {
   Abductors: 'https://raw.githubusercontent.com/thomasblankenship/ratio/main/icons/abductors-icon.png'
 };
 
+let _favoriteExercises = new Set();
+let _currentExerciseDetail = null;
+
+function exerciseFavKey(group, name) {
+  return group + '|' + name;
+}
+
+function isFavoriteExercise(group, name) {
+  return _favoriteExercises.has(exerciseFavKey(group, name));
+}
+
+async function loadFavoriteExercises() {
+  const val = await loadSetting('favorite_exercises');
+  if (Array.isArray(val)) _favoriteExercises = new Set(val);
+  const gridEl = document.getElementById('exercise-group-grid');
+  if (gridEl && gridEl.style.display !== 'none' && typeof currentExerciseGroup !== 'undefined' && currentExerciseGroup) {
+    renderExerciseGroupGrid(currentExerciseGroup, currentLegsSubgroup);
+  }
+}
+
+function toggleFavoriteExercise(e, group, name) {
+  if (e) e.stopPropagation();
+  const key = exerciseFavKey(group, name);
+  if (_favoriteExercises.has(key)) _favoriteExercises.delete(key);
+  else _favoriteExercises.add(key);
+  saveSetting('favorite_exercises', Array.from(_favoriteExercises));
+
+  const gridEl = document.getElementById('exercise-group-grid');
+  if (gridEl && gridEl.style.display !== 'none' && typeof currentExerciseGroup !== 'undefined' && currentExerciseGroup) {
+    renderExerciseGroupGrid(currentExerciseGroup, currentLegsSubgroup);
+  }
+
+  const detailStar = document.getElementById('exercise-detail-fav-star');
+  if (detailStar) {
+    const fav = isFavoriteExercise(group, name);
+    detailStar.textContent = fav ? '★' : '☆';
+    detailStar.style.color = fav ? '#F97316' : '#CCC';
+  }
+}
+
+function toggleFavoriteExerciseFromDetail(e) {
+  if (!_currentExerciseDetail) return;
+  toggleFavoriteExercise(e, _currentExerciseDetail.group, _currentExerciseDetail.name);
+}
+
 function renderExerciseMuscleList() {
   const listEl = document.getElementById('exercise-muscle-list');
   if (!listEl) return;
@@ -2097,17 +2145,26 @@ function renderExerciseGroupGrid(group, subgroupFilter) {
     gridEl.innerHTML = '<div class="empty" style="grid-column:1/-1;text-align:center;padding:24px 0;color:#ADADAD;font-size:13px">No videos in this group yet — check back soon</div>';
     return;
   }
+  // Favorites float to the top; stable order preserved otherwise.
+  const sorted = filtered.slice().sort((a, b) => {
+    const aFav = isFavoriteExercise(group, a.ex.name) ? 1 : 0;
+    const bFav = isFavoriteExercise(group, b.ex.name) ? 1 : 0;
+    return bFav - aFav;
+  });
   gridEl.style.display = 'grid';
-  gridEl.innerHTML = filtered.map(({ ex, i }) => {
+  gridEl.innerHTML = sorted.map(({ ex, i }) => {
     const thumb = ex.poster || (ex.images && ex.images[0]) || '';
+    const fav = isFavoriteExercise(group, ex.name);
+    const nameEscaped = ex.name.replace(/'/g, "\\'");
     return `
-    <button type="button" onclick="openExerciseDetail('${group}', ${i})" style="text-align:left;border:none;padding:0;background:white;border-radius:14px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);cursor:pointer">
+    <div onclick="openExerciseDetail('${group}', ${i})" style="position:relative;text-align:left;border-radius:14px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);cursor:pointer;background:white">
       <img src="${thumb}" loading="lazy" style="width:100%;aspect-ratio:1/1;object-fit:cover;background:#F4F4F4;display:block" />
+      <button type="button" onclick="toggleFavoriteExercise(event, '${group}', '${nameEscaped}')" style="position:absolute;top:8px;right:8px;width:28px;height:28px;border-radius:50%;background:rgba(0,0,0,0.45);border:none;color:${fav ? '#F97316' : 'white'};font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">${fav ? '★' : '☆'}</button>
       <div style="padding:10px 10px 12px">
         <div style="font-size:13px;font-weight:700;color:#0F0F0F;line-height:1.25">${ex.name}</div>
         <div style="font-size:10px;font-weight:700;color:#F97316;margin-top:4px">${ex.equipment}</div>
       </div>
-    </button>`;
+    </div>`;
   }).join('');
 }
 
@@ -2153,7 +2210,14 @@ function toggleExerciseAnim(e) {
 function openExerciseDetail(group, idx) {
   const ex = (EXERCISE_LIBRARY[group] || [])[idx];
   if (!ex) return;
+  _currentExerciseDetail = { group, name: ex.name };
   document.getElementById('exercise-detail-name').textContent = ex.name;
+  const favStar = document.getElementById('exercise-detail-fav-star');
+  if (favStar) {
+    const fav = isFavoriteExercise(group, ex.name);
+    favStar.textContent = fav ? '★' : '☆';
+    favStar.style.color = fav ? '#F97316' : '#CCC';
+  }
   document.getElementById('exercise-detail-badges').innerHTML = `
     <span style="font-size:11px;font-weight:700;color:#F97316;background:#FFF7ED;padding:4px 10px;border-radius:8px">${ex.equipment}</span>
     <span style="font-size:11px;font-weight:700;color:#666;background:#F4F4F4;padding:4px 10px;border-radius:8px">${ex.level}</span>
@@ -3963,6 +4027,7 @@ async function appInit() {
   updateGoalsDisplay();
   updateLogDateDisplay();
   renderExerciseMuscleList();
+  loadFavoriteExercises();
   renderMealTypePills();
   loadSetting('ai_coach_badge_seen').then(seen => {
     if (!seen) {
