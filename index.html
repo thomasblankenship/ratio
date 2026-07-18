@@ -1083,9 +1083,9 @@
         <div id="workouts-subtab-plan">
           <div class="card" style="background:linear-gradient(160deg,#FFF7ED,#FFF1F2);border:1px solid #FFE4CC">
             <div class="card-title">This Week's Plan</div>
-            <div style="font-size:12px;color:#666;margin-bottom:12px">Tap a day to set muscle groups and where you're training.</div>
+            <div style="font-size:12px;color:#666;margin-bottom:14px">Tap a day to set muscle groups and where you're training.</div>
+            <div id="weekly-plan-list" style="background:white;border-radius:14px;overflow:hidden"></div>
           </div>
-          <div id="weekly-plan-list" style="display:flex;flex-direction:column;gap:10px;margin-top:12px"></div>
           <div id="coach-workout-results"></div>
         </div>
 
@@ -5333,16 +5333,17 @@ function renderWeeklyPlanList() {
     else if (exerciseCount) summaryText = `${exerciseCount} exercise${exerciseCount === 1 ? '' : 's'} — ${groups.join(', ')}`;
     else if (groups.length) summaryText = groups.join(', ');
     else summaryText = 'Not set yet';
+    const isLast = i === weeklyPlan.length - 1;
 
     return `
-    <div class="card" style="padding:0;overflow:hidden">
-      <button type="button" onclick="togglePlanDayExpand(${i})" style="width:100%;display:flex;justify-content:space-between;align-items:center;text-align:left;background:none;border:none;cursor:pointer;padding:16px">
+    <div style="${isLast ? '' : 'border-bottom:1px solid var(--gray-100)'}">
+      <button type="button" onclick="togglePlanDayExpand(${i})" style="width:100%;display:flex;justify-content:space-between;align-items:center;text-align:left;background:none;border:none;cursor:pointer;padding:13px 14px">
         <div style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;gap:8px">
-            <div style="font-size:15px;font-weight:800;color:#0F0F0F">${DAY_NAMES_FULL[i]}</div>
-            ${!day.is_rest_day ? `<span style="font-size:13px">${day.location === 'home' ? '🏠' : '🏋️'}</span>` : ''}
+            <div style="font-size:14px;font-weight:800;color:#0F0F0F">${DAY_NAMES_FULL[i]}</div>
+            ${!day.is_rest_day ? `<span style="font-size:12px">${day.location === 'home' ? '🏠' : '🏋️'}</span>` : ''}
           </div>
-          <div style="font-size:12px;color:${day.is_rest_day ? '#ADADAD' : '#666'};margin-top:3px">${summaryText}</div>
+          <div style="font-size:12px;color:${day.is_rest_day ? '#ADADAD' : '#666'};margin-top:2px">${summaryText}</div>
         </div>
         <span style="color:#CCC;font-size:16px;flex-shrink:0;margin-left:8px;transform:rotate(${expanded ? '90deg' : '0deg'});transition:transform 0.15s">›</span>
       </button>
@@ -5353,8 +5354,8 @@ function renderWeeklyPlanList() {
 
 function renderPlanDayEditorInner(i, day) {
   return `
-    <div style="padding:0 16px 16px;border-top:1px solid var(--gray-100)">
-      <div style="display:flex;justify-content:flex-end;align-items:center;margin:14px 0">
+    <div style="padding:0 14px 16px;border-top:1px solid var(--gray-100)">
+      <div style="display:flex;justify-content:flex-end;align-items:center;margin:12px 0">
         <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#666;cursor:pointer">
           <input type="checkbox" id="plan-day-rest-toggle-${i}" ${day.is_rest_day ? 'checked' : ''} onchange="togglePlanDayRest(${i})" />
           Rest Day
