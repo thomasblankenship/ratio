@@ -1074,16 +1074,25 @@
 
       <!-- WORKOUTS -->
       <div id="coach-subtab-workouts" style="display:none">
-        <div class="card" style="background:linear-gradient(160deg,#FFF7ED,#FFF1F2);border:1px solid #FFE4CC">
-          <div class="card-title">This Week's Plan</div>
-          <div style="font-size:12px;color:#666;margin-bottom:12px">Tap a day to set muscle groups and where you're training.</div>
-          <div id="weekly-plan-calendar" style="display:flex;gap:6px"></div>
+        <!-- WORKOUTS SUB-NAV -->
+        <div style="display:flex;background:#F4F4F4;border-radius:12px;padding:4px;margin-bottom:16px">
+          <button id="workouts-subtab-btn-plan" onclick="switchWorkoutsSubTab('plan')" style="flex:1;padding:10px 4px;border:none;border-radius:9px;background:white;color:#0F0F0F;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,0.08)">📅 This Week's Plan</button>
+          <button id="workouts-subtab-btn-browse" onclick="switchWorkoutsSubTab('browse')" style="flex:1;padding:10px 4px;border:none;border-radius:9px;background:transparent;color:#ADADAD;font-size:13px;font-weight:700;cursor:pointer">🔍 Browse Exercises</button>
         </div>
-        <div id="weekly-plan-day-editor"></div>
-        <div id="coach-workout-results"></div>
+
+        <div id="workouts-subtab-plan">
+          <div class="card" style="background:linear-gradient(160deg,#FFF7ED,#FFF1F2);border:1px solid #FFE4CC">
+            <div class="card-title">This Week's Plan</div>
+            <div style="font-size:12px;color:#666;margin-bottom:12px">Tap a day to set muscle groups and where you're training.</div>
+            <div id="weekly-plan-calendar" style="display:flex;gap:6px"></div>
+          </div>
+          <div id="weekly-plan-day-editor"></div>
+          <div id="coach-workout-results"></div>
+        </div>
 
         <!-- BROWSE EXERCISES -->
-        <div class="card" style="background:linear-gradient(160deg,#FFF7ED,#FFF1F2);border:1px solid #FFE4CC;margin-top:12px">
+        <div id="workouts-subtab-browse" style="display:none">
+        <div class="card" style="background:linear-gradient(160deg,#FFF7ED,#FFF1F2);border:1px solid #FFE4CC">
           <div id="exercise-muscle-list-header">
             <div class="card-title">Browse Exercises</div>
             <div style="font-size:12px;color:#666;margin-bottom:12px">Not sure what to do at the gym? Pick a muscle group.</div>
@@ -1105,6 +1114,7 @@
             </div>
             <div id="exercise-group-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px"></div>
           </div>
+        </div>
         </div>
       </div>
 
@@ -5130,6 +5140,19 @@ function switchCoachSubTab(tab) {
   });
 }
 
+function switchWorkoutsSubTab(sub) {
+  const panels = { plan: 'workouts-subtab-plan', browse: 'workouts-subtab-browse' };
+  const btns = { plan: 'workouts-subtab-btn-plan', browse: 'workouts-subtab-btn-browse' };
+  Object.keys(panels).forEach(key => {
+    document.getElementById(panels[key]).style.display = key === sub ? 'block' : 'none';
+    const btn = document.getElementById(btns[key]);
+    btn.style.background = key === sub ? 'white' : 'transparent';
+    btn.style.color = key === sub ? '#0F0F0F' : '#ADADAD';
+    btn.style.boxShadow = key === sub ? '0 1px 3px rgba(0,0,0,0.08)' : 'none';
+  });
+  if (sub === 'browse' && typeof renderExerciseMuscleList === 'function') renderExerciseMuscleList();
+}
+
 const MEAL_TYPE_ORDER = ['breakfast', 'lunch', 'dinner', 'snack'];
 const MEAL_TYPE_LABELS = { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner', snack: 'Snack' };
 
@@ -5339,10 +5362,15 @@ function renderPlanDayEditor() {
           <button type="button" onclick="setPlanDayLocation(${selectedPlanDay}, 'home')" style="flex:1;padding:10px;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;background:${day.location === 'home' ? 'var(--accent)' : '#F4F4F4'};color:${day.location === 'home' ? 'white' : '#666'}">🏠 Home</button>
         </div>
         <div style="font-size:12px;font-weight:700;color:#999;margin-bottom:6px">MUSCLE GROUPS TODAY</div>
-        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:4px">
-          ${PLANNABLE_MUSCLE_GROUPS.map(g => `
-            <button type="button" onclick="togglePlanDayGroup(${selectedPlanDay}, '${g}')" style="padding:8px 14px;border:none;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;background:${day.muscle_groups.includes(g) ? 'var(--accent)' : '#F4F4F4'};color:${day.muscle_groups.includes(g) ? 'white' : '#666'}">${g}</button>
-          `).join('')}
+        <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:4px">
+          ${PLANNABLE_MUSCLE_GROUPS.map(g => {
+            const selected = day.muscle_groups.includes(g);
+            return `
+            <button type="button" onclick="togglePlanDayGroup(${selectedPlanDay}, '${g}')" style="display:flex;align-items:center;justify-content:space-between;width:100%;text-align:left;padding:12px 14px;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;background:${selected ? 'var(--accent)' : '#F4F4F4'};color:${selected ? 'white' : '#666'}">
+              <span>${g}</span>
+              <span style="width:20px;height:20px;border-radius:50%;border:2px solid ${selected ? 'white' : '#CCC'};background:${selected ? 'rgba(255,255,255,0.25)' : 'transparent'};display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0">${selected ? '✓' : ''}</span>
+            </button>`;
+          }).join('')}
         </div>
       </div>
       <button type="button" onclick="savePlanDay(${selectedPlanDay})" style="width:100%;background:var(--accent);color:white;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;margin-top:16px">Save ${DAY_NAMES_FULL[selectedPlanDay]}</button>
