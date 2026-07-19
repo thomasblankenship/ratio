@@ -1064,7 +1064,7 @@
       <div id="coach-subtab-meals">
         <!-- MEAL IDEAS SUB-NAV -->
         <div style="display:flex;background:#F4F4F4;border-radius:12px;padding:4px;margin-bottom:16px">
-          <button id="meal-ideas-subtab-btn-ideas" onclick="switchMealIdeasSubTab('ideas')" style="flex:1;padding:10px 4px;border:none;border-radius:9px;background:white;color:#0F0F0F;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,0.08)">💡 AI Meals</button>
+          <button id="meal-ideas-subtab-btn-ideas" onclick="switchMealIdeasSubTab('ideas')" style="flex:1;padding:10px 4px;border:none;border-radius:9px;background:white;color:#0F0F0F;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,0.08)">💡 Daily Meals</button>
           <button id="meal-ideas-subtab-btn-prep" onclick="switchMealIdeasSubTab('prep')" style="flex:1;padding:10px 4px;border:none;border-radius:9px;background:transparent;color:#ADADAD;font-size:13px;font-weight:700;cursor:pointer">🥘 Weekly Meal Prep</button>
         </div>
 
@@ -5488,15 +5488,14 @@ function toggleMealPrepType(i, type) {
 }
 
 async function saveMealPrepDay(i) {
-  const statusEl = document.getElementById(`meal-prep-save-status-${i}`);
   try {
     await saveSetting('meal_prep_plan', mealPrepPlan);
-    if (statusEl) {
-      statusEl.textContent = 'Saved ✓';
-      setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 2000);
-    }
+    toast(`${DAY_NAMES_FULL[i]} saved ✓`);
+    expandedMealPrepDay = null;
+    renderMealPrepDayList();
   } catch (e) {
     console.error('saveMealPrepDay error', e);
+    const statusEl = document.getElementById(`meal-prep-save-status-${i}`);
     if (statusEl) statusEl.textContent = 'Could not save — try again';
   }
 }
