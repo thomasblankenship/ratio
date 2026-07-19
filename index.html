@@ -5788,7 +5788,7 @@ function openEditSavedMeal(id) {
   document.getElementById('mb-search-input').value = '';
   document.getElementById('mb-search-results').style.display = 'none';
 
-  const instructionsText = meal.instructions || '';
+  const instructionsText = (meal.instructions || '').replace(/\n{2,}/g, '\n');
   document.getElementById('mb-instructions-text').value = instructionsText;
   updateMbInstructionsCount();
   const body = document.getElementById('mb-instructions-body');
@@ -5803,6 +5803,18 @@ function openEditSavedMeal(id) {
 
   mbRenderIngredients();
   mbUpdateTotals();
+  // If ingredients are descriptive-only (e.g. saved from an AI Coach idea)
+  // the sum above comes out to 0 even though the meal has real known totals
+  // — show the real stored numbers instead of a misleading all-zero display.
+  const summedCalories = _mbIngredients.reduce((sum, ing) => sum + (ing.calories || 0), 0);
+  if (summedCalories === 0 && (meal.calories || 0) > 0) {
+    document.getElementById('mb-total-cals').textContent = Math.round(meal.calories || 0);
+    document.getElementById('mb-total-protein').textContent = Math.round((meal.protein || 0) * 10) / 10 + 'g';
+    document.getElementById('mb-total-carbs').textContent = Math.round((meal.carbs || 0) * 10) / 10 + 'g';
+    document.getElementById('mb-total-fat').textContent = Math.round((meal.fat || 0) * 10) / 10 + 'g';
+    document.getElementById('mb-total-fiber').textContent = Math.round((meal.fiber || 0) * 10) / 10 + 'g';
+    document.getElementById('mb-total-cholesterol').textContent = Math.round(meal.cholesterol || 0) + 'mg';
+  }
   document.getElementById('meal-builder-modal').style.display = 'flex';
 }
 
@@ -6121,10 +6133,10 @@ function mbRenderIngredients() {
     return;
   }
   el.innerHTML = _mbIngredients.map((ing, i) => `
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #F4F4F4">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #F4F4F4">
       <div>
-        <div style="font-size:14px;font-weight:500">${ing.name}</div>
-        <div style="font-size:11px;color:#ADADAD">${ing.qty} ${ing.unit} | ${nutritionMetaString(ing)}</div>
+        <div style="font-size:14px;font-weight:500;line-height:1.3">${ing.name}</div>
+        <div style="font-size:11px;color:#ADADAD;line-height:1.3">${ing.qty} ${ing.unit} | ${nutritionMetaString(ing)}</div>
       </div>
       <button onclick="mbRemoveIngredient(${i})" style="background:none;border:none;color:#E8E8E8;cursor:pointer;font-size:20px;line-height:1;padding:0 4px">×</button>
     </div>`).join('');
@@ -6158,17 +6170,31 @@ async function saveMeal() {
     acc.carbs += ing.carbs;
     acc.fat += ing.fat;
     acc.fiber += (ing.fiber || 0);
+    acc.cholesterol += (ing.cholesterol || 0);
     return acc;
-  }, { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 });
+  }, { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, cholesterol: 0 });
+
+  // Some meals (e.g. saved from an AI Coach idea) only ever had whole-dish
+  // totals, not real per-ingredient macros — their ingredient list is
+  // descriptive only, so it sums to 0. Don't let that silently zero out a
+  // meal that has known real totals; keep the original totals unless the
+  // ingredients themselves actually carry nonzero macro data.
+  const original = _mbEditingMealId ? savedMeals.find(m => m.id === _mbEditingMealId) : null;
+  const ingredientsCarryRealData = totals.calories > 0;
+  const finalTotals = (!ingredientsCarryRealData && original && (original.calories || 0) > 0)
+    ? { calories: original.calories || 0, protein: original.protein || 0, carbs: original.carbs || 0, fat: original.fat || 0, fiber: original.fiber || 0, cholesterol: original.cholesterol || 0 }
+    : totals;
+
   const payload = {
     name,
     ingredients: _mbIngredients,
     instructions: document.getElementById('mb-instructions-text').value.trim() || null,
-    calories: Math.round(totals.calories),
-    protein: Math.round(totals.protein * 10) / 10,
-    carbs: Math.round(totals.carbs * 10) / 10,
-    fat: Math.round(totals.fat * 10) / 10,
-    fiber: Math.round(totals.fiber * 10) / 10
+    calories: Math.round(finalTotals.calories),
+    protein: Math.round(finalTotals.protein * 10) / 10,
+    carbs: Math.round(finalTotals.carbs * 10) / 10,
+    fat: Math.round(finalTotals.fat * 10) / 10,
+    fiber: Math.round(finalTotals.fiber * 10) / 10,
+    cholesterol: Math.round(finalTotals.cholesterol)
   };
 
   if (_mbEditingMealId) {
@@ -9396,7 +9422,7 @@ if (document.readyState === 'loading') {
     </button>
     <div id="mb-instructions-body" style="display:none;padding-bottom:16px">
       <textarea id="mb-instructions-text" rows="8" placeholder="Add cooking steps here (optional)..."
-        style="width:100%;padding:12px 14px;border:1px solid #E8E8E8;border-radius:10px;font-size:14px;line-height:1.6;outline:none;box-sizing:border-box;resize:vertical;font-family:inherit"
+        style="width:100%;padding:12px 14px;border:1px solid #E8E8E8;border-radius:10px;font-size:14px;line-height:1.4;outline:none;box-sizing:border-box;resize:vertical;font-family:inherit"
         oninput="updateMbInstructionsCount()"></textarea>
     </div>
   </div>
