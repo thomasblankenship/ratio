@@ -5689,18 +5689,10 @@ function renderMealPrepDishes() {
     <button onclick="generateMealPrepPlan()" style="width:100%;background:white;color:#F97316;border:1px solid #FFE4CC;border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;margin-top:4px">🔄 Not feeling these? Try a different plan</button>`;
 }
 
-function renderShoppingList() {
-  const el = document.getElementById('shopping-list-results');
-  if (!el || !mealPrepPlan) return;
-
+function getShoppingListData() {
   const assignedKeys = new Set();
   (mealPrepPlan.days || []).forEach(day => (day.assigned || []).forEach(a => assignedKeys.add(`${a.dish_name}|${a.meal_type}`)));
   const activeDishes = (mealPrepPlan.dishes || []).filter(d => assignedKeys.has(`${d.name}|${d.meal_type}`));
-
-  if (!activeDishes.length) {
-    el.innerHTML = `<div class="card" style="text-align:center;padding:24px;color:#ADADAD;font-size:13px">Add some dishes to your week from Weekly Meal Prep first — your shopping list builds itself from there.</div>`;
-    return;
-  }
 
   const grouped = {};
   activeDishes.forEach(d => {
@@ -5708,25 +5700,118 @@ function renderShoppingList() {
     (d.ingredients || []).forEach(ing => {
       const key = (ing.name || '').toLowerCase().trim();
       if (!key) return;
-      if (!grouped[key]) grouped[key] = { name: ing.name, lines: [] };
+      if (!grouped[key]) grouped[key] = { key, name: ing.name, lines: [] };
       grouped[key].lines.push({ amount: scaleIngredientAmount(ing.amount, factor), dish: d.name });
     });
   });
 
-  const items = Object.values(grouped).sort((a, b) => a.name.localeCompare(b.name));
+  const removed = mealPrepPlan.shoppingRemoved || [];
+  const recipeItems = Object.values(grouped).filter(item => !removed.includes(item.key)).sort((a, b) => a.name.localeCompare(b.name));
+  const extras = (mealPrepPlan.shoppingExtras || []).filter(e => !removed.includes(`extra:${e.id}`));
+  return { recipeItems, extras, activeDishCount: activeDishes.length };
+}
+
+function toggleShoppingChecked(key) {
+  mealPrepPlan.shoppingChecked = mealPrepPlan.shoppingChecked || [];
+  const idx = mealPrepPlan.shoppingChecked.indexOf(key);
+  if (idx >= 0) mealPrepPlan.shoppingChecked.splice(idx, 1); else mealPrepPlan.shoppingChecked.push(key);
+  saveSetting('meal_prep_plan', mealPrepPlan);
+  renderShoppingList();
+}
+
+function removeShoppingItem(key) {
+  mealPrepPlan.shoppingRemoved = mealPrepPlan.shoppingRemoved || [];
+  if (!mealPrepPlan.shoppingRemoved.includes(key)) mealPrepPlan.shoppingRemoved.push(key);
+  saveSetting('meal_prep_plan', mealPrepPlan);
+  renderShoppingList();
+}
+
+function removeShoppingExtra(id) {
+  mealPrepPlan.shoppingExtras = (mealPrepPlan.shoppingExtras || []).filter(e => e.id !== id);
+  saveSetting('meal_prep_plan', mealPrepPlan);
+  renderShoppingList();
+}
+
+function addShoppingExtra() {
+  const input = document.getElementById('shopping-add-input');
+  const val = (input.value || '').trim();
+  if (!val) return;
+  mealPrepPlan.shoppingExtras = mealPrepPlan.shoppingExtras || [];
+  mealPrepPlan.shoppingExtras.push({ id: 'x' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name: val });
+  input.value = '';
+  saveSetting('meal_prep_plan', mealPrepPlan);
+  renderShoppingList();
+}
+
+function shareShoppingList() {
+  const { recipeItems, extras } = getShoppingListData();
+  const checked = mealPrepPlan.shoppingChecked || [];
+  const lines = [];
+  recipeItems.forEach(item => {
+    lines.push(`${checked.includes(item.key) ? '✅' : '•'} ${item.name} — ${item.lines.map(l => l.amount).join(' + ')}`);
+  });
+  extras.forEach(e => {
+    lines.push(`${checked.includes(`extra:${e.id}`) ? '✅' : '•'} ${e.name}`);
+  });
+  if (!lines.length) { toast('Nothing on the list yet'); return; }
+  const text = `🛒 Shopping List\n\n${lines.join('\n')}`;
+
+  if (navigator.share) {
+    navigator.share({ text }).catch(() => {});
+  } else if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(() => toast('Copied to clipboard ✓')).catch(() => toast('Could not copy — try again'));
+  } else {
+    toast('Sharing is not supported on this browser');
+  }
+}
+
+function renderShoppingListRow(key, name, subtitle, onDelete) {
+  const checked = (mealPrepPlan.shoppingChecked || []).includes(key);
+  const textStyle = checked ? 'text-decoration:line-through;font-style:italic;color:#ADADAD' : 'color:#0F0F0F';
+  return `
+    <div style="display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid var(--gray-100)">
+      <input type="checkbox" ${checked ? 'checked' : ''} onchange="toggleShoppingChecked('${key}')" style="margin-top:3px;flex-shrink:0;cursor:pointer" />
+      <div style="flex:1;min-width:0;cursor:pointer" onclick="toggleShoppingChecked('${key}')">
+        <div style="font-size:14px;font-weight:600;${textStyle}">${name}</div>
+        ${subtitle ? `<div style="font-size:11px;color:${checked ? '#D1D5DB' : '#ADADAD'}">${subtitle}</div>` : ''}
+      </div>
+      <button type="button" onclick="${onDelete}" style="background:none;border:none;color:#D1D5DB;cursor:pointer;font-size:18px;line-height:1;padding:0 2px;flex-shrink:0">×</button>
+    </div>`;
+}
+
+function renderShoppingList() {
+  const el = document.getElementById('shopping-list-results');
+  if (!el || !mealPrepPlan) return;
+
+  const { recipeItems, extras, activeDishCount } = getShoppingListData();
+  const hasAnything = recipeItems.length || extras.length;
+
   el.innerHTML = `
     <div class="card">
-      <div class="card-title">Shopping List</div>
-      <div style="font-size:12px;color:#666;margin-bottom:14px">Pulled from everything currently added to this week's prep plan (${activeDishes.length} dish${activeDishes.length === 1 ? '' : 'es'}).</div>
-      ${items.map(item => `
-        <label style="display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid var(--gray-100);cursor:pointer">
-          <input type="checkbox" onchange="const t=this.nextElementSibling; t.style.textDecoration=this.checked?'line-through':'none'; t.style.opacity=this.checked?'0.45':'1';" style="margin-top:3px;flex-shrink:0" />
-          <div style="flex:1">
-            <div style="font-size:14px;font-weight:600;color:#0F0F0F">${item.name}</div>
-            <div style="font-size:11px;color:#ADADAD">${item.lines.map(l => `${l.amount} (${l.dish})`).join(' + ')}</div>
-          </div>
-        </label>
-      `).join('')}
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:4px">
+        <div class="card-title" style="margin-bottom:0">Shopping List</div>
+        <button type="button" onclick="shareShoppingList()" style="flex-shrink:0;background:white;color:#F97316;border:1px solid #FFE4CC;border-radius:20px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">📤 Share</button>
+      </div>
+      <div style="font-size:12px;color:#666;margin-bottom:14px">${activeDishCount ? `Pulled from ${activeDishCount} dish${activeDishCount === 1 ? '' : 'es'} added to this week's prep plan — add anything else you need below.` : 'Nothing from meal prep yet — add whatever you need below.'}</div>
+
+      <div style="display:flex;gap:8px;margin-bottom:14px">
+        <input type="text" id="shopping-add-input" placeholder="Add an item (e.g. milk, paper towels)" onkeydown="if(event.key==='Enter') addShoppingExtra()" style="flex:1;padding:10px 12px;border:1px solid #E8E8E8;border-radius:10px;font-size:13px;outline:none" />
+        <button type="button" onclick="addShoppingExtra()" style="background:var(--accent);color:white;border:none;border-radius:10px;padding:0 16px;font-size:13px;font-weight:700;cursor:pointer">+ Add</button>
+      </div>
+
+      ${!hasAnything ? `<div style="text-align:center;padding:16px;color:#ADADAD;font-size:13px">Nothing on your list yet.</div>` : ''}
+      ${recipeItems.map(item => renderShoppingListRow(
+        item.key,
+        item.name,
+        item.lines.map(l => `${l.amount} (${l.dish})`).join(' + '),
+        `removeShoppingItem('${item.key}')`
+      )).join('')}
+      ${extras.map(e => renderShoppingListRow(
+        `extra:${e.id}`,
+        e.name,
+        '',
+        `removeShoppingExtra('${e.id}')`
+      )).join('')}
     </div>`;
 }
 
