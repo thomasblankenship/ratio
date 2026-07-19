@@ -5901,6 +5901,16 @@ let _mbActiveFood = null;
 let _mbEditingMealId = null;
 let _mbPhotoFile = null;
 let _mbPhotoUrl = null;
+// When a meal arrives with a known-correct whole-meal total (from an existing
+// saved record, or from a freshly imported recipe) that total is treated as
+// authoritative and displayed/saved as-is, rather than recomputed by summing
+// individual ingredients — LLM-estimated per-ingredient macros rarely sum
+// back to exactly match a separately-estimated whole-dish total. Once the
+// person actually edits the ingredient list themselves, this is cleared and
+// totals switch to live-summed mode, trusting their edits from then on.
+let _mbAuthoritativeTotals = null;
+let _mbOrigin = null; // 'blank' | 'edit' | 'urlImport' — governs where the back arrow returns to
+let _mbUrlImportData = null; // cached recipe data so back can return to the import review screen
 
 function openMealBuilder() {
   _mbIngredients = [];
@@ -5908,6 +5918,9 @@ function openMealBuilder() {
   _mbEditingMealId = null;
   _mbPhotoFile = null;
   _mbPhotoUrl = null;
+  _mbAuthoritativeTotals = null;
+  _mbOrigin = 'blank';
+  _mbUrlImportData = null;
   document.getElementById('meal-builder-title').textContent = 'Create Meal';
   document.getElementById('meal-builder-name').value = '';
   document.getElementById('mb-search-input').value = '';
@@ -5931,6 +5944,16 @@ function openEditSavedMeal(id) {
   _mbActiveFood = null;
   _mbPhotoFile = null;
   _mbPhotoUrl = meal.image_url || null;
+  _mbOrigin = 'edit';
+  _mbUrlImportData = null;
+  _mbAuthoritativeTotals = {
+    calories: meal.calories || 0,
+    protein: meal.protein || 0,
+    carbs: meal.carbs || 0,
+    fat: meal.fat || 0,
+    fiber: meal.fiber || 0,
+    cholesterol: meal.cholesterol || 0
+  };
   _mbIngredients = JSON.parse(JSON.stringify(meal.ingredients || [])); // deep copy so cancel doesn't mutate the saved version
   document.getElementById('meal-builder-title').textContent = 'Edit Meal';
   document.getElementById('meal-builder-name').value = meal.name || '';
@@ -5953,18 +5976,6 @@ function openEditSavedMeal(id) {
   mbRenderIngredients();
   mbUpdateTotals();
   mbRenderPhotoSection();
-  // If ingredients are descriptive-only (e.g. saved from an AI Coach idea)
-  // the sum above comes out to 0 even though the meal has real known totals
-  // — show the real stored numbers instead of a misleading all-zero display.
-  const summedCalories = _mbIngredients.reduce((sum, ing) => sum + (ing.calories || 0), 0);
-  if (summedCalories === 0 && (meal.calories || 0) > 0) {
-    document.getElementById('mb-total-cals').textContent = Math.round(meal.calories || 0);
-    document.getElementById('mb-total-protein').textContent = Math.round((meal.protein || 0) * 10) / 10 + 'g';
-    document.getElementById('mb-total-carbs').textContent = Math.round((meal.carbs || 0) * 10) / 10 + 'g';
-    document.getElementById('mb-total-fat').textContent = Math.round((meal.fat || 0) * 10) / 10 + 'g';
-    document.getElementById('mb-total-fiber').textContent = Math.round((meal.fiber || 0) * 10) / 10 + 'g';
-    document.getElementById('mb-total-cholesterol').textContent = Math.round(meal.cholesterol || 0) + 'mg';
-  }
   const editNoteEl = document.getElementById('mb-servings-note');
   if (editNoteEl) editNoteEl.textContent = '';
   document.getElementById('meal-builder-modal').style.display = 'flex';
@@ -5973,6 +5984,10 @@ function openEditSavedMeal(id) {
 function closeMealBuilder() {
   _mbEditingMealId = null;
   document.getElementById('meal-builder-modal').style.display = 'none';
+  if (_mbOrigin === 'urlImport' && _mbUrlImportData) {
+    document.getElementById('url-import-modal').style.display = 'flex';
+  }
+  _mbOrigin = null;
 }
 
 function mbTriggerPhotoInput() {
@@ -6167,6 +6182,7 @@ function mbAddManual() {
   const fiber = parseFloat(document.getElementById('mb-manual-fiber').value) || 0;
   const cholesterol = parseFloat(document.getElementById('mb-manual-cholesterol').value) || 0;
   _mbIngredients.push({ name, qty, unit, calories: cals, protein, carbs, fat, fiber, cholesterol });
+  _mbAuthoritativeTotals = null;
   document.getElementById('mb-manual-modal').style.display = 'none';
   mbRenderIngredients();
   mbUpdateTotals();
@@ -6228,12 +6244,27 @@ async function urlImportSave(data) {
   document.getElementById('meal-builder-title').textContent = 'Create Meal';
   _mbPhotoFile = null;
   _mbPhotoUrl = data.image_url || null;
+  _mbOrigin = 'urlImport';
+  _mbUrlImportData = data;
+  // The worker's top-level totals are already PER SERVING and are the most
+  // reliable figure available (the model reasoned about the whole dish at
+  // once) — treat them as authoritative rather than recomputing from summed
+  // ingredients, since per-ingredient estimates won't necessarily sum back
+  // to exactly match a separately-estimated whole-dish total.
+  _mbAuthoritativeTotals = {
+    calories: data.calories || 0,
+    protein: data.protein || 0,
+    carbs: data.carbs || 0,
+    fat: data.fat || 0,
+    fiber: data.fiber || 0,
+    cholesterol: data.cholesterol || 0
+  };
   const servings = data.servings || 1;
-  // The worker returns per-ingredient macros for the FULL recipe batch (e.g.
-  // "4 chicken breasts" = macros for all 4), while the top-level totals are
-  // already PER SERVING. Divide each ingredient down to its per-serving
-  // contribution so the ingredient sum matches the per-serving total shown
-  // on the import preview, instead of showing the whole batch's calories.
+  // Per-ingredient macros from the worker are for the FULL recipe batch (e.g.
+  // "4 chicken breasts" = macros for all 4). Divide down to a per-serving
+  // figure just for a sane-looking display next to each ingredient — the
+  // actual saved totals come from _mbAuthoritativeTotals above, not from
+  // summing these.
   _mbIngredients = (data.ingredients || []).map(ing => ({
     name: ing.name,
     qty: 1,
@@ -6316,6 +6347,7 @@ function mbAddIngredient() {
     fiber: r(f.fiber || 0),
     cholesterol: r(f.cholesterol || 0)
   });
+  _mbAuthoritativeTotals = null;
   document.getElementById('mb-serving-modal').style.display = 'none';
   document.getElementById('mb-search-input').value = '';
   document.getElementById('mb-search-results').style.display = 'none';
@@ -6325,6 +6357,7 @@ function mbAddIngredient() {
 
 function mbRemoveIngredient(idx) {
   _mbIngredients.splice(idx, 1);
+  _mbAuthoritativeTotals = null;
   mbRenderIngredients();
   mbUpdateTotals();
 }
@@ -6346,7 +6379,7 @@ function mbRenderIngredients() {
 }
 
 function mbUpdateTotals() {
-  const totals = _mbIngredients.reduce((acc, ing) => {
+  const summed = _mbIngredients.reduce((acc, ing) => {
     acc.calories += ing.calories;
     acc.protein += ing.protein;
     acc.carbs += ing.carbs;
@@ -6355,7 +6388,8 @@ function mbUpdateTotals() {
     acc.cholesterol += (ing.cholesterol || 0);
     return acc;
   }, { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, cholesterol: 0 });
-  document.getElementById('mb-total-cals').textContent = totals.calories;
+  const totals = _mbAuthoritativeTotals || summed;
+  document.getElementById('mb-total-cals').textContent = Math.round(totals.calories);
   document.getElementById('mb-total-protein').textContent = Math.round(totals.protein * 10) / 10 + 'g';
   document.getElementById('mb-total-carbs').textContent = Math.round(totals.carbs * 10) / 10 + 'g';
   document.getElementById('mb-total-fat').textContent = Math.round(totals.fat * 10) / 10 + 'g';
@@ -6383,7 +6417,7 @@ async function saveMeal() {
     }
   }
 
-  const totals = _mbIngredients.reduce((acc, ing) => {
+  const summed = _mbIngredients.reduce((acc, ing) => {
     acc.calories += ing.calories;
     acc.protein += ing.protein;
     acc.carbs += ing.carbs;
@@ -6393,16 +6427,14 @@ async function saveMeal() {
     return acc;
   }, { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, cholesterol: 0 });
 
-  // Some meals (e.g. saved from an AI Coach idea) only ever had whole-dish
-  // totals, not real per-ingredient macros — their ingredient list is
-  // descriptive only, so it sums to 0. Don't let that silently zero out a
-  // meal that has known real totals; keep the original totals unless the
-  // ingredients themselves actually carry nonzero macro data.
-  const original = _mbEditingMealId ? savedMeals.find(m => m.id === _mbEditingMealId) : null;
-  const ingredientsCarryRealData = totals.calories > 0;
-  const finalTotals = (!ingredientsCarryRealData && original && (original.calories || 0) > 0)
-    ? { calories: original.calories || 0, protein: original.protein || 0, carbs: original.carbs || 0, fat: original.fat || 0, fiber: original.fiber || 0, cholesterol: original.cholesterol || 0 }
-    : totals;
+  // If this meal has a known-correct whole-dish total (from an existing
+  // saved record, or a freshly imported recipe) trust that over summing
+  // ingredients — LLM-estimated per-ingredient macros rarely sum back to
+  // exactly match a separately-estimated whole-dish total, and for meals
+  // saved from an AI Coach idea the ingredients are descriptive-only with
+  // no macros at all. This is cleared as soon as the person actually edits
+  // an ingredient, so their edits become the new source of truth from then on.
+  const finalTotals = _mbAuthoritativeTotals || summed;
 
   const payload = {
     name,
@@ -6429,6 +6461,8 @@ async function saveMeal() {
     toast(`"${name}" saved ✓`);
   }
   _mbEditingMealId = null;
+  _mbOrigin = null;
+  _mbUrlImportData = null;
   closeMealBuilder();
   await loadSavedMeals();
 }
@@ -9743,7 +9777,7 @@ if (document.readyState === 'loading') {
 
 <!-- URL RECIPE IMPORT MODAL -->
 <div id="url-import-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:900;align-items:flex-end;justify-content:center">
-  <div style="background:white;border-radius:20px 20px 0 0;padding:24px 20px 40px;width:100%;max-width:480px">
+  <div style="background:white;border-radius:20px 20px 0 0;padding:24px 20px 40px;width:100%;max-width:480px;max-height:88vh;overflow-y:auto;box-sizing:border-box">
     <div style="font-size:16px;font-weight:700;margin-bottom:6px">Import Recipe from URL</div>
     <div style="font-size:13px;color:#ADADAD;margin-bottom:16px">Paste a recipe URL and we'll extract the ingredients and nutrition info.</div>
     <input type="url" id="url-import-input" placeholder="https://..." inputmode="url"
