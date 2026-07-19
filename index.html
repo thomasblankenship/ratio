@@ -1913,8 +1913,33 @@ function changeLogDate(dir) {
   loadTodayWorkouts();
 }
 
+// ===== RESUME LAST VIEW =====
+// iOS Safari (and home-screen PWAs) frequently reclaim a backgrounded tab's
+// memory after even a few seconds away — returning to the app then triggers
+// a full page reload, which previously always landed back on the Today tab
+// regardless of where the person actually was. This persists the current
+// tab/sub-tab to localStorage on every switch, and on reload restores it if
+// the save is recent (within LAST_VIEW_MAX_AGE_MS) — otherwise it's treated
+// as a genuinely new session and falls back to Today as before.
+const LAST_VIEW_KEY = 'ratio_last_view';
+const LAST_VIEW_MAX_AGE_MS = 5 * 60 * 1000; // 5 minutes
+function saveLastView(patch) {
+  try {
+    const current = JSON.parse(localStorage.getItem(LAST_VIEW_KEY) || '{}');
+    localStorage.setItem(LAST_VIEW_KEY, JSON.stringify({ ...current, ...patch, ts: Date.now() }));
+  } catch (e) { /* ignore storage errors — private browsing, quota, etc. */ }
+}
+function getRecentLastView() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(LAST_VIEW_KEY) || 'null');
+    if (!saved || !saved.ts || Date.now() - saved.ts > LAST_VIEW_MAX_AGE_MS) return null;
+    return saved;
+  } catch (e) { return null; }
+}
+
 function switchTab(tab) {
   window.scrollTo(0, 0);
+  saveLastView({ tab });
   ['today','meals','progress','photos','aicoach'].forEach(t => {
     document.getElementById(`tab-${t}`).style.display = t === tab ? 'block' : 'none';
   });
@@ -1935,6 +1960,7 @@ function switchTab(tab) {
 
 function switchTodaySubTab(sub) {
   window.scrollTo(0, 0);
+  saveLastView({ todaySub: sub });
   ['main','history','workouts'].forEach(s => {
     document.getElementById(`today-subtab-${s}`).style.display = s === sub ? 'block' : 'none';
   });
@@ -4061,7 +4087,17 @@ async function appInit() {
       if (badge) badge.style.display = 'inline-flex';
     }
   });
-  switchTab('today');
+  const lastView = getRecentLastView();
+  const restoreTab = lastView?.tab || 'today';
+  switchTab(restoreTab);
+  if (lastView) {
+    if (restoreTab === 'today' && lastView.todaySub) switchTodaySubTab(lastView.todaySub);
+    if (restoreTab === 'meals' && lastView.mealsSub) switchMealsSubTab(lastView.mealsSub);
+    if (restoreTab === 'aicoach' && lastView.coachSub) {
+      switchCoachSubTab(lastView.coachSub);
+      if (lastView.coachSub === 'workouts' && lastView.workoutsSub) switchWorkoutsSubTab(lastView.workoutsSub);
+    }
+  }
   const todayDateEl = document.getElementById('today-date');
   if (todayDateEl) todayDateEl.textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
   document.getElementById('photo-date').value = today;
@@ -5115,6 +5151,7 @@ async function logSearchResult(jsonStr) {
 let savedMeals = [];
 
 function switchMealsSubTab(tab) {
+  saveLastView({ mealsSub: tab });
   const foodsPanel = document.getElementById('meals-subtab-foods');
   const mealsPanel = document.getElementById('meals-subtab-meals');
   const foodsBtn = document.getElementById('meals-subtab-btn-foods');
@@ -5132,6 +5169,7 @@ function switchMealsSubTab(tab) {
 
 // ===== AI COACH =====
 function switchCoachSubTab(tab) {
+  saveLastView({ coachSub: tab });
   const panels = { meals: 'coach-subtab-meals', workouts: 'coach-subtab-workouts', chat: 'coach-subtab-chat' };
   const btns = { meals: 'coach-subtab-btn-meals', workouts: 'coach-subtab-btn-workouts', chat: 'coach-subtab-btn-chat' };
   Object.keys(panels).forEach(key => {
@@ -5144,6 +5182,7 @@ function switchCoachSubTab(tab) {
 }
 
 function switchWorkoutsSubTab(sub) {
+  saveLastView({ workoutsSub: sub });
   const panels = { plan: 'workouts-subtab-plan', browse: 'workouts-subtab-browse' };
   const btns = { plan: 'workouts-subtab-btn-plan', browse: 'workouts-subtab-btn-browse' };
   Object.keys(panels).forEach(key => {
