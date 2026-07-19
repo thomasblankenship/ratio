@@ -1082,8 +1082,12 @@
 
         <div id="workouts-subtab-plan">
           <div class="card" style="background:linear-gradient(160deg,#FFF7ED,#FFF1F2);border:1px solid #FFE4CC">
-            <div class="card-title">This Week's Plan</div>
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:4px">
+              <div class="card-title" style="margin-bottom:0">This Week's Plan</div>
+              <button type="button" onclick="getWeeklyPlanFeedback()" id="plan-feedback-btn" style="flex-shrink:0;background:white;color:#F97316;border:1px solid #FFE4CC;border-radius:20px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">🧠 Get Feedback</button>
+            </div>
             <div style="font-size:12px;color:#666;margin-bottom:14px">Tap a day to set muscle groups and where you're training.</div>
+            <div id="weekly-plan-feedback"></div>
             <div id="weekly-plan-list" style="background:white;border-radius:14px;overflow:hidden"></div>
           </div>
           <div id="coach-workout-results"></div>
@@ -5407,6 +5411,110 @@ async function generateDayWorkout(i) {
   }
 }
 
+async function togglePlanExerciseChecked(dayIdx, exIdx) {
+  const day = weeklyPlan[dayIdx];
+  const ex = day.exercises[exIdx];
+  const key = `${ex.group}|${ex.name}`;
+  day.checked_off = day.checked_off || [];
+  const idx = day.checked_off.indexOf(key);
+  if (idx >= 0) day.checked_off.splice(idx, 1); else day.checked_off.push(key);
+  renderWeeklyPlanList();
+  try {
+    await dbUpsert('workout_plans', {
+      day_of_week: day.day_of_week,
+      location: day.location,
+      muscle_groups: day.muscle_groups,
+      is_rest_day: day.is_rest_day,
+      exercises: day.exercises,
+      checked_off: day.checked_off,
+      updated_at: new Date().toISOString()
+    }, 'user_id,day_of_week');
+  } catch (e) {
+    console.error('togglePlanExerciseChecked error', e);
+  }
+}
+
+function openPlanExerciseDetail(dayIdx, exIdx) {
+  const ex = weeklyPlan[dayIdx].exercises[exIdx];
+  if (!ex.fromLibrary) return;
+  const arrKey = (ex.group === 'Legs' || LEG_SUBGROUP_OPTIONS.includes(ex.group) || LEG_SUBGROUP_OPTIONS.includes(ex.libraryGroup)) ? 'Legs' : ex.group;
+  const list = EXERCISE_LIBRARY[arrKey] || [];
+  const idx = list.findIndex(e => e.name === ex.name);
+  if (idx >= 0) openExerciseDetail(arrKey, idx);
+}
+
+async function getWeeklyPlanFeedback() {
+  const btn = document.getElementById('plan-feedback-btn');
+  const el = document.getElementById('weekly-plan-feedback');
+  if (btn) { btn.disabled = true; btn.textContent = '✨ Thinking...'; }
+  try {
+    const days = weeklyPlan.map((day, i) => ({
+      day_of_week: i,
+      day_name: DAY_NAMES_FULL[i],
+      is_rest_day: day.is_rest_day,
+      location: day.location,
+      muscle_groups: day.muscle_groups || []
+    }));
+    const res = await fetch(`${WORKER_URL}/ai-workout-plan-feedback`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ days })
+    });
+    const data = await res.json();
+    if (data.error) {
+      if (el) el.innerHTML = `<div style="font-size:12px;color:#EF4444;margin-bottom:12px">${data.error}</div>`;
+      return;
+    }
+    _planFeedback = data;
+    renderPlanFeedback();
+  } catch (e) {
+    console.error('getWeeklyPlanFeedback error', e);
+    if (el) el.innerHTML = `<div style="font-size:12px;color:#EF4444;margin-bottom:12px">Could not reach the coach right now — try again</div>`;
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🧠 Get Feedback'; }
+  }
+}
+
+let _planFeedback = null;
+
+function renderPlanFeedback() {
+  const el = document.getElementById('weekly-plan-feedback');
+  if (!el) return;
+  if (!_planFeedback) { el.innerHTML = ''; return; }
+  const suggestions = _planFeedback.suggestions || [];
+  el.innerHTML = `
+    <div style="background:white;border-radius:14px;padding:14px;margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:${suggestions.length ? '10px' : '0'}">
+        <div style="font-size:13px;color:#333;line-height:1.5;flex:1">${_planFeedback.feedback || ''}</div>
+        <button type="button" onclick="dismissPlanFeedback()" style="background:none;border:none;color:#CCC;cursor:pointer;font-size:16px;line-height:1;flex-shrink:0">×</button>
+      </div>
+      ${suggestions.map((s, si) => `
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--gray-100)">
+          <div style="font-size:12px;color:#666;flex:1">Add <b>${s.add_muscle_group}</b> to <b>${s.day_name}</b>${s.reason ? ' — ' + s.reason : ''}</div>
+          <button type="button" onclick="applyPlanFeedbackSuggestion(${si})" style="flex-shrink:0;background:var(--accent);color:white;border:none;border-radius:16px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer">Apply</button>
+        </div>`).join('')}
+    </div>`;
+}
+
+async function applyPlanFeedbackSuggestion(si) {
+  const s = _planFeedback?.suggestions?.[si];
+  if (!s) return;
+  const day = weeklyPlan[s.day_of_week];
+  if (!day || day.is_rest_day) return;
+  if (!day.muscle_groups.includes(s.add_muscle_group)) {
+    day.muscle_groups.push(s.add_muscle_group);
+  }
+  _planFeedback.suggestions.splice(si, 1);
+  renderPlanFeedback();
+  renderWeeklyPlanList();
+  await savePlanDay(s.day_of_week);
+}
+
+function dismissPlanFeedback() {
+  _planFeedback = null;
+  renderPlanFeedback();
+}
+
 let weeklyPlan = [];
 let weeklyPlanLoaded = false;
 let expandedPlanDay = null;
@@ -5432,9 +5540,10 @@ function renderWeeklyPlanList() {
     const expanded = expandedPlanDay === i;
     const groups = day.muscle_groups || [];
     const exerciseCount = (day.exercises || []).length;
+    const checkedCount = (day.checked_off || []).length;
     let summaryText;
     if (day.is_rest_day) summaryText = 'Rest day';
-    else if (exerciseCount) summaryText = `${exerciseCount} exercise${exerciseCount === 1 ? '' : 's'} — ${groups.join(', ')}`;
+    else if (exerciseCount) summaryText = `${checkedCount}/${exerciseCount} done — ${groups.join(', ')}`;
     else if (groups.length) summaryText = groups.join(', ');
     else summaryText = 'Not set yet';
     const isLast = i === weeklyPlan.length - 1;
@@ -5490,11 +5599,19 @@ function renderPlanDayEditorInner(i, day) {
           <div style="font-size:12px;font-weight:700;color:#999">TODAY'S EXERCISES</div>
           <button type="button" onclick="generateDayWorkout(${i})" style="font-size:11px;font-weight:700;color:var(--accent);background:none;border:none;cursor:pointer">🔄 Regenerate</button>
         </div>
-        ${day.exercises.map(ex => `
-          <div style="padding:8px 0;border-bottom:1px solid var(--gray-100)">
-            <div style="font-size:13px;font-weight:600;color:#0F0F0F">${ex.name}${ex.fromLibrary ? '' : ' <span style="font-size:10px;color:#ADADAD;font-weight:400">(coach suggestion)</span>'}</div>
-            <div style="font-size:11px;color:#ADADAD">${ex.duration_min ? `${ex.duration_min} min` : `${ex.sets} sets × ${ex.reps}`}${ex.notes ? ' — ' + ex.notes : ''}</div>
-          </div>`).join('')}
+        ${day.exercises.map((ex, exIdx) => {
+          const key = `${ex.group}|${ex.name}`;
+          const checked = (day.checked_off || []).includes(key);
+          const metaLine = ex.duration_min ? `${ex.duration_min} min` : `${ex.sets} sets × ${ex.reps}`;
+          return `
+          <div style="padding:9px 0;border-bottom:1px solid var(--gray-100);display:flex;align-items:flex-start;gap:10px">
+            <button type="button" onclick="togglePlanExerciseChecked(${i}, ${exIdx})" style="width:20px;height:20px;border-radius:6px;border:2px solid ${checked ? 'var(--accent)' : '#D1D5DB'};background:${checked ? 'var(--accent)' : 'white'};flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;margin-top:1px">${checked ? '<span style="color:white;font-size:12px;line-height:1">✓</span>' : ''}</button>
+            <div style="flex:1;min-width:0${ex.fromLibrary ? ';cursor:pointer' : ''}"${ex.fromLibrary ? ` onclick="openPlanExerciseDetail(${i}, ${exIdx})"` : ''}>
+              <div style="font-size:13px;font-weight:600;color:${checked ? '#ADADAD' : '#0F0F0F'};text-decoration:${checked ? 'line-through' : 'none'}">${ex.name}${ex.fromLibrary ? ' <span style="color:#CCC;font-size:11px">›</span>' : ' <span style="font-size:10px;color:#ADADAD;font-weight:400">(coach suggestion)</span>'}</div>
+              <div style="font-size:11px;color:#ADADAD;text-decoration:${checked ? 'line-through' : 'none'}">${metaLine}${ex.notes ? ' — ' + ex.notes : ''}</div>
+            </div>
+          </div>`;
+        }).join('')}
       </div>` : ''}
       <button type="button" onclick="savePlanDay(${i})" style="width:100%;background:var(--accent);color:white;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;margin-top:16px">Save ${DAY_NAMES_FULL[i]}</button>
       <div id="plan-day-save-status-${i}" style="text-align:center;font-size:12px;color:#22C55E;margin-top:8px;min-height:16px"></div>
