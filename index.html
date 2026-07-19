@@ -5235,6 +5235,12 @@ async function loadAiMealIdeas(isRefresh) {
   }
 }
 
+function formatAiIngredientLine(ing) {
+  if (typeof ing === 'string') return ing;
+  if (ing && typeof ing === 'object') return [ing.amount, ing.name].filter(Boolean).join(' ');
+  return '';
+}
+
 function renderAiMealIdeas(suggestions) {
   const resultsEl = document.getElementById('coach-meals-results');
   if (!suggestions.length) { resultsEl.innerHTML = '<div class="card" style="text-align:center;padding:24px;color:#ADADAD;font-size:13px">No suggestions right now — try again</div>'; return; }
@@ -5250,7 +5256,7 @@ function renderAiMealIdeas(suggestions) {
       ${s.source ? `<div style="font-size:11px;color:#F97316;font-weight:600;margin-bottom:4px">from ${s.source}</div>` : ''}
       <div style="font-size:12px;color:#ADADAD;margin-bottom:6px">${nutritionMetaString(s)}</div>
       <div style="font-size:12px;color:#666;margin-bottom:10px;font-style:italic">${s.reason || ''}</div>
-      ${s.ingredients?.length ? `<div style="font-size:12px;color:#666;margin-bottom:10px">${s.ingredients.map(ing => `• ${ing}`).join('<br>')}</div>` : ''}
+      ${s.ingredients?.length ? `<div style="font-size:12px;color:#666;margin-bottom:10px">${s.ingredients.map(ing => `• ${formatAiIngredientLine(ing)}`).join('<br>')}</div>` : ''}
       ${s.instructions?.length ? `
         <details style="margin-bottom:12px">
           <summary style="font-size:11px;font-weight:700;color:#F97316;text-transform:uppercase;letter-spacing:0.5px;cursor:pointer;list-style:none;display:flex;align-items:center;gap:4px">▸ How To Make It (${s.instructions.length} steps)</summary>
@@ -5285,7 +5291,22 @@ async function logAiMealSuggestion(s) {
 async function saveAiSuggestionToMyMeals(s) {
   await dbPost('saved_meals', {
     name: s.name,
-    ingredients: (s.ingredients || []).map(desc => ({ name: desc, qty: 1, unit: '', calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, cholesterol: 0 })),
+    ingredients: (s.ingredients || []).map(ing => {
+      if (ing && typeof ing === 'object') {
+        return {
+          name: [ing.amount, ing.name].filter(Boolean).join(' ') || ing.name,
+          qty: 1,
+          unit: '',
+          calories: ing.calories || 0,
+          protein: ing.protein || 0,
+          carbs: ing.carbs || 0,
+          fat: ing.fat || 0,
+          fiber: ing.fiber || 0,
+          cholesterol: ing.cholesterol || 0
+        };
+      }
+      return { name: ing, qty: 1, unit: '', calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, cholesterol: 0 };
+    }),
     instructions: (s.instructions || []).join('\n'),
     calories: Math.round(s.calories || 0),
     protein: Math.round((s.protein || 0) * 10) / 10,
