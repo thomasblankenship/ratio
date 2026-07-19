@@ -5821,7 +5821,7 @@ function updateLogMealPreview() {
   document.getElementById('log-meal-preview-carbs').textContent = r(meal.carbs);
   document.getElementById('log-meal-preview-fat').textContent = r(meal.fat);
   document.getElementById('log-meal-preview-fiber').textContent = r(meal.fiber);
-  document.getElementById('log-meal-preview-chol').textContent = 0;
+  document.getElementById('log-meal-preview-chol').textContent = Math.round((meal.cholesterol || 0) * qty);
 }
 
 function selectLogMealType(type, btn) {
@@ -5851,7 +5851,7 @@ async function confirmLogSavedMeal() {
     carbs: Math.round((meal.carbs || 0) * qty * 10) / 10,
     fat: Math.round((meal.fat || 0) * qty * 10) / 10,
     fiber: Math.round((meal.fiber || 0) * qty * 10) / 10,
-    cholesterol: 0,
+    cholesterol: Math.round((meal.cholesterol || 0) * qty),
     time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   });
   document.getElementById('log-meal-modal').style.display = 'none';
@@ -5880,7 +5880,7 @@ async function logSavedMeal(id) {
     carbs: meal.carbs,
     fat: meal.fat,
     fiber: meal.fiber || 0,
-    cholesterol: 0,
+    cholesterol: meal.cholesterol || 0,
     time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   });
   toast(`"${meal.name}" logged to ${type} ✓`);
@@ -5919,6 +5919,8 @@ function openMealBuilder() {
   mbRenderIngredients();
   mbUpdateTotals();
   mbRenderPhotoSection();
+  const noteEl = document.getElementById('mb-servings-note');
+  if (noteEl) noteEl.textContent = '';
   document.getElementById('meal-builder-modal').style.display = 'flex';
 }
 
@@ -5963,6 +5965,8 @@ function openEditSavedMeal(id) {
     document.getElementById('mb-total-fiber').textContent = Math.round((meal.fiber || 0) * 10) / 10 + 'g';
     document.getElementById('mb-total-cholesterol').textContent = Math.round(meal.cholesterol || 0) + 'mg';
   }
+  const editNoteEl = document.getElementById('mb-servings-note');
+  if (editNoteEl) editNoteEl.textContent = '';
   document.getElementById('meal-builder-modal').style.display = 'flex';
 }
 
@@ -6197,12 +6201,13 @@ async function urlImportFetch() {
     // Show result
     document.getElementById('url-import-meal-name').textContent = data.name || 'Imported Recipe';
     document.getElementById('url-import-macros').textContent = nutritionMetaString(data, {perUnit: 'serving'});
-    document.getElementById('url-import-ingredients').innerHTML = (data.ingredients || []).map(i =>
+    const photoPreview = data.image_url ? `<img src="${data.image_url}" style="width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:10px;display:block;margin-bottom:10px" onerror="this.remove()" />` : '';
+    document.getElementById('url-import-ingredients').innerHTML = photoPreview + (data.ingredients || []).map(i =>
       `<div>• ${i.name}${i.amount ? ' — ' + i.amount : ''}</div>`).join('') +
       (data.instructions?.length ? `<div style="margin-top:10px;color:#F97316;font-weight:600">📋 ${data.instructions.length} cooking step${data.instructions.length !== 1 ? 's' : ''} found — editable in the next screen</div>` : '');
     document.getElementById('url-import-result').style.display = 'block';
-    statusEl.textContent = 'Recipe found! Review and save as a meal.';
-    btn.textContent = 'Save as Meal';
+    statusEl.textContent = 'Recipe found! Review the details on the next screen, then hit Save.';
+    btn.textContent = 'Continue →';
     btn.disabled = false;
     btn.onclick = () => urlImportSave(data);
   } catch(e) {
@@ -6221,17 +6226,27 @@ async function urlImportSave(data) {
   document.getElementById('url-import-modal').style.display = 'none';
   _mbEditingMealId = null;
   document.getElementById('meal-builder-title').textContent = 'Create Meal';
+  _mbPhotoFile = null;
+  _mbPhotoUrl = data.image_url || null;
+  const servings = data.servings || 1;
+  // The worker returns per-ingredient macros for the FULL recipe batch (e.g.
+  // "4 chicken breasts" = macros for all 4), while the top-level totals are
+  // already PER SERVING. Divide each ingredient down to its per-serving
+  // contribution so the ingredient sum matches the per-serving total shown
+  // on the import preview, instead of showing the whole batch's calories.
   _mbIngredients = (data.ingredients || []).map(ing => ({
     name: ing.name,
     qty: 1,
     unit: ing.amount || 'serving',
-    calories: ing.calories || 0,
-    protein: ing.protein || 0,
-    carbs: ing.carbs || 0,
-    fat: ing.fat || 0,
-    fiber: ing.fiber || 0,
-    cholesterol: ing.cholesterol || 0
+    calories: Math.round((ing.calories || 0) / servings),
+    protein: Math.round((ing.protein || 0) / servings * 10) / 10,
+    carbs: Math.round((ing.carbs || 0) / servings * 10) / 10,
+    fat: Math.round((ing.fat || 0) / servings * 10) / 10,
+    fiber: Math.round((ing.fiber || 0) / servings * 10) / 10,
+    cholesterol: Math.round((ing.cholesterol || 0) / servings)
   }));
+  const noteEl = document.getElementById('mb-servings-note');
+  if (noteEl) noteEl.textContent = servings > 1 ? `Recipe makes ${servings} servings — amounts below show the full batch, macros reflect 1 serving` : '';
   document.getElementById('meal-builder-name').value = data.name || '';
 
   // Pre-fill instructions (fully editable afterward) and auto-expand since
@@ -6252,6 +6267,7 @@ async function urlImportSave(data) {
 
   mbRenderIngredients();
   mbUpdateTotals();
+  mbRenderPhotoSection();
   document.getElementById('meal-builder-modal').style.display = 'flex';
 }
 
@@ -9611,7 +9627,8 @@ if (document.readyState === 'loading') {
     </div>
 
     <!-- Ingredients list -->
-    <div style="font-size:13px;font-weight:700;color:#0F0F0F;margin-bottom:10px">Ingredients</div>
+    <div style="font-size:13px;font-weight:700;color:#0F0F0F;margin-bottom:2px">Ingredients</div>
+    <div id="mb-servings-note" style="font-size:11px;color:#ADADAD;margin-bottom:10px"></div>
     <div id="mb-ingredients-list" style="margin-bottom:16px"></div>
 
     <!-- Search -->
