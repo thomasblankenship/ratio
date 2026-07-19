@@ -5295,6 +5295,7 @@ async function logAiMealSuggestion(s) {
 async function saveAiSuggestionToMyMeals(s) {
   await dbPost('saved_meals', {
     name: s.name,
+    image_url: s.image_url || null,
     ingredients: (s.ingredients || []).map(ing => {
       if (ing && typeof ing === 'object') {
         return {
@@ -5746,6 +5747,7 @@ function renderSavedMeals() {
       <div class="meal-info">
         <div style="display:flex;align-items:flex-start;gap:4px">
           <button onclick="togglePinMeal('${m.id}')" style="background:none;border:none;cursor:pointer;font-size:14px;padding:2px 0 0 0;line-height:1;flex-shrink:0;color:${m.pinned ? '#F97316' : '#D1D5DB'}">${m.pinned ? '★' : '☆'}</button>
+          ${m.image_url ? `<button onclick="openEditSavedMeal('${m.id}')" style="background:none;border:none;padding:0;cursor:pointer;flex-shrink:0"><img src="${m.image_url}" style="width:44px;height:44px;border-radius:8px;object-fit:cover;display:block" onerror="this.parentElement.style.display='none'" /></button>` : ''}
           <div style="flex:1">
             <div class="meal-name"><button onclick="openEditSavedMeal('${m.id}')" style="background:none;border:none;cursor:pointer;font-size:inherit;font-weight:inherit;color:inherit;text-align:left;padding:0;font-family:inherit">${m.name}</button> <button onclick="openEditSavedMeal('${m.id}')" style="background:none;border:none;cursor:pointer;font-size:12px;color:#ADADAD;padding:0 4px;vertical-align:middle">✏️</button></div>
             <div class="meal-meta">${nutritionMetaString(m)}</div>
@@ -5897,11 +5899,15 @@ let _mbIngredients = [];
 let _mbActiveFood = null;
 
 let _mbEditingMealId = null;
+let _mbPhotoFile = null;
+let _mbPhotoUrl = null;
 
 function openMealBuilder() {
   _mbIngredients = [];
   _mbActiveFood = null;
   _mbEditingMealId = null;
+  _mbPhotoFile = null;
+  _mbPhotoUrl = null;
   document.getElementById('meal-builder-title').textContent = 'Create Meal';
   document.getElementById('meal-builder-name').value = '';
   document.getElementById('mb-search-input').value = '';
@@ -5912,6 +5918,7 @@ function openMealBuilder() {
   updateMbInstructionsCount();
   mbRenderIngredients();
   mbUpdateTotals();
+  mbRenderPhotoSection();
   document.getElementById('meal-builder-modal').style.display = 'flex';
 }
 
@@ -5920,6 +5927,8 @@ function openEditSavedMeal(id) {
   if (!meal) return;
   _mbEditingMealId = id;
   _mbActiveFood = null;
+  _mbPhotoFile = null;
+  _mbPhotoUrl = meal.image_url || null;
   _mbIngredients = JSON.parse(JSON.stringify(meal.ingredients || [])); // deep copy so cancel doesn't mutate the saved version
   document.getElementById('meal-builder-title').textContent = 'Edit Meal';
   document.getElementById('meal-builder-name').value = meal.name || '';
@@ -5941,6 +5950,7 @@ function openEditSavedMeal(id) {
 
   mbRenderIngredients();
   mbUpdateTotals();
+  mbRenderPhotoSection();
   // If ingredients are descriptive-only (e.g. saved from an AI Coach idea)
   // the sum above comes out to 0 even though the meal has real known totals
   // — show the real stored numbers instead of a misleading all-zero display.
@@ -5959,6 +5969,45 @@ function openEditSavedMeal(id) {
 function closeMealBuilder() {
   _mbEditingMealId = null;
   document.getElementById('meal-builder-modal').style.display = 'none';
+}
+
+function mbTriggerPhotoInput() {
+  document.getElementById('mb-photo-input').click();
+}
+
+function mbPhotoSelected(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  _mbPhotoFile = file;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    _mbPhotoUrl = ev.target.result; // local preview until saved
+    mbRenderPhotoSection();
+  };
+  reader.readAsDataURL(file);
+}
+
+function mbRemovePhoto() {
+  _mbPhotoFile = null;
+  _mbPhotoUrl = null;
+  document.getElementById('mb-photo-input').value = '';
+  mbRenderPhotoSection();
+}
+
+function mbRenderPhotoSection() {
+  const el = document.getElementById('mb-photo-section');
+  if (!el) return;
+  if (_mbPhotoUrl) {
+    el.innerHTML = `
+      <div style="position:relative;border-radius:12px;overflow:hidden">
+        <img src="${_mbPhotoUrl}" style="width:100%;aspect-ratio:16/9;object-fit:cover;display:block;background:#F4F4F4" />
+        <button type="button" onclick="mbRemovePhoto()" style="position:absolute;top:8px;right:8px;width:28px;height:28px;border-radius:50%;background:rgba(0,0,0,0.55);color:white;border:none;cursor:pointer;font-size:16px;line-height:1">×</button>
+        <button type="button" onclick="mbTriggerPhotoInput()" style="position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,0.55);color:white;border:none;border-radius:14px;padding:5px 10px;font-size:11px;font-weight:600;cursor:pointer">📷 Change</button>
+      </div>`;
+  } else {
+    el.innerHTML = `
+      <button type="button" onclick="mbTriggerPhotoInput()" style="width:100%;padding:14px;border:1.5px dashed #E8E8E8;border-radius:12px;background:#FAFAFA;color:#ADADAD;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">📷 Add a Photo</button>`;
+  }
 }
 
 function toggleMbInstructions() {
@@ -6302,6 +6351,22 @@ async function saveMeal() {
   const name = document.getElementById('meal-builder-name').value.trim();
   if (!name) { toast('Enter a meal name'); return; }
   if (!_mbIngredients.length) { toast('Add at least one ingredient'); return; }
+
+  let imageUrl = (_mbPhotoUrl && !_mbPhotoUrl.startsWith('data:')) ? _mbPhotoUrl : null;
+  if (_mbPhotoFile) {
+    try {
+      const ext = (_mbPhotoFile.name.split('.').pop() || 'jpg').toLowerCase();
+      const path = `meals/${_mbEditingMealId || Date.now()}.${ext}`;
+      const uploadRes = await storageUpload('meal-photos', path, _mbPhotoFile);
+      if (uploadRes.error) throw new Error(typeof uploadRes.error === 'string' ? uploadRes.error : uploadRes.error.message || 'Upload failed');
+      imageUrl = storageUrl('meal-photos', path) + '?t=' + Date.now();
+    } catch (e) {
+      console.error('Meal photo upload error:', e);
+      toast('Could not upload photo — meal will save without it');
+      imageUrl = null;
+    }
+  }
+
   const totals = _mbIngredients.reduce((acc, ing) => {
     acc.calories += ing.calories;
     acc.protein += ing.protein;
@@ -6327,6 +6392,7 @@ async function saveMeal() {
     name,
     ingredients: _mbIngredients,
     instructions: document.getElementById('mb-instructions-text').value.trim() || null,
+    image_url: imageUrl,
     calories: Math.round(finalTotals.calories),
     protein: Math.round(finalTotals.protein * 10) / 10,
     carbs: Math.round(finalTotals.carbs * 10) / 10,
@@ -9508,6 +9574,10 @@ if (document.readyState === 'loading') {
     <!-- Meal name -->
     <input type="text" id="meal-builder-name" placeholder="Meal name (e.g. Chicken Rice Bowl)"
       style="width:100%;padding:14px 16px;border:1.5px solid #E8E8E8;border-radius:12px;font-size:16px;outline:none;box-sizing:border-box;margin-bottom:16px;font-weight:600" />
+
+    <!-- Photo -->
+    <input type="file" id="mb-photo-input" accept="image/*" capture="environment" style="display:none" onchange="mbPhotoSelected(event)" />
+    <div id="mb-photo-section" style="margin-bottom:16px"></div>
 
     <!-- Macro totals -->
     <div style="background:#FFF7ED;border-radius:14px;padding:14px 16px;margin-bottom:16px">
