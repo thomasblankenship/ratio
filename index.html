@@ -8,6 +8,7 @@
   <title>Ratio</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -5706,9 +5707,40 @@ function getShoppingListData() {
   });
 
   const removed = mealPrepPlan.shoppingRemoved || [];
-  const recipeItems = Object.values(grouped).filter(item => !removed.includes(item.key)).sort((a, b) => a.name.localeCompare(b.name));
-  const extras = (mealPrepPlan.shoppingExtras || []).filter(e => !removed.includes(`extra:${e.id}`));
-  return { recipeItems, extras, activeDishCount: activeDishes.length };
+  const recipeItems = Object.values(grouped)
+    .filter(item => !removed.includes(item.key))
+    .map(item => ({
+      key: item.key,
+      name: item.name,
+      subtitle: item.lines.map(l => `${l.amount} (${l.dish})`).join(' + '),
+      deleteAction: `removeShoppingItem('${item.key}')`
+    }));
+
+  const extras = (mealPrepPlan.shoppingExtras || [])
+    .filter(e => !removed.includes(`extra:${e.id}`))
+    .map(e => ({
+      key: `extra:${e.id}`,
+      name: e.name,
+      subtitle: '',
+      deleteAction: `removeShoppingExtra('${e.id}')`
+    }));
+
+  // Combine into one list — reordering mixes recipe ingredients and manual
+  // items freely, since the whole point is arranging by store aisle, not by
+  // where each item came from. Order follows shoppingOrder (set by dragging);
+  // anything not yet in that list (newly added items) falls to the end,
+  // alphabetically among themselves.
+  const combined = [...recipeItems, ...extras];
+  const order = mealPrepPlan.shoppingOrder || [];
+  const orderIndex = new Map(order.map((k, i) => [k, i]));
+  combined.sort((a, b) => {
+    const ai = orderIndex.has(a.key) ? orderIndex.get(a.key) : Infinity;
+    const bi = orderIndex.has(b.key) ? orderIndex.get(b.key) : Infinity;
+    if (ai !== bi) return ai - bi;
+    return a.name.localeCompare(b.name);
+  });
+
+  return { items: combined, activeDishCount: activeDishes.length };
 }
 
 function toggleShoppingChecked(key) {
@@ -5743,18 +5775,13 @@ function addShoppingExtra() {
   renderShoppingList();
 }
 
+// Plain text only — no bullets, no emoji — so it pastes cleanly into
+// Messages, Notes, or anywhere else without stray symbols.
 function shareShoppingList() {
-  const { recipeItems, extras } = getShoppingListData();
-  const checked = mealPrepPlan.shoppingChecked || [];
-  const lines = [];
-  recipeItems.forEach(item => {
-    lines.push(`${checked.includes(item.key) ? '✅' : '•'} ${item.name} — ${item.lines.map(l => l.amount).join(' + ')}`);
-  });
-  extras.forEach(e => {
-    lines.push(`${checked.includes(`extra:${e.id}`) ? '✅' : '•'} ${e.name}`);
-  });
-  if (!lines.length) { toast('Nothing on the list yet'); return; }
-  const text = `🛒 Shopping List\n\n${lines.join('\n')}`;
+  const { items } = getShoppingListData();
+  if (!items.length) { toast('Nothing on the list yet'); return; }
+  const lines = items.map(item => item.subtitle ? `${item.name} — ${item.subtitle}` : item.name);
+  const text = `Shopping List:\n\n${lines.join('\n')}`;
 
   if (navigator.share) {
     navigator.share({ text }).catch(() => {});
@@ -5765,26 +5792,42 @@ function shareShoppingList() {
   }
 }
 
-function renderShoppingListRow(key, name, subtitle, onDelete) {
-  const checked = (mealPrepPlan.shoppingChecked || []).includes(key);
+function renderShoppingListRow(item) {
+  const checked = (mealPrepPlan.shoppingChecked || []).includes(item.key);
   const textStyle = checked ? 'text-decoration:line-through;font-style:italic;color:#ADADAD' : 'color:#0F0F0F';
   return `
-    <div style="display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid var(--gray-100)">
-      <input type="checkbox" ${checked ? 'checked' : ''} onchange="toggleShoppingChecked('${key}')" style="margin-top:3px;flex-shrink:0;cursor:pointer" />
-      <div style="flex:1;min-width:0;cursor:pointer" onclick="toggleShoppingChecked('${key}')">
-        <div style="font-size:14px;font-weight:600;${textStyle}">${name}</div>
-        ${subtitle ? `<div style="font-size:11px;color:${checked ? '#D1D5DB' : '#ADADAD'}">${subtitle}</div>` : ''}
+    <div class="shopping-row" data-key="${item.key}" style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--gray-100);background:white">
+      <span style="color:#D1D5DB;font-size:15px;cursor:grab;flex-shrink:0;padding:0 2px;touch-action:none">⠿</span>
+      <input type="checkbox" ${checked ? 'checked' : ''} onchange="toggleShoppingChecked('${item.key}')" style="flex-shrink:0;cursor:pointer" />
+      <div style="flex:1;min-width:0;cursor:pointer" onclick="toggleShoppingChecked('${item.key}')">
+        <div style="font-size:14px;font-weight:600;${textStyle}">${item.name}</div>
+        ${item.subtitle ? `<div style="font-size:11px;color:${checked ? '#D1D5DB' : '#ADADAD'}">${item.subtitle}</div>` : ''}
       </div>
-      <button type="button" onclick="${onDelete}" style="background:none;border:none;color:#D1D5DB;cursor:pointer;font-size:18px;line-height:1;padding:0 2px;flex-shrink:0">×</button>
+      <button type="button" onclick="${item.deleteAction}" style="background:none;border:none;color:#D1D5DB;cursor:pointer;font-size:18px;line-height:1;padding:0 2px;flex-shrink:0">×</button>
     </div>`;
+}
+
+function initShoppingListSortable() {
+  const rowsEl = document.getElementById('shopping-list-rows');
+  if (!rowsEl || typeof Sortable === 'undefined') return;
+  if (rowsEl._sortableInstance) { rowsEl._sortableInstance.destroy(); }
+  rowsEl._sortableInstance = Sortable.create(rowsEl, {
+    animation: 150,
+    delay: 150,
+    delayOnTouchOnly: true,
+    touchStartThreshold: 5,
+    onEnd: () => {
+      mealPrepPlan.shoppingOrder = Array.from(rowsEl.children).map(row => row.dataset.key);
+      saveSetting('meal_prep_plan', mealPrepPlan);
+    }
+  });
 }
 
 function renderShoppingList() {
   const el = document.getElementById('shopping-list-results');
   if (!el || !mealPrepPlan) return;
 
-  const { recipeItems, extras, activeDishCount } = getShoppingListData();
-  const hasAnything = recipeItems.length || extras.length;
+  const { items, activeDishCount } = getShoppingListData();
 
   el.innerHTML = `
     <div class="card">
@@ -5792,28 +5835,22 @@ function renderShoppingList() {
         <div class="card-title" style="margin-bottom:0">Shopping List</div>
         <button type="button" onclick="shareShoppingList()" style="flex-shrink:0;background:white;color:#F97316;border:1px solid #FFE4CC;border-radius:20px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">📤 Share</button>
       </div>
-      <div style="font-size:12px;color:#666;margin-bottom:14px">${activeDishCount ? `Pulled from ${activeDishCount} dish${activeDishCount === 1 ? '' : 'es'} added to this week's prep plan — add anything else you need below.` : 'Nothing from meal prep yet — add whatever you need below.'}</div>
+      <div style="font-size:12px;color:#666;margin-bottom:14px">${activeDishCount ? `Pulled from ${activeDishCount} dish${activeDishCount === 1 ? '' : 'es'} added to this week's prep plan — add anything else below. ` : 'Nothing from meal prep yet — add whatever you need below. '}Press and hold an item to drag it into your store's order.</div>
 
       <div style="display:flex;gap:8px;margin-bottom:14px">
         <input type="text" id="shopping-add-input" placeholder="Add an item (e.g. milk, paper towels)" onkeydown="if(event.key==='Enter') addShoppingExtra()" style="flex:1;padding:10px 12px;border:1px solid #E8E8E8;border-radius:10px;font-size:13px;outline:none" />
         <button type="button" onclick="addShoppingExtra()" style="background:var(--accent);color:white;border:none;border-radius:10px;padding:0 16px;font-size:13px;font-weight:700;cursor:pointer">+ Add</button>
       </div>
 
-      ${!hasAnything ? `<div style="text-align:center;padding:16px;color:#ADADAD;font-size:13px">Nothing on your list yet.</div>` : ''}
-      ${recipeItems.map(item => renderShoppingListRow(
-        item.key,
-        item.name,
-        item.lines.map(l => `${l.amount} (${l.dish})`).join(' + '),
-        `removeShoppingItem('${item.key}')`
-      )).join('')}
-      ${extras.map(e => renderShoppingListRow(
-        `extra:${e.id}`,
-        e.name,
-        '',
-        `removeShoppingExtra('${e.id}')`
-      )).join('')}
+      ${!items.length ? `<div style="text-align:center;padding:16px;color:#ADADAD;font-size:13px">Nothing on your list yet.</div>` : ''}
+      <div id="shopping-list-rows">
+        ${items.map(item => renderShoppingListRow(item)).join('')}
+      </div>
     </div>`;
+
+  initShoppingListSortable();
 }
+
 
 // ===== WEEKLY WORKOUT PLAN =====
 const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
