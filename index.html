@@ -1062,14 +1062,31 @@
 
       <!-- MEAL IDEAS -->
       <div id="coach-subtab-meals">
-        <div class="card" style="background:linear-gradient(160deg,#FFF7ED,#FFF1F2);border:1px solid #FFE4CC">
-          <div class="card-title">Meal Ideas</div>
-          <div style="font-size:12px;color:#666;margin-bottom:10px">Which meal are these for?</div>
-          <div id="coach-meal-type-pills" style="display:flex;gap:6px;margin-bottom:12px"></div>
-          <div style="font-size:12px;color:#666;margin-bottom:12px" id="coach-meals-remaining-label">Suggestions to help fill out today's remaining macros.</div>
-          <button onclick="loadAiMealIdeas()" style="width:100%;background:var(--accent);color:white;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer">✨ Get Meal Ideas</button>
+        <!-- MEAL IDEAS SUB-NAV -->
+        <div style="display:flex;background:#F4F4F4;border-radius:12px;padding:4px;margin-bottom:16px">
+          <button id="meal-ideas-subtab-btn-ideas" onclick="switchMealIdeasSubTab('ideas')" style="flex:1;padding:10px 4px;border:none;border-radius:9px;background:white;color:#0F0F0F;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,0.08)">💡 Ideas</button>
+          <button id="meal-ideas-subtab-btn-prep" onclick="switchMealIdeasSubTab('prep')" style="flex:1;padding:10px 4px;border:none;border-radius:9px;background:transparent;color:#ADADAD;font-size:13px;font-weight:700;cursor:pointer">🥘 Meal Prep</button>
         </div>
-        <div id="coach-meals-results"></div>
+
+        <div id="meal-ideas-subtab-ideas">
+          <div class="card" style="background:linear-gradient(160deg,#FFF7ED,#FFF1F2);border:1px solid #FFE4CC">
+            <div class="card-title">Meal Ideas</div>
+            <div style="font-size:12px;color:#666;margin-bottom:10px">Which meal are these for?</div>
+            <div id="coach-meal-type-pills" style="display:flex;gap:6px;margin-bottom:12px"></div>
+            <div style="font-size:12px;color:#666;margin-bottom:12px" id="coach-meals-remaining-label">Suggestions to help fill out today's remaining macros.</div>
+            <button onclick="loadAiMealIdeas()" style="width:100%;background:var(--accent);color:white;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer">✨ Get Meal Ideas</button>
+          </div>
+          <div id="coach-meals-results"></div>
+        </div>
+
+        <div id="meal-ideas-subtab-prep" style="display:none">
+          <div class="card" style="background:linear-gradient(160deg,#FFF7ED,#FFF1F2);border:1px solid #FFE4CC">
+            <div class="card-title">Meal Prep</div>
+            <div style="font-size:12px;color:#666;margin-bottom:12px">A batch-cook session to knock out lunches and dinners for the week — pick a day, cook a few dishes, eat all week.</div>
+            <button onclick="loadMealPrep()" id="meal-prep-btn" style="width:100%;background:var(--accent);color:white;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer">✨ Plan My Week's Prep</button>
+          </div>
+          <div id="meal-prep-results"></div>
+        </div>
       </div>
 
       <!-- WORKOUTS -->
@@ -4096,6 +4113,7 @@ async function appInit() {
     if (restoreTab === 'aicoach' && lastView.coachSub) {
       switchCoachSubTab(lastView.coachSub);
       if (lastView.coachSub === 'workouts' && lastView.workoutsSub) switchWorkoutsSubTab(lastView.workoutsSub);
+      if (lastView.coachSub === 'meals' && lastView.mealIdeasSub) switchMealIdeasSubTab(lastView.mealIdeasSub);
     }
   }
   const todayDateEl = document.getElementById('today-date');
@@ -5168,6 +5186,19 @@ function switchMealsSubTab(tab) {
 }
 
 // ===== AI COACH =====
+function switchMealIdeasSubTab(sub) {
+  saveLastView({ mealIdeasSub: sub });
+  const panels = { ideas: 'meal-ideas-subtab-ideas', prep: 'meal-ideas-subtab-prep' };
+  const btns = { ideas: 'meal-ideas-subtab-btn-ideas', prep: 'meal-ideas-subtab-btn-prep' };
+  Object.keys(panels).forEach(key => {
+    document.getElementById(panels[key]).style.display = key === sub ? 'block' : 'none';
+    const btn = document.getElementById(btns[key]);
+    btn.style.background = key === sub ? 'white' : 'transparent';
+    btn.style.color = key === sub ? '#0F0F0F' : '#ADADAD';
+    btn.style.boxShadow = key === sub ? '0 1px 3px rgba(0,0,0,0.08)' : 'none';
+  });
+}
+
 function switchCoachSubTab(tab) {
   saveLastView({ coachSub: tab });
   const panels = { meals: 'coach-subtab-meals', workouts: 'coach-subtab-workouts', chat: 'coach-subtab-chat' };
@@ -5361,6 +5392,74 @@ async function saveAiSuggestionToMyMeals(s) {
   });
   savedMeals = await dbGet('saved_meals', 'order=created_at.desc') || [];
   toast(`"${s.name}" saved to My Meals ✓`);
+}
+
+// ===== AI MEAL PREP =====
+async function loadMealPrep(isRefresh) {
+  const resultsEl = document.getElementById('meal-prep-results');
+  const btn = document.getElementById('meal-prep-btn');
+  if (btn) { btn.disabled = true; }
+  resultsEl.innerHTML = `<div class="card" style="text-align:center;padding:24px;color:#ADADAD;font-size:13px">✨ ${isRefresh ? 'Putting together a different plan...' : 'Planning your weekly batch cook...'}</div>`;
+
+  const prefs = window._currentPreferences || await loadSetting('preferences') || {};
+
+  try {
+    const res = await fetch(`${WORKER_URL}/ai-meal-prep`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        targets: {
+          calories: userTargets.calories || 0,
+          protein: userTargets.protein || 0,
+          carbs: userTargets.carbs || 0,
+          fat: userTargets.fat || 0
+        },
+        allergies: prefs.allergies || [],
+        allergiesOther: prefs.allergiesOther || '',
+        favoriteFoods: prefs.favoriteFoods || '',
+        exclude: window._shownMealPrepDishes || []
+      })
+    });
+    const data = await res.json();
+    if (data.error || !data.dishes) {
+      resultsEl.innerHTML = `<div class="card" style="text-align:center;padding:24px;color:#EF4444;font-size:13px">${data.error || 'Could not put together a prep plan right now'}</div>`;
+      return;
+    }
+    window._shownMealPrepDishes = [...(window._shownMealPrepDishes || []), ...data.dishes.map(d => d.name)];
+    renderMealPrep(data);
+  } catch (e) {
+    console.error('loadMealPrep error', e);
+    resultsEl.innerHTML = `<div class="card" style="text-align:center;padding:24px;color:#EF4444;font-size:13px">Could not reach the coach right now — try again shortly</div>`;
+  } finally {
+    if (btn) { btn.disabled = false; }
+  }
+}
+
+function renderMealPrep(data) {
+  const resultsEl = document.getElementById('meal-prep-results');
+  const dishes = data.dishes || [];
+  if (!dishes.length) { resultsEl.innerHTML = '<div class="card" style="text-align:center;padding:24px;color:#ADADAD;font-size:13px">No dishes right now — try again</div>'; return; }
+  resultsEl.innerHTML = `
+    ${data.summary ? `<div class="card" style="background:#FFF7ED;border:1px solid #FFE4CC"><div style="font-size:13px;color:#333;line-height:1.5">${data.summary}</div></div>` : ''}
+    ${dishes.map((d, i) => `
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+        <div style="font-size:14px;font-weight:700;color:#0F0F0F;flex:1">${d.name}</div>
+        <div style="font-size:10px;font-weight:700;color:#F97316;background:#FFF7ED;border-radius:10px;padding:2px 8px;white-space:nowrap;margin-left:8px">MAKES ${d.servings || '?'}</div>
+      </div>
+      <div style="font-size:12px;color:#ADADAD;margin-bottom:6px">${nutritionMetaString(d)} per serving</div>
+      ${d.suggested_use ? `<div style="font-size:12px;color:#666;margin-bottom:4px;font-style:italic">${d.suggested_use}</div>` : ''}
+      ${d.storage_note ? `<div style="font-size:11px;color:#F97316;font-weight:600;margin-bottom:10px">🧊 ${d.storage_note}</div>` : ''}
+      ${d.ingredients?.length ? `<div style="font-size:12px;color:#666;margin-bottom:10px">${d.ingredients.map(ing => `• ${formatAiIngredientLine(ing)}`).join('<br>')}</div>` : ''}
+      ${d.instructions?.length ? `
+        <details style="margin-bottom:12px">
+          <summary style="font-size:11px;font-weight:700;color:#F97316;text-transform:uppercase;letter-spacing:0.5px;cursor:pointer;list-style:none;display:flex;align-items:center;gap:4px">▸ How To Make It (${d.instructions.length} steps)</summary>
+          <ol style="padding-left:18px;margin:10px 0 0;display:flex;flex-direction:column;gap:6px;font-size:12px;color:#666;line-height:1.4">${d.instructions.map(step => `<li>${step}</li>`).join('')}</ol>
+        </details>
+      ` : ''}
+      <button onclick='saveAiSuggestionToMyMeals(${JSON.stringify(d).replace(/'/g, "&#39;")})' style="width:100%;background:var(--accent);color:white;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer">💾 Save to My Meals</button>
+    </div>`).join('')}
+    <button onclick="loadMealPrep(true)" style="width:100%;background:white;color:#F97316;border:1px solid #FFE4CC;border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;margin-top:4px">🔄 Not feeling these? Show a different plan</button>`;
 }
 
 // ===== WEEKLY WORKOUT PLAN =====
