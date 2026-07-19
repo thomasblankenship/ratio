@@ -5285,13 +5285,14 @@ async function logAiMealSuggestion(s) {
 async function saveAiSuggestionToMyMeals(s) {
   await dbPost('saved_meals', {
     name: s.name,
-    ingredients: (s.ingredients || []).map(desc => ({ name: desc, qty: 1, unit: '', calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 })),
+    ingredients: (s.ingredients || []).map(desc => ({ name: desc, qty: 1, unit: '', calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, cholesterol: 0 })),
     instructions: (s.instructions || []).join('\n'),
     calories: Math.round(s.calories || 0),
     protein: Math.round((s.protein || 0) * 10) / 10,
     carbs: Math.round((s.carbs || 0) * 10) / 10,
     fat: Math.round((s.fat || 0) * 10) / 10,
-    fiber: Math.round((s.fiber || 0) * 10) / 10
+    fiber: Math.round((s.fiber || 0) * 10) / 10,
+    cholesterol: Math.round(s.cholesterol || 0)
   });
   savedMeals = await dbGet('saved_meals', 'order=created_at.desc') || [];
   toast(`"${s.name}" saved to My Meals ✓`);
@@ -5302,6 +5303,88 @@ const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const DAY_NAMES_FULL = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const PLANNABLE_MUSCLE_GROUPS = ['Chest','Back','Shoulders','Abs','Biceps','Triceps','Cardio'];
 const LEG_SUBGROUP_OPTIONS = ['Quadriceps','Hamstrings','Glutes','Calves','Adductors','Abductors'];
+const HOME_INCOMPATIBLE_EQUIPMENT = ['Cable','Machine','Smith Machine','Barbell'];
+
+function buildWorkoutCandidates(muscleGroups, location) {
+  const candidates = [];
+  const cap = 15;
+  muscleGroups.forEach(g => {
+    let pool = [];
+    let labelGroup = g;
+    if (g === 'Cardio') return; // no library entries — Claude invents this one
+    if (g === 'All Legs') {
+      pool = EXERCISE_LIBRARY.Legs || [];
+    } else if (LEG_SUBGROUP_OPTIONS.includes(g)) {
+      pool = (EXERCISE_LIBRARY.Legs || []).filter(e => e.subgroup === g);
+      labelGroup = g; // e.g. "Quadriceps"
+    } else {
+      pool = EXERCISE_LIBRARY[g] || [];
+    }
+    let filtered = location === 'home'
+      ? pool.filter(e => !HOME_INCOMPATIBLE_EQUIPMENT.includes(e.equipment))
+      : pool.slice();
+    if (filtered.length > cap) {
+      // even sample across the filtered list rather than just the first N
+      const step = filtered.length / cap;
+      filtered = Array.from({ length: cap }, (_, idx) => filtered[Math.floor(idx * step)]);
+    }
+    filtered.forEach(e => candidates.push({
+      group: g === 'All Legs' ? 'Legs' : labelGroup,
+      name: e.name,
+      equipment: e.equipment,
+      primaryMuscle: e.primaryMuscle,
+      subMuscle: e.subMuscle || null
+    }));
+  });
+  return candidates;
+}
+
+async function generateDayWorkout(i) {
+  const day = weeklyPlan[i];
+  const statusEl = document.getElementById(`plan-day-save-status-${i}`);
+  const groups = day.muscle_groups || [];
+  if (!groups.length) return;
+
+  if (statusEl) statusEl.textContent = '✨ Building exercises...';
+
+  const candidates = buildWorkoutCandidates(groups, day.location);
+
+  try {
+    const res = await fetch(`${WORKER_URL}/ai-generate-workout-day`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ muscleGroups: groups, location: day.location, candidates })
+    });
+    const data = await res.json();
+    if (data.error || !Array.isArray(data.exercises)) {
+      if (statusEl) statusEl.textContent = data.error || 'Could not generate exercises — try again';
+      return;
+    }
+    // Validate fromLibrary claims against the real library rather than trusting the model
+    const validated = data.exercises.map(ex => {
+      let libGroup = ex.group;
+      let pool = libGroup === 'Legs' || LEG_SUBGROUP_OPTIONS.includes(libGroup) ? (EXERCISE_LIBRARY.Legs || []) : (EXERCISE_LIBRARY[libGroup] || []);
+      const found = pool.find(e => e.name === ex.name);
+      return { ...ex, fromLibrary: !!found, libraryGroup: found ? (found.subgroup || libGroup) : null };
+    });
+    day.exercises = validated;
+    day.checked_off = [];
+    await dbUpsert('workout_plans', {
+      day_of_week: day.day_of_week,
+      location: day.location,
+      muscle_groups: day.muscle_groups,
+      is_rest_day: day.is_rest_day,
+      exercises: day.exercises,
+      checked_off: day.checked_off,
+      updated_at: new Date().toISOString()
+    }, 'user_id,day_of_week');
+    if (statusEl) statusEl.textContent = '';
+    renderWeeklyPlanList();
+  } catch (e) {
+    console.error('generateDayWorkout error', e);
+    if (statusEl) statusEl.textContent = 'Could not reach the coach — try again';
+  }
+}
 
 let weeklyPlan = [];
 let weeklyPlanLoaded = false;
@@ -5380,6 +5463,18 @@ function renderPlanDayEditorInner(i, day) {
           `).join('')}
         </div>
       </div>
+      ${!day.is_rest_day && (day.exercises || []).length ? `
+      <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--gray-100)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div style="font-size:12px;font-weight:700;color:#999">TODAY'S EXERCISES</div>
+          <button type="button" onclick="generateDayWorkout(${i})" style="font-size:11px;font-weight:700;color:var(--accent);background:none;border:none;cursor:pointer">🔄 Regenerate</button>
+        </div>
+        ${day.exercises.map(ex => `
+          <div style="padding:8px 0;border-bottom:1px solid var(--gray-100)">
+            <div style="font-size:13px;font-weight:600;color:#0F0F0F">${ex.name}${ex.fromLibrary ? '' : ' <span style="font-size:10px;color:#ADADAD;font-weight:400">(coach suggestion)</span>'}</div>
+            <div style="font-size:11px;color:#ADADAD">${ex.duration_min ? `${ex.duration_min} min` : `${ex.sets} sets × ${ex.reps}`}${ex.notes ? ' — ' + ex.notes : ''}</div>
+          </div>`).join('')}
+      </div>` : ''}
       <button type="button" onclick="savePlanDay(${i})" style="width:100%;background:var(--accent);color:white;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;margin-top:16px">Save ${DAY_NAMES_FULL[i]}</button>
       <div id="plan-day-save-status-${i}" style="text-align:center;font-size:12px;color:#22C55E;margin-top:8px;min-height:16px"></div>
     </div>`;
@@ -5431,8 +5526,10 @@ async function savePlanDay(i) {
       updated_at: new Date().toISOString()
     }, 'user_id,day_of_week');
     if (Array.isArray(saved) && saved[0]) weeklyPlan[i] = { ...weeklyPlan[i], ...saved[0] };
-    if (statusEl) {
-      statusEl.textContent = 'Saved ✓';
+    if (statusEl) statusEl.textContent = 'Saved ✓';
+    if (!day.is_rest_day && day.muscle_groups.length) {
+      await generateDayWorkout(i);
+    } else {
       setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 2000);
     }
   } catch (e) {
@@ -5512,7 +5609,7 @@ function renderSavedMeals() {
         <div style="display:flex;align-items:flex-start;gap:4px">
           <button onclick="togglePinMeal('${m.id}')" style="background:none;border:none;cursor:pointer;font-size:14px;padding:2px 0 0 0;line-height:1;flex-shrink:0;color:${m.pinned ? '#F97316' : '#D1D5DB'}">${m.pinned ? '★' : '☆'}</button>
           <div style="flex:1">
-            <div class="meal-name">${m.name} <button onclick="openEditSavedMeal('${m.id}')" style="background:none;border:none;cursor:pointer;font-size:12px;color:#ADADAD;padding:0 4px;vertical-align:middle">✏️</button></div>
+            <div class="meal-name"><button onclick="openEditSavedMeal('${m.id}')" style="background:none;border:none;cursor:pointer;font-size:inherit;font-weight:inherit;color:inherit;text-align:left;padding:0;font-family:inherit">${m.name}</button> <button onclick="openEditSavedMeal('${m.id}')" style="background:none;border:none;cursor:pointer;font-size:12px;color:#ADADAD;padding:0 4px;vertical-align:middle">✏️</button></div>
             <div class="meal-meta">${nutritionMetaString(m)}</div>
             <div style="font-size:11px;color:#ADADAD;margin-top:2px">${(m.ingredients||[]).length} ingredient${(m.ingredients||[]).length !== 1 ? 's' : ''}</div>
           </div>
@@ -5933,7 +6030,8 @@ async function urlImportSave(data) {
     protein: ing.protein || 0,
     carbs: ing.carbs || 0,
     fat: ing.fat || 0,
-    fiber: ing.fiber || 0
+    fiber: ing.fiber || 0,
+    cholesterol: ing.cholesterol || 0
   }));
   document.getElementById('meal-builder-name').value = data.name || '';
 
