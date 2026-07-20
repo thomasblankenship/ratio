@@ -6184,8 +6184,11 @@ let expandedPlanDay = null;
 let editingPlanDayConfig = new Set(); // days explicitly opened for editing this session
 let generatingPlanDayIdx = null;
 
+let savedPlanDays = new Set(); // days with a real row in the DB — collapsed-by-default only applies to these
+
 async function loadWeeklyPlan() {
   const rows = await dbGet('workout_plans', 'order=day_of_week.asc') || [];
+  savedPlanDays = new Set(rows.map(r => r.day_of_week));
   weeklyPlan = Array.from({ length: 7 }, (_, i) => rows.find(r => r.day_of_week === i) || {
     day_of_week: i, location: 'gym', muscle_groups: [], is_rest_day: false, exercises: [], checked_off: []
   });
@@ -6212,20 +6215,21 @@ function renderWeeklyPlanList() {
     else if (groups.length) summaryText = groups.join(', ');
     else summaryText = 'Not set yet';
     const isLast = i === weeklyPlan.length - 1;
+    const canExpand = editingPlanDayConfig.has(i) || !(day.is_rest_day && savedPlanDays.has(i));
 
     return `
     <div style="${isLast ? '' : 'border-bottom:1px solid var(--gray-100)'}">
-      <div onclick="togglePlanDayExpand(${i})" style="width:100%;display:flex;justify-content:space-between;align-items:center;text-align:left;background:none;border:none;cursor:pointer;padding:13px 14px;box-sizing:border-box">
+      <div ${canExpand ? `onclick="togglePlanDayExpand(${i})"` : ''} style="width:100%;display:flex;justify-content:space-between;align-items:center;text-align:left;background:none;border:none;cursor:${canExpand ? 'pointer' : 'default'};padding:13px 14px;box-sizing:border-box">
         <div style="flex:1;min-width:0">
           <div style="font-size:14px;font-weight:800;color:#0F0F0F">${DAY_NAMES_FULL[i]}</div>
           <div style="font-size:12px;color:${day.is_rest_day ? '#ADADAD' : '#666'};margin-top:2px">${summaryText}</div>
         </div>
         <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;margin-left:8px">
           <button type="button" onclick="event.stopPropagation(); editPlanDayConfig(${i})" style="background:none;border:none;color:#F97316;font-size:12px;font-weight:700;cursor:pointer;padding:2px">✏️ Edit</button>
-          <span style="color:#CCC;font-size:16px;transform:rotate(${expanded ? '90deg' : '0deg'});transition:transform 0.15s">›</span>
+          ${canExpand ? `<span style="color:#CCC;font-size:16px;transform:rotate(${expanded ? '90deg' : '0deg'});transition:transform 0.15s">›</span>` : ''}
         </div>
       </div>
-      ${expanded ? renderPlanDayEditorInner(i, day) : ''}
+      ${expanded && canExpand ? renderPlanDayEditorInner(i, day) : ''}
     </div>`;
   }).join('');
 }
@@ -6268,6 +6272,7 @@ async function clearPlanDay(i) {
     weeklyPlan[i].checked_off = [];
     delete planDayEditSnapshot[i];
     editingPlanDayConfig.delete(i);
+    savedPlanDays.delete(i);
     renderWeeklyPlanList();
     toast(`${DAY_NAMES_FULL[i]} cleared`);
   } catch (e) {
@@ -6277,18 +6282,16 @@ async function clearPlanDay(i) {
 }
 
 function renderPlanDayEditorInner(i, day) {
-  // A day defaults to the collapsed summary view once it already has real
-  // saved config (muscle groups picked, or marked as rest) — only a
-  // genuinely unconfigured day, or one the person explicitly tapped Edit
-  // on, shows the full form. This is what makes an already-set-up day like
-  // Monday open straight to its exercises on a fresh page load, instead of
-  // showing the edit form by default every time.
-  const hasSavedConfig = day.is_rest_day || (day.muscle_groups && day.muscle_groups.length > 0);
-  const configCollapsed = hasSavedConfig && !editingPlanDayConfig.has(i);
+  // A day only defaults to the collapsed summary view once it's actually
+  // been saved to the DB before — never derive this from whether it
+  // currently has muscle groups selected in memory, since that would
+  // collapse the form the moment someone taps their first pill on a
+  // brand-new day, before they've even finished picking or hit Save.
+  const configCollapsed = savedPlanDays.has(i) && !editingPlanDayConfig.has(i);
   const isGenerating = generatingPlanDayIdx === i;
 
   return `
-    <div style="padding:0 14px 16px;border-top:1px solid var(--gray-100)">
+    <div style="padding:0 14px 16px">
       ${!configCollapsed ? `
       <div style="display:flex;justify-content:flex-end;align-items:center;margin:12px 0">
         <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#666;cursor:pointer">
@@ -6398,6 +6401,7 @@ async function savePlanDay(i) {
       updated_at: new Date().toISOString()
     }, 'user_id,day_of_week');
     if (Array.isArray(saved) && saved[0]) weeklyPlan[i] = { ...weeklyPlan[i], ...saved[0] };
+    savedPlanDays.add(i);
     editingPlanDayConfig.delete(i);
     delete planDayEditSnapshot[i];
     if (!day.is_rest_day && day.muscle_groups.length) {
