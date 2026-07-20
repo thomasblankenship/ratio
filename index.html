@@ -6028,11 +6028,11 @@ function buildWorkoutCandidates(muscleGroups, location) {
 
 async function generateDayWorkout(i) {
   const day = weeklyPlan[i];
-  const statusEl = document.getElementById(`plan-day-save-status-${i}`);
   const groups = day.muscle_groups || [];
-  if (!groups.length) return;
+  if (!groups.length || generatingPlanDayIdx === i) return;
 
-  if (statusEl) statusEl.textContent = '✨ Building exercises...';
+  generatingPlanDayIdx = i;
+  renderWeeklyPlanList();
 
   const candidates = buildWorkoutCandidates(groups, day.location);
 
@@ -6044,7 +6044,7 @@ async function generateDayWorkout(i) {
     });
     const data = await res.json();
     if (data.error || !Array.isArray(data.exercises)) {
-      if (statusEl) statusEl.textContent = data.error || 'Could not generate exercises — try again';
+      toast(data.error || 'Could not generate exercises — try again');
       return;
     }
     // Validate fromLibrary claims against the real library rather than trusting the model
@@ -6065,11 +6065,12 @@ async function generateDayWorkout(i) {
       checked_off: day.checked_off,
       updated_at: new Date().toISOString()
     }, 'user_id,day_of_week');
-    if (statusEl) statusEl.textContent = '';
-    renderWeeklyPlanList();
   } catch (e) {
     console.error('generateDayWorkout error', e);
-    if (statusEl) statusEl.textContent = 'Could not reach the coach — try again';
+    toast('Could not reach the coach — try again');
+  } finally {
+    generatingPlanDayIdx = null;
+    renderWeeklyPlanList();
   }
 }
 
@@ -6181,11 +6182,7 @@ let weeklyPlan = [];
 let weeklyPlanLoaded = false;
 let expandedPlanDay = null;
 let collapsedPlanDayConfigs = new Set();
-
-function expandPlanDayConfig(i) {
-  collapsedPlanDayConfigs.delete(i);
-  renderWeeklyPlanList();
-}
+let generatingPlanDayIdx = null;
 
 async function loadWeeklyPlan() {
   const rows = await dbGet('workout_plans', 'order=day_of_week.asc') || [];
@@ -6218,36 +6215,34 @@ function renderWeeklyPlanList() {
 
     return `
     <div style="${isLast ? '' : 'border-bottom:1px solid var(--gray-100)'}">
-      <button type="button" onclick="togglePlanDayExpand(${i})" style="width:100%;display:flex;justify-content:space-between;align-items:center;text-align:left;background:none;border:none;cursor:pointer;padding:13px 14px">
+      <div onclick="togglePlanDayExpand(${i})" style="width:100%;display:flex;justify-content:space-between;align-items:center;text-align:left;background:none;border:none;cursor:pointer;padding:13px 14px;box-sizing:border-box">
         <div style="flex:1;min-width:0">
           <div style="font-size:14px;font-weight:800;color:#0F0F0F">${DAY_NAMES_FULL[i]}</div>
           <div style="font-size:12px;color:${day.is_rest_day ? '#ADADAD' : '#666'};margin-top:2px">${summaryText}</div>
         </div>
-        <span style="color:#CCC;font-size:16px;flex-shrink:0;margin-left:8px;transform:rotate(${expanded ? '90deg' : '0deg'});transition:transform 0.15s">›</span>
-      </button>
+        <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;margin-left:8px">
+          <button type="button" onclick="event.stopPropagation(); editPlanDayConfig(${i})" style="background:none;border:none;color:#F97316;font-size:12px;font-weight:700;cursor:pointer;padding:2px">✏️ Edit</button>
+          <span style="color:#CCC;font-size:16px;transform:rotate(${expanded ? '90deg' : '0deg'});transition:transform 0.15s">›</span>
+        </div>
+      </div>
       ${expanded ? renderPlanDayEditorInner(i, day) : ''}
     </div>`;
   }).join('');
 }
 
+function editPlanDayConfig(i) {
+  expandedPlanDay = i;
+  collapsedPlanDayConfigs.delete(i);
+  renderWeeklyPlanList();
+}
+
 function renderPlanDayEditorInner(i, day) {
   const configCollapsed = collapsedPlanDayConfigs.has(i);
-  let summaryLine;
-  if (day.is_rest_day) summaryLine = 'Rest Day';
-  else {
-    const bits = [day.location === 'home' ? '🏠 Home' : '🏋️ Gym'];
-    if (day.muscle_groups.length) bits.push(day.muscle_groups.join(', '));
-    summaryLine = bits.join(' — ');
-  }
+  const isGenerating = generatingPlanDayIdx === i;
 
   return `
     <div style="padding:0 14px 16px;border-top:1px solid var(--gray-100)">
-      ${configCollapsed ? `
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0">
-        <div style="font-size:12px;color:#666">${summaryLine}</div>
-        <button type="button" onclick="expandPlanDayConfig(${i})" style="background:none;border:none;color:#F97316;font-size:12px;font-weight:700;cursor:pointer">✏️ Edit</button>
-      </div>
-      ` : `
+      ${!configCollapsed ? `
       <div style="display:flex;justify-content:flex-end;align-items:center;margin:12px 0">
         <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#666;cursor:pointer">
           <input type="checkbox" id="plan-day-rest-toggle-${i}" ${day.is_rest_day ? 'checked' : ''} onchange="togglePlanDayRest(${i})" />
@@ -6273,13 +6268,14 @@ function renderPlanDayEditorInner(i, day) {
           `).join('')}
         </div>
       </div>
-      `}
+      ` : ''}
       ${!day.is_rest_day && (day.exercises || []).length ? `
-      <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--gray-100)">
+      <div style="margin-top:${configCollapsed ? '4px' : '16px'};padding-top:14px;${configCollapsed ? '' : 'border-top:1px solid var(--gray-100);'}background:white">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
           <div style="font-size:12px;font-weight:700;color:#999">TODAY'S EXERCISES</div>
-          <button type="button" onclick="generateDayWorkout(${i})" style="font-size:11px;font-weight:700;color:var(--accent);background:none;border:none;cursor:pointer">🔄 Regenerate</button>
+          <button type="button" onclick="generateDayWorkout(${i})" ${isGenerating ? 'disabled' : ''} style="font-size:11px;font-weight:700;color:var(--accent);background:none;border:none;cursor:pointer">${isGenerating ? '✨ Building...' : '🔄 Regenerate'}</button>
         </div>
+        <div style="background:white">
         ${day.exercises.map((ex, exIdx) => {
           const key = `${ex.group}|${ex.name}`;
           const checked = (day.checked_off || []).includes(key);
@@ -6293,11 +6289,12 @@ function renderPlanDayEditorInner(i, day) {
             </div>
           </div>`;
         }).join('')}
+        </div>
       </div>` : ''}
-      <button type="button" onclick="savePlanDay(${i})" style="width:100%;background:var(--accent);color:white;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;margin-top:16px">Save ${DAY_NAMES_FULL[i]}</button>
-      <div id="plan-day-save-status-${i}" style="text-align:center;font-size:12px;color:#22C55E;margin-top:8px;min-height:16px"></div>
+      ${!configCollapsed ? `<button type="button" onclick="savePlanDay(${i})" ${isGenerating ? 'disabled' : ''} style="width:100%;background:var(--accent);color:white;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;margin-top:16px">${isGenerating ? '✨ Building exercises...' : `Save ${DAY_NAMES_FULL[i]}`}</button>` : ''}
     </div>`;
 }
+
 
 function togglePlanDayRest(i) {
   const checked = document.getElementById(`plan-day-rest-toggle-${i}`).checked;
@@ -6333,7 +6330,6 @@ function togglePlanDayGroup(i, group) {
 
 async function savePlanDay(i) {
   const day = weeklyPlan[i];
-  const statusEl = document.getElementById(`plan-day-save-status-${i}`);
   try {
     const saved = await dbUpsert('workout_plans', {
       day_of_week: day.day_of_week,
@@ -6346,7 +6342,6 @@ async function savePlanDay(i) {
     }, 'user_id,day_of_week');
     if (Array.isArray(saved) && saved[0]) weeklyPlan[i] = { ...weeklyPlan[i], ...saved[0] };
     collapsedPlanDayConfigs.add(i);
-    if (statusEl) statusEl.textContent = 'Saved ✓';
     if (!day.is_rest_day && day.muscle_groups.length) {
       await generateDayWorkout(i);
     } else {
@@ -6355,7 +6350,7 @@ async function savePlanDay(i) {
     }
   } catch (e) {
     console.error('savePlanDay error', e);
-    if (statusEl) statusEl.textContent = 'Could not save — try again';
+    toast('Could not save — try again');
   }
 }
 
