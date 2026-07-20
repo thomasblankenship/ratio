@@ -6181,7 +6181,7 @@ function dismissPlanFeedback() {
 let weeklyPlan = [];
 let weeklyPlanLoaded = false;
 let expandedPlanDay = null;
-let collapsedPlanDayConfigs = new Set();
+let editingPlanDayConfig = new Set(); // days explicitly opened for editing this session
 let generatingPlanDayIdx = null;
 
 async function loadWeeklyPlan() {
@@ -6230,14 +6230,61 @@ function renderWeeklyPlanList() {
   }).join('');
 }
 
+let planDayEditSnapshot = {};
+
 function editPlanDayConfig(i) {
   expandedPlanDay = i;
-  collapsedPlanDayConfigs.delete(i);
+  editingPlanDayConfig.add(i);
+  planDayEditSnapshot[i] = JSON.parse(JSON.stringify(weeklyPlan[i]));
   renderWeeklyPlanList();
 }
 
+function cancelPlanDayEdit(i) {
+  if (planDayEditSnapshot[i]) {
+    weeklyPlan[i] = planDayEditSnapshot[i];
+  } else {
+    // Never-saved day — discard whatever was tapped, back to a clean slate
+    weeklyPlan[i] = { day_of_week: i, location: weeklyPlan[i].location || 'gym', muscle_groups: [], is_rest_day: false, exercises: [], checked_off: [] };
+  }
+  delete planDayEditSnapshot[i];
+  editingPlanDayConfig.delete(i);
+  renderWeeklyPlanList();
+}
+
+async function clearPlanDay(i) {
+  try {
+    await dbUpsert('workout_plans', {
+      day_of_week: weeklyPlan[i].day_of_week,
+      location: weeklyPlan[i].location,
+      muscle_groups: [],
+      is_rest_day: false,
+      exercises: [],
+      checked_off: [],
+      updated_at: new Date().toISOString()
+    }, 'user_id,day_of_week');
+    weeklyPlan[i].muscle_groups = [];
+    weeklyPlan[i].is_rest_day = false;
+    weeklyPlan[i].exercises = [];
+    weeklyPlan[i].checked_off = [];
+    delete planDayEditSnapshot[i];
+    editingPlanDayConfig.delete(i);
+    renderWeeklyPlanList();
+    toast(`${DAY_NAMES_FULL[i]} cleared`);
+  } catch (e) {
+    console.error('clearPlanDay error', e);
+    toast('Could not clear — try again');
+  }
+}
+
 function renderPlanDayEditorInner(i, day) {
-  const configCollapsed = collapsedPlanDayConfigs.has(i);
+  // A day defaults to the collapsed summary view once it already has real
+  // saved config (muscle groups picked, or marked as rest) — only a
+  // genuinely unconfigured day, or one the person explicitly tapped Edit
+  // on, shows the full form. This is what makes an already-set-up day like
+  // Monday open straight to its exercises on a fresh page load, instead of
+  // showing the edit form by default every time.
+  const hasSavedConfig = day.is_rest_day || (day.muscle_groups && day.muscle_groups.length > 0);
+  const configCollapsed = hasSavedConfig && !editingPlanDayConfig.has(i);
   const isGenerating = generatingPlanDayIdx === i;
 
   return `
@@ -6291,7 +6338,13 @@ function renderPlanDayEditorInner(i, day) {
         }).join('')}
         </div>
       </div>` : ''}
-      ${!configCollapsed ? `<button type="button" onclick="savePlanDay(${i})" ${isGenerating ? 'disabled' : ''} style="width:100%;background:var(--accent);color:white;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;margin-top:16px">${isGenerating ? '✨ Building exercises...' : `Save ${DAY_NAMES_FULL[i]}`}</button>` : ''}
+      ${!configCollapsed ? `
+      <div style="display:flex;gap:8px;margin-top:16px">
+        <button type="button" onclick="cancelPlanDayEdit(${i})" ${isGenerating ? 'disabled' : ''} style="flex:1;background:#F4F4F4;color:#666;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:700;cursor:pointer">Cancel</button>
+        <button type="button" onclick="clearPlanDay(${i})" ${isGenerating ? 'disabled' : ''} style="flex:1;background:#FEF2F2;color:#DC2626;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:700;cursor:pointer">Clear Day</button>
+      </div>
+      <button type="button" onclick="savePlanDay(${i})" ${isGenerating ? 'disabled' : ''} style="width:100%;background:var(--accent);color:white;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;margin-top:8px">${isGenerating ? '✨ Building exercises...' : `Save ${DAY_NAMES_FULL[i]}`}</button>
+      ` : ''}
     </div>`;
 }
 
@@ -6299,7 +6352,11 @@ function renderPlanDayEditorInner(i, day) {
 function togglePlanDayRest(i) {
   const checked = document.getElementById(`plan-day-rest-toggle-${i}`).checked;
   weeklyPlan[i].is_rest_day = checked;
-  if (checked) weeklyPlan[i].muscle_groups = [];
+  if (checked) {
+    weeklyPlan[i].muscle_groups = [];
+    weeklyPlan[i].exercises = [];
+    weeklyPlan[i].checked_off = [];
+  }
   renderWeeklyPlanList();
 }
 
@@ -6341,7 +6398,8 @@ async function savePlanDay(i) {
       updated_at: new Date().toISOString()
     }, 'user_id,day_of_week');
     if (Array.isArray(saved) && saved[0]) weeklyPlan[i] = { ...weeklyPlan[i], ...saved[0] };
-    collapsedPlanDayConfigs.add(i);
+    editingPlanDayConfig.delete(i);
+    delete planDayEditSnapshot[i];
     if (!day.is_rest_day && day.muscle_groups.length) {
       await generateDayWorkout(i);
     } else {
