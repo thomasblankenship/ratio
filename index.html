@@ -3165,6 +3165,21 @@ async function getSession() {
   } catch(e) { return null; }
 }
 
+// Keeps the auth token fresh for as long as the app stays open. getSession()
+// already refreshes proactively when within 5 minutes of expiry, but it was
+// previously only ever called once at initial page load — a session left
+// open longer than the token's lifetime (the app is designed to survive
+// backgrounding rather than reload, per the resume-last-view feature) would
+// then silently start failing every API call with "JWT expired" and no
+// recovery path. This re-checks periodically, and immediately whenever the
+// app comes back into view after being backgrounded.
+function startSessionRefreshWatcher() {
+  setInterval(() => { getSession(); }, 4 * 60 * 1000); // every 4 minutes
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') getSession();
+  });
+}
+
 async function refreshSession(refreshToken) {
   try {
     const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
@@ -3889,6 +3904,7 @@ async function init() {
     document.getElementById('auth-screen').style.display = 'none';
     document.getElementById('app-shell').style.display = 'block';
     await appInit();
+    startSessionRefreshWatcher();
   } else {
     // No session yet — check if there's an in-progress onboarding to resume
     // (e.g. user was mid-signup and iOS reclaimed the WebView while backgrounded)
