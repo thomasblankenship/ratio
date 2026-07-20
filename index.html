@@ -5490,12 +5490,17 @@ function renderMealPrepDayEditorInner(i, day) {
       ${assigned.length ? `
         <div style="font-size:12px;font-weight:700;color:#999;margin-bottom:6px">PREPPED FOR THIS DAY</div>
         <div style="margin-bottom:16px">
-          ${assigned.map((a, ai) => `
+          ${assigned.map((a, ai) => {
+            const meal = savedMeals.find(m => m.name === a.dish_name);
+            return `
             <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--gray-100)">
-              <div style="font-size:13px;color:#333"><b>${a.meal_type}:</b> ${a.dish_name}</div>
+              <div style="flex:1;min-width:0;${meal ? 'cursor:pointer' : ''}"${meal ? ` onclick="openEditSavedMeal('${meal.id}')"` : ''}>
+                <div style="font-size:13px;color:#333"><b>${a.meal_type}:</b> ${a.dish_name}${meal ? ' <span style="color:#CCC;font-size:11px">›</span>' : ''}</div>
+                ${meal ? `<div style="font-size:11px;color:#ADADAD;margin-top:2px">${nutritionMetaString(meal)}</div>` : ''}
+              </div>
               <button type="button" onclick="removeMealPrepAssignment(${i}, ${ai})" style="background:none;border:none;color:#D1D5DB;cursor:pointer;font-size:18px;line-height:1;padding:0 4px;flex-shrink:0">×</button>
-            </div>
-          `).join('')}
+            </div>`;
+          }).join('')}
         </div>
       ` : ''}
       <div id="meal-prep-body-${i}" style="${day.no_prep ? 'display:none' : ''}">
@@ -5555,6 +5560,12 @@ async function saveMealPrepDay(i) {
   }
 }
 
+function toggleMealPrepResultsCollapsed() {
+  mealPrepPlan.resultsCollapsed = !mealPrepPlan.resultsCollapsed;
+  saveSetting('meal_prep_plan', mealPrepPlan);
+  renderMealPrepDishes();
+}
+
 async function generateMealPrepPlan() {
   if (!mealPrepPlan) return;
   const demand = mealPrepPlan.days
@@ -5596,6 +5607,7 @@ async function generateMealPrepPlan() {
       return;
     }
     mealPrepPlan.dishes = data.dishes.map(normalizeMealPrepDish);
+    mealPrepPlan.resultsCollapsed = false;
     mealPrepPlan.summary = data.summary || '';
     await saveSetting('meal_prep_plan', mealPrepPlan);
     renderMealPrepDishes();
@@ -5739,7 +5751,20 @@ function renderMealPrepDishes() {
   if (!resultsEl || !mealPrepPlan) return;
   const dishes = mealPrepPlan.dishes || [];
   if (!dishes.length) { resultsEl.innerHTML = ''; return; }
+
+  if (mealPrepPlan.resultsCollapsed) {
+    resultsEl.innerHTML = `
+      <button type="button" onclick="toggleMealPrepResultsCollapsed()" style="width:100%;background:white;border:1px solid #FFE4CC;border-radius:12px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;font-size:13px;font-weight:700;color:#F97316">
+        <span>${dishes.length} generated dish${dishes.length === 1 ? '' : 'es'} — tap to review</span>
+        <span>▾</span>
+      </button>`;
+    return;
+  }
+
   resultsEl.innerHTML = `
+    <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
+      <button type="button" onclick="toggleMealPrepResultsCollapsed()" style="background:none;border:none;color:#ADADAD;font-size:12px;font-weight:600;cursor:pointer">▴ Hide generated options</button>
+    </div>
     ${mealPrepPlan.summary ? `<div class="card" style="background:#FFF7ED;border:1px solid #FFE4CC"><div style="font-size:13px;color:#333;line-height:1.5">${mealPrepPlan.summary}</div></div>` : ''}
     ${dishes.map((d, idx) => renderMealPrepDishCard(d, idx)).join('')}
     <button onclick="generateMealPrepPlan()" style="width:100%;background:none;border:none;color:#ADADAD;font-size:12px;font-weight:600;cursor:pointer;margin-top:8px;text-decoration:underline">Don't like any of these? Start over completely</button>`;
@@ -6155,6 +6180,12 @@ function dismissPlanFeedback() {
 let weeklyPlan = [];
 let weeklyPlanLoaded = false;
 let expandedPlanDay = null;
+let collapsedPlanDayConfigs = new Set();
+
+function expandPlanDayConfig(i) {
+  collapsedPlanDayConfigs.delete(i);
+  renderWeeklyPlanList();
+}
 
 async function loadWeeklyPlan() {
   const rows = await dbGet('workout_plans', 'order=day_of_week.asc') || [];
@@ -6203,8 +6234,23 @@ function renderWeeklyPlanList() {
 }
 
 function renderPlanDayEditorInner(i, day) {
+  const configCollapsed = collapsedPlanDayConfigs.has(i);
+  let summaryLine;
+  if (day.is_rest_day) summaryLine = 'Rest Day';
+  else {
+    const bits = [day.location === 'home' ? '🏠 Home' : '🏋️ Gym'];
+    if (day.muscle_groups.length) bits.push(day.muscle_groups.join(', '));
+    summaryLine = bits.join(' — ');
+  }
+
   return `
     <div style="padding:0 14px 16px;border-top:1px solid var(--gray-100)">
+      ${configCollapsed ? `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0">
+        <div style="font-size:12px;color:#666">${summaryLine}</div>
+        <button type="button" onclick="expandPlanDayConfig(${i})" style="background:none;border:none;color:#F97316;font-size:12px;font-weight:700;cursor:pointer">✏️ Edit</button>
+      </div>
+      ` : `
       <div style="display:flex;justify-content:flex-end;align-items:center;margin:12px 0">
         <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#666;cursor:pointer">
           <input type="checkbox" id="plan-day-rest-toggle-${i}" ${day.is_rest_day ? 'checked' : ''} onchange="togglePlanDayRest(${i})" />
@@ -6230,6 +6276,7 @@ function renderPlanDayEditorInner(i, day) {
           `).join('')}
         </div>
       </div>
+      `}
       ${!day.is_rest_day && (day.exercises || []).length ? `
       <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--gray-100)">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
@@ -6301,11 +6348,13 @@ async function savePlanDay(i) {
       updated_at: new Date().toISOString()
     }, 'user_id,day_of_week');
     if (Array.isArray(saved) && saved[0]) weeklyPlan[i] = { ...weeklyPlan[i], ...saved[0] };
+    collapsedPlanDayConfigs.add(i);
     if (statusEl) statusEl.textContent = 'Saved ✓';
     if (!day.is_rest_day && day.muscle_groups.length) {
       await generateDayWorkout(i);
     } else {
-      setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 2000);
+      renderWeeklyPlanList();
+      toast('Saved ✓');
     }
   } catch (e) {
     console.error('savePlanDay error', e);
