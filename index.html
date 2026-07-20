@@ -5478,6 +5478,7 @@ function renderMealPrepDayList() {
 }
 
 function renderMealPrepDayEditorInner(i, day) {
+  const assigned = day.assigned || [];
   return `
     <div style="padding:0 14px 16px;border-top:1px solid var(--gray-100)">
       <div style="display:flex;justify-content:flex-end;align-items:center;margin:12px 0">
@@ -5486,6 +5487,17 @@ function renderMealPrepDayEditorInner(i, day) {
           No Prep Needed
         </label>
       </div>
+      ${assigned.length ? `
+        <div style="font-size:12px;font-weight:700;color:#999;margin-bottom:6px">PREPPED FOR THIS DAY</div>
+        <div style="margin-bottom:16px">
+          ${assigned.map((a, ai) => `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--gray-100)">
+              <div style="font-size:13px;color:#333"><b>${a.meal_type}:</b> ${a.dish_name}</div>
+              <button type="button" onclick="removeMealPrepAssignment(${i}, ${ai})" style="background:none;border:none;color:#D1D5DB;cursor:pointer;font-size:18px;line-height:1;padding:0 4px;flex-shrink:0">×</button>
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
       <div id="meal-prep-body-${i}" style="${day.no_prep ? 'display:none' : ''}">
         <div style="font-size:12px;font-weight:700;color:#999;margin-bottom:6px">WHICH MEALS SHOULD BE PREPPED?</div>
         <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:4px">
@@ -5496,6 +5508,25 @@ function renderMealPrepDayEditorInner(i, day) {
       </div>
       <button type="button" onclick="saveMealPrepDay(${i})" style="width:100%;background:var(--accent);color:white;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;margin-top:16px">Save ${DAY_NAMES_FULL[i]}</button>
     </div>`;
+}
+
+// Removes a single assignment directly from the day side — works even if
+// the source dish is no longer showing in the current Weekly Meal Prep
+// results (e.g. after generating a new batch), since this is the
+// authoritative place to manage what's actually scheduled for a day.
+function removeMealPrepAssignment(dayIdx, assignmentIdx) {
+  const day = mealPrepPlan.days[dayIdx];
+  const removed = day.assigned[assignmentIdx];
+  day.assigned.splice(assignmentIdx, 1);
+  // Keep the source dish card's day-picker in sync, if it's still around
+  const dish = (mealPrepPlan.dishes || []).find(d => d.name === removed.dish_name && d.meal_type === removed.meal_type);
+  if (dish && dish.chosen_days) {
+    const ci = dish.chosen_days.indexOf(dayIdx);
+    if (ci >= 0) dish.chosen_days.splice(ci, 1);
+  }
+  saveSetting('meal_prep_plan', mealPrepPlan);
+  renderMealPrepDayList();
+  renderMealPrepDishes();
 }
 
 function toggleMealPrepNoPrep(i) {
@@ -5640,8 +5671,22 @@ async function confirmMealPrepDish(idx) {
     day.assigned = (day.assigned || []).filter(a => !(a.dish_name === d.name && a.meal_type === d.meal_type));
   });
   chosenDays.forEach(dow => {
-    mealPrepPlan.days[dow].assigned = mealPrepPlan.days[dow].assigned || [];
-    mealPrepPlan.days[dow].assigned.push({ meal_type: d.meal_type, dish_name: d.name });
+    const day = mealPrepPlan.days[dow];
+    day.assigned = day.assigned || [];
+    // A day shouldn't have two different dishes both claiming to be "the"
+    // Lunch (or whichever meal type) — replace rather than stack, and keep
+    // the displaced dish's own day-picker in sync so it doesn't still show
+    // this day as checked.
+    const displaced = day.assigned.filter(a => a.meal_type === d.meal_type && a.dish_name !== d.name);
+    displaced.forEach(a => {
+      const otherDish = (mealPrepPlan.dishes || []).find(dd => dd.name === a.dish_name && dd.meal_type === a.meal_type);
+      if (otherDish && otherDish.chosen_days) {
+        const ci = otherDish.chosen_days.indexOf(dow);
+        if (ci >= 0) otherDish.chosen_days.splice(ci, 1);
+      }
+    });
+    day.assigned = day.assigned.filter(a => a.meal_type !== d.meal_type);
+    day.assigned.push({ meal_type: d.meal_type, dish_name: d.name });
   });
 
   await saveSetting('meal_prep_plan', mealPrepPlan);
@@ -5653,14 +5698,22 @@ function renderMealPrepDishCard(d, idx) {
   const chosenCount = chosenDays.length;
   const factor = chosenCount > 0 ? chosenCount / (d.base_servings || 1) : 1;
   const scaledIngredients = (d.ingredients || []).map(ing => ({ ...ing, amount: scaleIngredientAmount(ing.amount, factor) }));
+  const isReal = d.source_type === 'real';
+  const isRegenerating = mealPrepPlan._regeneratingIdx === idx;
 
   return `
-    <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+    <div class="card" style="padding:0;overflow:hidden">
+      ${d.image_url ? `<img src="${d.image_url}" style="width:100%;aspect-ratio:16/9;object-fit:cover;display:block" onerror="this.remove()" />` : ''}
+      <div style="padding:16px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;gap:8px">
         <div style="font-size:14px;font-weight:700;color:#0F0F0F;flex:1">${d.name}</div>
-        <div style="font-size:10px;font-weight:700;color:#F97316;background:#FFF7ED;border-radius:10px;padding:2px 8px;white-space:nowrap;margin-left:8px">MAKES ${chosenCount || d.base_servings}</div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">
+          <div style="font-size:10px;font-weight:700;color:#F97316;background:#FFF7ED;border-radius:10px;padding:2px 8px;white-space:nowrap">MAKES ${chosenCount || d.base_servings}</div>
+          <div style="font-size:9px;font-weight:700;color:${isReal ? '#0EA5E9' : '#A855F7'};background:${isReal ? '#EFF9FF' : '#FAF5FF'};border-radius:10px;padding:2px 8px;white-space:nowrap">${isReal ? '🌐 REAL RECIPE' : '✨ AI-DESIGNED'}</div>
+        </div>
       </div>
-      <div style="font-size:12px;color:#ADADAD;margin-bottom:10px">${nutritionMetaString(d)} per serving</div>
+      <div style="font-size:12px;color:#ADADAD;margin-bottom:${isReal && d.source_url ? '4px' : '10px'}">${nutritionMetaString(d)} per serving</div>
+      ${isReal && d.source_url ? `<a href="${d.source_url}" target="_blank" style="font-size:11px;color:#0EA5E9;margin-bottom:10px;display:block;text-decoration:none">🔗 View original recipe</a>` : ''}
       <div style="font-size:12px;font-weight:700;color:#999;margin-bottom:6px">MAKE FOR WHICH DAYS? (${d.meal_type})</div>
       <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
         ${DAY_NAMES.map((abbr, di) => `
@@ -5675,7 +5728,9 @@ function renderMealPrepDishCard(d, idx) {
           <ol style="padding-left:18px;margin:10px 0 0;display:flex;flex-direction:column;gap:6px;font-size:12px;color:#666;line-height:1.4">${d.instructions.map(step => `<li>${step}</li>`).join('')}</ol>
         </details>
       ` : ''}
-      <button onclick="confirmMealPrepDish(${idx})" style="width:100%;background:var(--accent);color:white;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer">✅ Add to My Week${chosenCount ? ` (${chosenCount} day${chosenCount === 1 ? '' : 's'})` : ''}</button>
+      <button onclick="confirmMealPrepDish(${idx})" ${isRegenerating ? 'disabled' : ''} style="width:100%;background:var(--accent);color:white;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer">✅ Add to My Week${chosenCount ? ` (${chosenCount} day${chosenCount === 1 ? '' : 's'})` : ''}</button>
+      <button onclick="regenerateSingleDish(${idx})" ${isRegenerating ? 'disabled' : ''} style="width:100%;background:none;border:none;color:#F97316;font-size:12px;font-weight:700;cursor:pointer;padding:10px 0 0">${isRegenerating ? '✨ Finding something else...' : '🔄 Not feeling this one? Try another'}</button>
+      </div>
     </div>`;
 }
 
@@ -5687,7 +5742,60 @@ function renderMealPrepDishes() {
   resultsEl.innerHTML = `
     ${mealPrepPlan.summary ? `<div class="card" style="background:#FFF7ED;border:1px solid #FFE4CC"><div style="font-size:13px;color:#333;line-height:1.5">${mealPrepPlan.summary}</div></div>` : ''}
     ${dishes.map((d, idx) => renderMealPrepDishCard(d, idx)).join('')}
-    <button onclick="generateMealPrepPlan()" style="width:100%;background:white;color:#F97316;border:1px solid #FFE4CC;border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;margin-top:4px">🔄 Not feeling these? Try a different plan</button>`;
+    <button onclick="generateMealPrepPlan()" style="width:100%;background:none;border:none;color:#ADADAD;font-size:12px;font-weight:600;cursor:pointer;margin-top:8px;text-decoration:underline">Don't like any of these? Start over completely</button>`;
+}
+
+async function regenerateSingleDish(idx) {
+  const d = mealPrepPlan.dishes[idx];
+  const days = (d.chosen_days && d.chosen_days.length ? d.chosen_days : (d.covers || []).map(c => DAY_NAMES_FULL.indexOf(c.day_name)).filter(x => x >= 0))
+    .map(dow => DAY_NAMES_FULL[dow]);
+  if (!days.length) { toast('Pick at least one day for this dish first'); return; }
+
+  mealPrepPlan._regeneratingIdx = idx;
+  renderMealPrepDishes();
+
+  const prefs = window._currentPreferences || await loadSetting('preferences') || {};
+  try {
+    const res = await fetch(`${WORKER_URL}/ai-meal-prep-regenerate-dish`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        targets: {
+          calories: userTargets.calories || 0,
+          protein: userTargets.protein || 0,
+          carbs: userTargets.carbs || 0,
+          fat: userTargets.fat || 0
+        },
+        allergies: prefs.allergies || [],
+        allergiesOther: prefs.allergiesOther || '',
+        favoriteFoods: prefs.favoriteFoods || '',
+        mealType: d.meal_type,
+        days,
+        sourceType: d.source_type || 'invented',
+        excludeName: d.name
+      })
+    });
+    const data = await res.json();
+    if (data.error || !data.dish) { toast(data.error || 'Could not find a different option'); return; }
+
+    // The old dish's name is gone — clear any confirmed assignment that
+    // referenced it, since the new dish needs its own "Add to My Week".
+    mealPrepPlan.days.forEach(day => {
+      day.assigned = (day.assigned || []).filter(a => !(a.dish_name === d.name && a.meal_type === d.meal_type));
+    });
+
+    const newDish = normalizeMealPrepDish(data.dish);
+    newDish.chosen_days = d.chosen_days || [];
+    mealPrepPlan.dishes[idx] = newDish;
+    await saveSetting('meal_prep_plan', mealPrepPlan);
+    renderMealPrepDayList();
+  } catch (e) {
+    console.error('regenerateSingleDish error', e);
+    toast('Could not reach the coach — try again');
+  } finally {
+    mealPrepPlan._regeneratingIdx = null;
+    renderMealPrepDishes();
+  }
 }
 
 function getShoppingListData() {
