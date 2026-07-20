@@ -6047,12 +6047,17 @@ async function generateDayWorkout(i) {
       toast(data.error || 'Could not generate exercises — try again');
       return;
     }
-    // Validate fromLibrary claims against the real library rather than trusting the model
+    // Validate fromLibrary claims against the real library rather than trusting the model.
+    // Also cross-check equipment against the day's location — the prompt tells the model
+    // never to suggest gym-only equipment for a home day, but this is a hard safety net in
+    // case it slips through anyway, since a wrong equipment suggestion isn't just a display
+    // nitpick, it's actively unusable for someone training at home.
     const validated = data.exercises.map(ex => {
       let libGroup = ex.group;
       let pool = libGroup === 'Legs' || LEG_SUBGROUP_OPTIONS.includes(libGroup) ? (EXERCISE_LIBRARY.Legs || []) : (EXERCISE_LIBRARY[libGroup] || []);
       const found = pool.find(e => e.name === ex.name);
-      return { ...ex, fromLibrary: !!found, libraryGroup: found ? (found.subgroup || libGroup) : null };
+      const equipmentMismatch = !!(found && day.location === 'home' && HOME_INCOMPATIBLE_EQUIPMENT.includes(found.equipment));
+      return { ...ex, fromLibrary: !!found && !equipmentMismatch, libraryGroup: found ? (found.subgroup || libGroup) : null, equipmentMismatch };
     });
     day.exercises = validated;
     day.checked_off = [];
@@ -6347,13 +6352,17 @@ function renderPlanDayEditorInner(i, day) {
           <div style="padding:9px 0;${isLastEx ? '' : 'border-bottom:1px solid var(--gray-100);'}display:flex;align-items:flex-start;gap:10px">
             <button type="button" onclick="togglePlanExerciseChecked(${i}, ${exIdx})" style="width:20px;height:20px;border-radius:6px;border:2px solid ${checked ? 'var(--accent)' : '#D1D5DB'};background:${checked ? 'var(--accent)' : 'white'};flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;margin-top:1px">${checked ? '<span style="color:white;font-size:12px;line-height:1">✓</span>' : ''}</button>
             <div style="flex:1;min-width:0${ex.fromLibrary ? ';cursor:pointer' : ''}"${ex.fromLibrary ? ` onclick="openPlanExerciseDetail(${i}, ${exIdx})"` : ''}>
-              <div style="font-size:13px;font-weight:600;color:${checked ? '#ADADAD' : '#0F0F0F'};text-decoration:${checked ? 'line-through' : 'none'}">${ex.name}${ex.fromLibrary ? ' <span style="color:#CCC;font-size:11px">›</span>' : ' <span style="font-size:10px;color:#ADADAD;font-weight:400">(coach suggestion)</span>'}</div>
+              <div style="font-size:13px;font-weight:600;color:${checked ? '#ADADAD' : '#0F0F0F'};text-decoration:${checked ? 'line-through' : 'none'}">${ex.name}${ex.fromLibrary ? ' <span style="color:#CCC;font-size:11px">›</span>' : ex.equipmentMismatch ? ' <span style="font-size:10px;color:#DC2626;font-weight:700">⚠️ needs gym equipment</span>' : ' <span style="font-size:10px;color:#ADADAD;font-weight:400">(coach suggestion)</span>'}</div>
               <div style="font-size:11px;color:#ADADAD;text-decoration:${checked ? 'line-through' : 'none'}">${metaLine}${ex.notes ? ' — ' + ex.notes : ''}</div>
             </div>
           </div>`;
         }).join('')}
         </div>
-      </div>` : ''}
+      </div>` : (configCollapsed && !day.is_rest_day ? `
+      <div style="padding:16px 4px;text-align:center">
+        <div style="font-size:12px;color:#ADADAD;margin-bottom:10px">No exercises generated for this day yet.</div>
+        <button type="button" onclick="generateDayWorkout(${i})" ${isGenerating ? 'disabled' : ''} style="background:var(--accent);color:white;border:none;border-radius:10px;padding:10px 20px;font-size:13px;font-weight:700;cursor:pointer">${isGenerating ? '✨ Building...' : '✨ Generate Exercises'}</button>
+      </div>` : '')}
       ${!configCollapsed ? `
       <div style="display:flex;gap:8px;margin-top:16px">
         <button type="button" onclick="cancelPlanDayEdit(${i})" ${isGenerating ? 'disabled' : ''} style="flex:1;background:#F4F4F4;color:#666;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:700;cursor:pointer">Cancel</button>
