@@ -6197,7 +6197,19 @@ async function loadWeeklyPlan() {
 }
 
 function togglePlanDayExpand(i) {
-  expandedPlanDay = expandedPlanDay === i ? null : i;
+  if (expandedPlanDay === i) {
+    // Collapsing a day that was still mid-edit (Edit tapped, never Saved) —
+    // treat it like Cancel rather than leaving it stuck in edit mode for
+    // the next time this day is reopened.
+    if (editingPlanDayConfig.has(i)) {
+      if (planDayEditSnapshot[i]) weeklyPlan[i] = planDayEditSnapshot[i];
+      delete planDayEditSnapshot[i];
+      editingPlanDayConfig.delete(i);
+    }
+    expandedPlanDay = null;
+  } else {
+    expandedPlanDay = i;
+  }
   renderWeeklyPlanList();
 }
 
@@ -6226,7 +6238,7 @@ function renderWeeklyPlanList() {
         </div>
         <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;margin-left:8px">
           <button type="button" onclick="event.stopPropagation(); editPlanDayConfig(${i})" style="background:none;border:none;color:#F97316;font-size:12px;font-weight:700;cursor:pointer;padding:2px">✏️ Edit</button>
-          ${canExpand ? `<span style="color:#CCC;font-size:16px;transform:rotate(${expanded ? '90deg' : '0deg'});transition:transform 0.15s">›</span>` : ''}
+          <span style="color:#CCC;font-size:16px;transform:rotate(${expanded ? '90deg' : '0deg'});transition:transform 0.15s;visibility:${canExpand ? 'visible' : 'hidden'}">›</span>
         </div>
       </div>
       ${expanded && canExpand ? renderPlanDayEditorInner(i, day) : ''}
@@ -6291,7 +6303,7 @@ function renderPlanDayEditorInner(i, day) {
   const isGenerating = generatingPlanDayIdx === i;
 
   return `
-    <div style="padding:0 14px 16px">
+    <div style="padding:0 14px ${configCollapsed ? '4px' : '16px'}">
       ${!configCollapsed ? `
       <div style="display:flex;justify-content:flex-end;align-items:center;margin:12px 0">
         <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#666;cursor:pointer">
@@ -6330,8 +6342,9 @@ function renderPlanDayEditorInner(i, day) {
           const key = `${ex.group}|${ex.name}`;
           const checked = (day.checked_off || []).includes(key);
           const metaLine = ex.duration_min ? `${ex.duration_min} min` : `${ex.sets} sets × ${ex.reps}`;
+          const isLastEx = exIdx === day.exercises.length - 1;
           return `
-          <div style="padding:9px 0;border-bottom:1px solid var(--gray-100);display:flex;align-items:flex-start;gap:10px">
+          <div style="padding:9px 0;${isLastEx ? '' : 'border-bottom:1px solid var(--gray-100);'}display:flex;align-items:flex-start;gap:10px">
             <button type="button" onclick="togglePlanExerciseChecked(${i}, ${exIdx})" style="width:20px;height:20px;border-radius:6px;border:2px solid ${checked ? 'var(--accent)' : '#D1D5DB'};background:${checked ? 'var(--accent)' : 'white'};flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;margin-top:1px">${checked ? '<span style="color:white;font-size:12px;line-height:1">✓</span>' : ''}</button>
             <div style="flex:1;min-width:0${ex.fromLibrary ? ';cursor:pointer' : ''}"${ex.fromLibrary ? ` onclick="openPlanExerciseDetail(${i}, ${exIdx})"` : ''}>
               <div style="font-size:13px;font-weight:600;color:${checked ? '#ADADAD' : '#0F0F0F'};text-decoration:${checked ? 'line-through' : 'none'}">${ex.name}${ex.fromLibrary ? ' <span style="color:#CCC;font-size:11px">›</span>' : ' <span style="font-size:10px;color:#ADADAD;font-weight:400">(coach suggestion)</span>'}</div>
