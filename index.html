@@ -122,7 +122,7 @@
       transition: border-color 0.15s; font-family: inherit;
     }
     input:focus, select:focus, textarea:focus { border-color: var(--accent); }
-    .btn { width: 100%; padding: 12px; background: linear-gradient(135deg,#CFA13C,#E08C7D); color: var(--white); border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity 0.15s; margin-top: 4px; font-family: inherit; }
+    .btn { width: 100%; padding: 12px; background: #CFA13C; color: var(--white); border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity 0.15s; margin-top: 4px; font-family: inherit; }
     .btn:hover { opacity: 0.85; }
     .btn:disabled { opacity: 0.4; cursor: not-allowed; }
     .btn-secondary { background: var(--gray-100); color: var(--black); }
@@ -198,7 +198,7 @@
       </div>
     </div>
     <div style="width:100%;max-width:380px">
-      <button onclick="startSignup()" style="width:100%;padding:18px;background:#CFA13C;color:white;border:none;border-radius:14px;font-size:17px;font-weight:800;cursor:pointer;margin-bottom:12px;box-shadow:0 4px 16px rgba(249,115,22,0.3)">Get Started</button>
+      <button onclick="startSignup()" style="width:100%;padding:18px;background:#CFA13C;color:#0B1210;border:none;border-radius:14px;font-size:17px;font-weight:800;cursor:pointer;margin-bottom:12px;box-shadow:0 4px 16px rgba(249,115,22,0.3)">Get Started</button>
       <button onclick="obClearProgress();showSignIn()" style="width:100%;padding:14px;background:none;border:none;font-size:15px;color:#9C9A93;cursor:pointer;font-weight:500">Already have an account? <span style="color:#CFA13C;font-weight:700">Sign In</span></button>
     </div>
   </div>
@@ -220,13 +220,13 @@
           <input type="checkbox" id="auth-remember-me" style="width:18px;height:18px;accent-color:#CFA13C;cursor:pointer" />
           <span style="font-size:14px;color:#9C9A93">Remember me</span>
         </label>
-        <button id="auth-login-btn" onclick="handleLogin()" style="width:100%;padding:16px;background:#CFA13C;color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:12px">Sign In</button>
+        <button id="auth-login-btn" onclick="handleLogin()" style="width:100%;padding:16px;background:#CFA13C;color:#0B1210;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:12px">Sign In</button>
         <button onclick="showResetForm()" style="width:100%;padding:10px;background:none;border:none;font-size:13px;color:#9C9A93;cursor:pointer">Forgot password?</button>
       </div>
       <div id="auth-reset-form" style="display:none">
         <div style="font-size:14px;color:#9C9A93;margin-bottom:20px;line-height:1.5">Enter your email and we'll send you a link to reset your password.</div>
         <div style="margin-bottom:16px"><input id="auth-reset-email" type="email" placeholder="Email" style="width:100%;padding:14px 16px;border:1.5px solid #2A322E;border-radius:12px;font-size:15px;outline:none;box-sizing:border-box" /></div>
-        <button id="auth-reset-btn" onclick="handleResetPassword()" style="width:100%;padding:16px;background:#CFA13C;color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:12px">Send Reset Link</button>
+        <button id="auth-reset-btn" onclick="handleResetPassword()" style="width:100%;padding:16px;background:#CFA13C;color:#0B1210;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:12px">Send Reset Link</button>
         <button onclick="showSignIn()" style="width:100%;padding:10px;background:none;border:none;font-size:13px;color:#9C9A93;cursor:pointer">← Back to Sign In</button>
       </div>
     </div>
@@ -241,7 +241,7 @@
       style="width:100%;max-width:260px;padding:16px;text-align:center;font-size:26px;font-weight:800;letter-spacing:6px;border:1.5px solid #2A322E;border-radius:12px;outline:none;box-sizing:border-box;margin-bottom:14px"
       oninput="this.value=this.value.replace(/[^0-9]/g,'')" onkeydown="if(event.key==='Enter')verifyOtpCode()" />
     <div id="auth-otp-error" style="font-size:13px;color:#F87171;margin-bottom:14px;display:none"></div>
-    <button id="auth-otp-verify-btn" onclick="verifyOtpCode()" style="width:100%;max-width:380px;padding:16px;background:#CFA13C;color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:12px">Verify & Continue</button>
+    <button id="auth-otp-verify-btn" onclick="verifyOtpCode()" style="width:100%;max-width:380px;padding:16px;background:#CFA13C;color:#0B1210;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:12px">Verify & Continue</button>
     <button onclick="resendOtpCode()" id="auth-otp-resend-btn" style="background:none;border:none;font-size:13px;color:#9C9A93;cursor:pointer">Didn't get a code? Resend</button>
   </div>
 
@@ -256,7 +256,7 @@
   <div style="background:#141A18;border-radius:16px;padding:20px;width:100%;max-width:380px;box-shadow:0 2px 12px rgba(0,0,0,0.06);margin-bottom:32px">
     <div id="welcome-stats" style="display:flex;flex-direction:column;gap:12px"></div>
   </div>
-  <button onclick="dismissWelcome()" style="width:100%;max-width:380px;padding:18px;background:#CFA13C;color:white;border:none;border-radius:14px;font-size:17px;font-weight:800;cursor:pointer;box-shadow:0 4px 16px rgba(249,115,22,0.3)">Let's Start Tracking →</button>
+  <button onclick="dismissWelcome()" style="width:100%;max-width:380px;padding:18px;background:#CFA13C;color:#0B1210;border:none;border-radius:14px;font-size:17px;font-weight:800;cursor:pointer;box-shadow:0 4px 16px rgba(249,115,22,0.3)">Let's Start Tracking →</button>
 </div>
 
 <div id="app-shell" style="display:none">
@@ -264,7 +264,7 @@
   <div class="header">
     <div class="header-top">
       <div class="brand">
-        <div class="brand-mark" style="background:linear-gradient(135deg,#CFA13C,#E08C7D)">
+        <div class="brand-mark" style="background:#CFA13C">
           <svg viewBox="0 0 24 24" fill="none"><rect x="4" y="10" width="4" height="10" rx="1" fill="white"/><rect x="10" y="5" width="4" height="15" rx="1" fill="white" opacity="0.85"/><rect x="16" y="13" width="4" height="7" rx="1" fill="white" opacity="0.65"/></svg>
         </div>
         <div>
@@ -411,8 +411,8 @@
         <div id="meal-form" style="display:none;margin-top:12px;background:#0B1210;border-radius:12px;padding:14px">
           <!-- Quick lookup buttons -->
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
-            <button onclick="openBarcodeScannerForMeal()" style="background:var(--accent);color:white;border:none;border-radius:8px;padding:10px;font-size:12px;font-weight:600;cursor:pointer">📷 Scan Barcode</button>
-            <button onclick="openLabelModalForMeal()" style="background:var(--accent);color:white;border:none;border-radius:8px;padding:10px;font-size:12px;font-weight:600;cursor:pointer">🏷️ Photo Label</button>
+            <button onclick="openBarcodeScannerForMeal()" style="background:var(--accent);color:#0B1210;border:none;border-radius:8px;padding:10px;font-size:12px;font-weight:600;cursor:pointer">📷 Scan Barcode</button>
+            <button onclick="openLabelModalForMeal()" style="background:var(--accent);color:#0B1210;border:none;border-radius:8px;padding:10px;font-size:12px;font-weight:600;cursor:pointer">🏷️ Photo Label</button>
           </div>
           <div class="form-group" style="position:relative;margin-bottom:4px">
             <input type="text" id="meal-name" placeholder="Search my foods, meals, or database..." autocomplete="off"
@@ -528,8 +528,8 @@
           <button onclick="toggleHistoryAddForm('meal')" id="hist-add-meal-btn" class="btn">+ Add Meal</button>
           <div id="hist-add-meal-form" style="display:none;margin-top:12px;background:#0B1210;border-radius:10px;padding:14px">
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
-              <button onclick="openBarcodeScannerForMeal()" style="background:var(--accent);color:white;border:none;border-radius:8px;padding:10px;font-size:12px;font-weight:600;cursor:pointer">📷 Scan Barcode</button>
-              <button onclick="openLabelModalForMeal()" style="background:var(--accent);color:white;border:none;border-radius:8px;padding:10px;font-size:12px;font-weight:600;cursor:pointer">🏷️ Photo Label</button>
+              <button onclick="openBarcodeScannerForMeal()" style="background:var(--accent);color:#0B1210;border:none;border-radius:8px;padding:10px;font-size:12px;font-weight:600;cursor:pointer">📷 Scan Barcode</button>
+              <button onclick="openLabelModalForMeal()" style="background:var(--accent);color:#0B1210;border:none;border-radius:8px;padding:10px;font-size:12px;font-weight:600;cursor:pointer">🏷️ Photo Label</button>
             </div>
             <div class="form-group" style="position:relative;margin-bottom:4px">
               <input type="text" id="hist-meal-name" placeholder="Search my foods, meals, or database..." autocomplete="off"
@@ -593,8 +593,8 @@
         <div class="card-title">Quick Add</div>
         <div style="font-size:12px;color:#9C9A93;margin-bottom:10px">Scan a barcode or photograph a nutrition label — then choose to save it as a Food or a Meal.</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
-          <button onclick="openBarcodeScannerFromMealsTab()" style="background:var(--accent);color:white;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:600;cursor:pointer">📷 Scan Barcode</button>
-          <button onclick="openLabelModalFromMealsTab()" style="background:var(--accent);color:white;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:600;cursor:pointer">🏷️ Photo Label</button>
+          <button onclick="openBarcodeScannerFromMealsTab()" style="background:var(--accent);color:#0B1210;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:600;cursor:pointer">📷 Scan Barcode</button>
+          <button onclick="openLabelModalFromMealsTab()" style="background:var(--accent);color:#0B1210;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:600;cursor:pointer">🏷️ Photo Label</button>
         </div>
         <!-- Food/meal search — always visible regardless of which sub-tab is active -->
         <div style="position:relative">
@@ -618,7 +618,7 @@
           <div class="card-title" style="margin-bottom:0">My Meals</div>
           <div style="display:flex;gap:8px">
             <button onclick="openUrlImport()" style="background:none;border:1px solid #2A322E;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;color:#9C9A93;cursor:pointer">🔗 URL</button>
-            <button onclick="openMealBuilder()" style="background:var(--accent);color:white;border:none;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;cursor:pointer">+ Create</button>
+            <button onclick="openMealBuilder()" style="background:var(--accent);color:#0B1210;border:none;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;cursor:pointer">+ Create</button>
           </div>
         </div>
         <div id="saved-meals-list"><div class="loading">Loading...</div></div>
@@ -629,7 +629,7 @@
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
           <div class="card-title" style="margin-bottom:0">My Foods</div>
-          <button onclick="toggleAddFood()" style="background:var(--accent);color:white;border:none;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;cursor:pointer">+ Add</button>
+          <button onclick="toggleAddFood()" style="background:var(--accent);color:#0B1210;border:none;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;cursor:pointer">+ Add</button>
         </div>
         <div id="add-food-form" style="display:none;background:#2B2414;border-radius:10px;padding:14px;margin-bottom:12px">
           <div id="add-food-form-fields"></div>
@@ -690,7 +690,7 @@
             <div style="font-size:26px;font-weight:700;color:#F2EFE7;letter-spacing:-0.5px"><span id="weight-latest-val">—</span> <span style="font-size:14px;font-weight:500;color:#9C9A93">lbs</span></div>
             <div id="weight-fun-fact" style="font-size:12px;color:#4ADE80;font-weight:600;margin-top:3px;display:none"></div>
           </div>
-          <button onclick="openLogModal('weight')" style="background:var(--accent);color:white;border:none;border-radius:20px;padding:10px 20px;font-size:13px;font-weight:700;cursor:pointer">Record Weight</button>
+          <button onclick="openLogModal('weight')" style="background:var(--accent);color:#0B1210;border:none;border-radius:20px;padding:10px 20px;font-size:13px;font-weight:700;cursor:pointer">Record Weight</button>
         </div>
         <!-- Goal edit inline -->
         <div id="weight-goal-edit" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid #1C2320">
@@ -794,7 +794,7 @@
               <div style="font-size:11px;font-weight:700;color:#9C9A93;text-transform:uppercase;letter-spacing:0.5px" id="bf-latest-date">No entries yet</div>
               <div style="font-size:26px;font-weight:700;color:#F2EFE7;letter-spacing:-0.5px"><span id="bf-latest-val">—</span> <span style="font-size:14px;font-weight:500;color:#9C9A93">%</span></div>
             </div>
-            <button onclick="openLogModal('bf')" style="background:var(--accent);color:white;border:none;border-radius:20px;padding:10px 20px;font-size:13px;font-weight:700;cursor:pointer">Record Body Fat</button>
+            <button onclick="openLogModal('bf')" style="background:var(--accent);color:#0B1210;border:none;border-radius:20px;padding:10px 20px;font-size:13px;font-weight:700;cursor:pointer">Record Body Fat</button>
           </div>
           <!-- Goal edit inline -->
           <div id="bf-goal-edit" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid #1C2320">
@@ -917,7 +917,7 @@
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
           <div class="card-title" style="margin-bottom:0">Daily Targets</div>
-          <button onclick="toggleEditTargets()" id="edit-targets-btn" style="background:var(--accent);color:white;border:none;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;cursor:pointer">Edit</button>
+          <button onclick="toggleEditTargets()" id="edit-targets-btn" style="background:var(--accent);color:#0B1210;border:none;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;cursor:pointer">Edit</button>
         </div>
         <div id="targets-display" class="stat-grid">
           <div class="stat-item"><div class="stat-val" id="disp-calories">2,250</div><div class="stat-label">Calories/day</div></div>
@@ -946,7 +946,7 @@
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
           <div class="card-title" style="margin-bottom:0">Profile</div>
-          <button onclick="toggleEditProfile()" id="edit-profile-btn" style="background:var(--accent);color:white;border:none;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;cursor:pointer">Edit</button>
+          <button onclick="toggleEditProfile()" id="edit-profile-btn" style="background:var(--accent);color:#0B1210;border:none;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;cursor:pointer">Edit</button>
         </div>
         <div id="profile-display">
           <div id="disp-name-row" style="display:none;margin-bottom:12px;padding:12px 14px;background:#141A18;border-radius:10px">
@@ -1076,7 +1076,7 @@
             <div style="font-size:12px;color:#9C9A93;margin-bottom:10px">Which meal are these for?</div>
             <div id="coach-meal-type-pills" style="display:flex;gap:6px;margin-bottom:12px"></div>
             <div style="font-size:12px;color:#9C9A93;margin-bottom:12px" id="coach-meals-remaining-label">Suggestions to help fill out today's remaining macros.</div>
-            <button onclick="loadAiMealIdeas()" style="width:100%;background:var(--accent);color:white;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer">✨ Get Meal Ideas</button>
+            <button onclick="loadAiMealIdeas()" style="width:100%;background:var(--accent);color:#0B1210;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer">✨ Get Meal Ideas</button>
           </div>
           <div id="coach-meals-results"></div>
         </div>
@@ -1156,7 +1156,7 @@
           <div style="display:flex;gap:8px;padding:12px;border-top:1px solid #332818;background:#141A18">
             <input type="text" id="coach-chat-input" placeholder="Ask your coach..." onkeydown="if(event.key==='Enter')sendCoachChatMessage()"
               style="flex:1;padding:10px 12px;border:1px solid #2A322E;border-radius:20px;font-size:14px;outline:none" />
-            <button onclick="sendCoachChatMessage()" style="background:var(--accent);color:white;border:none;border-radius:20px;padding:10px 18px;font-size:14px;font-weight:700;cursor:pointer">Send</button>
+            <button onclick="sendCoachChatMessage()" style="background:var(--accent);color:#0B1210;border:none;border-radius:20px;padding:10px 18px;font-size:14px;font-weight:700;cursor:pointer">Send</button>
           </div>
         </div>
       </div>
@@ -1270,7 +1270,7 @@
         <div id="settings-username-status" style="font-size:12px;margin-top:6px;display:none"></div>
         <div style="display:flex;gap:8px;margin-top:8px">
           <button onclick="closeUsernameEdit()" style="flex:1;padding:10px;border:1px solid #2A322E;border-radius:10px;background:#141A18;font-size:13px;font-weight:600;cursor:pointer">Cancel</button>
-          <button onclick="saveUsernameChange()" style="flex:1;padding:10px;border:none;border-radius:10px;background:#CFA13C;color:white;font-size:13px;font-weight:700;cursor:pointer">Save</button>
+          <button onclick="saveUsernameChange()" style="flex:1;padding:10px;border:none;border-radius:10px;background:#CFA13C;color:#0B1210;font-size:13px;font-weight:700;cursor:pointer">Save</button>
         </div>
       </div>
     </div>
@@ -1299,7 +1299,7 @@
           style="width:100%;padding:10px 12px;border:1.5px solid #2A322E;border-radius:10px;font-size:13px;outline:none;box-sizing:border-box;resize:vertical;font-family:inherit;margin-bottom:10px"></textarea>
         <div style="display:flex;gap:8px">
           <button onclick="closePreferencesEdit()" style="flex:1;padding:10px;border:1px solid #2A322E;border-radius:10px;background:#141A18;font-size:13px;font-weight:600;cursor:pointer">Cancel</button>
-          <button onclick="savePreferencesChange()" style="flex:1;padding:10px;border:none;border-radius:10px;background:#CFA13C;color:white;font-size:13px;font-weight:700;cursor:pointer">Save</button>
+          <button onclick="savePreferencesChange()" style="flex:1;padding:10px;border:none;border-radius:10px;background:#CFA13C;color:#0B1210;font-size:13px;font-weight:700;cursor:pointer">Save</button>
         </div>
       </div>
     </div>
@@ -1349,7 +1349,7 @@
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
       <button onclick="cancelGoalNumpad()" style="padding:16px;border:1px solid #2A322E;border-radius:12px;background:#141A18;font-size:15px;font-weight:600;cursor:pointer">Cancel</button>
-      <button onclick="confirmGoalNumpad()" style="padding:16px;border:none;border-radius:12px;background:var(--accent);color:white;font-size:15px;font-weight:700;cursor:pointer">Set</button>
+      <button onclick="confirmGoalNumpad()" style="padding:16px;border:none;border-radius:12px;background:var(--accent);color:#0B1210;font-size:15px;font-weight:700;cursor:pointer">Set</button>
     </div>
   </div>
 </div>
@@ -1607,7 +1607,7 @@
       <button onclick="closeLabelModal()" style="background:#1C2320;color:#F2EFE7;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:600;cursor:pointer">Cancel</button>
       <button onclick="saveLabelAsFood()" style="background:#1C2320;color:#F2EFE7;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:600;cursor:pointer">Save Food</button>
       <button onclick="saveLabelAsMeal()" style="background:#1C2320;color:#F2EFE7;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:600;cursor:pointer">Save as Meal</button>
-      <button onclick="logLabelAsFood()" style="background:linear-gradient(135deg,#CFA13C,#E08C7D);color:white;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:600;cursor:pointer">Log Now</button>
+      <button onclick="logLabelAsFood()" style="background:#CFA13C;color:#0B1210;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:600;cursor:pointer">Log Now</button>
     </div>
     <button id="label-cancel-btn" onclick="closeLabelModal()" style="width:100%;background:#1C2320;color:#F2EFE7;border:none;border-radius:8px;padding:11px;font-size:14px;font-weight:600;cursor:pointer;margin-top:0">Cancel</button>
   </div>
@@ -3711,7 +3711,7 @@ function showChangePasswordForm(token) {
     </div>
     <div style="margin-bottom:12px;position:relative"><input id="new-password" type="password" placeholder="New password (min 6 chars)" style="width:100%;padding:14px 48px 14px 16px;border:1px solid #2A322E;border-radius:12px;font-size:15px;outline:none;box-sizing:border-box" /><button type="button" onclick="togglePw('new-password',this)" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:0;font-size:18px;line-height:1;color:#9C9A93">👁️</button></div>
     <div style="margin-bottom:16px;position:relative"><input id="new-password-confirm" type="password" placeholder="Confirm new password" style="width:100%;padding:14px 48px 14px 16px;border:1px solid #2A322E;border-radius:12px;font-size:15px;outline:none;box-sizing:border-box" /><button type="button" onclick="togglePw('new-password-confirm',this)" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:0;font-size:18px;line-height:1;color:#9C9A93">👁️</button></div>
-    <button onclick="handleChangePassword('${token}')" style="width:100%;padding:16px;background:var(--accent);color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer">Update Password</button>
+    <button onclick="handleChangePassword('${token}')" style="width:100%;padding:16px;background:var(--accent);color:#0B1210;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer">Update Password</button>
   `;
 }
 
@@ -4389,7 +4389,7 @@ function renderRecentWorkouts() {
         <div style="font-size:13px;font-weight:500;color:#F2EFE7">${w.name}</div>
         <div style="font-size:11px;color:#9C9A93;margin-top:2px">${w.duration} min | ${w.calories} cal</div>
       </div>
-      <div style="background:linear-gradient(135deg,#CFA13C,#E08C7D);color:white;border:none;border-radius:14px;padding:4px 12px;font-size:12px;font-weight:600">Fill In</div>
+      <div style="background:#CFA13C;color:#0B1210;border:none;border-radius:14px;padding:4px 12px;font-size:12px;font-weight:600">Fill In</div>
     </div>`).join('');
 
   el.querySelectorAll('[data-fill-workout]').forEach(row => {
@@ -5135,7 +5135,7 @@ async function searchFoodDatabase(query) {
             <div style="font-size:11px;color:#9C9A93">${nutritionMetaString(m)}</div>
             <div style="font-size:11px;color:#9C9A93">${(m.ingredients||[]).length} ingredient${(m.ingredients||[]).length !== 1 ? 's' : ''}</div>
           </div>
-          <button type="button" onclick="openLogMealModal('${m.id}')" style="background:linear-gradient(135deg,#CFA13C,#E08C7D);color:white;border:none;border-radius:14px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer">+ Log</button>
+          <button type="button" onclick="openLogMealModal('${m.id}')" style="background:#CFA13C;color:#0B1210;border:none;border-radius:14px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer">+ Log</button>
         </div>`).join('');
     }
 
@@ -5148,7 +5148,7 @@ async function searchFoodDatabase(query) {
             <div style="font-size:14px;font-weight:500">${f.name}</div>
             <div style="font-size:11px;color:#9C9A93">${nutritionMetaString(f, {perUnit: f.unit})}</div>
           </div>
-          <button type="button" onclick="openFoodModal('${f.id}')" style="background:linear-gradient(135deg,#CFA13C,#E08C7D);color:white;border:none;border-radius:14px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer">+ Log</button>
+          <button type="button" onclick="openFoodModal('${f.id}')" style="background:#CFA13C;color:#0B1210;border:none;border-radius:14px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer">+ Log</button>
         </div>`).join('');
     }
 
@@ -5161,7 +5161,7 @@ async function searchFoodDatabase(query) {
             <div style="font-size:14px;font-weight:500">${f.name}</div>
             <div style="font-size:11px;color:#9C9A93">${nutritionMetaString(f, {perUnit: f.serving_size})}</div>
           </div>
-          <button type="button" onclick='logSearchResult(${JSON.stringify(JSON.stringify(f))})' style="background:linear-gradient(135deg,#CFA13C,#E08C7D);color:white;border:none;border-radius:14px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer">+ Log</button>
+          <button type="button" onclick='logSearchResult(${JSON.stringify(JSON.stringify(f))})' style="background:#CFA13C;color:#0B1210;border:none;border-radius:14px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer">+ Log</button>
         </div>`).join('');
     }
 
@@ -5372,7 +5372,7 @@ function renderAiMealIdeas(suggestions) {
         </details>
       ` : ''}
       <div style="display:grid;grid-template-columns:${s.type === 'new' || s.type === 'curated_meal' ? '1fr 1fr' : '1fr'};gap:8px">
-        <button onclick='logAiMealSuggestion(${JSON.stringify(s).replace(/'/g, "&#39;")})' style="width:100%;background:var(--accent);color:white;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer">+ Log This</button>
+        <button onclick='logAiMealSuggestion(${JSON.stringify(s).replace(/'/g, "&#39;")})' style="width:100%;background:var(--accent);color:#0B1210;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer">+ Log This</button>
         ${s.type === 'new' || s.type === 'curated_meal' ? `<button onclick='saveAiSuggestionToMyMeals(${JSON.stringify(s).replace(/'/g, "&#39;")})' style="width:100%;background:#141A18;color:#CFA13C;border:1px solid #332818;border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer">💾 Save to My Meals</button>` : ''}
       </div>
       </div>
@@ -5531,7 +5531,7 @@ function renderMealPrepDayEditorInner(i, day) {
           `).join('')}
         </div>
       </div>
-      <button type="button" onclick="saveMealPrepDay(${i})" style="width:100%;background:var(--accent);color:white;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;margin-top:16px">Save ${DAY_NAMES_FULL[i]}</button>
+      <button type="button" onclick="saveMealPrepDay(${i})" style="width:100%;background:var(--accent);color:#0B1210;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;margin-top:16px">Save ${DAY_NAMES_FULL[i]}</button>
     </div>`;
 }
 
@@ -5760,7 +5760,7 @@ function renderMealPrepDishCard(d, idx) {
           <ol style="padding-left:18px;margin:10px 0 0;display:flex;flex-direction:column;gap:6px;font-size:12px;color:#9C9A93;line-height:1.4">${d.instructions.map(step => `<li>${step}</li>`).join('')}</ol>
         </details>
       ` : ''}
-      <button onclick="confirmMealPrepDish(${idx})" ${isRegenerating ? 'disabled' : ''} style="width:100%;background:var(--accent);color:white;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer">✅ Add to My Week${chosenCount ? ` (${chosenCount} day${chosenCount === 1 ? '' : 's'})` : ''}</button>
+      <button onclick="confirmMealPrepDish(${idx})" ${isRegenerating ? 'disabled' : ''} style="width:100%;background:var(--accent);color:#0B1210;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer">✅ Add to My Week${chosenCount ? ` (${chosenCount} day${chosenCount === 1 ? '' : 's'})` : ''}</button>
       <button onclick="regenerateSingleDish(${idx})" ${isRegenerating ? 'disabled' : ''} style="width:100%;background:none;border:none;color:#CFA13C;font-size:12px;font-weight:700;cursor:pointer;padding:10px 0 0">${isRegenerating ? '✨ Finding something else...' : '🔄 Not feeling this one? Try another'}</button>
       </div>
     </div>`;
@@ -5992,7 +5992,7 @@ function renderShoppingList() {
 
       <div style="display:flex;gap:8px;margin-bottom:14px">
         <input type="text" id="shopping-add-input" placeholder="Add an item (e.g. milk, paper towels)" onkeydown="if(event.key==='Enter') addShoppingExtra()" style="flex:1;padding:10px 12px;border:1px solid #2A322E;border-radius:10px;font-size:13px;outline:none" />
-        <button type="button" onclick="addShoppingExtra()" style="background:var(--accent);color:white;border:none;border-radius:10px;padding:0 16px;font-size:13px;font-weight:700;cursor:pointer">+ Add</button>
+        <button type="button" onclick="addShoppingExtra()" style="background:var(--accent);color:#0B1210;border:none;border-radius:10px;padding:0 16px;font-size:13px;font-weight:700;cursor:pointer">+ Add</button>
       </div>
 
       ${!items.length ? `<div style="text-align:center;padding:16px;color:#9C9A93;font-size:13px">Nothing on your list yet.</div>` : ''}
@@ -6179,7 +6179,7 @@ function renderPlanFeedback() {
       ${suggestions.map((s, si) => `
         <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--gray-100)">
           <div style="font-size:12px;color:#9C9A93;flex:1">Add <b>${s.add_muscle_group}</b> to <b>${s.day_name}</b>${s.reason ? ' — ' + s.reason : ''}</div>
-          <button type="button" onclick="applyPlanFeedbackSuggestion(${si})" style="flex-shrink:0;background:var(--accent);color:white;border:none;border-radius:16px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer">Apply</button>
+          <button type="button" onclick="applyPlanFeedbackSuggestion(${si})" style="flex-shrink:0;background:var(--accent);color:#0B1210;border:none;border-radius:16px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer">Apply</button>
         </div>`).join('')}
     </div>`;
 }
@@ -6381,14 +6381,14 @@ function renderPlanDayEditorInner(i, day) {
       </div>` : (configCollapsed && !day.is_rest_day ? `
       <div style="padding:16px 4px;text-align:center">
         <div style="font-size:12px;color:#9C9A93;margin-bottom:10px">No exercises generated for this day yet.</div>
-        <button type="button" onclick="generateDayWorkout(${i})" ${isGenerating ? 'disabled' : ''} style="background:var(--accent);color:white;border:none;border-radius:10px;padding:10px 20px;font-size:13px;font-weight:700;cursor:pointer">${isGenerating ? '✨ Building...' : '✨ Generate Exercises'}</button>
+        <button type="button" onclick="generateDayWorkout(${i})" ${isGenerating ? 'disabled' : ''} style="background:var(--accent);color:#0B1210;border:none;border-radius:10px;padding:10px 20px;font-size:13px;font-weight:700;cursor:pointer">${isGenerating ? '✨ Building...' : '✨ Generate Exercises'}</button>
       </div>` : '')}
       ${!configCollapsed ? `
       <div style="display:flex;gap:8px;margin-top:16px">
         <button type="button" onclick="cancelPlanDayEdit(${i})" ${isGenerating ? 'disabled' : ''} style="flex:1;background:#1C2320;color:#9C9A93;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:700;cursor:pointer">Cancel</button>
         <button type="button" onclick="clearPlanDay(${i})" ${isGenerating ? 'disabled' : ''} style="flex:1;background:#2A1616;color:#EF4444;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:700;cursor:pointer">Clear Day</button>
       </div>
-      <button type="button" onclick="savePlanDay(${i})" ${isGenerating ? 'disabled' : ''} style="width:100%;background:var(--accent);color:white;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;margin-top:8px">${isGenerating ? '✨ Building exercises...' : `Save ${DAY_NAMES_FULL[i]}`}</button>
+      <button type="button" onclick="savePlanDay(${i})" ${isGenerating ? 'disabled' : ''} style="width:100%;background:var(--accent);color:#0B1210;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;margin-top:8px">${isGenerating ? '✨ Building exercises...' : `Save ${DAY_NAMES_FULL[i]}`}</button>
       ` : ''}
     </div>`;
 }
@@ -6465,7 +6465,7 @@ async function sendCoachChatMessage() {
   if (!message) return;
   input.value = '';
   const messagesEl = document.getElementById('coach-chat-messages');
-  messagesEl.innerHTML += `<div style="align-self:flex-end;max-width:80%;background:var(--accent);color:white;padding:10px 14px;border-radius:14px 14px 4px 14px;font-size:14px">${message}</div>`;
+  messagesEl.innerHTML += `<div style="align-self:flex-end;max-width:80%;background:var(--accent);color:#0B1210;padding:10px 14px;border-radius:14px 14px 4px 14px;font-size:14px">${message}</div>`;
   messagesEl.innerHTML += `<div id="coach-chat-typing" style="font-size:12px;color:#9C9A93;padding:4px 0">Coach is typing...</div>`;
   messagesEl.scrollTop = messagesEl.scrollHeight;
 
@@ -6537,7 +6537,7 @@ function renderSavedMeals() {
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
-        <button onclick="openLogMealModal('${m.id}')" style="background:var(--accent);color:white;border:none;border-radius:16px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer">+ Log</button>
+        <button onclick="openLogMealModal('${m.id}')" style="background:var(--accent);color:#0B1210;border:none;border-radius:16px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer">+ Log</button>
         <button onclick="deleteSavedMeal('${m.id}')" style="background:none;border:none;color:#2A322E;cursor:pointer;font-size:20px;line-height:1">×</button>
       </div>
     </div>`).join('');
@@ -6836,7 +6836,7 @@ function _mbCacheFood(food) {
 }
 function mbFoodBtn(food) {
   const key = _mbCacheFood(food);
-  return `<button onclick="_mbOpenKey('${key}')" style="background:linear-gradient(135deg,#CFA13C,#E08C7D);color:white;border:none;border-radius:14px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer">+ Add</button>`;
+  return `<button onclick="_mbOpenKey('${key}')" style="background:#CFA13C;color:#0B1210;border:none;border-radius:14px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer">+ Add</button>`;
 }
 function _mbOpenKey(key) {
   const food = _mbFoodCache[key];
@@ -7277,7 +7277,7 @@ function renderSavedFoods() {
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
-        <button onclick="openFoodModal('${f.id}')" style="background:var(--accent);color:white;border:none;border-radius:16px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer">+ Log</button>
+        <button onclick="openFoodModal('${f.id}')" style="background:var(--accent);color:#0B1210;border:none;border-radius:16px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer">+ Log</button>
         <button onclick="deleteSavedFood('${f.id}')" style="background:none;border:none;color:#2A322E;cursor:pointer;font-size:20px;line-height:1">×</button>
       </div>
     </div>`).join('');
@@ -7812,7 +7812,7 @@ function showBarcodeNotFoundModal(barcode, partialName) {
       <div style="font-size:32px;margin-bottom:8px">📦</div>
       <div style="font-size:16px;font-weight:700;margin-bottom:8px">Product Not Found</div>
       <div style="font-size:13px;color:#9C9A93;margin-bottom:20px;line-height:1.5">${msg}</div>
-      <button onclick="this.closest('div[style*=fixed]').remove(); openLabelModal();" style="width:100%;background:linear-gradient(135deg,#CFA13C,#E08C7D);color:white;border:none;border-radius:10px;padding:14px;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:8px">🏷️ Take Photo of Nutrition Label Instead</button>
+      <button onclick="this.closest('div[style*=fixed]').remove(); openLabelModal();" style="width:100%;background:#CFA13C;color:#0B1210;border:none;border-radius:10px;padding:14px;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:8px">🏷️ Take Photo of Nutrition Label Instead</button>
       <button onclick="this.closest('div[style*=fixed]').remove()" style="width:100%;background:#1C2320;color:#9C9A93;border:none;border-radius:10px;padding:14px;font-size:14px;font-weight:600;cursor:pointer">Enter Manually</button>
     </div>
   `;
@@ -8077,7 +8077,7 @@ function showLabelResult(data) {
     const fillBtn = document.createElement('button');
     fillBtn.id = 'fill-form-btn';
     fillBtn.textContent = 'Fill Meal Form';
-    fillBtn.style.cssText = 'background:linear-gradient(135deg,#CFA13C,#E08C7D);color:white;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:600;cursor:pointer;grid-column:1/-1;margin-top:4px;width:100%';
+    fillBtn.style.cssText = 'background:#CFA13C;color:#0B1210;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:600;cursor:pointer;grid-column:1/-1;margin-top:4px;width:100%';
     fillBtn.onclick = () => { fillMealFormFromScan(labelScannedData); closeLabelModal(); };
     actions.appendChild(fillBtn);
   }
@@ -8085,7 +8085,7 @@ function showLabelResult(data) {
     const saveMealBtn = document.createElement('button');
     saveMealBtn.id = 'fill-form-btn';
     saveMealBtn.textContent = 'Save as Meal';
-    saveMealBtn.style.cssText = 'background:linear-gradient(135deg,#CFA13C,#E08C7D);color:white;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:600;cursor:pointer;grid-column:1/-1;margin-top:4px;width:100%';
+    saveMealBtn.style.cssText = 'background:#CFA13C;color:#0B1210;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:600;cursor:pointer;grid-column:1/-1;margin-top:4px;width:100%';
     saveMealBtn.onclick = () => saveScannedAsMeal();
     actions.appendChild(saveMealBtn);
   }
@@ -9967,7 +9967,7 @@ if (document.readyState === 'loading') {
       </div>
     </div>
     <div style="padding:20px 24px 40px">
-      <button onclick="obNext(1)" style="width:100%;padding:16px;background:#CFA13C;color:white;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer">Next</button>
+      <button onclick="obNext(1)" style="width:100%;padding:16px;background:#CFA13C;color:#0B1210;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer">Next</button>
       <button onclick="document.querySelectorAll('.ob-screen').forEach(el=>el.style.display='none');showAuthScreen();" style="width:100%;padding:12px;background:none;border:none;font-size:14px;color:#9C9A93;cursor:pointer;margin-top:4px">Already have an account? Sign In</button>
     </div>
   </div>
@@ -10043,7 +10043,7 @@ if (document.readyState === 'loading') {
     </div>
     <div style="padding:20px 24px 40px;display:flex;gap:10px">
       <button onclick="obBack(3)" style="padding:16px 20px;border:1px solid #2A322E;border-radius:14px;background:#141A18;font-size:20px;cursor:pointer">←</button>
-      <button onclick="obNext(3)" style="flex:1;padding:16px;background:#CFA13C;color:white;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer">Next</button>
+      <button onclick="obNext(3)" style="flex:1;padding:16px;background:#CFA13C;color:#0B1210;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer">Next</button>
     </div>
   </div>
 
@@ -10146,7 +10146,7 @@ if (document.readyState === 'loading') {
     </div>
     <div style="padding:20px 24px 40px;display:flex;gap:10px">
       <button onclick="obBack(4)" style="padding:16px 20px;border:1px solid #2A322E;border-radius:14px;background:#141A18;font-size:20px;cursor:pointer">←</button>
-      <button onclick="obNext(4)" style="flex:1;padding:16px;background:#CFA13C;color:white;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer">Next</button>
+      <button onclick="obNext(4)" style="flex:1;padding:16px;background:#CFA13C;color:#0B1210;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer">Next</button>
     </div>
   </div>
 
@@ -10191,7 +10191,7 @@ if (document.readyState === 'loading') {
     </div>
     <div style="padding:20px 24px 40px;display:flex;gap:10px">
       <button onclick="obBack(5)" style="padding:16px 20px;border:1px solid #2A322E;border-radius:14px;background:#141A18;font-size:20px;cursor:pointer">←</button>
-      <button onclick="obNext(5)" style="flex:1;padding:16px;background:#CFA13C;color:white;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer">Next</button>
+      <button onclick="obNext(5)" style="flex:1;padding:16px;background:#CFA13C;color:#0B1210;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer">Next</button>
     </div>
   </div>
 
@@ -10222,7 +10222,7 @@ if (document.readyState === 'loading') {
     </div>
     <div style="padding:20px 24px 40px;display:flex;gap:10px">
       <button onclick="obBack(6)" style="padding:16px 20px;border:1px solid #2A322E;border-radius:14px;background:#141A18;font-size:20px;cursor:pointer">←</button>
-      <button onclick="obNext(6)" style="flex:1;padding:16px;background:#CFA13C;color:white;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer">Next</button>
+      <button onclick="obNext(6)" style="flex:1;padding:16px;background:#CFA13C;color:#0B1210;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer">Next</button>
     </div>
   </div>
 
@@ -10282,7 +10282,7 @@ if (document.readyState === 'loading') {
     </div>
     <div style="padding:20px 24px 40px;display:flex;gap:10px">
       <button onclick="obBack(7)" style="padding:16px 20px;border:1px solid #2A322E;border-radius:14px;background:#141A18;font-size:20px;cursor:pointer">←</button>
-      <button id="ob-signup-btn" onclick="obNext(7)" style="flex:1;padding:16px;background:#CFA13C;color:white;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer">Next →</button>
+      <button id="ob-signup-btn" onclick="obNext(7)" style="flex:1;padding:16px;background:#CFA13C;color:#0B1210;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer">Next →</button>
     </div>
   </div>
 
@@ -10342,7 +10342,7 @@ if (document.readyState === 'loading') {
     <div style="padding:20px 24px 40px;display:flex;flex-direction:column;gap:10px">
       <div style="display:flex;gap:10px">
         <button onclick="obBack(8)" style="padding:16px 20px;border:1px solid #2A322E;border-radius:14px;background:#141A18;font-size:20px;cursor:pointer">←</button>
-        <button id="ob-photo-next-btn" onclick="obNext(8)" style="flex:1;padding:16px;background:#CFA13C;color:white;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer">Next</button>
+        <button id="ob-photo-next-btn" onclick="obNext(8)" style="flex:1;padding:16px;background:#CFA13C;color:#0B1210;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer">Next</button>
       </div>
       <button onclick="obNext(8, true)" style="width:100%;padding:12px;background:none;border:none;font-size:14px;color:#9C9A93;cursor:pointer">Skip for now</button>
     </div>
@@ -10386,7 +10386,7 @@ if (document.readyState === 'loading') {
     <div style="padding:20px 24px 40px;display:flex;flex-direction:column;gap:10px">
       <div style="display:flex;gap:10px">
         <button onclick="obBack(9)" style="padding:16px 20px;border:1px solid #2A322E;border-radius:14px;background:#141A18;font-size:20px;cursor:pointer">←</button>
-        <button onclick="obNext(9)" style="flex:1;padding:16px;background:#CFA13C;color:white;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer">Create Account</button>
+        <button onclick="obNext(9)" style="flex:1;padding:16px;background:#CFA13C;color:#0B1210;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer">Create Account</button>
       </div>
       <button onclick="obNext(9, true)" style="width:100%;padding:12px;background:none;border:none;font-size:14px;color:#9C9A93;cursor:pointer">Skip for now</button>
     </div>
@@ -10398,7 +10398,7 @@ if (document.readyState === 'loading') {
   <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #1C2320">
     <button onclick="closeMealBuilder()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#F2EFE7;padding:0">←</button>
     <div style="font-size:16px;font-weight:700" id="meal-builder-title">Create Meal</div>
-    <button onclick="saveMeal()" style="background:var(--accent);color:white;border:none;border-radius:20px;padding:6px 16px;font-size:13px;font-weight:700;cursor:pointer">Save</button>
+    <button onclick="saveMeal()" style="background:var(--accent);color:#0B1210;border:none;border-radius:20px;padding:6px 16px;font-size:13px;font-weight:700;cursor:pointer">Save</button>
   </div>
 
   <div style="flex:1;overflow-y:auto;padding:20px">
@@ -10447,7 +10447,7 @@ if (document.readyState === 'loading') {
     <div id="mb-ingredients-list" style="margin-bottom:16px"></div>
 
     <!-- Search -->
-    <button onclick="mbOpenManual()" style="background:var(--accent);color:white;border:none;border-radius:20px;padding:6px 16px;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:10px">+ Ingredient</button>
+    <button onclick="mbOpenManual()" style="background:var(--accent);color:#0B1210;border:none;border-radius:20px;padding:6px 16px;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:10px">+ Ingredient</button>
     <div style="position:relative;margin-bottom:10px">
       <input type="text" id="mb-search-input" placeholder="🔍 Search saved foods or database..."
         style="width:100%;padding:10px 12px;border:1px solid #2A322E;border-radius:10px;font-size:14px;outline:none;box-sizing:border-box"
@@ -10495,7 +10495,7 @@ if (document.readyState === 'loading') {
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
       <button onclick="document.getElementById('mb-serving-modal').style.display='none'" style="padding:14px;border:1px solid #2A322E;border-radius:12px;background:#1C2320;color:#F2EFE7;font-size:15px;font-weight:600;cursor:pointer">Cancel</button>
-      <button onclick="mbAddIngredient()" style="padding:14px;border:none;border-radius:12px;background:var(--accent);color:white;font-size:15px;font-weight:700;cursor:pointer">Add</button>
+      <button onclick="mbAddIngredient()" style="padding:14px;border:none;border-radius:12px;background:var(--accent);color:#0B1210;font-size:15px;font-weight:700;cursor:pointer">Add</button>
     </div>
   </div>
 </div>
@@ -10509,7 +10509,7 @@ if (document.readyState === 'loading') {
     </div>
     <div style="display:flex;gap:10px">
       <button onclick="document.getElementById('mb-manual-modal').style.display='none'" style="flex:1;padding:14px;border:1px solid #2A322E;border-radius:12px;background:#141A18;font-size:15px;font-weight:600;cursor:pointer">Cancel</button>
-      <button onclick="mbAddManual()" style="flex:1;padding:14px;border:none;border-radius:12px;background:var(--accent);color:white;font-size:15px;font-weight:700;cursor:pointer">Add</button>
+      <button onclick="mbAddManual()" style="flex:1;padding:14px;border:none;border-radius:12px;background:var(--accent);color:#0B1210;font-size:15px;font-weight:700;cursor:pointer">Add</button>
     </div>
   </div>
 </div>
@@ -10571,7 +10571,7 @@ if (document.readyState === 'loading') {
     </div>
     <div style="display:flex;gap:10px">
       <button onclick="document.getElementById('url-import-modal').style.display='none'" style="flex:1;padding:14px;border:1px solid #2A322E;border-radius:12px;background:#141A18;font-size:15px;font-weight:600;cursor:pointer">Cancel</button>
-      <button id="url-import-btn" onclick="urlImportFetch()" style="flex:1;padding:14px;border:none;border-radius:12px;background:var(--accent);color:white;font-size:15px;font-weight:700;cursor:pointer">Import</button>
+      <button id="url-import-btn" onclick="urlImportFetch()" style="flex:1;padding:14px;border:none;border-radius:12px;background:var(--accent);color:#0B1210;font-size:15px;font-weight:700;cursor:pointer">Import</button>
     </div>
   </div>
 </div>
@@ -10611,7 +10611,7 @@ if (document.readyState === 'loading') {
     <div id="checkin-sub" style="font-size:14px;color:#9C9A93;line-height:1.6;text-align:center;margin-bottom:28px"></div>
     <!-- Action buttons -->
     <div id="checkin-actions" style="display:flex;flex-direction:column;gap:10px">
-      <button id="checkin-primary-btn" onclick="dismissCheckin()" style="width:100%;padding:16px;background:#CFA13C;color:white;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer"></button>
+      <button id="checkin-primary-btn" onclick="dismissCheckin()" style="width:100%;padding:16px;background:#CFA13C;color:#0B1210;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer"></button>
       <button onclick="dismissCheckin()" style="width:100%;padding:12px;background:none;border:none;font-size:14px;color:#9C9A93;cursor:pointer">Maybe later</button>
     </div>
   </div>
@@ -10643,7 +10643,7 @@ if (document.readyState === 'loading') {
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
       <button onclick="obNumpadCancel()" style="padding:16px;border:1px solid #2A322E;border-radius:12px;background:#141A18;font-size:15px;font-weight:600;cursor:pointer">Cancel</button>
-      <button onclick="obNumpadConfirm()" style="padding:16px;border:none;border-radius:12px;background:#CFA13C;color:white;font-size:15px;font-weight:700;cursor:pointer">Done</button>
+      <button onclick="obNumpadConfirm()" style="padding:16px;border:none;border-radius:12px;background:#CFA13C;color:#0B1210;font-size:15px;font-weight:700;cursor:pointer">Done</button>
     </div>
   </div>
 </div>
