@@ -45,7 +45,7 @@
     .ob-choice-btn { width:100%;border:1.5px solid #2A322E;border-radius:10px;background:#141A18;cursor:pointer;font-size:14px;font-weight:600;color:#F2EFE7;padding:12px 14px;transition:all 0.15s; }
     .ob-choice-btn.ob-active { border-color:#CFA13C;background:#2B2414;color:#CFA13C; }
 
-    .range-pill { padding:4px 12px; font-size:12px; font-weight:600; border:none; border-radius:20px; background:#1C2320; color:#888; cursor:pointer; white-space:nowrap; transition:all 0.15s; }
+    .range-pill { padding:4px 12px; font-size:12px; font-weight:600; border:none; border-radius:20px; background:#1C2320; color:#9C9A93; cursor:pointer; white-space:nowrap; transition:all 0.15s; }
     .range-pill.active-pill { background:#F2EFE7; color:white; }
 
     /* LAYOUT */
@@ -199,7 +199,7 @@
     </div>
     <div style="width:100%;max-width:380px">
       <button onclick="startSignup()" style="width:100%;padding:18px;background:#CFA13C;color:white;border:none;border-radius:14px;font-size:17px;font-weight:800;cursor:pointer;margin-bottom:12px;box-shadow:0 4px 16px rgba(249,115,22,0.3)">Get Started</button>
-      <button onclick="obClearProgress();showSignIn()" style="width:100%;padding:14px;background:none;border:none;font-size:15px;color:#666;cursor:pointer;font-weight:500">Already have an account? <span style="color:#CFA13C;font-weight:700">Sign In</span></button>
+      <button onclick="obClearProgress();showSignIn()" style="width:100%;padding:14px;background:none;border:none;font-size:15px;color:#9C9A93;cursor:pointer;font-weight:500">Already have an account? <span style="color:#CFA13C;font-weight:700">Sign In</span></button>
     </div>
   </div>
 
@@ -218,13 +218,13 @@
         </div>
         <label style="display:flex;align-items:center;gap:8px;margin-bottom:20px;cursor:pointer;user-select:none">
           <input type="checkbox" id="auth-remember-me" style="width:18px;height:18px;accent-color:#CFA13C;cursor:pointer" />
-          <span style="font-size:14px;color:#666">Remember me</span>
+          <span style="font-size:14px;color:#9C9A93">Remember me</span>
         </label>
         <button id="auth-login-btn" onclick="handleLogin()" style="width:100%;padding:16px;background:#CFA13C;color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:12px">Sign In</button>
         <button onclick="showResetForm()" style="width:100%;padding:10px;background:none;border:none;font-size:13px;color:#9C9A93;cursor:pointer">Forgot password?</button>
       </div>
       <div id="auth-reset-form" style="display:none">
-        <div style="font-size:14px;color:#666;margin-bottom:20px;line-height:1.5">Enter your email and we'll send you a link to reset your password.</div>
+        <div style="font-size:14px;color:#9C9A93;margin-bottom:20px;line-height:1.5">Enter your email and we'll send you a link to reset your password.</div>
         <div style="margin-bottom:16px"><input id="auth-reset-email" type="email" placeholder="Email" style="width:100%;padding:14px 16px;border:1.5px solid #2A322E;border-radius:12px;font-size:15px;outline:none;box-sizing:border-box" /></div>
         <button id="auth-reset-btn" onclick="handleResetPassword()" style="width:100%;padding:16px;background:#CFA13C;color:white;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:12px">Send Reset Link</button>
         <button onclick="showSignIn()" style="width:100%;padding:10px;background:none;border:none;font-size:13px;color:#9C9A93;cursor:pointer">← Back to Sign In</button>
@@ -236,7 +236,7 @@
   <div id="auth-verify-panel" style="display:none;flex:1;flex-direction:column;align-items:center;justify-content:center;padding:40px 28px;text-align:center">
     <div style="font-size:56px;margin-bottom:20px">📧</div>
     <div style="font-size:24px;font-weight:800;color:#F2EFE7;margin-bottom:8px">Check your email</div>
-    <div id="auth-verify-email-text" style="font-size:15px;color:#666;line-height:1.6;margin-bottom:28px">We sent a verification code to your email.</div>
+    <div id="auth-verify-email-text" style="font-size:15px;color:#9C9A93;line-height:1.6;margin-bottom:28px">We sent a verification code to your email.</div>
     <input id="auth-otp-input" type="text" inputmode="numeric" maxlength="8" placeholder="00000000" autocomplete="one-time-code"
       style="width:100%;max-width:260px;padding:16px;text-align:center;font-size:26px;font-weight:800;letter-spacing:6px;border:1.5px solid #2A322E;border-radius:12px;outline:none;box-sizing:border-box;margin-bottom:14px"
       oninput="this.value=this.value.replace(/[^0-9]/g,'')" onkeydown="if(event.key==='Enter')verifyOtpCode()" />
@@ -248,11 +248,11 @@
 </div>
 
 <!-- WELCOME SCREEN (shown first time after signup) -->
-<div id="welcome-screen" style="display:none;position:fixed;inset:0;background:linear-gradient(160deg,#2B2414,#fff);z-index:800;flex-direction:column;align-items:center;justify-content:center;padding:36px 28px;text-align:center">
+<div id="welcome-screen" style="display:none;position:fixed;inset:0;background:linear-gradient(160deg,#2B2414,#1C2320);z-index:800;flex-direction:column;align-items:center;justify-content:center;padding:36px 28px;text-align:center">
   <div style="font-size:52px;margin-bottom:20px">🎉</div>
   <div style="font-size:13px;font-weight:700;color:#CFA13C;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Your plan is ready</div>
   <div id="welcome-name" style="font-size:30px;font-weight:800;color:#F2EFE7;letter-spacing:-0.5px;margin-bottom:20px"></div>
-  <div id="welcome-message" style="font-size:16px;color:#666;line-height:1.7;margin-bottom:32px"></div>
+  <div id="welcome-message" style="font-size:16px;color:#9C9A93;line-height:1.7;margin-bottom:32px"></div>
   <div style="background:#141A18;border-radius:16px;padding:20px;width:100%;max-width:380px;box-shadow:0 2px 12px rgba(0,0,0,0.06);margin-bottom:32px">
     <div id="welcome-stats" style="display:flex;flex-direction:column;gap:12px"></div>
   </div>
@@ -278,7 +278,7 @@
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9C9A93" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
         </button>
         <button onclick="showSettings()" style="background:none;border:none;cursor:pointer;padding:4px;display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:10px;background:#1C2320">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9C9A93" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         </button>
       </div>
     </div>
@@ -327,7 +327,7 @@
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
           <div>
             <div style="font-size:11px;font-weight:700;color:#CFA13C;text-transform:uppercase;letter-spacing:1px">Today's Goal</div>
-            <div style="font-size:13px;color:#666;margin-top:2px" id="today-goal-target">2,250 kcal target</div>
+            <div style="font-size:13px;color:#9C9A93;margin-top:2px" id="today-goal-target">2,250 kcal target</div>
           </div>
           <div id="score-inline"></div>
         </div>
@@ -425,9 +425,9 @@
             <div style="font-size:10px;font-weight:700;color:#9C9A93;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Meal Type</div>
             <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px">
               <button class="meal-type-btn active" type="button" data-type="breakfast" onclick="selectMealType('breakfast',this)" style="padding:8px 4px;border:1px solid #CFA13C;border-radius:8px;background:#2B2414;color:#CFA13C;font-size:11px;font-weight:600;cursor:pointer">🍳 Breakfast</button>
-              <button class="meal-type-btn" type="button" data-type="lunch" onclick="selectMealType('lunch',this)" style="padding:8px 4px;border:1px solid #2A322E;border-radius:8px;background:#141A18;color:#666;font-size:11px;font-weight:600;cursor:pointer">🥗 Lunch</button>
-              <button class="meal-type-btn" type="button" data-type="dinner" onclick="selectMealType('dinner',this)" style="padding:8px 4px;border:1px solid #2A322E;border-radius:8px;background:#141A18;color:#666;font-size:11px;font-weight:600;cursor:pointer">🍽️ Dinner</button>
-              <button class="meal-type-btn" type="button" data-type="snack" onclick="selectMealType('snack',this)" style="padding:8px 4px;border:1px solid #2A322E;border-radius:8px;background:#141A18;color:#666;font-size:11px;font-weight:600;cursor:pointer">🍎 Snack</button>
+              <button class="meal-type-btn" type="button" data-type="lunch" onclick="selectMealType('lunch',this)" style="padding:8px 4px;border:1px solid #2A322E;border-radius:8px;background:#141A18;color:#9C9A93;font-size:11px;font-weight:600;cursor:pointer">🥗 Lunch</button>
+              <button class="meal-type-btn" type="button" data-type="dinner" onclick="selectMealType('dinner',this)" style="padding:8px 4px;border:1px solid #2A322E;border-radius:8px;background:#141A18;color:#9C9A93;font-size:11px;font-weight:600;cursor:pointer">🍽️ Dinner</button>
+              <button class="meal-type-btn" type="button" data-type="snack" onclick="selectMealType('snack',this)" style="padding:8px 4px;border:1px solid #2A322E;border-radius:8px;background:#141A18;color:#9C9A93;font-size:11px;font-weight:600;cursor:pointer">🍎 Snack</button>
             </div>
           </div>
           <div style="background:#2B2414;border-radius:10px;padding:14px;margin-bottom:12px">
@@ -506,7 +506,7 @@
           <div id="calendar-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px"></div>
           <!-- Legend -->
           <div style="margin-top:10px;background:#F7F7F7;border-radius:8px;padding:8px 12px">
-            <div style="font-size:10px;color:#888;line-height:1.6">
+            <div style="font-size:10px;color:#9C9A93;line-height:1.6">
               ⭐ 85–100% cals + protein hit &nbsp;|&nbsp; ✅ cals or protein &nbsp;|&nbsp; ❌ over limit
             </div>
           </div>
@@ -542,9 +542,9 @@
               <div style="font-size:10px;font-weight:700;color:#9C9A93;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Meal Type</div>
               <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px">
                 <button class="hist-meal-type-btn active" type="button" data-type="breakfast" onclick="selectHistMealType('breakfast',this)" style="padding:8px 4px;border:1px solid #CFA13C;border-radius:8px;background:#2B2414;color:#CFA13C;font-size:11px;font-weight:600;cursor:pointer">🍳 Breakfast</button>
-                <button class="hist-meal-type-btn" type="button" data-type="lunch" onclick="selectHistMealType('lunch',this)" style="padding:8px 4px;border:1px solid #2A322E;border-radius:8px;background:#141A18;color:#666;font-size:11px;font-weight:600;cursor:pointer">🥗 Lunch</button>
-                <button class="hist-meal-type-btn" type="button" data-type="dinner" onclick="selectHistMealType('dinner',this)" style="padding:8px 4px;border:1px solid #2A322E;border-radius:8px;background:#141A18;color:#666;font-size:11px;font-weight:600;cursor:pointer">🍽️ Dinner</button>
-                <button class="hist-meal-type-btn" type="button" data-type="snack" onclick="selectHistMealType('snack',this)" style="padding:8px 4px;border:1px solid #2A322E;border-radius:8px;background:#141A18;color:#666;font-size:11px;font-weight:600;cursor:pointer">🍎 Snack</button>
+                <button class="hist-meal-type-btn" type="button" data-type="lunch" onclick="selectHistMealType('lunch',this)" style="padding:8px 4px;border:1px solid #2A322E;border-radius:8px;background:#141A18;color:#9C9A93;font-size:11px;font-weight:600;cursor:pointer">🥗 Lunch</button>
+                <button class="hist-meal-type-btn" type="button" data-type="dinner" onclick="selectHistMealType('dinner',this)" style="padding:8px 4px;border:1px solid #2A322E;border-radius:8px;background:#141A18;color:#9C9A93;font-size:11px;font-weight:600;cursor:pointer">🍽️ Dinner</button>
+                <button class="hist-meal-type-btn" type="button" data-type="snack" onclick="selectHistMealType('snack',this)" style="padding:8px 4px;border:1px solid #2A322E;border-radius:8px;background:#141A18;color:#9C9A93;font-size:11px;font-weight:600;cursor:pointer">🍎 Snack</button>
               </div>
             </div>
             <div style="background:#2B2414;border-radius:10px;padding:14px;margin-bottom:12px">
@@ -617,7 +617,7 @@
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
           <div class="card-title" style="margin-bottom:0">My Meals</div>
           <div style="display:flex;gap:8px">
-            <button onclick="openUrlImport()" style="background:none;border:1px solid #2A322E;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;color:#666;cursor:pointer">🔗 URL</button>
+            <button onclick="openUrlImport()" style="background:none;border:1px solid #2A322E;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;color:#9C9A93;cursor:pointer">🔗 URL</button>
             <button onclick="openMealBuilder()" style="background:var(--accent);color:white;border:none;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;cursor:pointer">+ Create</button>
           </div>
         </div>
@@ -657,18 +657,18 @@
             <div>
               <div style="font-size:10px;font-weight:700;color:#9C9A93;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px">Starting</div>
               <div style="font-size:20px;font-weight:700;color:#F2EFE7" id="disp-weight-start">—</div>
-              <div style="font-size:11px;color:#888">lbs</div>
+              <div style="font-size:11px;color:#9C9A93">lbs</div>
             </div>
             <div style="font-size:18px;color:#9C9A93">→</div>
             <div>
               <div style="font-size:10px;font-weight:700;color:#4ADE80;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px">Goal</div>
               <div style="font-size:20px;font-weight:700;color:#4ADE80" id="disp-weight-goal">—</div>
-              <div style="font-size:11px;color:#888">lbs</div>
+              <div style="font-size:11px;color:#9C9A93">lbs</div>
             </div>
           </div>
           <div style="margin-top:10px;padding-top:10px;border-top:1px solid #2A322E;text-align:center">
             <span style="font-size:13px;font-weight:600;color:#F2EFE7" id="disp-weight-to-go">—</span>
-            <span style="font-size:12px;color:#888"> to go</span>
+            <span style="font-size:12px;color:#9C9A93"> to go</span>
           </div>
         </div>
         <div id="weight-no-goal" style="font-size:12px;color:#9C9A93;margin-bottom:12px">Tap <b>Edit Goal</b> to set your target weight</div>
@@ -687,7 +687,7 @@
         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px">
           <div>
             <div style="font-size:11px;font-weight:700;color:#9C9A93;text-transform:uppercase;letter-spacing:0.5px" id="weight-latest-date">No entries yet</div>
-            <div style="font-size:26px;font-weight:700;color:#F2EFE7;letter-spacing:-0.5px"><span id="weight-latest-val">—</span> <span style="font-size:14px;font-weight:500;color:#888">lbs</span></div>
+            <div style="font-size:26px;font-weight:700;color:#F2EFE7;letter-spacing:-0.5px"><span id="weight-latest-val">—</span> <span style="font-size:14px;font-weight:500;color:#9C9A93">lbs</span></div>
             <div id="weight-fun-fact" style="font-size:12px;color:#4ADE80;font-weight:600;margin-top:3px;display:none"></div>
           </div>
           <button onclick="openLogModal('weight')" style="background:var(--accent);color:white;border:none;border-radius:20px;padding:10px 20px;font-size:13px;font-weight:700;cursor:pointer">Record Weight</button>
@@ -695,10 +695,10 @@
         <!-- Goal edit inline -->
         <div id="weight-goal-edit" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid #1C2320">
           <div class="form-row form-group">
-            <div><div style="font-size:11px;color:#666;margin-bottom:4px;font-weight:600">Starting Weight (lbs)</div>
+            <div><div style="font-size:11px;color:#9C9A93;margin-bottom:4px;font-weight:600">Starting Weight (lbs)</div>
               <button onclick="openGoalNumpad('weight-start','lbs')" id="edit-weight-start-btn" style="width:100%;padding:10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:14px;text-align:left;background:#141A18;cursor:pointer;color:#F2EFE7">Tap to set</button>
               <input type="hidden" id="edit-weight-start" /></div>
-            <div><div style="font-size:11px;color:#666;margin-bottom:4px;font-weight:600">Goal Weight (lbs)</div>
+            <div><div style="font-size:11px;color:#9C9A93;margin-bottom:4px;font-weight:600">Goal Weight (lbs)</div>
               <button onclick="openGoalNumpad('weight-goal','lbs')" id="edit-weight-goal-btn" style="width:100%;padding:10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:14px;text-align:left;background:#141A18;cursor:pointer;color:#F2EFE7">Tap to set</button>
               <input type="hidden" id="edit-weight-goal" /></div>
           </div>
@@ -719,7 +719,7 @@
         <div id="bmi-content" style="display:none">
           <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:14px">
             <div style="font-size:42px;font-weight:700;letter-spacing:-1px" id="bmi-value">—</div>
-            <div style="font-size:14px;color:#888">BMI</div>
+            <div style="font-size:14px;color:#9C9A93">BMI</div>
           </div>
           <!-- BMI scale bar -->
           <div style="position:relative;margin-bottom:8px">
@@ -738,7 +738,7 @@
             <div style="font-size:10px;color:#C88A2E;font-weight:600">Over<br>25–30</div>
             <div style="font-size:10px;color:#EF4444;font-weight:600">Obese<br>>30</div>
           </div>
-          <div style="background:#1C2320;border-radius:10px;padding:12px;font-size:12px;color:#666;line-height:1.5" id="bmi-context"></div>
+          <div style="background:#1C2320;border-radius:10px;padding:12px;font-size:12px;color:#9C9A93;line-height:1.5" id="bmi-context"></div>
         </div>
       </div>
 
@@ -761,18 +761,18 @@
               <div>
                 <div style="font-size:10px;font-weight:700;color:#9C9A93;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px">Current</div>
                 <div style="font-size:20px;font-weight:700;color:#F2EFE7" id="disp-bf-current">—</div>
-                <div style="font-size:11px;color:#888">%</div>
+                <div style="font-size:11px;color:#9C9A93">%</div>
               </div>
               <div style="font-size:18px;color:#9C9A93">→</div>
               <div>
                 <div style="font-size:10px;font-weight:700;color:#4ADE80;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px">Goal</div>
                 <div style="font-size:20px;font-weight:700;color:#4ADE80" id="disp-bf-goal-val">—</div>
-                <div style="font-size:11px;color:#888">%</div>
+                <div style="font-size:11px;color:#9C9A93">%</div>
               </div>
             </div>
             <div style="margin-top:10px;padding-top:10px;border-top:1px solid #FFE4C4;text-align:center">
               <span style="font-size:13px;font-weight:600;color:#F2EFE7" id="disp-bf-to-go">—</span>
-              <span style="font-size:12px;color:#888"> to go</span>
+              <span style="font-size:12px;color:#9C9A93"> to go</span>
             </div>
           </div>
           <div id="bf-no-goal" style="font-size:12px;color:#9C9A93;margin-bottom:12px">Tap <b>Edit Goal</b> to set your body fat % target</div>
@@ -792,17 +792,17 @@
           <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px">
             <div>
               <div style="font-size:11px;font-weight:700;color:#9C9A93;text-transform:uppercase;letter-spacing:0.5px" id="bf-latest-date">No entries yet</div>
-              <div style="font-size:26px;font-weight:700;color:#F2EFE7;letter-spacing:-0.5px"><span id="bf-latest-val">—</span> <span style="font-size:14px;font-weight:500;color:#888">%</span></div>
+              <div style="font-size:26px;font-weight:700;color:#F2EFE7;letter-spacing:-0.5px"><span id="bf-latest-val">—</span> <span style="font-size:14px;font-weight:500;color:#9C9A93">%</span></div>
             </div>
             <button onclick="openLogModal('bf')" style="background:var(--accent);color:white;border:none;border-radius:20px;padding:10px 20px;font-size:13px;font-weight:700;cursor:pointer">Record Body Fat</button>
           </div>
           <!-- Goal edit inline -->
           <div id="bf-goal-edit" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid #1C2320">
             <div class="form-row form-group">
-              <div><div style="font-size:11px;color:#666;margin-bottom:4px;font-weight:600">Current Body Fat %</div>
+              <div><div style="font-size:11px;color:#9C9A93;margin-bottom:4px;font-weight:600">Current Body Fat %</div>
                 <button onclick="openGoalNumpad('bf-current','%')" id="edit-bf-current-btn" style="width:100%;padding:10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:14px;text-align:left;background:#141A18;cursor:pointer;color:#F2EFE7">Tap to set</button>
                 <input type="hidden" id="edit-bf-current" /></div>
-              <div><div style="font-size:11px;color:#666;margin-bottom:4px;font-weight:600">Goal Body Fat %</div>
+              <div><div style="font-size:11px;color:#9C9A93;margin-bottom:4px;font-weight:600">Goal Body Fat %</div>
                 <button onclick="openGoalNumpad('bf-goal','%')" id="edit-bf-goal-btn" style="width:100%;padding:10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:14px;text-align:left;background:#141A18;cursor:pointer;color:#F2EFE7">Tap to set</button>
                 <input type="hidden" id="edit-bf-goal" /></div>
             </div>
@@ -829,7 +829,7 @@
         </div>
         <!-- Method selection prompt - shown when no method chosen yet -->
         <div id="muscle-method-prompt" style="display:none;text-align:center;padding:16px 8px">
-          <div style="font-size:13px;color:#666;margin-bottom:16px">How do you track muscle mass?</div>
+          <div style="font-size:13px;color:#9C9A93;margin-bottom:16px">How do you track muscle mass?</div>
           <div style="display:flex;flex-direction:column;gap:8px">
             <button onclick="setMuscleMethod('inbody')" style="padding:12px;border:1px solid #2A322E;border-radius:12px;background:#141A18;font-size:13px;font-weight:600;cursor:pointer;text-align:left;display:flex;align-items:center;gap:10px">
               <span style="font-size:20px">📊</span>
@@ -853,18 +853,18 @@
               <div>
                 <div style="font-size:10px;font-weight:700;color:#9C9A93;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px">Current</div>
                 <div style="font-size:20px;font-weight:700;color:#F2EFE7" id="disp-muscle-current">—</div>
-                <div style="font-size:11px;color:#888">lbs</div>
+                <div style="font-size:11px;color:#9C9A93">lbs</div>
               </div>
               <div style="font-size:18px;color:#9C9A93">→</div>
               <div>
                 <div style="font-size:10px;font-weight:700;color:#4ADE80;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px">Goal</div>
                 <div style="font-size:20px;font-weight:700;color:#4ADE80" id="disp-muscle-goal">—</div>
-                <div style="font-size:11px;color:#888">lbs</div>
+                <div style="font-size:11px;color:#9C9A93">lbs</div>
               </div>
             </div>
             <div style="margin-top:10px;padding-top:10px;border-top:1px solid #BBF7D0;text-align:center">
               <span style="font-size:13px;font-weight:600;color:#F2EFE7" id="disp-muscle-to-go">—</span>
-              <span style="font-size:12px;color:#888"> to go</span>
+              <span style="font-size:12px;color:#9C9A93"> to go</span>
             </div>
           </div>
           <div id="muscle-no-goal" style="font-size:12px;color:#9C9A93;margin-bottom:12px">Tap <b>Edit Goal</b> to set a muscle mass target</div>
@@ -883,17 +883,17 @@
           <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px">
             <div>
               <div style="font-size:11px;font-weight:700;color:#9C9A93;text-transform:uppercase;letter-spacing:0.5px" id="muscle-latest-date">No entries yet</div>
-              <div style="font-size:26px;font-weight:700;color:#F2EFE7;letter-spacing:-0.5px"><span id="muscle-latest-val">—</span> <span style="font-size:14px;font-weight:500;color:#888">lbs</span></div>
+              <div style="font-size:26px;font-weight:700;color:#F2EFE7;letter-spacing:-0.5px"><span id="muscle-latest-val">—</span> <span style="font-size:14px;font-weight:500;color:#9C9A93">lbs</span></div>
             </div>
             <button id="muscle-record-btn" onclick="openLogModal('muscle')" style="background:#4ADE80;color:white;border:none;border-radius:20px;padding:10px 20px;font-size:13px;font-weight:700;cursor:pointer">Record Muscle</button>
           </div>
           <!-- Goal edit inline -->
           <div id="muscle-goal-edit" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid #1C2320">
             <div class="form-row form-group">
-              <div><div style="font-size:11px;color:#666;margin-bottom:4px;font-weight:600">Current Muscle (lbs)</div>
+              <div><div style="font-size:11px;color:#9C9A93;margin-bottom:4px;font-weight:600">Current Muscle (lbs)</div>
                 <button onclick="openGoalNumpad('muscle-current','lbs')" id="edit-muscle-current-btn" style="width:100%;padding:10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:14px;text-align:left;background:#141A18;cursor:pointer;color:#F2EFE7">Tap to set</button>
                 <input type="hidden" id="edit-muscle-current" /></div>
-              <div><div style="font-size:11px;color:#666;margin-bottom:4px;font-weight:600">Goal Muscle (lbs)</div>
+              <div><div style="font-size:11px;color:#9C9A93;margin-bottom:4px;font-weight:600">Goal Muscle (lbs)</div>
                 <button onclick="openGoalNumpad('muscle-goal','lbs')" id="edit-muscle-goal-btn" style="width:100%;padding:10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:14px;text-align:left;background:#141A18;cursor:pointer;color:#F2EFE7">Tap to set</button>
                 <input type="hidden" id="edit-muscle-goal" /></div>
             </div>
@@ -928,15 +928,15 @@
         <div id="targets-edit-form" style="display:none;margin-top:4px">
           <div style="background:#2B2414;border-radius:10px;padding:12px;margin-bottom:12px">
             <div style="font-size:11px;font-weight:700;color:#CFA13C;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">💡 How calories work</div>
-            <div style="font-size:12px;color:#666;line-height:1.5">Your daily target already accounts for your activity level — eat this amount every day regardless of workouts. Never eat back all your workout calories.</div>
+            <div style="font-size:12px;color:#9C9A93;line-height:1.5">Your daily target already accounts for your activity level — eat this amount every day regardless of workouts. Never eat back all your workout calories.</div>
           </div>
           <div class="form-row form-group">
-            <div><div style="font-size:11px;color:#666;margin-bottom:4px;font-weight:600">Calories</div><input type="number" min="0" id="edit-calories" placeholder="2250" style="width:100%;padding:10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:14px;outline:none" oninput="if(+this.value<0)this.value=0" /></div>
-            <div><div style="font-size:11px;color:#666;margin-bottom:4px;font-weight:600">Protein (g)</div><input type="number" min="0" id="edit-protein" placeholder="160" style="width:100%;padding:10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:14px;outline:none" oninput="if(+this.value<0)this.value=0" /></div>
+            <div><div style="font-size:11px;color:#9C9A93;margin-bottom:4px;font-weight:600">Calories</div><input type="number" min="0" id="edit-calories" placeholder="2250" style="width:100%;padding:10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:14px;outline:none" oninput="if(+this.value<0)this.value=0" /></div>
+            <div><div style="font-size:11px;color:#9C9A93;margin-bottom:4px;font-weight:600">Protein (g)</div><input type="number" min="0" id="edit-protein" placeholder="160" style="width:100%;padding:10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:14px;outline:none" oninput="if(+this.value<0)this.value=0" /></div>
           </div>
           <div class="form-row form-group">
-            <div><div style="font-size:11px;color:#666;margin-bottom:4px;font-weight:600">Carbs (g)</div><input type="number" min="0" id="edit-carbs" placeholder="150" style="width:100%;padding:10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:14px;outline:none" oninput="if(+this.value<0)this.value=0" /></div>
-            <div><div style="font-size:11px;color:#666;margin-bottom:4px;font-weight:600">Fat (g)</div><input type="number" min="0" id="edit-fat" placeholder="65" style="width:100%;padding:10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:14px;outline:none" oninput="if(+this.value<0)this.value=0" /></div>
+            <div><div style="font-size:11px;color:#9C9A93;margin-bottom:4px;font-weight:600">Carbs (g)</div><input type="number" min="0" id="edit-carbs" placeholder="150" style="width:100%;padding:10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:14px;outline:none" oninput="if(+this.value<0)this.value=0" /></div>
+            <div><div style="font-size:11px;color:#9C9A93;margin-bottom:4px;font-weight:600">Fat (g)</div><input type="number" min="0" id="edit-fat" placeholder="65" style="width:100%;padding:10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:14px;outline:none" oninput="if(+this.value<0)this.value=0" /></div>
           </div>
           <button class="btn" onclick="saveTargets()">Save Targets</button>
         </div>
@@ -962,32 +962,32 @@
         </div>
         <div id="profile-edit-form" style="display:none;margin-top:4px">
           <div class="form-group">
-            <div style="font-size:11px;color:#666;margin-bottom:4px;font-weight:600">Name</div>
+            <div style="font-size:11px;color:#9C9A93;margin-bottom:4px;font-weight:600">Name</div>
             <input type="text" id="edit-name" placeholder="First name" autocomplete="given-name" style="width:100%;padding:10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:14px;outline:none;box-sizing:border-box" />
           </div>
           <div class="form-group">
-            <div style="font-size:11px;color:#666;margin-bottom:4px;font-weight:600">Height</div>
+            <div style="font-size:11px;color:#9C9A93;margin-bottom:4px;font-weight:600">Height</div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
               <div style="position:relative">
                 <input type="number" id="edit-height-ft" placeholder="5" min="0" max="7" style="width:100%;padding:10px 36px 10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:14px;outline:none;box-sizing:border-box" oninput="this.value=this.value.replace(/[^0-9]/g,'');if(this.value<0)this.value=0">
-                <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:13px;color:#888;pointer-events:none">ft</span>
+                <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:13px;color:#9C9A93;pointer-events:none">ft</span>
               </div>
               <div style="position:relative">
                 <input type="number" id="edit-height-in" placeholder="9" min="0" max="11" style="width:100%;padding:10px 36px 10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:14px;outline:none;box-sizing:border-box" oninput="this.value=this.value.replace(/[^0-9]/g,'');if(this.value<0)this.value=0">
-                <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:13px;color:#888;pointer-events:none">in</span>
+                <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:13px;color:#9C9A93;pointer-events:none">in</span>
               </div>
             </div>
           </div>
-          <div class="form-group"><div style="font-size:11px;color:#666;margin-bottom:4px;font-weight:600">Age</div><input type="number" id="edit-age" placeholder="43" min="0" max="100" style="width:100%;padding:10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:14px;outline:none" oninput="this.value=this.value.replace(/[^0-9]/g,'');if(this.value<0)this.value=0"></div>
+          <div class="form-group"><div style="font-size:11px;color:#9C9A93;margin-bottom:4px;font-weight:600">Age</div><input type="number" id="edit-age" placeholder="43" min="0" max="100" style="width:100%;padding:10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:14px;outline:none" oninput="this.value=this.value.replace(/[^0-9]/g,'');if(this.value<0)this.value=0"></div>
           <div class="form-group">
-            <div style="font-size:11px;color:#666;margin-bottom:4px;font-weight:600">Gender</div>
+            <div style="font-size:11px;color:#9C9A93;margin-bottom:4px;font-weight:600">Gender</div>
             <select id="edit-gender" style="width:100%;padding:10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:14px;outline:none">
               <option value="male">Male</option>
               <option value="female">Female</option>
             </select>
           </div>
           <div class="form-group">
-            <div style="font-size:11px;color:#666;margin-bottom:4px;font-weight:600">Activity Level</div>
+            <div style="font-size:11px;color:#9C9A93;margin-bottom:4px;font-weight:600">Activity Level</div>
             <select id="edit-activity" style="width:100%;padding:10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:14px;outline:none">
               <option value="sedentary">Sedentary (desk job, little exercise)</option>
               <option value="light">Lightly Active (1-2x/week)</option>
@@ -1020,7 +1020,7 @@
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
           </div>
           <div style="font-size:14px;font-weight:500;color:#F2EFE7;margin-bottom:2px">Add a progress photo</div>
-          <div style="font-size:12px;color:#999">JPG or PNG</div>
+          <div style="font-size:12px;color:#9C9A93">JPG or PNG</div>
         </label>
         <input type="file" id="photo-input" accept="image/*" style="display:none" onchange="previewPhoto(event)" />
         <button class="btn" id="upload-btn" onclick="uploadPhoto()" style="display:none">Upload Photo</button>
@@ -1073,9 +1073,9 @@
         <div id="meal-ideas-subtab-ideas">
           <div class="card" style="background:linear-gradient(160deg,#2B2414,#2A1F1D);border:1px solid #332818">
             <div class="card-title">Meal Ideas</div>
-            <div style="font-size:12px;color:#666;margin-bottom:10px">Which meal are these for?</div>
+            <div style="font-size:12px;color:#9C9A93;margin-bottom:10px">Which meal are these for?</div>
             <div id="coach-meal-type-pills" style="display:flex;gap:6px;margin-bottom:12px"></div>
-            <div style="font-size:12px;color:#666;margin-bottom:12px" id="coach-meals-remaining-label">Suggestions to help fill out today's remaining macros.</div>
+            <div style="font-size:12px;color:#9C9A93;margin-bottom:12px" id="coach-meals-remaining-label">Suggestions to help fill out today's remaining macros.</div>
             <button onclick="loadAiMealIdeas()" style="width:100%;background:var(--accent);color:white;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer">✨ Get Meal Ideas</button>
           </div>
           <div id="coach-meals-results"></div>
@@ -1087,7 +1087,7 @@
               <div class="card-title" style="margin-bottom:0">Weekly Meal Prep</div>
               <button type="button" onclick="generateMealPrepPlan()" id="meal-prep-generate-btn" style="flex-shrink:0;background:#141A18;color:#CFA13C;border:1px solid #332818;border-radius:20px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">✨ Generate My Prep</button>
             </div>
-            <div style="font-size:12px;color:#666;margin-bottom:14px">Tap a day to mark which meals you want covered by prepped food — could be just lunches, could be the whole day.</div>
+            <div style="font-size:12px;color:#9C9A93;margin-bottom:14px">Tap a day to mark which meals you want covered by prepped food — could be just lunches, could be the whole day.</div>
             <div id="meal-prep-day-list" style="background:#141A18;border-radius:14px;overflow:hidden"></div>
           </div>
           <div id="meal-prep-results"></div>
@@ -1112,7 +1112,7 @@
               <div class="card-title" style="margin-bottom:0">This Week's Plan</div>
               <button type="button" onclick="getWeeklyPlanFeedback()" id="plan-feedback-btn" style="flex-shrink:0;background:#141A18;color:#CFA13C;border:1px solid #332818;border-radius:20px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">🧠 Get Feedback</button>
             </div>
-            <div style="font-size:12px;color:#666;margin-bottom:14px">Tap a day to set muscle groups and where you're training.</div>
+            <div style="font-size:12px;color:#9C9A93;margin-bottom:14px">Tap a day to set muscle groups and where you're training.</div>
             <div id="weekly-plan-feedback"></div>
             <div id="weekly-plan-list" style="background:#141A18;border-radius:14px;overflow:hidden"></div>
           </div>
@@ -1124,7 +1124,7 @@
         <div class="card" style="background:linear-gradient(160deg,#2B2414,#2A1F1D);border:1px solid #332818">
           <div id="exercise-muscle-list-header">
             <div class="card-title">Browse Exercises</div>
-            <div style="font-size:12px;color:#666;margin-bottom:12px">Not sure what to do at the gym? Pick a muscle group.</div>
+            <div style="font-size:12px;color:#9C9A93;margin-bottom:12px">Not sure what to do at the gym? Pick a muscle group.</div>
           </div>
           <div id="exercise-muscle-list" style="display:flex;flex-direction:column;gap:8px"></div>
 
@@ -1151,7 +1151,7 @@
       <div id="coach-subtab-chat" style="display:none">
         <div class="card" style="background:linear-gradient(160deg,#2B2414,#2A1F1D);border:1px solid #332818;padding:0;overflow:hidden">
           <div id="coach-chat-messages" style="max-height:420px;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px">
-            <div style="font-size:13px;color:#999;text-align:center;padding:12px 0">Ask me anything about your nutrition, goals, or training. I can see your targets and today's progress.</div>
+            <div style="font-size:13px;color:#9C9A93;text-align:center;padding:12px 0">Ask me anything about your nutrition, goals, or training. I can see your targets and today's progress.</div>
           </div>
           <div style="display:flex;gap:8px;padding:12px;border-top:1px solid #332818;background:#141A18">
             <input type="text" id="coach-chat-input" placeholder="Ask your coach..." onkeydown="if(event.key==='Enter')sendCoachChatMessage()"
@@ -1181,7 +1181,7 @@
       <div style="display:flex;gap:6px;margin-bottom:16px" id="exercise-detail-badges"></div>
       <div id="exercise-detail-muscles" style="margin-bottom:18px"></div>
       <div style="font-size:11px;font-weight:700;color:#9C9A93;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px">How To</div>
-      <ol id="exercise-detail-steps" style="padding-left:20px;display:flex;flex-direction:column;gap:10px;font-size:14px;color:#333;line-height:1.5;margin:0"></ol>
+      <ol id="exercise-detail-steps" style="padding-left:20px;display:flex;flex-direction:column;gap:10px;font-size:14px;color:#D8D5CC;line-height:1.5;margin:0"></ol>
     </div>
   </div>
 </div>
@@ -1195,27 +1195,27 @@
     <!-- Method toggle -->
     <div style="display:flex;background:#1C2320;border-radius:10px;padding:3px;gap:2px;margin-bottom:16px">
       <button id="calc-navy-btn" onclick="setBfCalcMethod('navy')" style="flex:1;padding:8px;font-size:12px;font-weight:600;border:none;border-radius:8px;background:#1C2320;color:#F2EFE7;cursor:pointer">📏 Navy Tape</button>
-      <button id="calc-bmi-btn" onclick="setBfCalcMethod('bmi')" style="flex:1;padding:8px;font-size:12px;font-weight:600;border:none;border-radius:8px;background:transparent;color:#888;cursor:pointer">⚖️ BMI Estimate</button>
+      <button id="calc-bmi-btn" onclick="setBfCalcMethod('bmi')" style="flex:1;padding:8px;font-size:12px;font-weight:600;border:none;border-radius:8px;background:transparent;color:#9C9A93;cursor:pointer">⚖️ BMI Estimate</button>
     </div>
 
     <!-- Navy method inputs -->
     <div id="calc-navy-inputs">
-      <div style="background:#2B2414;border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:#666;line-height:1.5">
+      <div style="background:#2B2414;border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:#9C9A93;line-height:1.5">
         Measure in inches with a soft tape. <b>Neck:</b> below larynx. <b>Waist:</b> at navel (men) or narrowest point (women). <b>Hips:</b> widest point (women only).
       </div>
       <div class="form-row form-group">
-        <div><div style="font-size:11px;color:#666;margin-bottom:4px;font-weight:600">Neck (inches)</div><input type="number" min="0" step="0.1" id="calc-neck" placeholder="15.0" style="width:100%;padding:10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:14px;outline:none" oninput="calcBfEstimate()" /></div>
-        <div><div style="font-size:11px;color:#666;margin-bottom:4px;font-weight:600">Waist (inches)</div><input type="number" min="0" step="0.1" id="calc-waist" placeholder="34.0" style="width:100%;padding:10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:14px;outline:none" oninput="calcBfEstimate()" /></div>
+        <div><div style="font-size:11px;color:#9C9A93;margin-bottom:4px;font-weight:600">Neck (inches)</div><input type="number" min="0" step="0.1" id="calc-neck" placeholder="15.0" style="width:100%;padding:10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:14px;outline:none" oninput="calcBfEstimate()" /></div>
+        <div><div style="font-size:11px;color:#9C9A93;margin-bottom:4px;font-weight:600">Waist (inches)</div><input type="number" min="0" step="0.1" id="calc-waist" placeholder="34.0" style="width:100%;padding:10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:14px;outline:none" oninput="calcBfEstimate()" /></div>
       </div>
       <div id="calc-hips-row" class="form-group" style="display:none">
-        <div style="font-size:11px;color:#666;margin-bottom:4px;font-weight:600">Hips (inches) — women only</div>
+        <div style="font-size:11px;color:#9C9A93;margin-bottom:4px;font-weight:600">Hips (inches) — women only</div>
         <input type="number" min="0" step="0.1" id="calc-hips" placeholder="38.0" style="width:100%;padding:10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:14px;outline:none" oninput="calcBfEstimate()" />
       </div>
     </div>
 
     <!-- BMI method note -->
     <div id="calc-bmi-inputs" style="display:none">
-      <div style="background:#1C2320;border-radius:10px;padding:12px;margin-bottom:14px;font-size:12px;color:#666;line-height:1.5">
+      <div style="background:#1C2320;border-radius:10px;padding:12px;margin-bottom:14px;font-size:12px;color:#9C9A93;line-height:1.5">
         Uses your height, weight, age, and sex from your Profile. Accuracy is ±3–5% — good enough to get started, but the Navy method is more reliable.
       </div>
       <div style="font-size:12px;color:#9C9A93;text-align:center;margin-bottom:8px">Make sure your Profile is up to date for best results.</div>
@@ -1223,15 +1223,15 @@
 
     <!-- Height + Weight (always shown for BMI; shown for Navy too for height) -->
     <div id="calc-height-weight" class="form-row form-group">
-      <div><div style="font-size:11px;color:#666;margin-bottom:4px;font-weight:600">Height (inches)</div><input type="number" min="0" step="0.5" id="calc-height" placeholder="69" style="width:100%;padding:10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:14px;outline:none" oninput="calcBfEstimate()" /></div>
-      <div id="calc-weight-col"><div style="font-size:11px;color:#666;margin-bottom:4px;font-weight:600">Weight (lbs)</div><input type="number" min="0" step="0.1" id="calc-weight" placeholder="180" style="width:100%;padding:10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:14px;outline:none" oninput="calcBfEstimate()" /></div>
+      <div><div style="font-size:11px;color:#9C9A93;margin-bottom:4px;font-weight:600">Height (inches)</div><input type="number" min="0" step="0.5" id="calc-height" placeholder="69" style="width:100%;padding:10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:14px;outline:none" oninput="calcBfEstimate()" /></div>
+      <div id="calc-weight-col"><div style="font-size:11px;color:#9C9A93;margin-bottom:4px;font-weight:600">Weight (lbs)</div><input type="number" min="0" step="0.1" id="calc-weight" placeholder="180" style="width:100%;padding:10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:14px;outline:none" oninput="calcBfEstimate()" /></div>
     </div>
 
     <!-- Result -->
     <div id="calc-result" style="display:none;background:#2B2414;border-radius:12px;padding:16px;text-align:center;margin-bottom:16px">
       <div style="font-size:11px;font-weight:700;color:#CFA13C;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Estimated Body Fat</div>
       <div style="font-size:36px;font-weight:700;color:#F2EFE7" id="calc-result-val">—</div>
-      <div style="font-size:12px;color:#888;margin-top:4px" id="calc-result-cat"></div>
+      <div style="font-size:12px;color:#9C9A93;margin-top:4px" id="calc-result-cat"></div>
     </div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
@@ -1403,9 +1403,9 @@
       <div style="font-size:10px;font-weight:700;color:#9C9A93;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Meal Type</div>
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px">
         <button class="edit-meal-type-btn active" type="button" data-type="breakfast" onclick="selectEditMealType('breakfast',this)" style="padding:8px 4px;border:1px solid #CFA13C;border-radius:8px;background:#2B2414;color:#CFA13C;font-size:11px;font-weight:600;cursor:pointer">🍳 Breakfast</button>
-        <button class="edit-meal-type-btn" type="button" data-type="lunch" onclick="selectEditMealType('lunch',this)" style="padding:8px 4px;border:1px solid #2A322E;border-radius:8px;background:#141A18;color:#666;font-size:11px;font-weight:600;cursor:pointer">🥗 Lunch</button>
-        <button class="edit-meal-type-btn" type="button" data-type="dinner" onclick="selectEditMealType('dinner',this)" style="padding:8px 4px;border:1px solid #2A322E;border-radius:8px;background:#141A18;color:#666;font-size:11px;font-weight:600;cursor:pointer">🍽️ Dinner</button>
-        <button class="edit-meal-type-btn" type="button" data-type="snack" onclick="selectEditMealType('snack',this)" style="padding:8px 4px;border:1px solid #2A322E;border-radius:8px;background:#141A18;color:#666;font-size:11px;font-weight:600;cursor:pointer">🍎 Snack</button>
+        <button class="edit-meal-type-btn" type="button" data-type="lunch" onclick="selectEditMealType('lunch',this)" style="padding:8px 4px;border:1px solid #2A322E;border-radius:8px;background:#141A18;color:#9C9A93;font-size:11px;font-weight:600;cursor:pointer">🥗 Lunch</button>
+        <button class="edit-meal-type-btn" type="button" data-type="dinner" onclick="selectEditMealType('dinner',this)" style="padding:8px 4px;border:1px solid #2A322E;border-radius:8px;background:#141A18;color:#9C9A93;font-size:11px;font-weight:600;cursor:pointer">🍽️ Dinner</button>
+        <button class="edit-meal-type-btn" type="button" data-type="snack" onclick="selectEditMealType('snack',this)" style="padding:8px 4px;border:1px solid #2A322E;border-radius:8px;background:#141A18;color:#9C9A93;font-size:11px;font-weight:600;cursor:pointer">🍎 Snack</button>
       </div>
     </div>
     <div class="form-group"><input type="text" id="edit-meal-name-input" placeholder="Meal name" /></div>
@@ -1541,7 +1541,7 @@
       <div>
         <div style="font-size:10px;font-weight:700;color:#9C9A93;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Fiber per unit (g)</div>
         <input type="number" id="edit-food-fiber" placeholder="0" min="0" step="0.1" inputmode="decimal" />
-      <div class="form-group"><div style="font-size:11px;color:#666;margin-bottom:4px;font-weight:600">Cholesterol (mg)</div>
+      <div class="form-group"><div style="font-size:11px;color:#9C9A93;margin-bottom:4px;font-weight:600">Cholesterol (mg)</div>
         <input type="number" id="edit-food-cholesterol" placeholder="0" min="0" step="1" inputmode="decimal" /></div>
       </div>
     </div>
@@ -1645,9 +1645,9 @@
       <div style="font-size:10px;font-weight:700;color:#9C9A93;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Add to</div>
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">
         <button type="button" class="food-modal-type-btn active" data-type="breakfast" onclick="selectFoodModalType('breakfast',this)" style="padding:8px 4px;border:1px solid #CFA13C;border-radius:8px;background:#2B2414;color:#CFA13C;font-size:10px;font-weight:600;cursor:pointer">🍳 Breakfast</button>
-        <button type="button" class="food-modal-type-btn" data-type="lunch" onclick="selectFoodModalType('lunch',this)" style="padding:8px 4px;border:1px solid #2A322E;border-radius:8px;background:#141A18;color:#666;font-size:10px;font-weight:600;cursor:pointer">🥗 Lunch</button>
-        <button type="button" class="food-modal-type-btn" data-type="dinner" onclick="selectFoodModalType('dinner',this)" style="padding:8px 4px;border:1px solid #2A322E;border-radius:8px;background:#141A18;color:#666;font-size:10px;font-weight:600;cursor:pointer">🍽️ Dinner</button>
-        <button type="button" class="food-modal-type-btn" data-type="snack" onclick="selectFoodModalType('snack',this)" style="padding:8px 4px;border:1px solid #2A322E;border-radius:8px;background:#141A18;color:#666;font-size:10px;font-weight:600;cursor:pointer">🍎 Snack</button>
+        <button type="button" class="food-modal-type-btn" data-type="lunch" onclick="selectFoodModalType('lunch',this)" style="padding:8px 4px;border:1px solid #2A322E;border-radius:8px;background:#141A18;color:#9C9A93;font-size:10px;font-weight:600;cursor:pointer">🥗 Lunch</button>
+        <button type="button" class="food-modal-type-btn" data-type="dinner" onclick="selectFoodModalType('dinner',this)" style="padding:8px 4px;border:1px solid #2A322E;border-radius:8px;background:#141A18;color:#9C9A93;font-size:10px;font-weight:600;cursor:pointer">🍽️ Dinner</button>
+        <button type="button" class="food-modal-type-btn" data-type="snack" onclick="selectFoodModalType('snack',this)" style="padding:8px 4px;border:1px solid #2A322E;border-radius:8px;background:#141A18;color:#9C9A93;font-size:10px;font-weight:600;cursor:pointer">🍎 Snack</button>
       </div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
@@ -1679,7 +1679,7 @@ function selectMealType(type, btn) {
     const isActive = b.dataset.type === type;
     b.style.border = isActive ? '1px solid #CFA13C' : '1px solid #2A322E';
     b.style.background = isActive ? '#2B2414' : 'white';
-    b.style.color = isActive ? '#CFA13C' : '#666';
+    b.style.color = isActive ? '#CFA13C' : '#9C9A93';
     b.style.fontWeight = isActive ? '700' : '600';
   });
 }
@@ -1690,7 +1690,7 @@ function selectHistMealType(type, btn) {
     const active = b.dataset.type === type;
     b.style.border = active ? '1px solid #CFA13C' : '1px solid #2A322E';
     b.style.background = active ? '#2B2414' : 'white';
-    b.style.color = active ? '#CFA13C' : '#666';
+    b.style.color = active ? '#CFA13C' : '#9C9A93';
   });
 }
 
@@ -1700,7 +1700,7 @@ function selectEditMealType(type, btn) {
     const active = b.dataset.type === type;
     b.style.border = active ? '1px solid #CFA13C' : '1px solid #2A322E';
     b.style.background = active ? '#2B2414' : 'white';
-    b.style.color = active ? '#CFA13C' : '#666';
+    b.style.color = active ? '#CFA13C' : '#9C9A93';
   });
 }
 
@@ -1755,7 +1755,7 @@ function _dashCache(obj) {
 function _searchRow(name, sub, key, ctx) {
   return `
     <div onclick="_searchPick('${key}','${ctx}')" style="padding:10px 12px;cursor:pointer;border-bottom:1px solid #1C2320;display:flex;justify-content:space-between;align-items:center"
-      onmouseenter="this.style.background='#2B2414'" onmouseleave="this.style.background='white'">
+      onmouseenter="this.style.background='#2B2414'" onmouseleave="this.style.background='transparent'">
       <div>
         <div style="font-size:14px;font-weight:500;color:#F2EFE7">${name}</div>
         <div style="font-size:11px;color:#9C9A93">${sub}</div>
@@ -1882,7 +1882,7 @@ function _searchPick(key, ctx) {
     const active = b.dataset.type === mealType;
     b.style.border = active ? '1px solid #CFA13C' : '1px solid #2A322E';
     b.style.background = active ? '#2B2414' : 'white';
-    b.style.color = active ? '#CFA13C' : '#666';
+    b.style.color = active ? '#CFA13C' : '#9C9A93';
   });
 
   // Saved food with an ID — use the full food modal with unit wheel
@@ -1992,7 +1992,7 @@ function switchTodaySubTab(sub) {
   });
   document.querySelectorAll('.today-subtab-btn').forEach(btn => {
     const isActive = btn.dataset.sub === sub;
-    btn.style.background = isActive ? 'white' : 'transparent';
+    btn.style.background = isActive ? '#141A18' : 'transparent';
     btn.style.color = isActive ? '#F2EFE7' : '#9C9A93';
     btn.style.boxShadow = isActive ? '0 1px 3px rgba(0,0,0,0.08)' : 'none';
   });
@@ -2124,7 +2124,7 @@ function renderExerciseMuscleList() {
       <img src="${cover}" loading="lazy" style="width:56px;height:56px;border-radius:13px;object-fit:cover;background:#1C2320;flex-shrink:0" />
       <div style="flex:1">
         <div style="font-size:15px;font-weight:700;color:#F2EFE7">${g}</div>
-        <div style="font-size:12px;color:#999">${count} exercise${count === 1 ? '' : 's'}</div>
+        <div style="font-size:12px;color:#9C9A93">${count} exercise${count === 1 ? '' : 's'}</div>
       </div>
       <span style="color:#CCC;font-size:18px">›</span>
     </button>`;
@@ -2164,7 +2164,7 @@ function renderLegsSubgroupList() {
       <img src="${cover}" loading="lazy" style="width:56px;height:56px;border-radius:13px;object-fit:cover;background:#1C2320;flex-shrink:0" />
       <div style="flex:1">
         <div style="font-size:15px;font-weight:700;color:#F2EFE7">${sg}</div>
-        <div style="font-size:12px;color:#999">${count} exercise${count === 1 ? '' : 's'}</div>
+        <div style="font-size:12px;color:#9C9A93">${count} exercise${count === 1 ? '' : 's'}</div>
       </div>
       <span style="color:#CCC;font-size:18px">›</span>
     </button>`;
@@ -2287,17 +2287,17 @@ function openExerciseDetail(group, idx) {
   }
   document.getElementById('exercise-detail-badges').innerHTML = `
     <span style="font-size:11px;font-weight:700;color:#CFA13C;background:#2B2414;padding:4px 10px;border-radius:8px">${ex.equipment}</span>
-    <span style="font-size:11px;font-weight:700;color:#666;background:#1C2320;padding:4px 10px;border-radius:8px">${ex.level}</span>
+    <span style="font-size:11px;font-weight:700;color:#9C9A93;background:#1C2320;padding:4px 10px;border-radius:8px">${ex.level}</span>
   `;
   const musclesEl = document.getElementById('exercise-detail-muscles');
   if (musclesEl) {
     if (ex.primaryMuscle) {
       const secondary = (ex.secondaryMuscles && ex.secondaryMuscles.length)
-        ? `<div style="font-size:13px;color:#666;margin-top:4px"><span style="font-weight:700;color:#999">Secondary:</span> ${ex.secondaryMuscles.join(', ')}</div>`
+        ? `<div style="font-size:13px;color:#9C9A93;margin-top:4px"><span style="font-weight:700;color:#9C9A93">Secondary:</span> ${ex.secondaryMuscles.join(', ')}</div>`
         : '';
       musclesEl.innerHTML = `
         <div style="background:#141A18;border-radius:12px;padding:12px 14px">
-          <div style="font-size:13px;color:#F2EFE7"><span style="font-weight:700;color:#999">Primary:</span> <span style="font-weight:700">${ex.primaryMuscle}</span></div>
+          <div style="font-size:13px;color:#F2EFE7"><span style="font-weight:700;color:#9C9A93">Primary:</span> <span style="font-weight:700">${ex.primaryMuscle}</span></div>
           ${secondary}
         </div>
       `;
@@ -2722,7 +2722,7 @@ function obBuildPaceOptions() {
     ];
   } else if (_obGoalType === 'maintain') {
     title.textContent = 'Maintenance mode';
-    container.innerHTML = '<div style="padding:16px;background:#141A18;border-radius:12px;font-size:14px;color:#666;line-height:1.6">We\'ll set your calories to match your TDEE exactly \u2014 no deficit, no surplus. Focus is on hitting your protein and macro targets daily.</div>';
+    container.innerHTML = '<div style="padding:16px;background:#141A18;border-radius:12px;font-size:14px;color:#9C9A93;line-height:1.6">We\'ll set your calories to match your TDEE exactly \u2014 no deficit, no surplus. Focus is on hitting your protein and macro targets daily.</div>';
     _obPace = 'maintain';
     return;
   } else {
@@ -3064,9 +3064,9 @@ let _obPhotos = {}; // { front: File, side: File, back: File }
 function obSelectAngle(angle, btn) {
   _obCurrentAngle = angle;
   document.querySelectorAll('.ob-angle-btn').forEach(b => {
-    b.style.background = 'white'; b.style.color = '#F2EFE7'; b.style.borderColor = '#2A322E';
+    b.style.background = '#141A18'; b.style.color = '#F2EFE7'; b.style.borderColor = '#2A322E';
   });
-  btn.style.background = '#F2EFE7'; btn.style.color = 'white'; btn.style.borderColor = '#F2EFE7';
+  btn.style.background = '#CFA13C'; btn.style.color = '#0B1210'; btn.style.borderColor = '#CFA13C';
   obRefreshPhotoUI();
 }
 
@@ -3989,15 +3989,15 @@ async function showWelcomeScreen() {
   if (msgEl) msgEl.textContent = `Based on your ${goalLabel} goal, here's what we calculated for you:`;
   if (statsEl) statsEl.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #1C2320">
-      <span style="font-size:14px;color:#666">Daily Calories</span>
+      <span style="font-size:14px;color:#9C9A93">Daily Calories</span>
       <span style="font-size:16px;font-weight:700;color:#CFA13C">${plan.calories.toLocaleString()} cal</span>
     </div>
     <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #1C2320">
-      <span style="font-size:14px;color:#666">Daily Protein</span>
+      <span style="font-size:14px;color:#9C9A93">Daily Protein</span>
       <span style="font-size:16px;font-weight:700;color:#CFA13C">${plan.protein}g</span>
     </div>
     <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0">
-      <span style="font-size:14px;color:#666">Estimated Goal Date</span>
+      <span style="font-size:14px;color:#9C9A93">Estimated Goal Date</span>
       <span style="font-size:14px;font-weight:700;color:#4ADE80">${plan.goalDateStr}</span>
     </div>
   `;
@@ -4225,14 +4225,16 @@ function renderMealSection(meals, indices, showEmpty) {
     return `<div class="meal-row">
       <div class="meal-info" style="min-width:0;flex:1">
         <div class="meal-name" style="display:flex;align-items:flex-start;gap:4px">
-          <span style="word-break:break-word">${m.name}</span>
+          <span style="word-break:break-word;flex:1">${m.name}</span>
           <button data-edit="${m.id}" style="background:none;border:none;cursor:pointer;font-size:11px;color:#9C9A93;padding:0 2px;flex-shrink:0;margin-top:1px">✏️</button>
         </div>
-        <div class="meal-meta">${nutritionMetaString(m, {skipCals: true})}</div>
-      </div>
-      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
-        <span style="font-size:14px;font-weight:600;color:#111">${m.calories} kcal</span>
-        <button class="delete-btn" data-delete="${m.id}">×</button>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px;gap:8px">
+          <div class="meal-meta" style="margin-top:0">${nutritionMetaString(m, {skipCals: true})}</div>
+          <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+            <span style="font-size:14px;font-weight:600;color:#F2EFE7">${m.calories} kcal</span>
+            <button class="delete-btn" data-delete="${m.id}">×</button>
+          </div>
+        </div>
       </div>
     </div>`;
   }).join('');
@@ -4260,7 +4262,7 @@ function renderMeals() {
     const sectionProtein = Math.round(items.reduce((a, m) => a + (+m.protein || 0), 0) * 10) / 10;
     html += `<div style="margin-bottom:14px;${i > 0 ? 'border-top:1px solid var(--gray-100);padding-top:14px' : ''}">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-        <div style="font-size:12px;font-weight:700;color:#666;text-transform:uppercase;letter-spacing:0.5px">${label}</div>
+        <div style="font-size:12px;font-weight:700;color:#9C9A93;text-transform:uppercase;letter-spacing:0.5px">${label}</div>
         ${sectionCals > 0 ? `<div style="font-size:12px;color:#9C9A93">${sectionCals} kcal | ${sectionProtein}g protein</div>` : ''}
       </div>
       ${renderMealSection(items, [], false)}
@@ -4270,7 +4272,7 @@ function renderMeals() {
 
   if (ungrouped.length) {
     html = `<div style="margin-bottom:14px">
-      <div style="font-size:12px;font-weight:700;color:#666;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Other</div>
+      <div style="font-size:12px;font-weight:700;color:#9C9A93;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Other</div>
       ${renderMealSection(ungrouped, [], false)}
     </div>` + html;
   }
@@ -4591,7 +4593,7 @@ async function showHistoryDetail(date) {
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
         <div>
           <div style="font-size:11px;font-weight:700;color:#CFA13C;text-transform:uppercase;letter-spacing:1px">${new Date(date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</div>
-          <div style="font-size:13px;color:#666;margin-top:2px">${TARGETS.calories.toLocaleString()} kcal target</div>
+          <div style="font-size:13px;color:#9C9A93;margin-top:2px">${TARGETS.calories.toLocaleString()} kcal target</div>
         </div>
         ${s ? `<span class="score-badge ${s[1]}">${s[0]}</span>` : ''}
       </div>
@@ -4646,14 +4648,16 @@ async function showHistoryDetail(date) {
     return `<div class="meal-row">
       <div class="meal-info" style="min-width:0;flex:1">
         <div class="meal-name" style="display:flex;align-items:flex-start;gap:4px">
-          <span style="word-break:break-word">${m.name}</span>
+          <span style="word-break:break-word;flex:1">${m.name}</span>
           <button data-hist-edit="${i}" style="background:none;border:none;cursor:pointer;font-size:11px;color:#9C9A93;padding:0 2px;flex-shrink:0;margin-top:1px">✏️</button>
         </div>
-        <div class="meal-meta">${nutritionMetaString(m, {skipCals: true})}</div>
-      </div>
-      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
-        <span style="font-size:14px;font-weight:600;color:#111">${m.calories} kcal</span>
-        <button data-hist-delete="${i}" style="background:none;border:none;color:#CCC;cursor:pointer;font-size:20px;line-height:1">×</button>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px;gap:8px">
+          <div class="meal-meta" style="margin-top:0">${nutritionMetaString(m, {skipCals: true})}</div>
+          <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+            <span style="font-size:14px;font-weight:600;color:#F2EFE7">${m.calories} kcal</span>
+            <button data-hist-delete="${i}" style="background:none;border:none;color:#CCC;cursor:pointer;font-size:20px;line-height:1">×</button>
+          </div>
+        </div>
       </div>
     </div>`;
   }
@@ -4664,7 +4668,7 @@ async function showHistoryDetail(date) {
   } else {
     const ungrouped = meals.map((m,i) => ({m,i})).filter(({m}) => !m.meal_type);
     if (ungrouped.length) {
-      mealsHtml += `<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:700;color:#999;text-transform:uppercase;margin-bottom:4px">Other</div>${ungrouped.map(({m,i}) => histMealRow(m,i)).join('')}</div>`;
+      mealsHtml += `<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:700;color:#9C9A93;text-transform:uppercase;margin-bottom:4px">Other</div>${ungrouped.map(({m,i}) => histMealRow(m,i)).join('')}</div>`;
     }
     let renderedSections = 0;
     mealSections.forEach(({ type, label }) => {
@@ -4674,7 +4678,7 @@ async function showHistoryDetail(date) {
       const sectionProtein = Math.round(items.reduce((a,{m}) => a + (+m.protein||0), 0) * 10) / 10;
       mealsHtml += `<div style="margin-bottom:12px;${renderedSections > 0 ? 'border-top:1px solid var(--gray-100);padding-top:12px' : ''}">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-          <div style="font-size:11px;font-weight:700;color:#999;text-transform:uppercase">${label}</div>
+          <div style="font-size:11px;font-weight:700;color:#9C9A93;text-transform:uppercase">${label}</div>
           <div style="font-size:11px;color:#9C9A93">${sectionCals} kcal | ${sectionProtein}g protein</div>
         </div>
         ${items.map(({m,i}) => histMealRow(m,i)).join('')}
@@ -5236,7 +5240,7 @@ function switchCoachSubTab(tab) {
   Object.keys(panels).forEach(key => {
     document.getElementById(panels[key]).style.display = key === tab ? 'block' : 'none';
     const btn = document.getElementById(btns[key]);
-    btn.style.background = key === tab ? 'white' : 'transparent';
+    btn.style.background = key === tab ? '#141A18' : 'transparent';
     btn.style.color = key === tab ? '#F2EFE7' : '#9C9A93';
     btn.style.boxShadow = key === tab ? '0 1px 3px rgba(0,0,0,0.08)' : 'none';
   });
@@ -5273,7 +5277,7 @@ function renderMealTypePills() {
   if (!window._coachMealType) window._coachMealType = guessMealTypeByTime();
   wrap.innerHTML = MEAL_TYPE_ORDER.map(t => `
     <button type="button" onclick="selectCoachMealType('${t}')" data-meal-type="${t}"
-      style="flex:1;padding:8px 4px;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;background:${t === window._coachMealType ? 'var(--accent)' : 'white'};color:${t === window._coachMealType ? 'white' : '#666'}">
+      style="flex:1;padding:8px 4px;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;background:${t === window._coachMealType ? 'var(--accent)' : 'white'};color:${t === window._coachMealType ? 'white' : '#9C9A93'}">
       ${MEAL_TYPE_LABELS[t]}
     </button>`).join('');
 }
@@ -5359,12 +5363,12 @@ function renderAiMealIdeas(suggestions) {
       </div>
       ${s.source ? `<div style="font-size:11px;color:#CFA13C;font-weight:600;margin-bottom:4px">from ${s.source}</div>` : ''}
       <div style="font-size:12px;color:#9C9A93;margin-bottom:6px">${nutritionMetaString(s)}</div>
-      <div style="font-size:12px;color:#666;margin-bottom:10px;font-style:italic">${s.reason || ''}</div>
-      ${s.ingredients?.length ? `<div style="font-size:12px;color:#666;margin-bottom:10px">${s.ingredients.map(ing => `• ${formatAiIngredientLine(ing)}`).join('<br>')}</div>` : ''}
+      <div style="font-size:12px;color:#9C9A93;margin-bottom:10px;font-style:italic">${s.reason || ''}</div>
+      ${s.ingredients?.length ? `<div style="font-size:12px;color:#9C9A93;margin-bottom:10px">${s.ingredients.map(ing => `• ${formatAiIngredientLine(ing)}`).join('<br>')}</div>` : ''}
       ${s.instructions?.length ? `
         <details style="margin-bottom:12px">
           <summary style="font-size:11px;font-weight:700;color:#CFA13C;text-transform:uppercase;letter-spacing:0.5px;cursor:pointer;list-style:none;display:flex;align-items:center;gap:4px">▸ How To Make It (${s.instructions.length} steps)</summary>
-          <ol style="padding-left:18px;margin:10px 0 0;display:flex;flex-direction:column;gap:6px;font-size:12px;color:#666;line-height:1.4">${s.instructions.map(step => `<li>${step}</li>`).join('')}</ol>
+          <ol style="padding-left:18px;margin:10px 0 0;display:flex;flex-direction:column;gap:6px;font-size:12px;color:#9C9A93;line-height:1.4">${s.instructions.map(step => `<li>${step}</li>`).join('')}</ol>
         </details>
       ` : ''}
       <div style="display:grid;grid-template-columns:${s.type === 'new' || s.type === 'curated_meal' ? '1fr 1fr' : '1fr'};gap:8px">
@@ -5484,7 +5488,7 @@ function renderMealPrepDayList() {
       <button type="button" onclick="toggleMealPrepDayExpand(${i})" style="width:100%;display:flex;justify-content:space-between;align-items:center;text-align:left;background:none;border:none;cursor:pointer;padding:13px 14px">
         <div style="flex:1;min-width:0">
           <div style="font-size:14px;font-weight:800;color:#F2EFE7">${DAY_NAMES_FULL[i]}</div>
-          <div style="font-size:12px;color:${day.no_prep ? '#9C9A93' : '#666'};margin-top:2px">${summaryText}</div>
+          <div style="font-size:12px;color:${day.no_prep ? '#9C9A93' : '#9C9A93'};margin-top:2px">${summaryText}</div>
         </div>
         <span style="color:#CCC;font-size:16px;flex-shrink:0;margin-left:8px;transform:rotate(${expanded ? '90deg' : '0deg'});transition:transform 0.15s">›</span>
       </button>
@@ -5498,20 +5502,20 @@ function renderMealPrepDayEditorInner(i, day) {
   return `
     <div style="padding:0 14px 16px;border-top:1px solid var(--gray-100)">
       <div style="display:flex;justify-content:flex-end;align-items:center;margin:12px 0">
-        <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#666;cursor:pointer">
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#9C9A93;cursor:pointer">
           <input type="checkbox" id="meal-prep-no-prep-toggle-${i}" ${day.no_prep ? 'checked' : ''} onchange="toggleMealPrepNoPrep(${i})" />
           No Prep Needed
         </label>
       </div>
       ${assigned.length ? `
-        <div style="font-size:12px;font-weight:700;color:#999;margin-bottom:6px">PREPPED FOR THIS DAY</div>
+        <div style="font-size:12px;font-weight:700;color:#9C9A93;margin-bottom:6px">PREPPED FOR THIS DAY</div>
         <div style="margin-bottom:16px">
           ${assigned.map((a, ai) => {
             const meal = savedMeals.find(m => m.name === a.dish_name);
             return `
             <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--gray-100)">
               <div style="flex:1;min-width:0;${meal ? 'cursor:pointer' : ''}"${meal ? ` onclick="openEditSavedMeal('${meal.id}')"` : ''}>
-                <div style="font-size:13px;color:#333"><b>${a.meal_type}:</b> ${a.dish_name}${meal ? ' <span style="color:#CCC;font-size:11px">›</span>' : ''}</div>
+                <div style="font-size:13px;color:#D8D5CC"><b>${a.meal_type}:</b> ${a.dish_name}${meal ? ' <span style="color:#CCC;font-size:11px">›</span>' : ''}</div>
                 ${meal ? `<div style="font-size:11px;color:#9C9A93;margin-top:2px">${nutritionMetaString(meal)}</div>` : ''}
               </div>
               <button type="button" onclick="removeMealPrepAssignment(${i}, ${ai})" style="background:none;border:none;color:#33403A;cursor:pointer;font-size:18px;line-height:1;padding:0 4px;flex-shrink:0">×</button>
@@ -5520,10 +5524,10 @@ function renderMealPrepDayEditorInner(i, day) {
         </div>
       ` : ''}
       <div id="meal-prep-body-${i}" style="${day.no_prep ? 'display:none' : ''}">
-        <div style="font-size:12px;font-weight:700;color:#999;margin-bottom:6px">WHICH MEALS SHOULD BE PREPPED?</div>
+        <div style="font-size:12px;font-weight:700;color:#9C9A93;margin-bottom:6px">WHICH MEALS SHOULD BE PREPPED?</div>
         <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:4px">
           ${MEAL_PREP_TYPES.map(t => `
-            <button type="button" onclick="toggleMealPrepType(${i}, '${t}')" style="padding:8px 14px;border:none;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;background:${day.meal_types.includes(t) ? 'var(--accent)' : '#1C2320'};color:${day.meal_types.includes(t) ? 'white' : '#666'}">${t}</button>
+            <button type="button" onclick="toggleMealPrepType(${i}, '${t}')" style="padding:8px 14px;border:none;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;background:${day.meal_types.includes(t) ? 'var(--accent)' : '#1C2320'};color:${day.meal_types.includes(t) ? 'white' : '#9C9A93'}">${t}</button>
           `).join('')}
         </div>
       </div>
@@ -5742,18 +5746,18 @@ function renderMealPrepDishCard(d, idx) {
       </div>
       <div style="font-size:12px;color:#9C9A93;margin-bottom:${isReal && d.source_url ? '4px' : '10px'}">${nutritionMetaString(d)} per serving</div>
       ${isReal && d.source_url ? `<a href="${d.source_url}" target="_blank" style="font-size:11px;color:#38BDF8;margin-bottom:10px;display:block;text-decoration:none">🔗 View original recipe</a>` : ''}
-      <div style="font-size:12px;font-weight:700;color:#999;margin-bottom:6px">MAKE FOR WHICH DAYS? (${d.meal_type})</div>
+      <div style="font-size:12px;font-weight:700;color:#9C9A93;margin-bottom:6px">MAKE FOR WHICH DAYS? (${d.meal_type})</div>
       <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
         ${DAY_NAMES.map((abbr, di) => `
-          <button type="button" onclick="toggleMealPrepDishDay(${idx}, ${di})" style="width:36px;height:36px;border-radius:50%;border:none;font-size:11px;font-weight:700;cursor:pointer;background:${chosenDays.includes(di) ? 'var(--accent)' : '#1C2320'};color:${chosenDays.includes(di) ? 'white' : '#666'}">${abbr}</button>
+          <button type="button" onclick="toggleMealPrepDishDay(${idx}, ${di})" style="width:36px;height:36px;border-radius:50%;border:none;font-size:11px;font-weight:700;cursor:pointer;background:${chosenDays.includes(di) ? 'var(--accent)' : '#1C2320'};color:${chosenDays.includes(di) ? 'white' : '#9C9A93'}">${abbr}</button>
         `).join('')}
       </div>
       ${d.storage_note ? `<div style="font-size:11px;color:#CFA13C;font-weight:600;margin-bottom:10px">🧊 ${d.storage_note}</div>` : ''}
-      ${scaledIngredients.length ? `<div style="font-size:12px;color:#666;margin-bottom:10px">${scaledIngredients.map(ing => `• ${formatAiIngredientLine(ing)}`).join('<br>')}</div>` : ''}
+      ${scaledIngredients.length ? `<div style="font-size:12px;color:#9C9A93;margin-bottom:10px">${scaledIngredients.map(ing => `• ${formatAiIngredientLine(ing)}`).join('<br>')}</div>` : ''}
       ${d.instructions?.length ? `
         <details style="margin-bottom:12px">
           <summary style="font-size:11px;font-weight:700;color:#CFA13C;text-transform:uppercase;letter-spacing:0.5px;cursor:pointer;list-style:none;display:flex;align-items:center;gap:4px">▸ How To Make It (${d.instructions.length} steps)</summary>
-          <ol style="padding-left:18px;margin:10px 0 0;display:flex;flex-direction:column;gap:6px;font-size:12px;color:#666;line-height:1.4">${d.instructions.map(step => `<li>${step}</li>`).join('')}</ol>
+          <ol style="padding-left:18px;margin:10px 0 0;display:flex;flex-direction:column;gap:6px;font-size:12px;color:#9C9A93;line-height:1.4">${d.instructions.map(step => `<li>${step}</li>`).join('')}</ol>
         </details>
       ` : ''}
       <button onclick="confirmMealPrepDish(${idx})" ${isRegenerating ? 'disabled' : ''} style="width:100%;background:var(--accent);color:white;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer">✅ Add to My Week${chosenCount ? ` (${chosenCount} day${chosenCount === 1 ? '' : 's'})` : ''}</button>
@@ -5781,7 +5785,7 @@ function renderMealPrepDishes() {
     <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
       <button type="button" onclick="toggleMealPrepResultsCollapsed()" style="background:none;border:none;color:#9C9A93;font-size:12px;font-weight:600;cursor:pointer">▴ Hide generated options</button>
     </div>
-    ${mealPrepPlan.summary ? `<div class="card" style="background:#2B2414;border:1px solid #332818"><div style="font-size:13px;color:#333;line-height:1.5">${mealPrepPlan.summary}</div></div>` : ''}
+    ${mealPrepPlan.summary ? `<div class="card" style="background:#2B2414;border:1px solid #332818"><div style="font-size:13px;color:#D8D5CC;line-height:1.5">${mealPrepPlan.summary}</div></div>` : ''}
     ${dishes.map((d, idx) => renderMealPrepDishCard(d, idx)).join('')}
     <button onclick="generateMealPrepPlan()" style="width:100%;background:none;border:none;color:#9C9A93;font-size:12px;font-weight:600;cursor:pointer;margin-top:8px;text-decoration:underline">Don't like any of these? Start over completely</button>`;
 }
@@ -5984,7 +5988,7 @@ function renderShoppingList() {
         <div class="card-title" style="margin-bottom:0">Shopping List</div>
         <button type="button" onclick="shareShoppingList()" style="flex-shrink:0;background:#141A18;color:#CFA13C;border:1px solid #332818;border-radius:20px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">📤 Share</button>
       </div>
-      <div style="font-size:12px;color:#666;margin-bottom:14px">${activeDishCount ? `Pulled from ${activeDishCount} dish${activeDishCount === 1 ? '' : 'es'} added to this week's prep plan — add anything else below. ` : 'Nothing from meal prep yet — add whatever you need below. '}Press and hold an item to drag it into your store's order.</div>
+      <div style="font-size:12px;color:#9C9A93;margin-bottom:14px">${activeDishCount ? `Pulled from ${activeDishCount} dish${activeDishCount === 1 ? '' : 'es'} added to this week's prep plan — add anything else below. ` : 'Nothing from meal prep yet — add whatever you need below. '}Press and hold an item to drag it into your store's order.</div>
 
       <div style="display:flex;gap:8px;margin-bottom:14px">
         <input type="text" id="shopping-add-input" placeholder="Add an item (e.g. milk, paper towels)" onkeydown="if(event.key==='Enter') addShoppingExtra()" style="flex:1;padding:10px 12px;border:1px solid #2A322E;border-radius:10px;font-size:13px;outline:none" />
@@ -6169,12 +6173,12 @@ function renderPlanFeedback() {
   el.innerHTML = `
     <div style="background:#141A18;border-radius:14px;padding:14px;margin-bottom:14px">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:${suggestions.length ? '10px' : '0'}">
-        <div style="font-size:13px;color:#333;line-height:1.5;flex:1">${_planFeedback.feedback || ''}</div>
+        <div style="font-size:13px;color:#D8D5CC;line-height:1.5;flex:1">${_planFeedback.feedback || ''}</div>
         <button type="button" onclick="dismissPlanFeedback()" style="background:none;border:none;color:#CCC;cursor:pointer;font-size:16px;line-height:1;flex-shrink:0">×</button>
       </div>
       ${suggestions.map((s, si) => `
         <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--gray-100)">
-          <div style="font-size:12px;color:#666;flex:1">Add <b>${s.add_muscle_group}</b> to <b>${s.day_name}</b>${s.reason ? ' — ' + s.reason : ''}</div>
+          <div style="font-size:12px;color:#9C9A93;flex:1">Add <b>${s.add_muscle_group}</b> to <b>${s.day_name}</b>${s.reason ? ' — ' + s.reason : ''}</div>
           <button type="button" onclick="applyPlanFeedbackSuggestion(${si})" style="flex-shrink:0;background:var(--accent);color:white;border:none;border-radius:16px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer">Apply</button>
         </div>`).join('')}
     </div>`;
@@ -6255,7 +6259,7 @@ function renderWeeklyPlanList() {
       <div ${canExpand ? `onclick="togglePlanDayExpand(${i})"` : ''} style="width:100%;display:flex;justify-content:space-between;align-items:center;text-align:left;background:none;border:none;cursor:${canExpand ? 'pointer' : 'default'};padding:13px 14px;box-sizing:border-box">
         <div style="flex:1;min-width:0">
           <div style="font-size:14px;font-weight:800;color:#F2EFE7">${DAY_NAMES_FULL[i]}</div>
-          <div style="font-size:12px;color:${day.is_rest_day ? '#9C9A93' : '#666'};margin-top:2px">${summaryText}</div>
+          <div style="font-size:12px;color:${day.is_rest_day ? '#9C9A93' : '#9C9A93'};margin-top:2px">${summaryText}</div>
         </div>
         <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;margin-left:8px">
           <button type="button" onclick="event.stopPropagation(); editPlanDayConfig(${i})" style="background:none;border:none;color:#CFA13C;font-size:12px;font-weight:700;cursor:pointer;padding:2px">✏️ Edit</button>
@@ -6327,27 +6331,27 @@ function renderPlanDayEditorInner(i, day) {
     <div style="padding:0 14px ${configCollapsed ? '4px' : '16px'}">
       ${!configCollapsed ? `
       <div style="display:flex;justify-content:flex-end;align-items:center;margin:12px 0">
-        <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#666;cursor:pointer">
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#9C9A93;cursor:pointer">
           <input type="checkbox" id="plan-day-rest-toggle-${i}" ${day.is_rest_day ? 'checked' : ''} onchange="togglePlanDayRest(${i})" />
           Rest Day
         </label>
       </div>
       <div id="plan-day-body-${i}" style="${day.is_rest_day ? 'display:none' : ''}">
-        <div style="font-size:12px;font-weight:700;color:#999;margin-bottom:6px">WHERE ARE YOU TRAINING?</div>
+        <div style="font-size:12px;font-weight:700;color:#9C9A93;margin-bottom:6px">WHERE ARE YOU TRAINING?</div>
         <div style="display:flex;gap:8px;margin-bottom:16px">
-          <button type="button" onclick="setPlanDayLocation(${i}, 'gym')" style="flex:1;padding:10px;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;background:${day.location !== 'home' ? 'var(--accent)' : '#1C2320'};color:${day.location !== 'home' ? 'white' : '#666'}">🏋️ Gym</button>
-          <button type="button" onclick="setPlanDayLocation(${i}, 'home')" style="flex:1;padding:10px;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;background:${day.location === 'home' ? 'var(--accent)' : '#1C2320'};color:${day.location === 'home' ? 'white' : '#666'}">🏠 Home</button>
+          <button type="button" onclick="setPlanDayLocation(${i}, 'gym')" style="flex:1;padding:10px;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;background:${day.location !== 'home' ? 'var(--accent)' : '#1C2320'};color:${day.location !== 'home' ? 'white' : '#9C9A93'}">🏋️ Gym</button>
+          <button type="button" onclick="setPlanDayLocation(${i}, 'home')" style="flex:1;padding:10px;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;background:${day.location === 'home' ? 'var(--accent)' : '#1C2320'};color:${day.location === 'home' ? 'white' : '#9C9A93'}">🏠 Home</button>
         </div>
-        <div style="font-size:12px;font-weight:700;color:#999;margin-bottom:6px">MUSCLE GROUPS TODAY</div>
+        <div style="font-size:12px;font-weight:700;color:#9C9A93;margin-bottom:6px">MUSCLE GROUPS TODAY</div>
         <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px">
           ${PLANNABLE_MUSCLE_GROUPS.map(g => `
-            <button type="button" onclick="togglePlanDayGroup(${i}, '${g}')" style="padding:8px 14px;border:none;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;background:${day.muscle_groups.includes(g) ? 'var(--accent)' : '#1C2320'};color:${day.muscle_groups.includes(g) ? 'white' : '#666'}">${g}</button>
+            <button type="button" onclick="togglePlanDayGroup(${i}, '${g}')" style="padding:8px 14px;border:none;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;background:${day.muscle_groups.includes(g) ? 'var(--accent)' : '#1C2320'};color:${day.muscle_groups.includes(g) ? 'white' : '#9C9A93'}">${g}</button>
           `).join('')}
         </div>
-        <div style="font-size:12px;font-weight:700;color:#999;margin-bottom:6px">LEGS — PICK ALL LEGS, OR SPECIFIC MUSCLES</div>
+        <div style="font-size:12px;font-weight:700;color:#9C9A93;margin-bottom:6px">LEGS — PICK ALL LEGS, OR SPECIFIC MUSCLES</div>
         <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:4px">
           ${['All Legs', ...LEG_SUBGROUP_OPTIONS].map(g => `
-            <button type="button" onclick="togglePlanDayGroup(${i}, '${g}')" style="padding:8px 14px;border:none;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;background:${day.muscle_groups.includes(g) ? 'var(--accent)' : '#1C2320'};color:${day.muscle_groups.includes(g) ? 'white' : '#666'}">${g}</button>
+            <button type="button" onclick="togglePlanDayGroup(${i}, '${g}')" style="padding:8px 14px;border:none;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;background:${day.muscle_groups.includes(g) ? 'var(--accent)' : '#1C2320'};color:${day.muscle_groups.includes(g) ? 'white' : '#9C9A93'}">${g}</button>
           `).join('')}
         </div>
       </div>
@@ -6355,7 +6359,7 @@ function renderPlanDayEditorInner(i, day) {
       ${!day.is_rest_day && (day.exercises || []).length ? `
       <div style="margin-top:${configCollapsed ? '4px' : '16px'};padding-top:14px;${configCollapsed ? '' : 'border-top:1px solid var(--gray-100);'}background:#141A18">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <div style="font-size:12px;font-weight:700;color:#999">TODAY'S EXERCISES</div>
+          <div style="font-size:12px;font-weight:700;color:#9C9A93">TODAY'S EXERCISES</div>
           <button type="button" onclick="generateDayWorkout(${i})" ${isGenerating ? 'disabled' : ''} style="font-size:11px;font-weight:700;color:var(--accent);background:none;border:none;cursor:pointer">${isGenerating ? '✨ Building...' : '🔄 Regenerate'}</button>
         </div>
         <div style="background:#141A18">
@@ -6366,7 +6370,7 @@ function renderPlanDayEditorInner(i, day) {
           const isLastEx = exIdx === day.exercises.length - 1;
           return `
           <div style="padding:9px 0;${isLastEx ? '' : 'border-bottom:1px solid var(--gray-100);'}display:flex;align-items:flex-start;gap:10px">
-            <button type="button" onclick="togglePlanExerciseChecked(${i}, ${exIdx})" style="width:20px;height:20px;border-radius:6px;border:2px solid ${checked ? 'var(--accent)' : '#33403A'};background:${checked ? 'var(--accent)' : 'white'};flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;margin-top:1px">${checked ? '<span style="color:white;font-size:12px;line-height:1">✓</span>' : ''}</button>
+            <button type="button" onclick="togglePlanExerciseChecked(${i}, ${exIdx})" style="width:20px;height:20px;border-radius:6px;border:2px solid ${checked ? 'var(--accent)' : '#33403A'};background:${checked ? 'var(--accent)' : '#141A18'};flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;margin-top:1px">${checked ? '<span style="color:white;font-size:12px;line-height:1">✓</span>' : ''}</button>
             <div style="flex:1;min-width:0${ex.fromLibrary ? ';cursor:pointer' : ''}"${ex.fromLibrary ? ` onclick="openPlanExerciseDetail(${i}, ${exIdx})"` : ''}>
               <div style="font-size:13px;font-weight:600;color:${checked ? '#9C9A93' : '#F2EFE7'};text-decoration:${checked ? 'line-through' : 'none'}">${ex.name}${ex.fromLibrary ? ' <span style="color:#CCC;font-size:11px">›</span>' : ex.equipmentMismatch ? ' <span style="font-size:10px;color:#EF4444;font-weight:700">⚠️ needs gym equipment</span>' : ' <span style="font-size:10px;color:#9C9A93;font-weight:400">(coach suggestion)</span>'}</div>
               <div style="font-size:11px;color:#9C9A93;text-decoration:${checked ? 'line-through' : 'none'}">${metaLine}${ex.notes ? ' — ' + ex.notes : ''}</div>
@@ -6381,7 +6385,7 @@ function renderPlanDayEditorInner(i, day) {
       </div>` : '')}
       ${!configCollapsed ? `
       <div style="display:flex;gap:8px;margin-top:16px">
-        <button type="button" onclick="cancelPlanDayEdit(${i})" ${isGenerating ? 'disabled' : ''} style="flex:1;background:#1C2320;color:#666;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:700;cursor:pointer">Cancel</button>
+        <button type="button" onclick="cancelPlanDayEdit(${i})" ${isGenerating ? 'disabled' : ''} style="flex:1;background:#1C2320;color:#9C9A93;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:700;cursor:pointer">Cancel</button>
         <button type="button" onclick="clearPlanDay(${i})" ${isGenerating ? 'disabled' : ''} style="flex:1;background:#2A1616;color:#EF4444;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:700;cursor:pointer">Clear Day</button>
       </div>
       <button type="button" onclick="savePlanDay(${i})" ${isGenerating ? 'disabled' : ''} style="width:100%;background:var(--accent);color:white;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;margin-top:8px">${isGenerating ? '✨ Building exercises...' : `Save ${DAY_NAMES_FULL[i]}`}</button>
@@ -6580,7 +6584,7 @@ function openLogMealModal(id) {
     const active = b.dataset.type === defaultType;
     b.style.border = active ? '1px solid #CFA13C' : '1px solid #2A322E';
     b.style.background = active ? '#2B2414' : 'white';
-    b.style.color = active ? '#CFA13C' : '#666';
+    b.style.color = active ? '#CFA13C' : '#9C9A93';
   });
   window._logMealType = defaultType;
 
@@ -6607,7 +6611,7 @@ function selectLogMealType(type, btn) {
     const active = b.dataset.type === type;
     b.style.border = active ? '1px solid #CFA13C' : '1px solid #2A322E';
     b.style.background = active ? '#2B2414' : 'white';
-    b.style.color = active ? '#CFA13C' : '#666';
+    b.style.color = active ? '#CFA13C' : '#9C9A93';
   });
 }
 
@@ -7408,7 +7412,7 @@ function openFoodModal(id) {
     const active = b.dataset.type === 'breakfast';
     b.style.border = active ? '1px solid #CFA13C' : '1px solid #2A322E';
     b.style.background = active ? '#2B2414' : 'white';
-    b.style.color = active ? '#CFA13C' : '#666';
+    b.style.color = active ? '#CFA13C' : '#9C9A93';
   });
   document.getElementById('food-modal').style.display = 'flex';
 }
@@ -7595,7 +7599,7 @@ function selectFoodModalType(type, btn) {
     const active = b.dataset.type === type;
     b.style.border = active ? '1px solid #CFA13C' : '1px solid #2A322E';
     b.style.background = active ? '#2B2414' : 'white';
-    b.style.color = active ? '#CFA13C' : '#666';
+    b.style.color = active ? '#CFA13C' : '#9C9A93';
   });
 }
 
@@ -7807,9 +7811,9 @@ function showBarcodeNotFoundModal(barcode, partialName) {
     <div style="background:#141A18;border-radius:20px 20px 0 0;padding:24px;width:100%;max-width:520px;text-align:center">
       <div style="font-size:32px;margin-bottom:8px">📦</div>
       <div style="font-size:16px;font-weight:700;margin-bottom:8px">Product Not Found</div>
-      <div style="font-size:13px;color:#666;margin-bottom:20px;line-height:1.5">${msg}</div>
+      <div style="font-size:13px;color:#9C9A93;margin-bottom:20px;line-height:1.5">${msg}</div>
       <button onclick="this.closest('div[style*=fixed]').remove(); openLabelModal();" style="width:100%;background:linear-gradient(135deg,#CFA13C,#E08C7D);color:white;border:none;border-radius:10px;padding:14px;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:8px">🏷️ Take Photo of Nutrition Label Instead</button>
-      <button onclick="this.closest('div[style*=fixed]').remove()" style="width:100%;background:#1C2320;color:#666;border:none;border-radius:10px;padding:14px;font-size:14px;font-weight:600;cursor:pointer">Enter Manually</button>
+      <button onclick="this.closest('div[style*=fixed]').remove()" style="width:100%;background:#1C2320;color:#9C9A93;border:none;border-radius:10px;padding:14px;font-size:14px;font-weight:600;cursor:pointer">Enter Manually</button>
     </div>
   `;
   document.body.appendChild(modal);
@@ -8478,7 +8482,7 @@ function renderBMI() {
     document.getElementById('bmi-content').style.display = 'none';
     document.getElementById('bmi-badge').textContent = '—';
     document.getElementById('bmi-badge').style.background = '#1C2320';
-    document.getElementById('bmi-badge').style.color = '#888';
+    document.getElementById('bmi-badge').style.color = '#9C9A93';
     return;
   }
 
@@ -9238,10 +9242,10 @@ function renderScans() {
     const parts = [];
     if (s.weight) parts.push(`<span style="font-weight:600;color:#E08C7D">${s.weight} lbs</span>`);
     if (s.body_fat) parts.push(`<span style="font-weight:600;color:#CFA13C">${s.body_fat}% BF</span>`);
-    if (s.muscle_mass) parts.push(`<span style="color:#888">${s.muscle_mass} lbs muscle</span>`);
+    if (s.muscle_mass) parts.push(`<span style="color:#9C9A93">${s.muscle_mass} lbs muscle</span>`);
     return `
     <div style="display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid #141A18">
-      <div style="font-size:13px;color:#666">${new Date(s.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+      <div style="font-size:13px;color:#9C9A93">${new Date(s.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
       <div style="font-size:13px;display:flex;gap:10px;align-items:center">${parts.join(' | ')}
         <button onclick="editScan('${s.id}','${s.date}',${s.weight||'null'},${s.body_fat||'null'},${s.muscle_mass||'null'})" style="background:none;border:none;color:#9C9A93;cursor:pointer;font-size:12px;line-height:1;padding:0 4px">edit</button>
         <button onclick="deleteScan('${s.id}')" style="background:none;border:none;color:#2A322E;cursor:pointer;font-size:18px;line-height:1;padding:0 0 0 4px">×</button>
@@ -9405,9 +9409,9 @@ function closeBfCalculator() {
 function setBfCalcMethod(method) {
   _bfCalcMethod = method;
   document.getElementById('calc-navy-btn').style.background = method === 'navy' ? '#F2EFE7' : 'transparent';
-  document.getElementById('calc-navy-btn').style.color = method === 'navy' ? 'white' : '#888';
+  document.getElementById('calc-navy-btn').style.color = method === 'navy' ? 'white' : '#9C9A93';
   document.getElementById('calc-bmi-btn').style.background = method === 'bmi' ? '#F2EFE7' : 'transparent';
-  document.getElementById('calc-bmi-btn').style.color = method === 'bmi' ? 'white' : '#888';
+  document.getElementById('calc-bmi-btn').style.color = method === 'bmi' ? 'white' : '#9C9A93';
   document.getElementById('calc-navy-inputs').style.display = method === 'navy' ? 'block' : 'none';
   document.getElementById('calc-bmi-inputs').style.display = method === 'bmi' ? 'block' : 'none';
   // Navy only needs height, BMI needs height + weight
@@ -9552,7 +9556,7 @@ function openEditMealModal(mealId, name, calories, protein, carbs, fat, fiber, c
     const active = b.dataset.type === window._editMealType;
     b.style.border = active ? '1px solid #CFA13C' : '1px solid #2A322E';
     b.style.background = active ? '#2B2414' : 'white';
-    b.style.color = active ? '#CFA13C' : '#666';
+    b.style.color = active ? '#CFA13C' : '#9C9A93';
   });
   document.getElementById('edit-meal-name-input').value = name;
 
@@ -9825,7 +9829,7 @@ async function maybeShowCheckin() {
 
   if (!meals.length) {
     // STATE 1: No meals logged
-    state = { emoji: '👋', badge: 'We missed you', badgeBg: '#1C2320', badgeColor: '#888' };
+    state = { emoji: '👋', badge: 'We missed you', badgeBg: '#1C2320', badgeColor: '#9C9A93' };
     msgPool = CHECKIN_MESSAGES.no_logs;
     document.getElementById('checkin-stats').style.display = 'none';
   } else {
@@ -10004,7 +10008,7 @@ if (document.readyState === 'loading') {
 
       <!-- Gender -->
       <div style="margin-bottom:20px">
-        <div style="font-size:13px;font-weight:700;color:#666;margin-bottom:8px">Biological sex (for calorie calculation)</div>
+        <div style="font-size:13px;font-weight:700;color:#9C9A93;margin-bottom:8px">Biological sex (for calorie calculation)</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
           <button onclick="obSelectGender('male')" id="ob-gender-male" style="padding:14px;border:2px solid #2A322E;border-radius:12px;background:#141A18;font-size:15px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:space-between">Male <span id="ob-gender-male-check" style="display:none;color:#CFA13C">✓</span></button>
           <button onclick="obSelectGender('female')" id="ob-gender-female" style="padding:14px;border:2px solid #2A322E;border-radius:12px;background:#141A18;font-size:15px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:space-between">Female <span id="ob-gender-female-check" style="display:none;color:#CFA13C">✓</span></button>
@@ -10013,14 +10017,14 @@ if (document.readyState === 'loading') {
 
       <!-- Age -->
       <div style="margin-bottom:20px">
-        <div style="font-size:13px;font-weight:700;color:#666;margin-bottom:8px">How old are you?</div>
+        <div style="font-size:13px;font-weight:700;color:#9C9A93;margin-bottom:8px">How old are you?</div>
         <input id="ob-age" type="number" min="13" max="100" placeholder="Enter your age" inputmode="numeric"
           style="width:100%;padding:14px 16px;border:2px solid #2A322E;border-radius:12px;font-size:16px;outline:none;box-sizing:border-box" />
       </div>
 
       <!-- Height -->
       <div style="margin-bottom:20px">
-        <div style="font-size:13px;font-weight:700;color:#666;margin-bottom:8px">How tall are you?</div>
+        <div style="font-size:13px;font-weight:700;color:#9C9A93;margin-bottom:8px">How tall are you?</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
           <div style="position:relative">
             <input id="ob-height-ft" type="number" min="3" max="8" placeholder="5" inputmode="numeric"
@@ -10063,7 +10067,7 @@ if (document.readyState === 'loading') {
       <input type="hidden" id="ob-goal-weight" value="" />
 
       <div style="margin-bottom:20px">
-        <div style="font-size:13px;font-weight:700;color:#666;margin-bottom:8px">How much do you weigh?</div>
+        <div style="font-size:13px;font-weight:700;color:#9C9A93;margin-bottom:8px">How much do you weigh?</div>
         <button onclick="obOpenNumpad('weight')" id="ob-weight-btn"
           style="width:100%;padding:14px 16px;border:2px solid #2A322E;border-radius:12px;font-size:16px;font-weight:600;background:#141A18;cursor:pointer;display:flex;align-items:center;justify-content:space-between;box-sizing:border-box">
           <span id="ob-weight-display" style="color:#9C9A93">Tap to enter weight</span>
@@ -10073,7 +10077,7 @@ if (document.readyState === 'loading') {
       </div>
 
       <div style="margin-bottom:20px" id="ob-goal-weight-section">
-        <div style="font-size:13px;font-weight:700;color:#666;margin-bottom:8px" id="ob-goal-weight-label">What is your goal weight?</div>
+        <div style="font-size:13px;font-weight:700;color:#9C9A93;margin-bottom:8px" id="ob-goal-weight-label">What is your goal weight?</div>
         <button onclick="obOpenNumpad('goal-weight')" id="ob-goal-weight-btn"
           style="width:100%;padding:14px 16px;border:2px solid #2A322E;border-radius:12px;font-size:16px;font-weight:600;background:#141A18;cursor:pointer;display:flex;align-items:center;justify-content:space-between;box-sizing:border-box">
           <span id="ob-goal-weight-display" style="color:#9C9A93">Tap to enter goal weight</span>
@@ -10091,7 +10095,7 @@ if (document.readyState === 'loading') {
       <input type="hidden" id="ob-bf-goal" value="" />
       <div style="margin-bottom:20px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-          <div style="font-size:13px;font-weight:700;color:#666">Current body fat %</div>
+          <div style="font-size:13px;font-weight:700;color:#9C9A93">Current body fat %</div>
           <button onclick="obSkipSection('bf')" id="ob-bf-skip-btn" style="background:none;border:none;font-size:12px;color:#9C9A93;cursor:pointer;font-weight:600">Skip — add later</button>
         </div>
         <div id="ob-bf-inputs">
@@ -10117,7 +10121,7 @@ if (document.readyState === 'loading') {
       <input type="hidden" id="ob-muscle-goal" value="" />
       <div style="margin-bottom:20px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-          <div style="font-size:13px;font-weight:700;color:#666">Skeletal muscle mass</div>
+          <div style="font-size:13px;font-weight:700;color:#9C9A93">Skeletal muscle mass</div>
           <button onclick="obSkipSection('muscle')" id="ob-muscle-skip-btn" style="background:none;border:none;font-size:12px;color:#9C9A93;cursor:pointer;font-weight:600">Skip — add later</button>
         </div>
         <div id="ob-muscle-inputs">
@@ -10212,7 +10216,7 @@ if (document.readyState === 'loading') {
         <div style="font-size:12px;font-weight:700;color:#9C9A93;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Your plan</div>
         <div style="display:flex;justify-content:space-between;align-items:center">
           <div id="ob-pace-preview-cals" style="font-size:20px;font-weight:800;color:#CFA13C"></div>
-          <div id="ob-pace-preview-date" style="font-size:13px;font-weight:600;color:#666"></div>
+          <div id="ob-pace-preview-date" style="font-size:13px;font-weight:600;color:#9C9A93"></div>
         </div>
       </div>
     </div>
@@ -10239,12 +10243,12 @@ if (document.readyState === 'loading') {
       <div style="font-size:14px;color:#9C9A93;margin-bottom:24px">Your plan is ready — just need a few details to save it.</div>
 
       <div style="margin-bottom:12px">
-        <div style="font-size:13px;font-weight:700;color:#666;margin-bottom:6px">What should we call you?</div>
+        <div style="font-size:13px;font-weight:700;color:#9C9A93;margin-bottom:6px">What should we call you?</div>
         <input id="ob-signup-name" type="text" placeholder="First name" autocomplete="given-name"
           style="width:100%;padding:14px 16px;border:1.5px solid #2A322E;border-radius:12px;font-size:16px;outline:none;box-sizing:border-box" />
       </div>
       <div style="margin-bottom:12px">
-        <div style="font-size:13px;font-weight:700;color:#666;margin-bottom:6px">Username</div>
+        <div style="font-size:13px;font-weight:700;color:#9C9A93;margin-bottom:6px">Username</div>
         <input id="ob-signup-username" type="text" placeholder="e.g. alexfit22" autocomplete="off" autocapitalize="off" autocorrect="off"
           oninput="obCheckUsername(this.value)"
           style="width:100%;padding:14px 16px;border:1.5px solid #2A322E;border-radius:12px;font-size:16px;outline:none;box-sizing:border-box" />
@@ -10252,13 +10256,13 @@ if (document.readyState === 'loading') {
         <div style="font-size:12px;color:#9C9A93;margin-top:6px">Sign in with this instead of your email — 3-20 characters, letters/numbers/periods/underscores.</div>
       </div>
       <div style="margin-bottom:12px">
-        <div style="font-size:13px;font-weight:700;color:#666;margin-bottom:6px">Email</div>
+        <div style="font-size:13px;font-weight:700;color:#9C9A93;margin-bottom:6px">Email</div>
         <input id="ob-signup-email" type="email" placeholder="you@example.com" autocomplete="email"
           style="width:100%;padding:14px 16px;border:1.5px solid #2A322E;border-radius:12px;font-size:16px;outline:none;box-sizing:border-box" />
         <div id="ob-signup-email-error" style="font-size:12px;color:#F87171;margin-top:6px;display:none"></div>
       </div>
       <div style="margin-bottom:12px">
-        <div style="font-size:13px;font-weight:700;color:#666;margin-bottom:6px">Password</div>
+        <div style="font-size:13px;font-weight:700;color:#9C9A93;margin-bottom:6px">Password</div>
         <div style="position:relative">
           <input id="ob-signup-password" type="password" placeholder="Min 6 characters"
             style="width:100%;padding:14px 48px 14px 16px;border:1.5px solid #2A322E;border-radius:12px;font-size:16px;outline:none;box-sizing:border-box" />
@@ -10266,7 +10270,7 @@ if (document.readyState === 'loading') {
         </div>
       </div>
       <div style="margin-bottom:16px">
-        <div style="font-size:13px;font-weight:700;color:#666;margin-bottom:6px">Confirm password</div>
+        <div style="font-size:13px;font-weight:700;color:#9C9A93;margin-bottom:6px">Confirm password</div>
         <div style="position:relative">
           <input id="ob-signup-confirm" type="password" placeholder="Re-enter password"
             style="width:100%;padding:14px 48px 14px 16px;border:1.5px solid #2A322E;border-radius:12px;font-size:16px;outline:none;box-sizing:border-box" />
@@ -10540,9 +10544,9 @@ if (document.readyState === 'loading') {
       <div style="font-size:10px;font-weight:700;color:#9C9A93;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Add to</div>
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">
         <button type="button" class="log-meal-type-btn active" data-type="breakfast" onclick="selectLogMealType('breakfast',this)" style="padding:8px 4px;border:1px solid #CFA13C;border-radius:8px;background:#2B2414;color:#CFA13C;font-size:10px;font-weight:600;cursor:pointer">🍳 Breakfast</button>
-        <button type="button" class="log-meal-type-btn" data-type="lunch" onclick="selectLogMealType('lunch',this)" style="padding:8px 4px;border:1px solid #2A322E;border-radius:8px;background:#141A18;color:#666;font-size:10px;font-weight:600;cursor:pointer">🥗 Lunch</button>
-        <button type="button" class="log-meal-type-btn" data-type="dinner" onclick="selectLogMealType('dinner',this)" style="padding:8px 4px;border:1px solid #2A322E;border-radius:8px;background:#141A18;color:#666;font-size:10px;font-weight:600;cursor:pointer">🍽️ Dinner</button>
-        <button type="button" class="log-meal-type-btn" data-type="snack" onclick="selectLogMealType('snack',this)" style="padding:8px 4px;border:1px solid #2A322E;border-radius:8px;background:#141A18;color:#666;font-size:10px;font-weight:600;cursor:pointer">🍎 Snack</button>
+        <button type="button" class="log-meal-type-btn" data-type="lunch" onclick="selectLogMealType('lunch',this)" style="padding:8px 4px;border:1px solid #2A322E;border-radius:8px;background:#141A18;color:#9C9A93;font-size:10px;font-weight:600;cursor:pointer">🥗 Lunch</button>
+        <button type="button" class="log-meal-type-btn" data-type="dinner" onclick="selectLogMealType('dinner',this)" style="padding:8px 4px;border:1px solid #2A322E;border-radius:8px;background:#141A18;color:#9C9A93;font-size:10px;font-weight:600;cursor:pointer">🍽️ Dinner</button>
+        <button type="button" class="log-meal-type-btn" data-type="snack" onclick="selectLogMealType('snack',this)" style="padding:8px 4px;border:1px solid #2A322E;border-radius:8px;background:#141A18;color:#9C9A93;font-size:10px;font-weight:600;cursor:pointer">🍎 Snack</button>
       </div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
@@ -10563,7 +10567,7 @@ if (document.readyState === 'loading') {
     <div id="url-import-result" style="display:none;background:#141A18;border-radius:12px;padding:14px;margin-bottom:14px">
       <div id="url-import-meal-name" style="font-size:15px;font-weight:700;margin-bottom:6px"></div>
       <div id="url-import-macros" style="font-size:12px;color:#9C9A93;margin-bottom:10px"></div>
-      <div id="url-import-ingredients" style="font-size:13px;color:#444;line-height:1.6"></div>
+      <div id="url-import-ingredients" style="font-size:13px;color:#9C9A93;line-height:1.6"></div>
     </div>
     <div style="display:flex;gap:10px">
       <button onclick="document.getElementById('url-import-modal').style.display='none'" style="flex:1;padding:14px;border:1px solid #2A322E;border-radius:12px;background:#141A18;font-size:15px;font-weight:600;cursor:pointer">Cancel</button>
@@ -10576,7 +10580,7 @@ if (document.readyState === 'loading') {
 <div id="checkin-modal" style="display:none;position:fixed;inset:0;z-index:950;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px)">
   <div style="background:#141A18;border-radius:28px 28px 0 0;padding:32px 24px 48px;width:100%;max-width:520px;position:relative;max-height:85vh;overflow-y:auto">
     <!-- Close button -->
-    <button onclick="dismissCheckin()" style="position:absolute;top:16px;right:16px;background:#1C2320;border:none;width:32px;height:32px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#666">×</button>
+    <button onclick="dismissCheckin()" style="position:absolute;top:16px;right:16px;background:#1C2320;border:none;width:32px;height:32px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#9C9A93">×</button>
     <!-- Icon -->
     <div style="text-align:center;margin-bottom:20px">
       <div id="checkin-emoji" style="font-size:56px;line-height:1;margin-bottom:12px"></div>
@@ -10604,7 +10608,7 @@ if (document.readyState === 'loading') {
       </div>
     </div>
     <!-- Sub message -->
-    <div id="checkin-sub" style="font-size:14px;color:#666;line-height:1.6;text-align:center;margin-bottom:28px"></div>
+    <div id="checkin-sub" style="font-size:14px;color:#9C9A93;line-height:1.6;text-align:center;margin-bottom:28px"></div>
     <!-- Action buttons -->
     <div id="checkin-actions" style="display:flex;flex-direction:column;gap:10px">
       <button id="checkin-primary-btn" onclick="dismissCheckin()" style="width:100%;padding:16px;background:#CFA13C;color:white;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer"></button>
