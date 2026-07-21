@@ -358,14 +358,14 @@
                 <div style="font-size:10px;color:#9C9A93;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">Remaining</div>
                 <div style="font-size:18px;font-weight:700;color:#CFA13C" id="cal-remaining">2250</div>
               </div>
-              <div style="font-size:20px">🎯</div>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#CFA13C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
             </div>
             <div style="background:#141A18;border-radius:10px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center">
               <div>
                 <div style="font-size:10px;color:#9C9A93;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">Burned</div>
                 <div style="font-size:18px;font-weight:700;color:#E08C7D" id="workout-burned">0</div>
               </div>
-              <div style="font-size:20px">🔥</div>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="#E08C7D" stroke="none"><path d="M12 2c-1.2 3.2-3.5 4.3-3.5 7.4a3.5 3.5 0 0 0 7 0c0-1.1-.5-2.1-1.1-3 1.3 0 2.6 1.4 2.6 3.4A4.9 4.9 0 0 1 12 15a4.9 4.9 0 0 1-5-4.9C7 5.6 10.5 4.4 12 2z"/></svg>
             </div>
           </div>
         </div>
@@ -1678,7 +1678,7 @@ function selectMealType(type, btn) {
   document.querySelectorAll('.meal-type-btn').forEach(b => {
     const isActive = b.dataset.type === type;
     b.style.border = isActive ? '1px solid #CFA13C' : '1px solid #2A322E';
-    b.style.background = isActive ? '#2B2414' : 'white';
+    b.style.background = isActive ? '#2B2414' : '#141A18';
     b.style.color = isActive ? '#CFA13C' : '#9C9A93';
     b.style.fontWeight = isActive ? '700' : '600';
   });
@@ -1689,7 +1689,7 @@ function selectHistMealType(type, btn) {
   document.querySelectorAll('.hist-meal-type-btn').forEach(b => {
     const active = b.dataset.type === type;
     b.style.border = active ? '1px solid #CFA13C' : '1px solid #2A322E';
-    b.style.background = active ? '#2B2414' : 'white';
+    b.style.background = active ? '#2B2414' : '#141A18';
     b.style.color = active ? '#CFA13C' : '#9C9A93';
   });
 }
@@ -1699,7 +1699,7 @@ function selectEditMealType(type, btn) {
   document.querySelectorAll('.edit-meal-type-btn').forEach(b => {
     const active = b.dataset.type === type;
     b.style.border = active ? '1px solid #CFA13C' : '1px solid #2A322E';
-    b.style.background = active ? '#2B2414' : 'white';
+    b.style.background = active ? '#2B2414' : '#141A18';
     b.style.color = active ? '#CFA13C' : '#9C9A93';
   });
 }
@@ -1881,7 +1881,7 @@ function _searchPick(key, ctx) {
   document.querySelectorAll('.food-modal-type-btn').forEach(b => {
     const active = b.dataset.type === mealType;
     b.style.border = active ? '1px solid #CFA13C' : '1px solid #2A322E';
-    b.style.background = active ? '#2B2414' : 'white';
+    b.style.background = active ? '#2B2414' : '#141A18';
     b.style.color = active ? '#CFA13C' : '#9C9A93';
   });
 
@@ -2650,7 +2650,7 @@ function obSelectGoal(type) {
     const btn = document.getElementById('ob-goal-' + t);
     if (btn) {
       btn.style.border = t === type ? '2px solid #CFA13C' : '2px solid #2A322E';
-      btn.style.background = t === type ? '#2B2414' : 'white';
+      btn.style.background = t === type ? '#2B2414' : '#141A18';
     }
   });
   obSaveProgress();
@@ -2663,7 +2663,7 @@ function obSelectGender(g) {
     const check = document.getElementById('ob-gender-' + s + '-check');
     if (btn) {
       btn.style.border = s === g ? '2px solid #CFA13C' : '2px solid #2A322E';
-      btn.style.background = s === g ? '#2B2414' : 'white';
+      btn.style.background = s === g ? '#2B2414' : '#141A18';
     }
     if (check) check.style.display = s === g ? 'inline' : 'none';
   });
@@ -2676,7 +2676,7 @@ function obSelectActivity(a) {
     const btn = document.getElementById('ob-act-' + act);
     if (btn) {
       btn.style.border = act === a ? '2px solid #CFA13C' : '2px solid #2A322E';
-      btn.style.background = act === a ? '#2B2414' : 'white';
+      btn.style.background = act === a ? '#2B2414' : '#141A18';
     }
   });
   obSaveProgress();
@@ -2687,7 +2687,7 @@ function obSelectPace(pace) {
   document.querySelectorAll('.ob-pace-btn').forEach(btn => {
     const isSelected = btn.dataset.pace === pace;
     btn.style.border = isSelected ? '2px solid #CFA13C' : '2px solid #2A322E';
-    btn.style.background = isSelected ? '#2B2414' : 'white';
+    btn.style.background = isSelected ? '#2B2414' : '#141A18';
   });
   // Show warning for aggressive pace
   const warnEl = document.getElementById('ob-step6-warning');
@@ -2928,7 +2928,7 @@ async function obNext(step) {
 function obToggleAllergy(el) {
   el.classList.toggle('ob-allergy-selected');
   const selected = el.classList.contains('ob-allergy-selected');
-  el.style.background = selected ? '#2B2414' : 'white';
+  el.style.background = selected ? '#2B2414' : '#141A18';
   el.style.borderColor = selected ? '#CFA13C' : '#2A322E';
   el.style.color = selected ? '#CFA13C' : '#F2EFE7';
 }
@@ -4615,14 +4615,14 @@ async function showHistoryDetail(date) {
               <div style="font-size:10px;color:#9C9A93;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">Remaining</div>
               <div style="font-size:16px;font-weight:700;color:${remaining<0?'#EF4444':'#CFA13C'}">${remaining<0?'−':''}${Math.abs(remaining)} cal</div>
             </div>
-            <div style="font-size:20px">🎯</div>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="${remaining<0?'#EF4444':'#CFA13C'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
           </div>
           <div style="background:#141A18;border-radius:10px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center">
             <div>
               <div style="font-size:10px;color:#9C9A93;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">Burned</div>
               <div style="font-size:16px;font-weight:700;color:#E08C7D">${burnedTotal} cal</div>
             </div>
-            <div style="font-size:20px">🔥</div>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="#E08C7D" stroke="none"><path d="M12 2c-1.2 3.2-3.5 4.3-3.5 7.4a3.5 3.5 0 0 0 7 0c0-1.1-.5-2.1-1.1-3 1.3 0 2.6 1.4 2.6 3.4A4.9 4.9 0 0 1 12 15a4.9 4.9 0 0 1-5-4.9C7 5.6 10.5 4.4 12 2z"/></svg>
           </div>
         </div>
       </div>
@@ -5206,10 +5206,10 @@ function switchMealsSubTab(tab) {
   const showFoods = tab === 'foods';
   foodsPanel.style.display = showFoods ? 'block' : 'none';
   mealsPanel.style.display = showFoods ? 'none' : 'block';
-  foodsBtn.style.background = showFoods ? 'white' : 'transparent';
+  foodsBtn.style.background = showFoods ? '#141A18' : 'transparent';
   foodsBtn.style.color = showFoods ? '#F2EFE7' : '#9C9A93';
   foodsBtn.style.boxShadow = showFoods ? '0 1px 3px rgba(0,0,0,0.08)' : 'none';
-  mealsBtn.style.background = showFoods ? 'transparent' : 'white';
+  mealsBtn.style.background = showFoods ? 'transparent' : '#141A18';
   mealsBtn.style.color = showFoods ? '#9C9A93' : '#F2EFE7';
   mealsBtn.style.boxShadow = showFoods ? 'none' : '0 1px 3px rgba(0,0,0,0.08)';
 }
@@ -5222,7 +5222,7 @@ function switchMealIdeasSubTab(sub) {
   Object.keys(panels).forEach(key => {
     document.getElementById(panels[key]).style.display = key === sub ? 'block' : 'none';
     const btn = document.getElementById(btns[key]);
-    btn.style.background = key === sub ? 'white' : 'transparent';
+    btn.style.background = key === sub ? '#141A18' : 'transparent';
     btn.style.color = key === sub ? '#F2EFE7' : '#9C9A93';
     btn.style.boxShadow = key === sub ? '0 1px 3px rgba(0,0,0,0.08)' : 'none';
   });
@@ -5253,7 +5253,7 @@ function switchWorkoutsSubTab(sub) {
   Object.keys(panels).forEach(key => {
     document.getElementById(panels[key]).style.display = key === sub ? 'block' : 'none';
     const btn = document.getElementById(btns[key]);
-    btn.style.background = key === sub ? 'white' : 'transparent';
+    btn.style.background = key === sub ? '#141A18' : 'transparent';
     btn.style.color = key === sub ? '#F2EFE7' : '#9C9A93';
     btn.style.boxShadow = key === sub ? '0 1px 3px rgba(0,0,0,0.08)' : 'none';
   });
@@ -6583,7 +6583,7 @@ function openLogMealModal(id) {
   document.querySelectorAll('.log-meal-type-btn').forEach(b => {
     const active = b.dataset.type === defaultType;
     b.style.border = active ? '1px solid #CFA13C' : '1px solid #2A322E';
-    b.style.background = active ? '#2B2414' : 'white';
+    b.style.background = active ? '#2B2414' : '#141A18';
     b.style.color = active ? '#CFA13C' : '#9C9A93';
   });
   window._logMealType = defaultType;
@@ -6610,7 +6610,7 @@ function selectLogMealType(type, btn) {
   document.querySelectorAll('.log-meal-type-btn').forEach(b => {
     const active = b.dataset.type === type;
     b.style.border = active ? '1px solid #CFA13C' : '1px solid #2A322E';
-    b.style.background = active ? '#2B2414' : 'white';
+    b.style.background = active ? '#2B2414' : '#141A18';
     b.style.color = active ? '#CFA13C' : '#9C9A93';
   });
 }
@@ -7411,7 +7411,7 @@ function openFoodModal(id) {
   document.querySelectorAll('.food-modal-type-btn').forEach(b => {
     const active = b.dataset.type === 'breakfast';
     b.style.border = active ? '1px solid #CFA13C' : '1px solid #2A322E';
-    b.style.background = active ? '#2B2414' : 'white';
+    b.style.background = active ? '#2B2414' : '#141A18';
     b.style.color = active ? '#CFA13C' : '#9C9A93';
   });
   document.getElementById('food-modal').style.display = 'flex';
@@ -7598,7 +7598,7 @@ function selectFoodModalType(type, btn) {
   document.querySelectorAll('.food-modal-type-btn').forEach(b => {
     const active = b.dataset.type === type;
     b.style.border = active ? '1px solid #CFA13C' : '1px solid #2A322E';
-    b.style.background = active ? '#2B2414' : 'white';
+    b.style.background = active ? '#2B2414' : '#141A18';
     b.style.color = active ? '#CFA13C' : '#9C9A93';
   });
 }
@@ -9025,7 +9025,7 @@ function openPreferencesEdit() {
   document.querySelectorAll('.settings-allergy-chip').forEach(chip => {
     const selected = (prefs.allergies || []).includes(chip.dataset.allergy);
     chip.classList.toggle('settings-allergy-selected', selected);
-    chip.style.background = selected ? '#2B2414' : 'white';
+    chip.style.background = selected ? '#2B2414' : '#141A18';
     chip.style.borderColor = selected ? '#CFA13C' : '#2A322E';
     chip.style.color = selected ? '#CFA13C' : '#F2EFE7';
   });
@@ -9040,7 +9040,7 @@ function closePreferencesEdit() {
 function settingsToggleAllergy(el) {
   el.classList.toggle('settings-allergy-selected');
   const selected = el.classList.contains('settings-allergy-selected');
-  el.style.background = selected ? '#2B2414' : 'white';
+  el.style.background = selected ? '#2B2414' : '#141A18';
   el.style.borderColor = selected ? '#CFA13C' : '#2A322E';
   el.style.color = selected ? '#CFA13C' : '#F2EFE7';
 }
@@ -9555,7 +9555,7 @@ function openEditMealModal(mealId, name, calories, protein, carbs, fat, fiber, c
   document.querySelectorAll('.edit-meal-type-btn').forEach(b => {
     const active = b.dataset.type === window._editMealType;
     b.style.border = active ? '1px solid #CFA13C' : '1px solid #2A322E';
-    b.style.background = active ? '#2B2414' : 'white';
+    b.style.background = active ? '#2B2414' : '#141A18';
     b.style.color = active ? '#CFA13C' : '#9C9A93';
   });
   document.getElementById('edit-meal-name-input').value = name;
