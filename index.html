@@ -170,6 +170,13 @@
 
     /* TOAST */
     .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #1C2320; color: white; padding: 10px 20px; border-radius: 20px; font-size: 13px; font-weight: 500; z-index: 999; opacity: 0; transition: opacity 0.3s; pointer-events: none; white-space: nowrap; }
+    .profile-row { width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border: none; border-bottom: 1px solid #1C2320; background: none; color: #F2EFE7; font-size: 15px; font-weight: 500; font-family: inherit; text-align: left; cursor: pointer; }
+    .profile-row i { color: #33403A; font-size: 13px; }
+    .profile-subpage-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+    .profile-back-btn { background: #1C2320; border: none; border-radius: 10px; width: 36px; height: 36px; font-size: 16px; color: #F2EFE7; cursor: pointer; }
+    .profile-subpage-title { font-size: 17px; font-weight: 700; color: #F2EFE7; }
+    .profile-save-btn { background: var(--accent); color: #0B1210; border: none; border-radius: 18px; padding: 8px 18px; font-size: 13px; font-weight: 700; cursor: pointer; }
+    .profile-coming-soon { text-align: center; color: #9C9A93; font-size: 14px; padding: 60px 0; }
     .toast.show { opacity: 1; }
 
     /* CHART */
@@ -302,7 +309,7 @@
       <span>Coach</span>
       <span id="ai-coach-new-badge" style="display:none;position:absolute;top:2px;right:14px;background:var(--accent);color:#0B1210;font-size:8px;font-weight:800;padding:1px 4px;border-radius:6px;letter-spacing:0.3px;line-height:1.4">NEW</span>
     </button>
-    <button class="bottom-nav-btn" onclick="showSettings()">
+    <button class="bottom-nav-btn" data-tab="profile" onclick="openProfilePage()">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
       <span>Profile</span>
     </button>
@@ -1018,6 +1025,102 @@
         <button onclick="closeShoppingListPage()" style="background:#1C2320;border:none;border-radius:10px;width:32px;height:32px;font-size:18px;color:#9C9A93;cursor:pointer">×</button>
       </div>
       <div id="shopping-list-results-independent"></div>
+    </div>
+
+    <!-- PROFILE — main listing page -->
+    <div id="tab-profile" style="display:none">
+      <div style="display:flex;flex-direction:column;align-items:center;padding:20px 0 24px">
+        <div style="width:84px;height:84px;border-radius:50%;background:linear-gradient(135deg,#CFA13C,#A67C2E);display:flex;align-items:center;justify-content:center;margin-bottom:12px">
+          <i class="fa-solid fa-user" style="font-size:36px;color:#0B1210"></i>
+        </div>
+        <div style="font-size:17px;font-weight:700;color:#F2EFE7" id="profile-page-username">—</div>
+      </div>
+
+      <div class="card" style="padding:4px 0">
+        <button onclick="switchTab('profile-myprofile')" class="profile-row">My Profile<i class="fa-solid fa-chevron-right"></i></button>
+        <button onclick="switchTab('profile-settings')" class="profile-row">Settings<i class="fa-solid fa-chevron-right"></i></button>
+        <button onclick="switchTab('profile-allergies')" class="profile-row">Food Allergies<i class="fa-solid fa-chevron-right"></i></button>
+        <button onclick="switchTab('profile-devices')" class="profile-row">App and Devices<i class="fa-solid fa-chevron-right"></i></button>
+        <button onclick="switchTab('profile-targets')" class="profile-row">Daily Targets<i class="fa-solid fa-chevron-right"></i></button>
+        <button onclick="switchTab('profile-report')" class="profile-row">My Weekly Report<i class="fa-solid fa-chevron-right"></i></button>
+        <button onclick="switchTab('profile-privacy')" class="profile-row">Privacy<i class="fa-solid fa-chevron-right"></i></button>
+        <button onclick="switchTab('profile-help')" class="profile-row" style="border-bottom:none">Help<i class="fa-solid fa-chevron-right"></i></button>
+      </div>
+
+      <button onclick="handleSignOut()" style="width:100%;padding:14px;border:none;border-radius:12px;background:#2A1616;color:#F87171;font-size:15px;font-weight:700;cursor:pointer;margin-top:16px">Sign Out</button>
+    </div>
+
+    <!-- PROFILE SUB-PAGES — shell only for now, real content comes one at a time -->
+    <div id="tab-profile-myprofile" style="display:none">
+      <div class="profile-subpage-header">
+        <button onclick="switchTab('profile')" class="profile-back-btn"><i class="fa-solid fa-arrow-left"></i></button>
+        <div class="profile-subpage-title">My Profile</div>
+        <button onclick="switchTab('profile')" class="profile-save-btn">Save</button>
+      </div>
+      <div class="profile-coming-soon">Coming Soon</div>
+    </div>
+
+    <div id="tab-profile-settings" style="display:none">
+      <div class="profile-subpage-header">
+        <button onclick="switchTab('profile')" class="profile-back-btn"><i class="fa-solid fa-arrow-left"></i></button>
+        <div class="profile-subpage-title">Settings</div>
+        <button onclick="switchTab('profile')" class="profile-save-btn">Save</button>
+      </div>
+      <div class="profile-coming-soon">Coming Soon</div>
+    </div>
+
+    <div id="tab-profile-allergies" style="display:none">
+      <div class="profile-subpage-header">
+        <button onclick="switchTab('profile')" class="profile-back-btn"><i class="fa-solid fa-arrow-left"></i></button>
+        <div class="profile-subpage-title">Food Allergies</div>
+        <button onclick="switchTab('profile')" class="profile-save-btn">Save</button>
+      </div>
+      <div class="profile-coming-soon">Coming Soon</div>
+    </div>
+
+    <div id="tab-profile-devices" style="display:none">
+      <div class="profile-subpage-header">
+        <button onclick="switchTab('profile')" class="profile-back-btn"><i class="fa-solid fa-arrow-left"></i></button>
+        <div class="profile-subpage-title">App and Devices</div>
+        <button onclick="switchTab('profile')" class="profile-save-btn">Save</button>
+      </div>
+      <div class="profile-coming-soon">Coming Soon</div>
+    </div>
+
+    <div id="tab-profile-targets" style="display:none">
+      <div class="profile-subpage-header">
+        <button onclick="switchTab('profile')" class="profile-back-btn"><i class="fa-solid fa-arrow-left"></i></button>
+        <div class="profile-subpage-title">Daily Targets</div>
+        <button onclick="switchTab('profile')" class="profile-save-btn">Save</button>
+      </div>
+      <div class="profile-coming-soon">Coming Soon</div>
+    </div>
+
+    <div id="tab-profile-report" style="display:none">
+      <div class="profile-subpage-header">
+        <button onclick="switchTab('profile')" class="profile-back-btn"><i class="fa-solid fa-arrow-left"></i></button>
+        <div class="profile-subpage-title">My Weekly Report</div>
+        <button onclick="switchTab('profile')" class="profile-save-btn">Save</button>
+      </div>
+      <div class="profile-coming-soon">Coming Soon</div>
+    </div>
+
+    <div id="tab-profile-privacy" style="display:none">
+      <div class="profile-subpage-header">
+        <button onclick="switchTab('profile')" class="profile-back-btn"><i class="fa-solid fa-arrow-left"></i></button>
+        <div class="profile-subpage-title">Privacy</div>
+        <button onclick="switchTab('profile')" class="profile-save-btn">Save</button>
+      </div>
+      <div class="profile-coming-soon">Coming Soon</div>
+    </div>
+
+    <div id="tab-profile-help" style="display:none">
+      <div class="profile-subpage-header">
+        <button onclick="switchTab('profile')" class="profile-back-btn"><i class="fa-solid fa-arrow-left"></i></button>
+        <div class="profile-subpage-title">Help</div>
+        <button onclick="switchTab('profile')" class="profile-save-btn">Save</button>
+      </div>
+      <div class="profile-coming-soon">Coming Soon</div>
     </div>
 
     <div id="tab-aicoach" style="display:none">
@@ -1987,6 +2090,11 @@ function getRecentLastView() {
 
 let _tabBeforeShopping = 'today';
 
+function openProfilePage() {
+  switchTab('profile');
+  loadCurrentUsername();
+}
+
 function openShoppingListPage() {
   // Remember whichever tab is currently visible, so the X button can return to it
   ['today','meals','progress','photos','aicoach'].forEach(t => {
@@ -2008,7 +2116,7 @@ function closeShoppingListPage() {
 function switchTab(tab) {
   window.scrollTo(0, 0);
   saveLastView({ tab });
-  ['today','meals','progress','photos','aicoach','shopping'].forEach(t => {
+  ['today','meals','progress','photos','aicoach','shopping','profile','profile-myprofile','profile-settings','profile-allergies','profile-devices','profile-targets','profile-report','profile-privacy','profile-help'].forEach(t => {
     document.getElementById(`tab-${t}`).style.display = t === tab ? 'block' : 'none';
   });
   document.querySelectorAll('.bottom-nav-btn[data-tab]').forEach(btn => {
@@ -9105,9 +9213,16 @@ async function savePreferencesChange() {
 async function loadCurrentUsername() {
   try {
     const rows = await dbGet('usernames', `user_id=eq.${_currentUser.id}&select=username`);
-    document.getElementById('settings-username').textContent = rows?.[0]?.username || 'Not set';
+    const name = rows?.[0]?.username || 'Not set';
+    const el = document.getElementById('settings-username');
+    if (el) el.textContent = name;
+    const pageEl = document.getElementById('profile-page-username');
+    if (pageEl) pageEl.textContent = name;
   } catch(e) {
-    document.getElementById('settings-username').textContent = 'Not set';
+    const el = document.getElementById('settings-username');
+    if (el) el.textContent = 'Not set';
+    const pageEl = document.getElementById('profile-page-username');
+    if (pageEl) pageEl.textContent = 'Not set';
   }
 }
 
