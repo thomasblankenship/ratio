@@ -947,34 +947,6 @@
         <div id="scan-list"><div class="loading">Loading...</div></div>
       </div>
 
-      <!-- DAILY TARGETS -->
-      <div class="card">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-          <div class="card-title" style="margin-bottom:0">Daily Targets</div>
-          <button onclick="toggleEditTargets()" id="edit-targets-btn" style="background:var(--accent);color:#0B1210;border:none;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;cursor:pointer">Edit</button>
-        </div>
-        <div id="targets-display" class="stat-grid">
-          <div class="stat-item"><div class="stat-val" id="disp-calories">2,250</div><div class="stat-label">Calories/day</div></div>
-          <div class="stat-item"><div class="stat-val" id="disp-protein">160g</div><div class="stat-label">Protein/day</div></div>
-          <div class="stat-item"><div class="stat-val" id="disp-carbs">150g</div><div class="stat-label">Carbs/day</div></div>
-          <div class="stat-item"><div class="stat-val" id="disp-fat">65g</div><div class="stat-label">Fat/day</div></div>
-        </div>
-        <div id="targets-edit-form" style="display:none;margin-top:4px">
-          <div style="background:#2B2414;border-radius:10px;padding:12px;margin-bottom:12px">
-            <div style="font-size:11px;font-weight:700;color:#CFA13C;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">💡 How calories work</div>
-            <div style="font-size:12px;color:#9C9A93;line-height:1.5">Your daily target already accounts for your activity level — eat this amount every day regardless of workouts. Never eat back all your workout calories.</div>
-          </div>
-          <div class="form-row form-group">
-            <div><div style="font-size:11px;color:#9C9A93;margin-bottom:4px;font-weight:600">Calories</div><input type="number" min="0" id="edit-calories" placeholder="2250" style="width:100%;padding:10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:14px;outline:none" oninput="if(+this.value<0)this.value=0" /></div>
-            <div><div style="font-size:11px;color:#9C9A93;margin-bottom:4px;font-weight:600">Protein (g)</div><input type="number" min="0" id="edit-protein" placeholder="160" style="width:100%;padding:10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:14px;outline:none" oninput="if(+this.value<0)this.value=0" /></div>
-          </div>
-          <div class="form-row form-group">
-            <div><div style="font-size:11px;color:#9C9A93;margin-bottom:4px;font-weight:600">Carbs (g)</div><input type="number" min="0" id="edit-carbs" placeholder="150" style="width:100%;padding:10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:14px;outline:none" oninput="if(+this.value<0)this.value=0" /></div>
-            <div><div style="font-size:11px;color:#9C9A93;margin-bottom:4px;font-weight:600">Fat (g)</div><input type="number" min="0" id="edit-fat" placeholder="65" style="width:100%;padding:10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:14px;outline:none" oninput="if(+this.value<0)this.value=0" /></div>
-          </div>
-          <button class="btn" onclick="saveTargets()">Save Targets</button>
-        </div>
-      </div>
     </div>
 
     <!-- PHOTOS -->
@@ -1199,7 +1171,33 @@
         <div class="profile-subpage-title">Daily Targets</div>
         <button onclick="switchTab('profile')" class="profile-save-btn">Save</button>
       </div>
-      <div class="profile-coming-soon">Coming Soon</div>
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+          <div class="card-title" style="margin-bottom:0">Daily Targets</div>
+          <button onclick="toggleEditTargets()" id="edit-targets-btn" style="background:var(--accent);color:#0B1210;border:none;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;cursor:pointer">Edit</button>
+        </div>
+        <div id="targets-display" class="stat-grid">
+          <div class="stat-item"><div class="stat-val" id="disp-calories">2,250</div><div class="stat-label">Calories/day</div></div>
+          <div class="stat-item"><div class="stat-val" id="disp-protein">160g</div><div class="stat-label">Protein/day</div></div>
+          <div class="stat-item"><div class="stat-val" id="disp-carbs">150g</div><div class="stat-label">Carbs/day</div></div>
+          <div class="stat-item"><div class="stat-val" id="disp-fat">65g</div><div class="stat-label">Fat/day</div></div>
+        </div>
+        <div id="targets-edit-form" style="display:none;margin-top:4px">
+          <div style="background:#2B2414;border-radius:10px;padding:12px;margin-bottom:12px">
+            <div style="font-size:11px;font-weight:700;color:#CFA13C;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">💡 How calories work</div>
+            <div style="font-size:12px;color:#9C9A93;line-height:1.5">Your daily target already accounts for your activity level — eat this amount every day regardless of workouts. Never eat back all your workout calories.</div>
+          </div>
+          <div class="form-row form-group">
+            <div><div style="font-size:11px;color:#9C9A93;margin-bottom:4px;font-weight:600">Calories</div><input type="number" min="0" id="edit-calories" placeholder="2250" style="width:100%;padding:10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:14px;outline:none" oninput="if(+this.value<0)this.value=0" /></div>
+            <div><div style="font-size:11px;color:#9C9A93;margin-bottom:4px;font-weight:600">Protein (g)</div><input type="number" min="0" id="edit-protein" placeholder="160" style="width:100%;padding:10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:14px;outline:none" oninput="if(+this.value<0)this.value=0" /></div>
+          </div>
+          <div class="form-row form-group">
+            <div><div style="font-size:11px;color:#9C9A93;margin-bottom:4px;font-weight:600">Carbs (g)</div><input type="number" min="0" id="edit-carbs" placeholder="150" style="width:100%;padding:10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:14px;outline:none" oninput="if(+this.value<0)this.value=0" /></div>
+            <div><div style="font-size:11px;color:#9C9A93;margin-bottom:4px;font-weight:600">Fat (g)</div><input type="number" min="0" id="edit-fat" placeholder="65" style="width:100%;padding:10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:14px;outline:none" oninput="if(+this.value<0)this.value=0" /></div>
+          </div>
+          <button class="btn" onclick="saveTargets()">Save Targets</button>
+        </div>
+      </div>
     </div>
 
     <div id="tab-profile-report" style="display:none">
@@ -2233,6 +2231,7 @@ function switchTab(tab) {
   if (tab === 'profile') loadCurrentUsername();
   if (tab === 'profile-myprofile') loadMyProfilePage();
   if (tab === 'profile-allergies') loadFoodAllergiesPage();
+  if (tab === 'profile-targets') loadGoals().then(() => updateGoalsDisplay());
   if (tab === 'aicoach') {
     const badge = document.getElementById('ai-coach-new-badge');
     if (badge && badge.style.display !== 'none') {
