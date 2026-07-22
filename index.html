@@ -1136,7 +1136,24 @@
         <div class="profile-subpage-title">Settings</div>
         <button onclick="switchTab('profile')" class="profile-save-btn">Save</button>
       </div>
-      <div class="profile-coming-soon">Coming Soon</div>
+      <div class="card" style="padding:4px 0">
+        <div class="mp-row" onclick="handleChangePasswordTap()">
+          <div class="mp-row-label">Change Password</div>
+          <div class="mp-row-value" id="settings-change-pw-status" style="color:#9C9A93;font-size:13px">Send reset link</div>
+        </div>
+        <div class="mp-row" style="cursor:default">
+          <div class="mp-row-label">Push Notifications</div>
+          <div class="mp-row-value" style="color:#9C9A93">Coming Soon</div>
+        </div>
+        <div class="mp-row" style="cursor:default">
+          <div class="mp-row-label">Email Settings</div>
+          <div class="mp-row-value" style="color:#9C9A93">Coming Soon</div>
+        </div>
+        <div class="mp-row" style="cursor:default;border-bottom:none">
+          <div class="mp-row-label">App Appearance</div>
+          <div class="mp-row-value" style="color:#9C9A93">Coming Soon</div>
+        </div>
+      </div>
     </div>
 
     <div id="tab-profile-allergies" style="display:none">
@@ -9360,6 +9377,23 @@ async function saveUsernameChange() {
     toast('Username updated ✓');
   } catch(e) {
     toast('Could not save username — it may already be taken');
+  }
+}
+
+async function handleChangePasswordTap() {
+  const email = _currentUser?.email;
+  if (!email) return;
+  const statusEl = document.getElementById('settings-change-pw-status');
+  statusEl.textContent = 'Sending...';
+  try {
+    await resetPassword(email);
+    statusEl.textContent = '✓ Link sent';
+    statusEl.style.color = '#CFA13C';
+    toast('Reset link sent to ' + email);
+  } catch(e) {
+    statusEl.textContent = 'Send reset link';
+    statusEl.style.color = '#9C9A93';
+    toast(e.message || 'Could not send reset link');
   }
 }
 
