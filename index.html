@@ -171,12 +171,19 @@
     /* TOAST */
     .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #1C2320; color: white; padding: 10px 20px; border-radius: 20px; font-size: 13px; font-weight: 500; z-index: 999; opacity: 0; transition: opacity 0.3s; pointer-events: none; white-space: nowrap; }
     .profile-row { width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border: none; border-bottom: 1px solid #1C2320; background: none; color: #F2EFE7; font-size: 15px; font-weight: 500; font-family: inherit; text-align: left; cursor: pointer; }
-    .profile-row i { color: #33403A; font-size: 13px; }
+    .profile-row > span { display: flex; align-items: center; gap: 12px; }
+    .profile-row-icon { width: 20px; text-align: center; color: #CFA13C; font-size: 15px; }
+    .profile-row > i.fa-chevron-right { color: #33403A; font-size: 13px; }
     .profile-subpage-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
     .profile-back-btn { background: #1C2320; border: none; border-radius: 10px; width: 36px; height: 36px; font-size: 16px; color: #F2EFE7; cursor: pointer; }
     .profile-subpage-title { font-size: 17px; font-weight: 700; color: #F2EFE7; }
     .profile-save-btn { background: var(--accent); color: #0B1210; border: none; border-radius: 18px; padding: 8px 18px; font-size: 13px; font-weight: 700; cursor: pointer; }
     .profile-coming-soon { text-align: center; color: #9C9A93; font-size: 14px; padding: 60px 0; }
+    .mp-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid #1C2320; gap: 10px; cursor: pointer; }
+    .mp-row-label { font-size: 14px; color: #9C9A93; flex-shrink: 0; }
+    .mp-row-value { font-size: 14px; color: #F2EFE7; font-weight: 500; text-align: right; }
+    .mp-row-input { background: none; border: none; outline: none; color: #F2EFE7; font-size: 14px; font-weight: 500; font-family: inherit; text-align: right; padding: 0; cursor: pointer; }
+    .mp-row-input:focus { color: #CFA13C; }
     .toast.show { opacity: 1; }
 
     /* CHART */
@@ -1037,14 +1044,14 @@
       </div>
 
       <div class="card" style="padding:4px 0">
-        <button onclick="switchTab('profile-myprofile')" class="profile-row">My Profile<i class="fa-solid fa-chevron-right"></i></button>
-        <button onclick="switchTab('profile-settings')" class="profile-row">Settings<i class="fa-solid fa-chevron-right"></i></button>
-        <button onclick="switchTab('profile-allergies')" class="profile-row">Food Allergies<i class="fa-solid fa-chevron-right"></i></button>
-        <button onclick="switchTab('profile-devices')" class="profile-row">App and Devices<i class="fa-solid fa-chevron-right"></i></button>
-        <button onclick="switchTab('profile-targets')" class="profile-row">Daily Targets<i class="fa-solid fa-chevron-right"></i></button>
-        <button onclick="switchTab('profile-report')" class="profile-row">My Weekly Report<i class="fa-solid fa-chevron-right"></i></button>
-        <button onclick="switchTab('profile-privacy')" class="profile-row">Privacy<i class="fa-solid fa-chevron-right"></i></button>
-        <button onclick="switchTab('profile-help')" class="profile-row" style="border-bottom:none">Help<i class="fa-solid fa-chevron-right"></i></button>
+        <button onclick="switchTab('profile-myprofile'); loadMyProfilePage();" class="profile-row"><span><i class="fa-solid fa-user profile-row-icon"></i>My Profile</span><i class="fa-solid fa-chevron-right"></i></button>
+        <button onclick="switchTab('profile-settings')" class="profile-row"><span><i class="fa-solid fa-gear profile-row-icon"></i>Settings</span><i class="fa-solid fa-chevron-right"></i></button>
+        <button onclick="switchTab('profile-allergies')" class="profile-row"><span><i class="fa-solid fa-wheat-awn-circle-exclamation profile-row-icon"></i>Food Allergies</span><i class="fa-solid fa-chevron-right"></i></button>
+        <button onclick="switchTab('profile-devices')" class="profile-row"><span><i class="fa-solid fa-mobile-screen profile-row-icon"></i>App and Devices</span><i class="fa-solid fa-chevron-right"></i></button>
+        <button onclick="switchTab('profile-targets')" class="profile-row"><span><i class="fa-solid fa-bullseye profile-row-icon"></i>Daily Targets</span><i class="fa-solid fa-chevron-right"></i></button>
+        <button onclick="switchTab('profile-report')" class="profile-row"><span><i class="fa-solid fa-chart-simple profile-row-icon"></i>My Weekly Report</span><i class="fa-solid fa-chevron-right"></i></button>
+        <button onclick="switchTab('profile-privacy')" class="profile-row"><span><i class="fa-solid fa-lock profile-row-icon"></i>Privacy</span><i class="fa-solid fa-chevron-right"></i></button>
+        <button onclick="switchTab('profile-help')" class="profile-row" style="border-bottom:none"><span><i class="fa-solid fa-circle-question profile-row-icon"></i>Help</span><i class="fa-solid fa-chevron-right"></i></button>
       </div>
 
       <button onclick="handleSignOut()" style="width:100%;padding:14px;border:none;border-radius:12px;background:#2A1616;color:#F87171;font-size:15px;font-weight:700;cursor:pointer;margin-top:16px">Sign Out</button>
@@ -1055,9 +1062,58 @@
       <div class="profile-subpage-header">
         <button onclick="switchTab('profile')" class="profile-back-btn"><i class="fa-solid fa-arrow-left"></i></button>
         <div class="profile-subpage-title">My Profile</div>
-        <button onclick="switchTab('profile')" class="profile-save-btn">Save</button>
+        <button onclick="saveMyProfilePage()" class="profile-save-btn">Save</button>
       </div>
-      <div class="profile-coming-soon">Coming Soon</div>
+
+      <div style="font-size:11px;font-weight:700;color:#9C9A93;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Personal Details</div>
+      <div class="card" style="padding:4px 0">
+        <div class="mp-row">
+          <div class="mp-row-label">Username</div>
+          <input type="text" id="mp-username" class="mp-row-input" placeholder="Not set" />
+        </div>
+        <div class="mp-row" style="cursor:default">
+          <div class="mp-row-label">Email Address</div>
+          <div class="mp-row-value" id="mp-email">—</div>
+        </div>
+        <div class="mp-row" onclick="document.getElementById('mp-photo-input').click()">
+          <div class="mp-row-label">Profile Photo</div>
+          <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#CFA13C,#A67C2E);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">
+            <i class="fa-solid fa-user" id="mp-avatar-icon" style="font-size:14px;color:#0B1210"></i>
+            <img id="mp-avatar-img" style="display:none;width:100%;height:100%;object-fit:cover" />
+          </div>
+          <input type="file" id="mp-photo-input" accept="image/*" style="display:none" onchange="uploadMyProfilePhoto(this.files[0])" />
+        </div>
+        <div class="mp-row">
+          <div class="mp-row-label">Height</div>
+          <div style="display:flex;align-items:center;gap:4px">
+            <input type="number" id="mp-height-ft" class="mp-row-input" style="width:36px;text-align:right" min="0" max="7" />
+            <span style="color:#9C9A93;font-size:14px">ft</span>
+            <input type="number" id="mp-height-in" class="mp-row-input" style="width:36px;text-align:right" min="0" max="11" />
+            <span style="color:#9C9A93;font-size:14px">in</span>
+          </div>
+        </div>
+        <div class="mp-row">
+          <div class="mp-row-label">Sex</div>
+          <select id="mp-gender" class="mp-row-input" style="text-align:right">
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+          </select>
+        </div>
+        <div class="mp-row">
+          <div class="mp-row-label">Age</div>
+          <input type="number" id="mp-age" class="mp-row-input" min="0" max="100" />
+        </div>
+        <div class="mp-row" style="border-bottom:none">
+          <div class="mp-row-label">Activity Level</div>
+          <select id="mp-activity" class="mp-row-input" style="text-align:right">
+            <option value="sedentary">Sedentary</option>
+            <option value="light">Lightly Active</option>
+            <option value="moderate">Moderately Active</option>
+            <option value="active">Very Active</option>
+            <option value="athlete">Athlete</option>
+          </select>
+        </div>
+      </div>
     </div>
 
     <div id="tab-profile-settings" style="display:none">
@@ -9492,6 +9548,81 @@ function toggleEditProfile() {
     document.getElementById('edit-age').value = userProfile.age;
     document.getElementById('edit-gender').value = userProfile.gender;
     document.getElementById('edit-activity').value = userProfile.activity;
+  }
+}
+
+async function loadMyProfilePage() {
+  document.getElementById('mp-username').value = '';
+  document.getElementById('mp-username').placeholder = 'Loading...';
+  document.getElementById('mp-email').textContent = _currentUser?.email || '—';
+  await loadGoals();
+  try {
+    const rows = await dbGet('usernames', `user_id=eq.${_currentUser.id}&select=username`);
+    document.getElementById('mp-username').value = rows?.[0]?.username || '';
+    document.getElementById('mp-username').placeholder = 'Not set';
+  } catch(e) {
+    document.getElementById('mp-username').placeholder = 'Not set';
+  }
+  const dispFt = Math.floor((userProfile.heightIn || 69) / 12);
+  const dispIn = (userProfile.heightIn || 69) % 12;
+  document.getElementById('mp-height-ft').value = dispFt;
+  document.getElementById('mp-height-in').value = dispIn;
+  document.getElementById('mp-gender').value = userProfile.gender || 'male';
+  document.getElementById('mp-age').value = userProfile.age || '';
+  document.getElementById('mp-activity').value = userProfile.activity || 'moderate';
+  if (userProfile.avatarUrl) {
+    document.getElementById('mp-avatar-img').src = userProfile.avatarUrl;
+    document.getElementById('mp-avatar-img').style.display = 'block';
+    document.getElementById('mp-avatar-icon').style.display = 'none';
+  }
+}
+
+async function saveMyProfilePage() {
+  const heightFt = +document.getElementById('mp-height-ft').value || 5;
+  const heightInches = +document.getElementById('mp-height-in').value || 0;
+  const heightIn = (heightFt * 12) + heightInches;
+  const age = +document.getElementById('mp-age').value;
+  const gender = document.getElementById('mp-gender').value;
+  const activity = document.getElementById('mp-activity').value;
+  if (!heightIn || !age) { toast('Fill in height and age'); return; }
+  userProfile = { ...userProfile, heightIn, age, gender, activity };
+  await saveSetting('profile', userProfile);
+
+  const username = document.getElementById('mp-username').value.trim().toLowerCase();
+  if (username) {
+    if (!/^[a-z0-9._]{3,20}$/.test(username)) { toast('Username must be 3-20 characters: letters, numbers, periods, underscores only'); return; }
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/usernames?on_conflict=user_id`, {
+        method: 'POST',
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${_authToken}`, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+        body: JSON.stringify({ user_id: _currentUser.id, username })
+      });
+    } catch(e) {
+      toast('Could not save username — it may already be taken');
+      return;
+    }
+  }
+  updateGoalsDisplay();
+  toast('Profile saved ✓');
+  switchTab('profile');
+}
+
+async function uploadMyProfilePhoto(file) {
+  if (!file) return;
+  try {
+    const ext = file.name.split('.').pop();
+    const path = `avatar/${_currentUser.id}.${ext}`;
+    const uploadRes = await storageUpload('progress-photos', path, file);
+    if (uploadRes.error) throw new Error(typeof uploadRes.error === 'string' ? uploadRes.error : uploadRes.error.message || 'Upload failed');
+    const url = storageUrl('progress-photos', path) + '?t=' + Date.now();
+    userProfile = { ...userProfile, avatarUrl: url };
+    await saveSetting('profile', userProfile);
+    document.getElementById('mp-avatar-img').src = url;
+    document.getElementById('mp-avatar-img').style.display = 'block';
+    document.getElementById('mp-avatar-icon').style.display = 'none';
+    toast('Photo updated ✓');
+  } catch(e) {
+    toast('Could not upload photo');
   }
 }
 
