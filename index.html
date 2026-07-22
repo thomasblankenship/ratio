@@ -130,8 +130,7 @@
     .btn-secondary { background: var(--gray-100); color: var(--black); }
 
     /* HISTORY */
-    .day-row { display: flex; justify-content: space-between; align-items: center; padding: 13px 0; border-bottom: 1px solid var(--gray-100); cursor: pointer; transition: opacity 0.15s; }
-    .day-row:hover { opacity: 0.7; }
+    .day-row { display: flex; justify-content: space-between; align-items: center; padding: 13px 0; border-bottom: 1px solid var(--gray-100); }
     .day-row:last-child { border-bottom: none; }
     .day-date { font-size: 14px; font-weight: 600; color: var(--black); }
     .day-meta { font-size: 12px; color: var(--gray-400); margin-top: 2px; }
@@ -2263,6 +2262,17 @@ function toggleWorkoutForm() {
 }
 
 
+
+function jumpToLogDate(dateStr) {
+  if (dateStr > today) return;
+  logDate = dateStr;
+  recentWorkoutsCache = null;
+  updateLogDateDisplay();
+  loadTodayMeals();
+  loadTodayWorkouts();
+  toggleTodayCalendarDropdown();
+  window.scrollTo(0, 0);
+}
 
 function changeLogDate(dir) {
   const d = new Date(logDate + 'T12:00:00');
@@ -4508,7 +4518,6 @@ async function appInit() {
   const restoreTab = lastView?.tab || 'today';
   switchTab(restoreTab);
   if (lastView) {
-    if (restoreTab === 'today' && lastView.todaySub === 'history') toggleTodayCalendarDropdown();
     if (restoreTab === 'meals' && lastView.mealsSub) switchMealsSubTab(lastView.mealsSub);
     if (restoreTab === 'aicoach' && lastView.coachSub) {
       switchCoachSubTab(lastView.coachSub);
@@ -5384,8 +5393,8 @@ function renderCalendar() {
 
     const todayRing = isToday ? `border:2px solid #CFA13C;` : 'border:2px solid transparent;';
 
-    html += `<div
-      style="display:flex;flex-direction:column;align-items:center;padding:4px 2px;border-radius:10px;background:${bgColor};${todayRing}cursor:default;min-height:44px;justify-content:center">
+    html += `<div onclick="${!isFuture ? `jumpToLogDate('${dateStr}')` : ''}"
+      style="display:flex;flex-direction:column;align-items:center;padding:4px 2px;border-radius:10px;background:${bgColor};${todayRing}cursor:${!isFuture ? 'pointer' : 'default'};min-height:44px;justify-content:center">
       <div style="font-size:12px;font-weight:${isToday?'700':'400'};color:${isToday?'#CFA13C':textColor};line-height:1">${d}</div>
       ${indicator ? `<div style="font-size:10px;line-height:1;margin-top:2px">${indicator}</div>` : '<div style="font-size:8px;color:#2A322E;margin-top:2px">—</div>'}
     </div>`;
@@ -9671,14 +9680,13 @@ function renderScans() {
   if (!allScans.length) { el.innerHTML = '<div class="empty">No entries yet — tap Record to start</div>'; return; }
   el.innerHTML = [...allScans].reverse().map(s => {
     const parts = [];
-    if (s.weight) parts.push(`<span style="font-weight:600;color:#CFA13C">${s.weight} lbs</span>`);
-    if (s.body_fat) parts.push(`<span style="font-weight:600;color:#CFA13C">${s.body_fat}% BF</span>`);
-    if (s.muscle_mass) parts.push(`<span style="color:#9C9A93">${s.muscle_mass} lbs muscle</span>`);
+    if (s.weight) parts.push(`<span onclick="editScan('${s.id}','${s.date}',${s.weight},null,null)" style="cursor:pointer;font-weight:600;color:#CFA13C">${s.weight} lbs <i class="fa-solid fa-pen" style="font-size:0.7em"></i></span>`);
+    if (s.body_fat) parts.push(`<span onclick="editScan('${s.id}','${s.date}',null,${s.body_fat},null)" style="cursor:pointer;font-weight:600;color:#CFA13C">${s.body_fat}% BF <i class="fa-solid fa-pen" style="font-size:0.7em"></i></span>`);
+    if (s.muscle_mass) parts.push(`<span onclick="editScan('${s.id}','${s.date}',null,null,${s.muscle_mass})" style="cursor:pointer;font-weight:600;color:#CFA13C">${s.muscle_mass} lbs SMM <i class="fa-solid fa-pen" style="font-size:0.7em"></i></span>`);
     return `
     <div style="display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid #141A18">
       <div style="font-size:13px;color:#9C9A93">${new Date(s.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
       <div style="font-size:13px;display:flex;gap:10px;align-items:center">${parts.join(' | ')}
-        <button onclick="editScan('${s.id}','${s.date}',${s.weight||'null'},${s.body_fat||'null'},${s.muscle_mass||'null'})" style="background:none;border:none;color:#CFA13C;cursor:pointer;font-size:12px;line-height:1;padding:0 4px"><i class="fa-solid fa-pen" style="font-size:0.85em"></i></button>
         <button onclick="deleteScan('${s.id}')" style="background:none;border:none;color:#2A322E;cursor:pointer;font-size:18px;line-height:1;padding:0 0 0 4px">×</button>
       </div>
     </div>`;
