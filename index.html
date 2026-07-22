@@ -1448,11 +1448,11 @@
       </div>
     </div>
     <div style="background:#2B2414;border-radius:10px;padding:12px;margin-bottom:16px;display:grid;grid-template-columns:repeat(5,1fr);text-align:center">
-      <div><div style="font-size:14px;font-weight:700;color:#CFA13C" id="em-preview-cals">0</div><div style="font-size:9px;color:#9C9A93">kcal</div></div>
-      <div><div style="font-size:14px;font-weight:700;color:#CFA13C" id="em-preview-protein">0</div><div style="font-size:9px;color:#9C9A93">protein</div></div>
-      <div><div style="font-size:14px;font-weight:700;color:#E08C7D" id="em-preview-carbs">0</div><div style="font-size:9px;color:#9C9A93">carbs</div></div>
-      <div><div style="font-size:14px;font-weight:700;color:#FBBF24" id="em-preview-fat">0</div><div style="font-size:9px;color:#9C9A93">fat</div></div>
-      <div><div style="font-size:14px;font-weight:700;color:#A78BFA" id="em-preview-fiber">0</div><div style="font-size:9px;color:#9C9A93">fiber</div></div>
+      <div><div style="font-size:12px;font-weight:700;color:#CFA13C" id="em-preview-cals">0</div><div style="font-size:8px;color:#9C9A93">kcal</div></div>
+      <div><div style="font-size:12px;font-weight:700;color:#CFA13C" id="em-preview-protein">0</div><div style="font-size:8px;color:#9C9A93">protein</div></div>
+      <div><div style="font-size:12px;font-weight:700;color:#CFA13C" id="em-preview-carbs">0</div><div style="font-size:8px;color:#9C9A93">carbs</div></div>
+      <div><div style="font-size:12px;font-weight:700;color:#CFA13C" id="em-preview-fat">0</div><div style="font-size:8px;color:#9C9A93">fat</div></div>
+      <div><div style="font-size:12px;font-weight:700;color:#CFA13C" id="em-preview-fiber">0</div><div style="font-size:8px;color:#9C9A93">fiber</div></div>
     </div>
     <button onclick="emToggleManual()" id="em-manual-toggle" style="width:100%;background:none;border:none;font-size:12px;color:#9C9A93;text-decoration:underline;cursor:pointer;margin-bottom:12px">Enter exact values instead</button>
 
@@ -1655,13 +1655,13 @@
         <input type="hidden" id="food-modal-unit-select" value="g" />
       </div>
     </div>
-    <div style="background:#2B2414;border-radius:10px;padding:12px;margin-bottom:16px;display:grid;grid-template-columns:repeat(5,1fr);text-align:center">
-      <div><div style="font-size:15px;font-weight:700;color:#CFA13C" id="modal-cals">0</div><div style="font-size:9px;color:#9C9A93">kcal</div></div>
-      <div><div style="font-size:15px;font-weight:700;color:#CFA13C" id="modal-protein">0</div><div style="font-size:9px;color:#9C9A93">protein</div></div>
-      <div><div style="font-size:15px;font-weight:700;color:#E08C7D" id="modal-carbs">0</div><div style="font-size:9px;color:#9C9A93">carbs</div></div>
-      <div><div style="font-size:15px;font-weight:700;color:#FBBF24" id="modal-fat">0</div><div style="font-size:9px;color:#9C9A93">fat</div></div>
-      <div><div style="font-size:15px;font-weight:700;color:#4ADE80" id="modal-fiber">0</div><div style="font-size:9px;color:#9C9A93">fiber</div></div>
-      <div><div style="font-size:15px;font-weight:700;color:#A78BFA" id="modal-chol">0</div><div style="font-size:9px;color:#9C9A93">chol mg</div></div>
+    <div style="background:#2B2414;border-radius:10px;padding:12px;margin-bottom:16px;display:grid;grid-template-columns:repeat(6,1fr);text-align:center">
+      <div><div style="font-size:12px;font-weight:700;color:#CFA13C" id="modal-cals">0</div><div style="font-size:8px;color:#9C9A93">kcal</div></div>
+      <div><div style="font-size:12px;font-weight:700;color:#CFA13C" id="modal-protein">0</div><div style="font-size:8px;color:#9C9A93">protein</div></div>
+      <div><div style="font-size:12px;font-weight:700;color:#CFA13C" id="modal-carbs">0</div><div style="font-size:8px;color:#9C9A93">carbs</div></div>
+      <div><div style="font-size:12px;font-weight:700;color:#CFA13C" id="modal-fat">0</div><div style="font-size:8px;color:#9C9A93">fat</div></div>
+      <div><div style="font-size:12px;font-weight:700;color:#CFA13C" id="modal-fiber">0</div><div style="font-size:8px;color:#9C9A93">fiber</div></div>
+      <div><div style="font-size:12px;font-weight:700;color:#CFA13C" id="modal-chol">0</div><div style="font-size:8px;color:#9C9A93">chol mg</div></div>
     </div>
     <div style="margin-bottom:12px">
       <div style="font-size:10px;font-weight:700;color:#9C9A93;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Add to</div>
@@ -5305,7 +5305,7 @@ function renderMealTypePills() {
   if (!window._coachMealType) window._coachMealType = guessMealTypeByTime();
   wrap.innerHTML = MEAL_TYPE_ORDER.map(t => `
     <button type="button" onclick="selectCoachMealType('${t}')" data-meal-type="${t}"
-      style="flex:1;padding:8px 4px;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;background:${t === window._coachMealType ? 'var(--accent)' : '#1C2320'};color:${t === window._coachMealType ? '#0B1210' : '#9C9A93'}">
+      style="flex:1;padding:8px 4px;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;border:1px solid ${t === window._coachMealType ? '#CFA13C' : '#2A322E'};background:${t === window._coachMealType ? '#2B2414' : '#141A18'};color:${t === window._coachMealType ? '#CFA13C' : '#9C9A93'}">
       ${MEAL_TYPE_LABELS[t]}
     </button>`).join('');
 }
@@ -10534,10 +10534,10 @@ if (document.readyState === 'loading') {
       </div>
     </div>
     <div style="background:#2B2414;border-radius:10px;padding:12px;margin-bottom:20px;display:grid;grid-template-columns:repeat(4,1fr);text-align:center">
-      <div><div style="font-size:15px;font-weight:700;color:#CFA13C" id="mb-preview-cals">0</div><div style="font-size:9px;color:#9C9A93">kcal</div></div>
-      <div><div style="font-size:15px;font-weight:700;color:#CFA13C" id="mb-preview-protein">0</div><div style="font-size:9px;color:#9C9A93">protein</div></div>
-      <div><div style="font-size:15px;font-weight:700;color:#E08C7D" id="mb-preview-carbs">0</div><div style="font-size:9px;color:#9C9A93">carbs</div></div>
-      <div><div style="font-size:15px;font-weight:700;color:#FBBF24" id="mb-preview-fat">0</div><div style="font-size:9px;color:#9C9A93">fat</div></div>
+      <div><div style="font-size:13px;font-weight:700;color:#CFA13C" id="mb-preview-cals">0</div><div style="font-size:8px;color:#9C9A93">kcal</div></div>
+      <div><div style="font-size:13px;font-weight:700;color:#CFA13C" id="mb-preview-protein">0</div><div style="font-size:8px;color:#9C9A93">protein</div></div>
+      <div><div style="font-size:13px;font-weight:700;color:#CFA13C" id="mb-preview-carbs">0</div><div style="font-size:8px;color:#9C9A93">carbs</div></div>
+      <div><div style="font-size:13px;font-weight:700;color:#CFA13C" id="mb-preview-fat">0</div><div style="font-size:8px;color:#9C9A93">fat</div></div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
       <button onclick="document.getElementById('mb-serving-modal').style.display='none'" style="padding:14px;border:1px solid #2A322E;border-radius:12px;background:#1C2320;color:#F2EFE7;font-size:15px;font-weight:600;cursor:pointer">Cancel</button>
