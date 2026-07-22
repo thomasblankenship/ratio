@@ -379,7 +379,7 @@
       </div>
 
       <!-- CALORIE RING HERO -->
-      <div style="background:linear-gradient(160deg,#2B2414,#2A1F1D);border-radius:16px;padding:20px;margin-bottom:12px;border:1px solid #332818">
+      <div id="today-goal-card" style="background:linear-gradient(160deg,#2B2414,#2A1F1D);border-radius:16px;padding:20px;margin-bottom:12px;border:1px solid #332818">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
           <div>
             <div style="font-size:11px;font-weight:700;color:#CFA13C;text-transform:uppercase;letter-spacing:1px">Today's Goal</div>
@@ -625,18 +625,6 @@
     <!-- PROGRESS -->
     <div id="tab-progress" style="display:none">
 
-      <!-- PROGRESS PHOTOS -->
-      <button onclick="switchTab('photos')" style="width:100%;background:#141A18;border:1px solid #2A322E;border-radius:14px;padding:14px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px;cursor:pointer;text-align:left">
-        <div style="width:36px;height:36px;border-radius:10px;background:#1C2320;display:flex;align-items:center;justify-content:center;flex-shrink:0">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#CFA13C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-        </div>
-        <div style="flex:1">
-          <div style="font-size:14px;font-weight:700;color:#F2EFE7">Progress Photos</div>
-          <div style="font-size:11px;color:#9C9A93">Upload and compare over time</div>
-        </div>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9C9A93" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-      </button>
-
       <!-- WEIGHT CHART CARD -->
       <div class="card" style="padding:16px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
@@ -710,7 +698,7 @@
         <div id="bmi-no-data" style="font-size:12px;color:#9C9A93">Log your weight and make sure your height is set in Profile to see your BMI.</div>
         <div id="bmi-content" style="display:none">
           <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:14px">
-            <div style="font-size:42px;font-weight:700;letter-spacing:-1px" id="bmi-value">—</div>
+            <div style="font-size:26px;font-weight:700;letter-spacing:-0.5px" id="bmi-value">—</div>
             <div style="font-size:14px;color:#9C9A93">BMI</div>
           </div>
           <!-- BMI scale bar -->
@@ -936,6 +924,18 @@
         </div>
       </div>
 
+      <!-- PROGRESS PHOTOS -->
+      <button onclick="switchTab('photos')" style="width:100%;background:#141A18;border:1px solid #2A322E;border-radius:14px;padding:14px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px;cursor:pointer;text-align:left">
+        <div style="width:36px;height:36px;border-radius:10px;background:#1C2320;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#CFA13C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        </div>
+        <div style="flex:1">
+          <div style="font-size:14px;font-weight:700;color:#F2EFE7">Progress Photos</div>
+          <div style="font-size:11px;color:#9C9A93">Upload and compare over time</div>
+        </div>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9C9A93" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+
       <!-- RECENT DAYS -->
       <div class="card">
         <div class="card-title">Recent Days</div>
@@ -946,6 +946,10 @@
 
     <!-- PHOTOS -->
     <div id="tab-photos" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div style="font-size:18px;font-weight:700">Progress Photos</div>
+        <button onclick="switchTab('progress')" style="background:#1C2320;border:none;border-radius:10px;width:32px;height:32px;font-size:18px;color:#9C9A93;cursor:pointer">×</button>
+      </div>
       <div class="card" style="background:linear-gradient(160deg,#2B2414,#2A1F1D);border:1px solid #332818">
         <div class="card-title">Upload Progress Photo</div>
         <div class="angle-selector">
@@ -2330,6 +2334,12 @@ function switchTab(tab) {
   document.querySelectorAll('.bottom-nav-btn[data-tab]').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.tab === tab);
   });
+  if (tab === 'today') {
+    const mainEl = document.getElementById('today-subtab-main');
+    const detailEl = document.getElementById('history-detail-view');
+    if (mainEl) mainEl.style.display = 'block';
+    if (detailEl) detailEl.style.display = 'none';
+  }
   if (tab === 'meals') loadMealsTab();
   if (tab === 'progress') { loadGoals().then(() => { loadScans(); updateGoalsDisplay(); }); }
   if (tab === 'profile') loadCurrentUsername();
@@ -4698,7 +4708,7 @@ function renderWorkouts() {
     adjustBanner = document.createElement('div');
     adjustBanner.id = 'cal-adjust-banner';
     adjustBanner.style.cssText = 'margin-top:10px;border-radius:10px;padding:10px 14px;font-size:12px;display:none';
-    const heroCard = document.querySelector('#tab-today .card');
+    const heroCard = document.getElementById('today-goal-card');
     if (heroCard) heroCard.appendChild(adjustBanner);
   }
   let adjustment = 0;
@@ -4846,7 +4856,7 @@ function updateMacroBars(t) {
     adjustBanner = document.createElement('div');
     adjustBanner.id = 'cal-adjust-banner';
     adjustBanner.style.cssText = 'margin-top:10px;border-radius:10px;padding:10px 14px;font-size:12px;display:none';
-    document.querySelector('#tab-today .card').appendChild(adjustBanner);
+    document.getElementById('today-goal-card').appendChild(adjustBanner);
   }
   let adjustment = 0;
   let adjustMsg = '';
@@ -5374,8 +5384,8 @@ function renderCalendar() {
 
     const todayRing = isToday ? `border:2px solid #CFA13C;` : 'border:2px solid transparent;';
 
-    html += `<div onclick="${!isFuture ? `showHistoryDetail('${dateStr}')` : ''}" 
-      style="display:flex;flex-direction:column;align-items:center;padding:4px 2px;border-radius:10px;background:${bgColor};${todayRing}cursor:${!isFuture ? 'pointer' : 'default'};min-height:44px;justify-content:center">
+    html += `<div
+      style="display:flex;flex-direction:column;align-items:center;padding:4px 2px;border-radius:10px;background:${bgColor};${todayRing}cursor:default;min-height:44px;justify-content:center">
       <div style="font-size:12px;font-weight:${isToday?'700':'400'};color:${isToday?'#CFA13C':textColor};line-height:1">${d}</div>
       ${indicator ? `<div style="font-size:10px;line-height:1;margin-top:2px">${indicator}</div>` : '<div style="font-size:8px;color:#2A322E;margin-top:2px">—</div>'}
     </div>`;
@@ -5404,27 +5414,23 @@ function renderHistoryList() {
     if (!t) {
       // Empty day — show encouraging prompt
       const isToday = d === today;
-      return `<div class="day-row" onclick="showHistoryDetail('${d}')">
+      return `<div class="day-row">
         <div>
           <div class="day-date">${dateLabel}</div>
-          <div class="day-meta" style="color:#9C9A93">${isToday ? 'Start logging today!' : '📋 Nothing logged — tap to add'}</div>
+          <div class="day-meta" style="color:#9C9A93">${isToday ? 'Start logging today!' : 'Nothing logged'}</div>
         </div>
         <div class="day-right">
           <span class="score-badge" style="background:#1C2320;color:#9C9A93;border:none">—</span>
-          <span class="day-chevron">›</span>
         </div>
       </div>`;
     }
 
     const score = dayScore(t.calories, t.protein);
     const s = score ? scoreMap[score] : null;
-    return `<div class="day-row" onclick="showHistoryDetail('${d}')">
+    return `<div class="day-row">
       <div>
         <div class="day-date">${dateLabel}</div>
         <div class="day-meta">${nutritionMetaString(t)}</div>
-      </div>
-      <div class="day-right">
-        <span class="day-chevron">›</span>
       </div>
     </div>`;
   }).join('');
@@ -9665,14 +9671,14 @@ function renderScans() {
   if (!allScans.length) { el.innerHTML = '<div class="empty">No entries yet — tap Record to start</div>'; return; }
   el.innerHTML = [...allScans].reverse().map(s => {
     const parts = [];
-    if (s.weight) parts.push(`<span style="font-weight:600;color:#E08C7D">${s.weight} lbs</span>`);
+    if (s.weight) parts.push(`<span style="font-weight:600;color:#CFA13C">${s.weight} lbs</span>`);
     if (s.body_fat) parts.push(`<span style="font-weight:600;color:#CFA13C">${s.body_fat}% BF</span>`);
     if (s.muscle_mass) parts.push(`<span style="color:#9C9A93">${s.muscle_mass} lbs muscle</span>`);
     return `
     <div style="display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid #141A18">
       <div style="font-size:13px;color:#9C9A93">${new Date(s.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
       <div style="font-size:13px;display:flex;gap:10px;align-items:center">${parts.join(' | ')}
-        <button onclick="editScan('${s.id}','${s.date}',${s.weight||'null'},${s.body_fat||'null'},${s.muscle_mass||'null'})" style="background:none;border:none;color:#9C9A93;cursor:pointer;font-size:12px;line-height:1;padding:0 4px">edit</button>
+        <button onclick="editScan('${s.id}','${s.date}',${s.weight||'null'},${s.body_fat||'null'},${s.muscle_mass||'null'})" style="background:none;border:none;color:#CFA13C;cursor:pointer;font-size:12px;line-height:1;padding:0 4px"><i class="fa-solid fa-pen" style="font-size:0.85em"></i></button>
         <button onclick="deleteScan('${s.id}')" style="background:none;border:none;color:#2A322E;cursor:pointer;font-size:18px;line-height:1;padding:0 0 0 4px">×</button>
       </div>
     </div>`;
