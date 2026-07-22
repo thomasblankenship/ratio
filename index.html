@@ -47,7 +47,7 @@
     .ob-choice-btn.ob-active { border-color:#CFA13C;background:#2B2414;color:#CFA13C; }
 
     .range-pill { padding:4px 12px; font-size:12px; font-weight:600; border:none; border-radius:20px; background:#1C2320; color:#9C9A93; cursor:pointer; white-space:nowrap; transition:all 0.15s; }
-    .range-pill.active-pill { background:#F2EFE7; color:white; }
+    .range-pill.active-pill { background:#CFA13C; color:#0B1210; }
 
     /* LAYOUT */
     .app { display: flex; flex-direction: column; min-height: 100vh; max-width: 520px; margin: 0 auto; }
@@ -275,9 +275,6 @@
       </div>
       <div style="display:flex;align-items:center;gap:8px">
         <div id="score-badge"></div>
-        <button onclick="switchTab('photos')" style="background:none;border:none;cursor:pointer;padding:4px;display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:10px;background:#1C2320">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9C9A93" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-        </button>
         <button style="background:none;border:none;cursor:pointer;padding:4px;display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:10px;background:#1C2320">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9C9A93" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
         </button>
@@ -512,7 +509,7 @@
           <!-- Legend -->
           <div style="margin-top:10px;background:#F7F7F7;border-radius:8px;padding:8px 12px">
             <div style="font-size:10px;color:#9C9A93;line-height:1.6">
-              ⭐ 85–100% cals + protein hit &nbsp;|&nbsp; ✅ cals or protein &nbsp;|&nbsp; ❌ over limit
+              ⭐ 85–100% cals + protein hit &nbsp;|&nbsp; <span style="display:inline-flex;width:14px;height:14px;border-radius:4px;background:#CFA13C;align-items:center;justify-content:center;vertical-align:middle"><span style="color:#0B1210;font-size:10px;font-weight:900;line-height:1">✓</span></span> cals or protein &nbsp;|&nbsp; ❌ over limit
             </div>
           </div>
         </div>
@@ -650,6 +647,18 @@
     <!-- PROGRESS -->
     <div id="tab-progress" style="display:none">
 
+      <!-- PROGRESS PHOTOS -->
+      <button onclick="switchTab('photos')" style="width:100%;background:#141A18;border:1px solid #2A322E;border-radius:14px;padding:14px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px;cursor:pointer;text-align:left">
+        <div style="width:36px;height:36px;border-radius:10px;background:#1C2320;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#CFA13C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        </div>
+        <div style="flex:1">
+          <div style="font-size:14px;font-weight:700;color:#F2EFE7">Progress Photos</div>
+          <div style="font-size:11px;color:#9C9A93">Upload and compare over time</div>
+        </div>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9C9A93" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+
       <!-- WEIGHT CHART CARD -->
       <div class="card" style="padding:16px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
@@ -672,8 +681,8 @@
             </div>
           </div>
           <div style="margin-top:10px;padding-top:10px;border-top:1px solid #2A322E;text-align:center">
-            <span style="font-size:13px;font-weight:600;color:#F2EFE7" id="disp-weight-to-go">—</span>
-            <span style="font-size:12px;color:#9C9A93"> to go</span>
+            <span style="font-size:11px;font-weight:600;color:#F2EFE7" id="disp-weight-to-go">—</span>
+            <span style="font-size:11px;color:#9C9A93"> to go</span>
           </div>
         </div>
         <div id="weight-no-goal" style="font-size:12px;color:#9C9A93;margin-bottom:12px">Tap <b>Edit Goal</b> to set your target weight</div>
@@ -695,7 +704,7 @@
             <div style="font-size:26px;font-weight:700;color:#F2EFE7;letter-spacing:-0.5px"><span id="weight-latest-val">—</span> <span style="font-size:14px;font-weight:500;color:#9C9A93">lbs</span></div>
             <div id="weight-fun-fact" style="font-size:12px;color:#4ADE80;font-weight:600;margin-top:3px;display:none"></div>
           </div>
-          <button onclick="openLogModal('weight')" style="background:var(--accent);color:#0B1210;border:none;border-radius:20px;padding:10px 20px;font-size:13px;font-weight:700;cursor:pointer">Record Weight</button>
+          <button onclick="openLogModal('weight')" style="background:var(--accent);color:#0B1210;border:none;border-radius:18px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0">Record Weight</button>
         </div>
         <!-- Goal edit inline -->
         <div id="weight-goal-edit" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid #1C2320">
@@ -776,8 +785,8 @@
               </div>
             </div>
             <div style="margin-top:10px;padding-top:10px;border-top:1px solid #FFE4C4;text-align:center">
-              <span style="font-size:13px;font-weight:600;color:#F2EFE7" id="disp-bf-to-go">—</span>
-              <span style="font-size:12px;color:#9C9A93"> to go</span>
+              <span style="font-size:11px;font-weight:600;color:#F2EFE7" id="disp-bf-to-go">—</span>
+              <span style="font-size:11px;color:#9C9A93"> to go</span>
             </div>
           </div>
           <div id="bf-no-goal" style="font-size:12px;color:#9C9A93;margin-bottom:12px">Tap <b>Edit Goal</b> to set your body fat % target</div>
@@ -799,7 +808,7 @@
               <div style="font-size:11px;font-weight:700;color:#9C9A93;text-transform:uppercase;letter-spacing:0.5px" id="bf-latest-date">No entries yet</div>
               <div style="font-size:26px;font-weight:700;color:#F2EFE7;letter-spacing:-0.5px"><span id="bf-latest-val">—</span> <span style="font-size:14px;font-weight:500;color:#9C9A93">%</span></div>
             </div>
-            <button onclick="openLogModal('bf')" style="background:var(--accent);color:#0B1210;border:none;border-radius:20px;padding:10px 20px;font-size:13px;font-weight:700;cursor:pointer">Record Body Fat</button>
+            <button onclick="openLogModal('bf')" style="background:var(--accent);color:#0B1210;border:none;border-radius:18px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0">Record Body Fat</button>
           </div>
           <!-- Goal edit inline -->
           <div id="bf-goal-edit" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid #1C2320">
@@ -827,7 +836,7 @@
           <div style="font-size:16px;font-weight:700;color:#F2EFE7">Skeletal Muscle Mass</div>
           <div style="display:flex;align-items:center;gap:10px">
             <button id="muscle-edit-goal-btn" onclick="toggleGoalEdit('muscle')" style="font-size:12px;font-weight:600;color:var(--accent);background:none;border:none;cursor:pointer">Edit Goal</button>
-            <div onclick="toggleMuscleTracking()" style="cursor:pointer;width:40px;height:22px;border-radius:11px;background:#4ADE80;position:relative;transition:background 0.2s;flex-shrink:0" id="muscle-toggle-track">
+            <div onclick="toggleMuscleTracking()" style="cursor:pointer;width:40px;height:22px;border-radius:11px;background:var(--accent);position:relative;transition:background 0.2s;flex-shrink:0" id="muscle-toggle-track">
               <div style="position:absolute;top:3px;right:3px;width:16px;height:16px;border-radius:50%;background:#141A18;transition:right 0.2s" id="muscle-toggle-knob"></div>
             </div>
           </div>
@@ -836,15 +845,15 @@
         <div id="muscle-method-prompt" style="display:none;text-align:center;padding:16px 8px">
           <div style="font-size:13px;color:#9C9A93;margin-bottom:16px">How do you track muscle mass?</div>
           <div style="display:flex;flex-direction:column;gap:8px">
-            <button onclick="setMuscleMethod('inbody')" style="padding:12px;border:1px solid #2A322E;border-radius:12px;background:#141A18;font-size:13px;font-weight:600;cursor:pointer;text-align:left;display:flex;align-items:center;gap:10px">
+            <button onclick="setMuscleMethod('inbody')" style="padding:12px;border:1px solid #2A322E;border-radius:12px;background:#141A18;color:#F2EFE7;font-size:13px;font-weight:600;cursor:pointer;text-align:left;display:flex;align-items:center;gap:10px">
               <span style="font-size:20px">📊</span>
               <div><div style="font-weight:700">InBody / DEXA Scan</div><div style="font-size:11px;color:#9C9A93;font-weight:400">I get regular body composition scans</div></div>
             </button>
-            <button onclick="setMuscleMethod('estimate')" style="padding:12px;border:1px solid #2A322E;border-radius:12px;background:#141A18;font-size:13px;font-weight:600;cursor:pointer;text-align:left;display:flex;align-items:center;gap:10px">
+            <button onclick="setMuscleMethod('estimate')" style="padding:12px;border:1px solid #2A322E;border-radius:12px;background:#141A18;color:#F2EFE7;font-size:13px;font-weight:600;cursor:pointer;text-align:left;display:flex;align-items:center;gap:10px">
               <span style="font-size:20px">📏</span>
               <div><div style="font-weight:700">Estimate from Body Fat %</div><div style="font-size:11px;color:#9C9A93;font-weight:400">Calculate automatically from weight & body fat</div></div>
             </button>
-            <button onclick="setMuscleMethod('none')" style="padding:12px;border:1px solid #2A322E;border-radius:12px;background:#141A18;font-size:13px;font-weight:600;cursor:pointer;text-align:left;display:flex;align-items:center;gap:10px">
+            <button onclick="setMuscleMethod('none')" style="padding:12px;border:1px solid #2A322E;border-radius:12px;background:#141A18;color:#F2EFE7;font-size:13px;font-weight:600;cursor:pointer;text-align:left;display:flex;align-items:center;gap:10px">
               <span style="font-size:20px">🚫</span>
               <div><div style="font-weight:700">I don't track this</div><div style="font-size:11px;color:#9C9A93;font-weight:400">Hide muscle mass section</div></div>
             </button>
@@ -868,8 +877,8 @@
               </div>
             </div>
             <div style="margin-top:10px;padding-top:10px;border-top:1px solid #BBF7D0;text-align:center">
-              <span style="font-size:13px;font-weight:600;color:#F2EFE7" id="disp-muscle-to-go">—</span>
-              <span style="font-size:12px;color:#9C9A93"> to go</span>
+              <span style="font-size:11px;font-weight:600;color:#F2EFE7" id="disp-muscle-to-go">—</span>
+              <span style="font-size:11px;color:#9C9A93"> to go</span>
             </div>
           </div>
           <div id="muscle-no-goal" style="font-size:12px;color:#9C9A93;margin-bottom:12px">Tap <b>Edit Goal</b> to set a muscle mass target</div>
@@ -890,7 +899,7 @@
               <div style="font-size:11px;font-weight:700;color:#9C9A93;text-transform:uppercase;letter-spacing:0.5px" id="muscle-latest-date">No entries yet</div>
               <div style="font-size:26px;font-weight:700;color:#F2EFE7;letter-spacing:-0.5px"><span id="muscle-latest-val">—</span> <span style="font-size:14px;font-weight:500;color:#9C9A93">lbs</span></div>
             </div>
-            <button id="muscle-record-btn" onclick="openLogModal('muscle')" style="background:#4ADE80;color:white;border:none;border-radius:20px;padding:10px 20px;font-size:13px;font-weight:700;cursor:pointer">Record Muscle</button>
+            <button id="muscle-record-btn" onclick="openLogModal('muscle')" style="background:var(--accent);color:#0B1210;border:none;border-radius:18px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0">Record Muscle</button>
           </div>
           <!-- Goal edit inline -->
           <div id="muscle-goal-edit" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid #1C2320">
@@ -1190,11 +1199,12 @@
 
 <!-- LOG WEIGHT / BODY FAT MODAL -->
 <div id="settings-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:800;align-items:flex-end;justify-content:center">
-  <div style="background:#141A18;border-radius:20px 20px 0 0;padding:24px 20px 48px;width:100%;max-width:480px">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+  <div style="background:#141A18;border-radius:20px 20px 0 0;width:100%;max-width:480px;max-height:88vh;display:flex;flex-direction:column;box-sizing:border-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:24px 20px 16px;flex-shrink:0">
       <div style="font-size:18px;font-weight:700">Settings</div>
       <button onclick="document.getElementById('settings-modal').style.display='none'" style="background:none;border:none;font-size:22px;color:#9C9A93;cursor:pointer">×</button>
     </div>
+    <div style="overflow-y:auto;padding:0 20px 48px;box-sizing:border-box">
 
     <!-- PROFILE -->
     <div class="card">
@@ -1274,7 +1284,7 @@
           style="width:100%;padding:10px 12px;border:1.5px solid #2A322E;border-radius:10px;font-size:14px;outline:none;box-sizing:border-box" />
         <div id="settings-username-status" style="font-size:12px;margin-top:6px;display:none"></div>
         <div style="display:flex;gap:8px;margin-top:8px">
-          <button onclick="closeUsernameEdit()" style="flex:1;padding:10px;border:1px solid #2A322E;border-radius:10px;background:#141A18;font-size:13px;font-weight:600;cursor:pointer">Cancel</button>
+          <button onclick="closeUsernameEdit()" style="flex:1;padding:10px;border:1px solid #2A322E;border-radius:10px;background:#141A18;color:#F2EFE7;font-size:13px;font-weight:600;cursor:pointer">Cancel</button>
           <button onclick="saveUsernameChange()" style="flex:1;padding:10px;border:none;border-radius:10px;background:#CFA13C;color:#0B1210;font-size:13px;font-weight:700;cursor:pointer">Save</button>
         </div>
       </div>
@@ -1303,7 +1313,7 @@
         <textarea id="settings-favorite-foods" rows="2" placeholder="e.g. chicken breast, rice, Greek yogurt..."
           style="width:100%;padding:10px 12px;border:1.5px solid #2A322E;border-radius:10px;font-size:13px;outline:none;box-sizing:border-box;resize:vertical;font-family:inherit;margin-bottom:10px"></textarea>
         <div style="display:flex;gap:8px">
-          <button onclick="closePreferencesEdit()" style="flex:1;padding:10px;border:1px solid #2A322E;border-radius:10px;background:#141A18;font-size:13px;font-weight:600;cursor:pointer">Cancel</button>
+          <button onclick="closePreferencesEdit()" style="flex:1;padding:10px;border:1px solid #2A322E;border-radius:10px;background:#141A18;color:#F2EFE7;font-size:13px;font-weight:600;cursor:pointer">Cancel</button>
           <button onclick="savePreferencesChange()" style="flex:1;padding:10px;border:none;border-radius:10px;background:#CFA13C;color:#0B1210;font-size:13px;font-weight:700;cursor:pointer">Save</button>
         </div>
       </div>
@@ -1329,6 +1339,7 @@
       </a>
       <div style="font-size:11px;color:#2A322E;margin-top:4px">sb@funolio.com</div>
     </div>
+    </div>
   </div>
 </div>
 
@@ -1353,7 +1364,7 @@
       <button class="numpad-btn" onclick="goalNumpadPress('del')" style="font-size:18px">⌫</button>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-      <button onclick="cancelGoalNumpad()" style="padding:16px;border:1px solid #2A322E;border-radius:12px;background:#141A18;font-size:15px;font-weight:600;cursor:pointer">Cancel</button>
+      <button onclick="cancelGoalNumpad()" style="padding:16px;border:1px solid #2A322E;border-radius:12px;background:#141A18;color:#F2EFE7;font-size:15px;font-weight:600;cursor:pointer">Cancel</button>
       <button onclick="confirmGoalNumpad()" style="padding:16px;border:none;border-radius:12px;background:var(--accent);color:#0B1210;font-size:15px;font-weight:700;cursor:pointer">Set</button>
     </div>
   </div>
@@ -1582,13 +1593,13 @@
     <div id="label-result" style="display:none;background:#2B2414;border-radius:10px;padding:14px;margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:#CFA13C;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Detected Nutrition</div>
       <div id="label-result-name" style="font-size:15px;font-weight:700;margin-bottom:10px"></div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);row-gap:12px;text-align:center;gap:4px;margin-bottom:14px">
-        <div><div style="font-size:14px;font-weight:700;color:#CFA13C" id="label-cals">-</div><div style="font-size:9px;color:#9C9A93">kcal</div></div>
-        <div><div style="font-size:14px;font-weight:700;color:#CFA13C" id="label-protein">-</div><div style="font-size:9px;color:#9C9A93">protein</div></div>
-        <div><div style="font-size:14px;font-weight:700;color:#E08C7D" id="label-carbs">-</div><div style="font-size:9px;color:#9C9A93">carbs</div></div>
-        <div><div style="font-size:14px;font-weight:700;color:#FBBF24" id="label-fat">-</div><div style="font-size:9px;color:#9C9A93">fat</div></div>
-        <div><div style="font-size:14px;font-weight:700;color:#4ADE80" id="label-fiber">-</div><div style="font-size:9px;color:#9C9A93">fiber</div></div>
-        <div><div style="font-size:14px;font-weight:700;color:#A78BFA" id="label-chol">-</div><div style="font-size:9px;color:#9C9A93">chol mg</div></div>
+      <div style="display:grid;grid-template-columns:repeat(6,1fr);text-align:center;gap:4px;margin-bottom:14px">
+        <div><div style="font-size:12px;font-weight:700;color:#CFA13C" id="label-cals">-</div><div style="font-size:8px;color:#9C9A93">kcal</div></div>
+        <div><div style="font-size:12px;font-weight:700;color:#CFA13C" id="label-protein">-</div><div style="font-size:8px;color:#9C9A93">protein</div></div>
+        <div><div style="font-size:12px;font-weight:700;color:#CFA13C" id="label-carbs">-</div><div style="font-size:8px;color:#9C9A93">carbs</div></div>
+        <div><div style="font-size:12px;font-weight:700;color:#CFA13C" id="label-fat">-</div><div style="font-size:8px;color:#9C9A93">fat</div></div>
+        <div><div style="font-size:12px;font-weight:700;color:#CFA13C" id="label-fiber">-</div><div style="font-size:8px;color:#9C9A93">fiber</div></div>
+        <div><div style="font-size:12px;font-weight:700;color:#CFA13C" id="label-chol">-</div><div style="font-size:8px;color:#9C9A93">chol mg</div></div>
       </div>
       <!-- Serving size: display + unit scroll -->
       <div style="font-size:11px;font-weight:700;color:#9C9A93;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Serving Size</div>
@@ -2125,7 +2136,7 @@ function renderExerciseMuscleList() {
     const fallbackCover = exercises[0] ? (exercises[0].poster || (exercises[0].images && exercises[0].images[0]) || '') : '';
     const cover = MUSCLE_GROUP_ICON[g] || fallbackCover;
     return `
-    <button type="button" onclick="selectExerciseGroup('${g}')" style="display:flex;align-items:center;gap:14px;width:100%;text-align:left;padding:12px;border:none;border-radius:12px;background:#141A18;box-shadow:0 1px 3px rgba(0,0,0,0.06);cursor:pointer">
+    <button type="button" onclick="selectExerciseGroup('${g}')" style="display:flex;align-items:center;gap:14px;width:100%;text-align:left;padding:12px;border:none;border-radius:12px;background:#141A18;color:#F2EFE7;box-shadow:0 1px 3px rgba(0,0,0,0.06);cursor:pointer">
       <img src="${cover}" loading="lazy" style="width:56px;height:56px;border-radius:13px;object-fit:cover;background:#1C2320;flex-shrink:0" />
       <div style="flex:1">
         <div style="font-size:15px;font-weight:700;color:#F2EFE7">${g}</div>
@@ -2165,7 +2176,7 @@ function renderLegsSubgroupList() {
     const fallbackCover = matches[0] ? (matches[0].poster || (matches[0].images && matches[0].images[0]) || '') : '';
     const cover = LEGS_SUBGROUP_ICON[sg] || fallbackCover;
     return `
-    <button type="button" onclick="selectLegsSubgroup('${sg}')" style="display:flex;align-items:center;gap:14px;width:100%;text-align:left;padding:12px;border:none;border-radius:12px;background:#141A18;box-shadow:0 1px 3px rgba(0,0,0,0.06);cursor:pointer">
+    <button type="button" onclick="selectLegsSubgroup('${sg}')" style="display:flex;align-items:center;gap:14px;width:100%;text-align:left;padding:12px;border:none;border-radius:12px;background:#141A18;color:#F2EFE7;box-shadow:0 1px 3px rgba(0,0,0,0.06);cursor:pointer">
       <img src="${cover}" loading="lazy" style="width:56px;height:56px;border-radius:13px;object-fit:cover;background:#1C2320;flex-shrink:0" />
       <div style="flex:1">
         <div style="font-size:15px;font-weight:700;color:#F2EFE7">${sg}</div>
@@ -2741,7 +2752,7 @@ function obBuildPaceOptions() {
   }
   container.innerHTML = options.map(o => `
     <button class="ob-pace-btn" data-pace="${o.pace}" onclick="obSelectPace('${o.pace}')"
-      style="padding:14px 16px;border:2px solid #2A322E;border-radius:12px;background:#141A18;text-align:left;cursor:pointer;width:100%">
+      style="padding:14px 16px;border:2px solid #2A322E;border-radius:12px;background:#141A18;color:#F2EFE7;text-align:left;cursor:pointer;width:100%">
       <div style="font-size:15px;font-weight:700;color:#F2EFE7">${o.label}${o.recommended ? ' <span style="font-size:11px;color:#4ADE80;font-weight:600">(Recommended)</span>' : ''}</div>
       <div style="font-size:12px;color:#9C9A93;margin-top:2px">${o.sub}</div>
     </button>
@@ -4511,7 +4522,7 @@ function updateMacroBars(t) {
   const badge = document.getElementById('score-badge');
   const inlineBadge = document.getElementById('score-inline');
   if (score) {
-    const map = { great: ['⭐ Great Day', 'score-great'], good: ['✅ Good Day', 'score-good'], over: ['❌ Over Limit', 'score-needs'] };
+    const map = { great: ['⭐ Great Day', 'score-great'], good: ['<span style="display:inline-flex;width:14px;height:14px;border-radius:4px;background:#CFA13C;align-items:center;justify-content:center;vertical-align:middle"><span style="color:#0B1210;font-size:10px;font-weight:900;line-height:1">✓</span></span> Good Day', 'score-good'], over: ['❌ Over Limit', 'score-needs'] };
     const html = `<span class="score-badge ${map[score][1]}">${map[score][0]}</span>`;
     badge.innerHTML = html;
     if(inlineBadge) inlineBadge.innerHTML = html;
@@ -4580,7 +4591,7 @@ async function showHistoryDetail(date) {
   const [meals, workouts] = await Promise.all([dbGet('meals', `date=eq.${date}&select=id,date,name,meal_type,calories,protein,carbs,fat,fiber,cholesterol,time`), dbGet('workouts', `date=eq.${date}`)]);
   const t = calcTotals(meals);
   const score = dayScore(t.calories, t.protein);
-  const scoreMap = { great: ['⭐ Great Day','score-great'], good: ['✅ Good Day','score-good'], over: ['❌ Over Limit','score-needs'] };
+  const scoreMap = { great: ['⭐ Great Day','score-great'], good: ['<span style="display:inline-flex;width:14px;height:14px;border-radius:4px;background:#CFA13C;align-items:center;justify-content:center;vertical-align:middle"><span style="color:#0B1210;font-size:10px;font-weight:900;line-height:1">✓</span></span> Good Day','score-good'], over: ['❌ Over Limit','score-needs'] };
   const s = score ? scoreMap[score] : null;
   const burnedTotal = workouts.reduce((a, w) => a + (+w.calories||0), 0);
   const remaining = TARGETS.calories - t.calories;
@@ -5003,7 +5014,7 @@ function renderCalendar() {
     if (!isFuture && data) {
       const score = dayScore(data.calories, data.protein);
       if (score === 'great') { indicator = '⭐'; bgColor = '#2B2414'; }
-      else if (score === 'good') { indicator = '✅'; bgColor = '#16241A'; }
+      else if (score === 'good') { indicator = '<span style="display:inline-flex;width:14px;height:14px;border-radius:4px;background:#CFA13C;align-items:center;justify-content:center;vertical-align:middle"><span style="color:#0B1210;font-size:10px;font-weight:900;line-height:1">✓</span></span>'; bgColor = '#16241A'; }
       else if (score === 'over') { indicator = '❌'; bgColor = '#2A1616'; }
     } else if (!isFuture && !isToday && !data) {
       bgColor = '#1C2320';
@@ -5024,7 +5035,7 @@ function renderCalendar() {
 
 function renderHistoryList() {
   const el = document.getElementById('history-list');
-  const scoreMap = { great: ['⭐ Great Day','score-great'], good: ['✅ Good Day','score-good'], over: ['❌ Over Limit','score-needs'] };
+  const scoreMap = { great: ['⭐ Great Day','score-great'], good: ['<span style="display:inline-flex;width:14px;height:14px;border-radius:4px;background:#CFA13C;align-items:center;justify-content:center;vertical-align:middle"><span style="color:#0B1210;font-size:10px;font-weight:900;line-height:1">✓</span></span> Good Day','score-good'], over: ['❌ Over Limit','score-needs'] };
 
   // Build last 30 days regardless of whether data exists
   const allDays = [];
@@ -5753,7 +5764,7 @@ function renderMealPrepDishCard(d, idx) {
           <ol style="padding-left:18px;margin:10px 0 0;display:flex;flex-direction:column;gap:6px;font-size:12px;color:#9C9A93;line-height:1.4">${d.instructions.map(step => `<li>${step}</li>`).join('')}</ol>
         </details>
       ` : ''}
-      <button onclick="confirmMealPrepDish(${idx})" ${isRegenerating ? 'disabled' : ''} style="width:100%;background:var(--accent);color:#0B1210;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer">✅ Add to My Week${chosenCount ? ` (${chosenCount} day${chosenCount === 1 ? '' : 's'})` : ''}</button>
+      <button onclick="confirmMealPrepDish(${idx})" ${isRegenerating ? 'disabled' : ''} style="width:100%;background:var(--accent);color:#0B1210;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer"><span style="display:inline-flex;width:14px;height:14px;border-radius:4px;background:#CFA13C;align-items:center;justify-content:center;vertical-align:middle"><span style="color:#0B1210;font-size:10px;font-weight:900;line-height:1">✓</span></span> Add to My Week${chosenCount ? ` (${chosenCount} day${chosenCount === 1 ? '' : 's'})` : ''}</button>
       <button onclick="regenerateSingleDish(${idx})" ${isRegenerating ? 'disabled' : ''} style="width:100%;background:none;border:none;color:#CFA13C;font-size:12px;font-weight:700;cursor:pointer;padding:10px 0 0">${isRegenerating ? '✨ Finding something else...' : '🔄 Not feeling this one? Try another'}</button>
       </div>
     </div>`;
@@ -7515,19 +7526,19 @@ function nutritionCardHTML(prefix, opts = {}) {
     </div>`;
   return `
     ${nameField}
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);row-gap:12px;text-align:center;gap:4px;margin-bottom:${opts.skipServing ? '0' : '14px'}">
+    <div style="display:grid;grid-template-columns:repeat(6,1fr);text-align:center;gap:4px;margin-bottom:${opts.skipServing ? '0' : '14px'}">
       <div><input type="number" id="${prefix}-cals" value="0" inputmode="decimal" onfocus="this.select()"
-        style="width:100%;text-align:center;border:none;background:none;outline:none;font-size:15px;font-weight:700;color:#CFA13C;padding:0"><div style="font-size:9px;color:#9C9A93">kcal</div></div>
+        style="width:100%;text-align:center;border:none;background:none;outline:none;font-size:12px;font-weight:700;color:#CFA13C;padding:0"><div style="font-size:8px;color:#9C9A93">kcal</div></div>
       <div><input type="number" id="${prefix}-protein" value="0" inputmode="decimal" onfocus="this.select()"
-        style="width:100%;text-align:center;border:none;background:none;outline:none;font-size:15px;font-weight:700;color:#CFA13C;padding:0"><div style="font-size:9px;color:#9C9A93">protein</div></div>
+        style="width:100%;text-align:center;border:none;background:none;outline:none;font-size:12px;font-weight:700;color:#CFA13C;padding:0"><div style="font-size:8px;color:#9C9A93">protein</div></div>
       <div><input type="number" id="${prefix}-carbs" value="0" inputmode="decimal" onfocus="this.select()"
-        style="width:100%;text-align:center;border:none;background:none;outline:none;font-size:15px;font-weight:700;color:#E08C7D;padding:0"><div style="font-size:9px;color:#9C9A93">carbs</div></div>
+        style="width:100%;text-align:center;border:none;background:none;outline:none;font-size:12px;font-weight:700;color:#CFA13C;padding:0"><div style="font-size:8px;color:#9C9A93">carbs</div></div>
       <div><input type="number" id="${prefix}-fat" value="0" inputmode="decimal" onfocus="this.select()"
-        style="width:100%;text-align:center;border:none;background:none;outline:none;font-size:15px;font-weight:700;color:#FBBF24;padding:0"><div style="font-size:9px;color:#9C9A93">fat</div></div>
+        style="width:100%;text-align:center;border:none;background:none;outline:none;font-size:12px;font-weight:700;color:#CFA13C;padding:0"><div style="font-size:8px;color:#9C9A93">fat</div></div>
       <div><input type="number" id="${prefix}-fiber" value="0" inputmode="decimal" onfocus="this.select()"
-        style="width:100%;text-align:center;border:none;background:none;outline:none;font-size:15px;font-weight:700;color:#4ADE80;padding:0"><div style="font-size:9px;color:#9C9A93">fiber</div></div>
+        style="width:100%;text-align:center;border:none;background:none;outline:none;font-size:12px;font-weight:700;color:#CFA13C;padding:0"><div style="font-size:8px;color:#9C9A93">fiber</div></div>
       <div><input type="number" id="${prefix}-cholesterol" value="0" inputmode="decimal" onfocus="this.select()"
-        style="width:100%;text-align:center;border:none;background:none;outline:none;font-size:15px;font-weight:700;color:#A78BFA;padding:0"><div style="font-size:9px;color:#9C9A93">chol mg</div></div>
+        style="width:100%;text-align:center;border:none;background:none;outline:none;font-size:12px;font-weight:700;color:#CFA13C;padding:0"><div style="font-size:8px;color:#9C9A93">chol mg</div></div>
     </div>
     ${servingSection}`;
 }
@@ -8346,7 +8357,7 @@ function updateGoalsDisplay() {
   updateMuscleMethodUI();
   // Muscle toggle state
   const muscleOn = userGoals.muscleTrackingOn !== false;
-  document.getElementById('muscle-toggle-track').style.background = muscleOn ? '#4ADE80' : '#9C9A93';
+  document.getElementById('muscle-toggle-track').style.background = muscleOn ? 'var(--accent)' : '#9C9A93';
   document.getElementById('muscle-toggle-knob').style.right = muscleOn ? '3px' : 'auto';
   document.getElementById('muscle-toggle-knob').style.left = muscleOn ? 'auto' : '3px';
   document.getElementById('muscle-card-inner').style.display = muscleOn ? 'block' : 'none';
@@ -8604,10 +8615,10 @@ function renderWeightChart() {
   const datasets = [{
     label: 'Weight',
     data,
-    borderColor: '#E08C7D',
-    backgroundColor: 'rgba(224,140,125,0.08)',
+    borderColor: '#CFA13C',
+    backgroundColor: 'rgba(207,161,60,0.08)',
     borderWidth: 2.5,
-    pointBackgroundColor: '#E08C7D',
+    pointBackgroundColor: '#CFA13C',
     pointRadius: 4,
     tension: 0.3,
     fill: true
@@ -9956,19 +9967,19 @@ if (document.readyState === 'loading') {
       <div style="font-size:26px;font-weight:800;color:#F2EFE7;letter-spacing:-0.5px;margin-bottom:6px">What's your primary goal?</div>
       <div style="font-size:14px;color:#9C9A93;margin-bottom:24px">This shapes your entire plan.</div>
       <div style="display:flex;flex-direction:column;gap:10px;flex:1">
-        <button onclick="obSelectGoal('fat_loss')" id="ob-goal-fat_loss" style="padding:16px;border:2px solid #2A322E;border-radius:14px;background:#141A18;text-align:left;cursor:pointer;display:flex;align-items:center;gap:14px">
+        <button onclick="obSelectGoal('fat_loss')" id="ob-goal-fat_loss" style="padding:16px;border:2px solid #2A322E;border-radius:14px;background:#141A18;color:#F2EFE7;text-align:left;cursor:pointer;display:flex;align-items:center;gap:14px">
           <span style="font-size:28px">🔥</span>
           <div><div style="font-size:15px;font-weight:700;color:#F2EFE7">Lose Body Fat</div><div style="font-size:12px;color:#9C9A93;margin-top:2px">Reduce BF%, preserve muscle</div></div>
         </button>
-        <button onclick="obSelectGoal('weight_loss')" id="ob-goal-weight_loss" style="padding:16px;border:2px solid #2A322E;border-radius:14px;background:#141A18;text-align:left;cursor:pointer;display:flex;align-items:center;gap:14px">
+        <button onclick="obSelectGoal('weight_loss')" id="ob-goal-weight_loss" style="padding:16px;border:2px solid #2A322E;border-radius:14px;background:#141A18;color:#F2EFE7;text-align:left;cursor:pointer;display:flex;align-items:center;gap:14px">
           <span style="font-size:28px">⚖️</span>
           <div><div style="font-size:15px;font-weight:700;color:#F2EFE7">Lose Weight</div><div style="font-size:12px;color:#9C9A93;margin-top:2px">Scale number down</div></div>
         </button>
-        <button onclick="obSelectGoal('muscle_gain')" id="ob-goal-muscle_gain" style="padding:16px;border:2px solid #2A322E;border-radius:14px;background:#141A18;text-align:left;cursor:pointer;display:flex;align-items:center;gap:14px">
+        <button onclick="obSelectGoal('muscle_gain')" id="ob-goal-muscle_gain" style="padding:16px;border:2px solid #2A322E;border-radius:14px;background:#141A18;color:#F2EFE7;text-align:left;cursor:pointer;display:flex;align-items:center;gap:14px">
           <span style="font-size:28px">💪</span>
           <div><div style="font-size:15px;font-weight:700;color:#F2EFE7">Gain Muscle</div><div style="font-size:12px;color:#9C9A93;margin-top:2px">Build strength and mass</div></div>
         </button>
-        <button onclick="obSelectGoal('maintain')" id="ob-goal-maintain" style="padding:16px;border:2px solid #2A322E;border-radius:14px;background:#141A18;text-align:left;cursor:pointer;display:flex;align-items:center;gap:14px">
+        <button onclick="obSelectGoal('maintain')" id="ob-goal-maintain" style="padding:16px;border:2px solid #2A322E;border-radius:14px;background:#141A18;color:#F2EFE7;text-align:left;cursor:pointer;display:flex;align-items:center;gap:14px">
           <span style="font-size:28px">⚡</span>
           <div><div style="font-size:15px;font-weight:700;color:#F2EFE7">Maintain & Perform</div><div style="font-size:12px;color:#9C9A93;margin-top:2px">Optimize nutrition at current weight</div></div>
         </button>
@@ -10018,8 +10029,8 @@ if (document.readyState === 'loading') {
       <div style="margin-bottom:20px">
         <div style="font-size:13px;font-weight:700;color:#9C9A93;margin-bottom:8px">Biological sex (for calorie calculation)</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-          <button onclick="obSelectGender('male')" id="ob-gender-male" style="padding:14px;border:2px solid #2A322E;border-radius:12px;background:#141A18;font-size:15px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:space-between">Male <span id="ob-gender-male-check" style="display:none;color:#CFA13C">✓</span></button>
-          <button onclick="obSelectGender('female')" id="ob-gender-female" style="padding:14px;border:2px solid #2A322E;border-radius:12px;background:#141A18;font-size:15px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:space-between">Female <span id="ob-gender-female-check" style="display:none;color:#CFA13C">✓</span></button>
+          <button onclick="obSelectGender('male')" id="ob-gender-male" style="padding:14px;border:2px solid #2A322E;border-radius:12px;background:#141A18;color:#F2EFE7;font-size:15px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:space-between">Male <span id="ob-gender-male-check" style="display:none;color:#CFA13C">✓</span></button>
+          <button onclick="obSelectGender('female')" id="ob-gender-female" style="padding:14px;border:2px solid #2A322E;border-radius:12px;background:#141A18;color:#F2EFE7;font-size:15px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:space-between">Female <span id="ob-gender-female-check" style="display:none;color:#CFA13C">✓</span></button>
         </div>
       </div>
 
@@ -10050,7 +10061,7 @@ if (document.readyState === 'loading') {
       <div id="ob-step3-error" style="font-size:13px;color:#F87171;margin-bottom:8px;display:none"></div>
     </div>
     <div style="padding:20px 24px 40px;display:flex;gap:10px">
-      <button onclick="obBack(3)" style="padding:16px 20px;border:1px solid #2A322E;border-radius:14px;background:#141A18;font-size:20px;cursor:pointer">←</button>
+      <button onclick="obBack(3)" style="padding:16px 20px;border:1px solid #2A322E;border-radius:14px;background:#141A18;color:#F2EFE7;font-size:20px;cursor:pointer">←</button>
       <button onclick="obNext(3)" style="flex:1;padding:16px;background:#CFA13C;color:#0B1210;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer">Next</button>
     </div>
   </div>
@@ -10077,7 +10088,7 @@ if (document.readyState === 'loading') {
       <div style="margin-bottom:20px">
         <div style="font-size:13px;font-weight:700;color:#9C9A93;margin-bottom:8px">How much do you weigh?</div>
         <button onclick="obOpenNumpad('weight')" id="ob-weight-btn"
-          style="width:100%;padding:14px 16px;border:2px solid #2A322E;border-radius:12px;font-size:16px;font-weight:600;background:#141A18;cursor:pointer;display:flex;align-items:center;justify-content:space-between;box-sizing:border-box">
+          style="width:100%;padding:14px 16px;border:2px solid #2A322E;border-radius:12px;font-size:16px;font-weight:600;background:#141A18;color:#F2EFE7;cursor:pointer;display:flex;align-items:center;justify-content:space-between;box-sizing:border-box">
           <span id="ob-weight-display" style="color:#9C9A93">Tap to enter weight</span>
           <span style="font-size:13px;color:#9C9A93;font-weight:700">lbs</span>
         </button>
@@ -10087,7 +10098,7 @@ if (document.readyState === 'loading') {
       <div style="margin-bottom:20px" id="ob-goal-weight-section">
         <div style="font-size:13px;font-weight:700;color:#9C9A93;margin-bottom:8px" id="ob-goal-weight-label">What is your goal weight?</div>
         <button onclick="obOpenNumpad('goal-weight')" id="ob-goal-weight-btn"
-          style="width:100%;padding:14px 16px;border:2px solid #2A322E;border-radius:12px;font-size:16px;font-weight:600;background:#141A18;cursor:pointer;display:flex;align-items:center;justify-content:space-between;box-sizing:border-box">
+          style="width:100%;padding:14px 16px;border:2px solid #2A322E;border-radius:12px;font-size:16px;font-weight:600;background:#141A18;color:#F2EFE7;cursor:pointer;display:flex;align-items:center;justify-content:space-between;box-sizing:border-box">
           <span id="ob-goal-weight-display" style="color:#9C9A93">Tap to enter goal weight</span>
           <span style="font-size:13px;color:#9C9A93;font-weight:700">lbs</span>
         </button>
@@ -10108,12 +10119,12 @@ if (document.readyState === 'loading') {
         </div>
         <div id="ob-bf-inputs">
           <button onclick="obOpenNumpad('bf-current','%')" id="ob-bf-current-btn"
-            style="width:100%;padding:14px 16px;border:2px solid #2A322E;border-radius:12px;font-size:16px;font-weight:600;background:#141A18;cursor:pointer;display:flex;align-items:center;justify-content:space-between;box-sizing:border-box;margin-bottom:10px">
+            style="width:100%;padding:14px 16px;border:2px solid #2A322E;border-radius:12px;font-size:16px;font-weight:600;background:#141A18;color:#F2EFE7;cursor:pointer;display:flex;align-items:center;justify-content:space-between;box-sizing:border-box;margin-bottom:10px">
             <span id="ob-bf-current-display" style="color:#9C9A93">Current body fat %</span>
             <span style="font-size:13px;color:#9C9A93;font-weight:700">%</span>
           </button>
           <button onclick="obOpenNumpad('bf-goal','%')" id="ob-bf-goal-btn"
-            style="width:100%;padding:14px 16px;border:2px solid #2A322E;border-radius:12px;font-size:16px;font-weight:600;background:#141A18;cursor:pointer;display:flex;align-items:center;justify-content:space-between;box-sizing:border-box">
+            style="width:100%;padding:14px 16px;border:2px solid #2A322E;border-radius:12px;font-size:16px;font-weight:600;background:#141A18;color:#F2EFE7;cursor:pointer;display:flex;align-items:center;justify-content:space-between;box-sizing:border-box">
             <span id="ob-bf-goal-display" style="color:#9C9A93">Goal body fat %</span>
             <span style="font-size:13px;color:#9C9A93;font-weight:700">%</span>
           </button>
@@ -10134,12 +10145,12 @@ if (document.readyState === 'loading') {
         </div>
         <div id="ob-muscle-inputs">
           <button onclick="obOpenNumpad('muscle-current','lbs')" id="ob-muscle-current-btn"
-            style="width:100%;padding:14px 16px;border:2px solid #2A322E;border-radius:12px;font-size:16px;font-weight:600;background:#141A18;cursor:pointer;display:flex;align-items:center;justify-content:space-between;box-sizing:border-box;margin-bottom:10px">
+            style="width:100%;padding:14px 16px;border:2px solid #2A322E;border-radius:12px;font-size:16px;font-weight:600;background:#141A18;color:#F2EFE7;cursor:pointer;display:flex;align-items:center;justify-content:space-between;box-sizing:border-box;margin-bottom:10px">
             <span id="ob-muscle-current-display" style="color:#9C9A93">Current muscle mass</span>
             <span style="font-size:13px;color:#9C9A93;font-weight:700">lbs</span>
           </button>
           <button onclick="obOpenNumpad('muscle-goal','lbs')" id="ob-muscle-goal-btn"
-            style="width:100%;padding:14px 16px;border:2px solid #2A322E;border-radius:12px;font-size:16px;font-weight:600;background:#141A18;cursor:pointer;display:flex;align-items:center;justify-content:space-between;box-sizing:border-box">
+            style="width:100%;padding:14px 16px;border:2px solid #2A322E;border-radius:12px;font-size:16px;font-weight:600;background:#141A18;color:#F2EFE7;cursor:pointer;display:flex;align-items:center;justify-content:space-between;box-sizing:border-box">
             <span id="ob-muscle-goal-display" style="color:#9C9A93">Goal muscle mass</span>
             <span style="font-size:13px;color:#9C9A93;font-weight:700">lbs</span>
           </button>
@@ -10153,7 +10164,7 @@ if (document.readyState === 'loading') {
       <div id="ob-step4-error" style="font-size:13px;color:#F87171;margin-bottom:8px;display:none"></div>
     </div>
     <div style="padding:20px 24px 40px;display:flex;gap:10px">
-      <button onclick="obBack(4)" style="padding:16px 20px;border:1px solid #2A322E;border-radius:14px;background:#141A18;font-size:20px;cursor:pointer">←</button>
+      <button onclick="obBack(4)" style="padding:16px 20px;border:1px solid #2A322E;border-radius:14px;background:#141A18;color:#F2EFE7;font-size:20px;cursor:pointer">←</button>
       <button onclick="obNext(4)" style="flex:1;padding:16px;background:#CFA13C;color:#0B1210;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer">Next</button>
     </div>
   </div>
@@ -10174,23 +10185,23 @@ if (document.readyState === 'loading') {
       <div style="font-size:26px;font-weight:800;color:#F2EFE7;letter-spacing:-0.5px;margin-bottom:6px">What is your baseline activity level?</div>
       <div style="font-size:13px;color:#9C9A93;margin-bottom:20px">Not including workouts — we count those separately.</div>
       <div style="display:flex;flex-direction:column;gap:8px">
-        <button onclick="obSelectActivity('sedentary')" id="ob-act-sedentary" style="padding:14px 16px;border:2px solid #2A322E;border-radius:12px;background:#141A18;text-align:left;cursor:pointer">
+        <button onclick="obSelectActivity('sedentary')" id="ob-act-sedentary" style="padding:14px 16px;border:2px solid #2A322E;border-radius:12px;background:#141A18;color:#F2EFE7;text-align:left;cursor:pointer">
           <div style="font-size:15px;font-weight:700;color:#F2EFE7">Sedentary</div>
           <div style="font-size:12px;color:#9C9A93;margin-top:2px">Desk job, little movement outside of exercise</div>
         </button>
-        <button onclick="obSelectActivity('light')" id="ob-act-light" style="padding:14px 16px;border:2px solid #2A322E;border-radius:12px;background:#141A18;text-align:left;cursor:pointer">
+        <button onclick="obSelectActivity('light')" id="ob-act-light" style="padding:14px 16px;border:2px solid #2A322E;border-radius:12px;background:#141A18;color:#F2EFE7;text-align:left;cursor:pointer">
           <div style="font-size:15px;font-weight:700;color:#F2EFE7">Lightly Active</div>
           <div style="font-size:12px;color:#9C9A93;margin-top:2px">On your feet part of the day (teacher, salesperson)</div>
         </button>
-        <button onclick="obSelectActivity('moderate')" id="ob-act-moderate" style="padding:14px 16px;border:2px solid #2A322E;border-radius:12px;background:#141A18;text-align:left;cursor:pointer">
+        <button onclick="obSelectActivity('moderate')" id="ob-act-moderate" style="padding:14px 16px;border:2px solid #2A322E;border-radius:12px;background:#141A18;color:#F2EFE7;text-align:left;cursor:pointer">
           <div style="font-size:15px;font-weight:700;color:#F2EFE7">Moderately Active</div>
           <div style="font-size:12px;color:#9C9A93;margin-top:2px">Physical job or very active daily life</div>
         </button>
-        <button onclick="obSelectActivity('active')" id="ob-act-active" style="padding:14px 16px;border:2px solid #2A322E;border-radius:12px;background:#141A18;text-align:left;cursor:pointer">
+        <button onclick="obSelectActivity('active')" id="ob-act-active" style="padding:14px 16px;border:2px solid #2A322E;border-radius:12px;background:#141A18;color:#F2EFE7;text-align:left;cursor:pointer">
           <div style="font-size:15px;font-weight:700;color:#F2EFE7">Very Active</div>
           <div style="font-size:12px;color:#9C9A93;margin-top:2px">Hard physical work or intense training 5+ days/week</div>
         </button>
-        <button onclick="obSelectActivity('athlete')" id="ob-act-athlete" style="padding:14px 16px;border:2px solid #2A322E;border-radius:12px;background:#141A18;text-align:left;cursor:pointer">
+        <button onclick="obSelectActivity('athlete')" id="ob-act-athlete" style="padding:14px 16px;border:2px solid #2A322E;border-radius:12px;background:#141A18;color:#F2EFE7;text-align:left;cursor:pointer">
           <div style="font-size:15px;font-weight:700;color:#F2EFE7">Athlete</div>
           <div style="font-size:12px;color:#9C9A93;margin-top:2px">Training twice a day or professional athlete</div>
         </button>
@@ -10198,7 +10209,7 @@ if (document.readyState === 'loading') {
       <div id="ob-step5-error" style="font-size:13px;color:#F87171;margin-top:8px;display:none"></div>
     </div>
     <div style="padding:20px 24px 40px;display:flex;gap:10px">
-      <button onclick="obBack(5)" style="padding:16px 20px;border:1px solid #2A322E;border-radius:14px;background:#141A18;font-size:20px;cursor:pointer">←</button>
+      <button onclick="obBack(5)" style="padding:16px 20px;border:1px solid #2A322E;border-radius:14px;background:#141A18;color:#F2EFE7;font-size:20px;cursor:pointer">←</button>
       <button onclick="obNext(5)" style="flex:1;padding:16px;background:#CFA13C;color:#0B1210;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer">Next</button>
     </div>
   </div>
@@ -10229,7 +10240,7 @@ if (document.readyState === 'loading') {
       </div>
     </div>
     <div style="padding:20px 24px 40px;display:flex;gap:10px">
-      <button onclick="obBack(6)" style="padding:16px 20px;border:1px solid #2A322E;border-radius:14px;background:#141A18;font-size:20px;cursor:pointer">←</button>
+      <button onclick="obBack(6)" style="padding:16px 20px;border:1px solid #2A322E;border-radius:14px;background:#141A18;color:#F2EFE7;font-size:20px;cursor:pointer">←</button>
       <button onclick="obNext(6)" style="flex:1;padding:16px;background:#CFA13C;color:#0B1210;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer">Next</button>
     </div>
   </div>
@@ -10289,7 +10300,7 @@ if (document.readyState === 'loading') {
       <div style="font-size:11px;color:#9C9A93;text-align:center;line-height:1.5">By creating an account you agree to our Terms of Service. We'll send a verification email to confirm your address.</div>
     </div>
     <div style="padding:20px 24px 40px;display:flex;gap:10px">
-      <button onclick="obBack(7)" style="padding:16px 20px;border:1px solid #2A322E;border-radius:14px;background:#141A18;font-size:20px;cursor:pointer">←</button>
+      <button onclick="obBack(7)" style="padding:16px 20px;border:1px solid #2A322E;border-radius:14px;background:#141A18;color:#F2EFE7;font-size:20px;cursor:pointer">←</button>
       <button id="ob-signup-btn" onclick="obNext(7)" style="flex:1;padding:16px;background:#CFA13C;color:#0B1210;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer">Next →</button>
     </div>
   </div>
@@ -10349,7 +10360,7 @@ if (document.readyState === 'loading') {
     </div>
     <div style="padding:20px 24px 40px;display:flex;flex-direction:column;gap:10px">
       <div style="display:flex;gap:10px">
-        <button onclick="obBack(8)" style="padding:16px 20px;border:1px solid #2A322E;border-radius:14px;background:#141A18;font-size:20px;cursor:pointer">←</button>
+        <button onclick="obBack(8)" style="padding:16px 20px;border:1px solid #2A322E;border-radius:14px;background:#141A18;color:#F2EFE7;font-size:20px;cursor:pointer">←</button>
         <button id="ob-photo-next-btn" onclick="obNext(8)" style="flex:1;padding:16px;background:#CFA13C;color:#0B1210;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer">Next</button>
       </div>
       <button onclick="obNext(8, true)" style="width:100%;padding:12px;background:none;border:none;font-size:14px;color:#9C9A93;cursor:pointer">Skip for now</button>
@@ -10393,7 +10404,7 @@ if (document.readyState === 'loading') {
     </div>
     <div style="padding:20px 24px 40px;display:flex;flex-direction:column;gap:10px">
       <div style="display:flex;gap:10px">
-        <button onclick="obBack(9)" style="padding:16px 20px;border:1px solid #2A322E;border-radius:14px;background:#141A18;font-size:20px;cursor:pointer">←</button>
+        <button onclick="obBack(9)" style="padding:16px 20px;border:1px solid #2A322E;border-radius:14px;background:#141A18;color:#F2EFE7;font-size:20px;cursor:pointer">←</button>
         <button onclick="obNext(9)" style="flex:1;padding:16px;background:#CFA13C;color:#0B1210;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer">Create Account</button>
       </div>
       <button onclick="obNext(9, true)" style="width:100%;padding:12px;background:none;border:none;font-size:14px;color:#9C9A93;cursor:pointer">Skip for now</button>
@@ -10421,30 +10432,30 @@ if (document.readyState === 'loading') {
     <!-- Macro totals -->
     <div style="background:#2B2414;border-radius:14px;padding:14px 16px;margin-bottom:16px">
       <div style="font-size:11px;font-weight:700;color:#CFA13C;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Totals</div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);row-gap:12px;text-align:center">
+      <div style="display:grid;grid-template-columns:repeat(6,1fr);text-align:center">
         <div>
-          <div style="font-size:16px;font-weight:800;color:#CFA13C" id="mb-total-cals">0</div>
-          <div style="font-size:9px;color:#9C9A93;font-weight:600">kcal</div>
+          <div style="font-size:12px;font-weight:800;color:#CFA13C" id="mb-total-cals">0</div>
+          <div style="font-size:8px;color:#9C9A93;font-weight:600">kcal</div>
         </div>
         <div>
-          <div style="font-size:16px;font-weight:800;color:#CFA13C" id="mb-total-protein">0g</div>
-          <div style="font-size:9px;color:#9C9A93;font-weight:600">Protein</div>
+          <div style="font-size:12px;font-weight:800;color:#CFA13C" id="mb-total-protein">0g</div>
+          <div style="font-size:8px;color:#9C9A93;font-weight:600">Protein</div>
         </div>
         <div>
-          <div style="font-size:16px;font-weight:800;color:#E08C7D" id="mb-total-carbs">0g</div>
-          <div style="font-size:9px;color:#9C9A93;font-weight:600">Carbs</div>
+          <div style="font-size:12px;font-weight:800;color:#CFA13C" id="mb-total-carbs">0g</div>
+          <div style="font-size:8px;color:#9C9A93;font-weight:600">Carbs</div>
         </div>
         <div>
-          <div style="font-size:16px;font-weight:800;color:#FBBF24" id="mb-total-fat">0g</div>
-          <div style="font-size:9px;color:#9C9A93;font-weight:600">Fat</div>
+          <div style="font-size:12px;font-weight:800;color:#CFA13C" id="mb-total-fat">0g</div>
+          <div style="font-size:8px;color:#9C9A93;font-weight:600">Fat</div>
         </div>
         <div>
-          <div style="font-size:16px;font-weight:800;color:#4ADE80" id="mb-total-fiber">0g</div>
-          <div style="font-size:9px;color:#9C9A93;font-weight:600">Fiber</div>
+          <div style="font-size:12px;font-weight:800;color:#CFA13C" id="mb-total-fiber">0g</div>
+          <div style="font-size:8px;color:#9C9A93;font-weight:600">Fiber</div>
         </div>
         <div>
-          <div style="font-size:16px;font-weight:800;color:#A78BFA" id="mb-total-cholesterol">0mg</div>
-          <div style="font-size:9px;color:#9C9A93;font-weight:600">Chol</div>
+          <div style="font-size:12px;font-weight:800;color:#CFA13C" id="mb-total-cholesterol">0mg</div>
+          <div style="font-size:8px;color:#9C9A93;font-weight:600">Chol</div>
         </div>
       </div>
     </div>
@@ -10516,7 +10527,7 @@ if (document.readyState === 'loading') {
       <div id="mb-manual-fields"></div>
     </div>
     <div style="display:flex;gap:10px">
-      <button onclick="document.getElementById('mb-manual-modal').style.display='none'" style="flex:1;padding:14px;border:1px solid #2A322E;border-radius:12px;background:#141A18;font-size:15px;font-weight:600;cursor:pointer">Cancel</button>
+      <button onclick="document.getElementById('mb-manual-modal').style.display='none'" style="flex:1;padding:14px;border:1px solid #2A322E;border-radius:12px;background:#141A18;color:#F2EFE7;font-size:15px;font-weight:600;cursor:pointer">Cancel</button>
       <button onclick="mbAddManual()" style="flex:1;padding:14px;border:none;border-radius:12px;background:var(--accent);color:#0B1210;font-size:15px;font-weight:700;cursor:pointer">Add</button>
     </div>
   </div>
@@ -10540,13 +10551,13 @@ if (document.readyState === 'loading') {
         <input type="hidden" id="log-meal-unit" value="serving" />
       </div>
     </div>
-    <div style="background:#2B2414;border-radius:10px;padding:12px;margin-bottom:16px;display:grid;grid-template-columns:repeat(3,1fr);row-gap:12px;text-align:center">
-      <div><div style="font-size:15px;font-weight:700;color:#CFA13C" id="log-meal-preview-cals">0</div><div style="font-size:9px;color:#9C9A93">kcal</div></div>
-      <div><div style="font-size:15px;font-weight:700;color:#CFA13C" id="log-meal-preview-protein">0</div><div style="font-size:9px;color:#9C9A93">protein</div></div>
-      <div><div style="font-size:15px;font-weight:700;color:#E08C7D" id="log-meal-preview-carbs">0</div><div style="font-size:9px;color:#9C9A93">carbs</div></div>
-      <div><div style="font-size:15px;font-weight:700;color:#FBBF24" id="log-meal-preview-fat">0</div><div style="font-size:9px;color:#9C9A93">fat</div></div>
-      <div><div style="font-size:15px;font-weight:700;color:#4ADE80" id="log-meal-preview-fiber">0</div><div style="font-size:9px;color:#9C9A93">fiber</div></div>
-      <div><div style="font-size:15px;font-weight:700;color:#A78BFA" id="log-meal-preview-chol">0</div><div style="font-size:9px;color:#9C9A93">chol mg</div></div>
+    <div style="background:#2B2414;border-radius:10px;padding:12px;margin-bottom:16px;display:grid;grid-template-columns:repeat(6,1fr);text-align:center">
+      <div><div style="font-size:12px;font-weight:700;color:#CFA13C" id="log-meal-preview-cals">0</div><div style="font-size:8px;color:#9C9A93">kcal</div></div>
+      <div><div style="font-size:12px;font-weight:700;color:#CFA13C" id="log-meal-preview-protein">0</div><div style="font-size:8px;color:#9C9A93">protein</div></div>
+      <div><div style="font-size:12px;font-weight:700;color:#CFA13C" id="log-meal-preview-carbs">0</div><div style="font-size:8px;color:#9C9A93">carbs</div></div>
+      <div><div style="font-size:12px;font-weight:700;color:#CFA13C" id="log-meal-preview-fat">0</div><div style="font-size:8px;color:#9C9A93">fat</div></div>
+      <div><div style="font-size:12px;font-weight:700;color:#CFA13C" id="log-meal-preview-fiber">0</div><div style="font-size:8px;color:#9C9A93">fiber</div></div>
+      <div><div style="font-size:12px;font-weight:700;color:#CFA13C" id="log-meal-preview-chol">0</div><div style="font-size:8px;color:#9C9A93">chol mg</div></div>
     </div>
     <div style="margin-bottom:12px">
       <div style="font-size:10px;font-weight:700;color:#9C9A93;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Add to</div>
@@ -10578,7 +10589,7 @@ if (document.readyState === 'loading') {
       <div id="url-import-ingredients" style="font-size:13px;color:#9C9A93;line-height:1.6"></div>
     </div>
     <div style="display:flex;gap:10px">
-      <button onclick="document.getElementById('url-import-modal').style.display='none'" style="flex:1;padding:14px;border:1px solid #2A322E;border-radius:12px;background:#141A18;font-size:15px;font-weight:600;cursor:pointer">Cancel</button>
+      <button onclick="document.getElementById('url-import-modal').style.display='none'" style="flex:1;padding:14px;border:1px solid #2A322E;border-radius:12px;background:#141A18;color:#F2EFE7;font-size:15px;font-weight:600;cursor:pointer">Cancel</button>
       <button id="url-import-btn" onclick="urlImportFetch()" style="flex:1;padding:14px;border:none;border-radius:12px;background:var(--accent);color:#0B1210;font-size:15px;font-weight:700;cursor:pointer">Import</button>
     </div>
   </div>
@@ -10650,7 +10661,7 @@ if (document.readyState === 'loading') {
       <button class="numpad-btn" onclick="obNumpadPress('del')" style="font-size:18px">⌫</button>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-      <button onclick="obNumpadCancel()" style="padding:16px;border:1px solid #2A322E;border-radius:12px;background:#141A18;font-size:15px;font-weight:600;cursor:pointer">Cancel</button>
+      <button onclick="obNumpadCancel()" style="padding:16px;border:1px solid #2A322E;border-radius:12px;background:#141A18;color:#F2EFE7;font-size:15px;font-weight:600;cursor:pointer">Cancel</button>
       <button onclick="obNumpadConfirm()" style="padding:16px;border:none;border-radius:12px;background:#CFA13C;color:#0B1210;font-size:15px;font-weight:700;cursor:pointer">Done</button>
     </div>
   </div>
