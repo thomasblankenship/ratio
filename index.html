@@ -1058,7 +1058,7 @@
         <button onclick="switchTab('profile-help')" class="profile-row" style="border-bottom:none"><span><i class="fa-solid fa-circle-question profile-row-icon"></i>Help</span><i class="fa-solid fa-chevron-right"></i></button>
       </div>
 
-      <button onclick="handleSignOut()" style="width:100%;padding:14px;border:none;border-radius:12px;background:#2A1616;color:#F87171;font-size:15px;font-weight:700;cursor:pointer;margin-top:16px">Sign Out</button>
+      <button onclick="handleSignOut()" style="width:100%;padding:14px;border:none;border-radius:12px;background:var(--accent);color:#0B1210;font-size:15px;font-weight:700;cursor:pointer;margin-top:16px">Sign Out</button>
     </div>
 
     <!-- PROFILE SUB-PAGES — shell only for now, real content comes one at a time -->
@@ -1508,7 +1508,7 @@
     <div style="border-top:1px solid #1C2320;margin-bottom:16px"></div>
 
     <!-- Sign out -->
-    <button onclick="handleSignOut()" style="width:100%;padding:14px;border:none;border-radius:12px;background:#2A1616;color:#F87171;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:12px">Sign Out</button>
+    <button onclick="handleSignOut()" style="width:100%;padding:14px;border:none;border-radius:12px;background:var(--accent);color:#0B1210;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:12px">Sign Out</button>
 
     <!-- Support -->
     <div style="border-top:1px solid #1C2320;padding-top:16px;text-align:center">
@@ -2194,6 +2194,8 @@ function switchTab(tab) {
   });
   if (tab === 'meals') loadMealsTab();
   if (tab === 'progress') { loadGoals().then(() => { loadScans(); updateGoalsDisplay(); }); }
+  if (tab === 'profile') loadCurrentUsername();
+  if (tab === 'profile-myprofile') loadMyProfilePage();
   if (tab === 'aicoach') {
     const badge = document.getElementById('ai-coach-new-badge');
     if (badge && badge.style.display !== 'none') {
