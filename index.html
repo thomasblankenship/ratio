@@ -702,10 +702,10 @@
           <div>
             <div style="font-size:11px;font-weight:700;color:#9C9A93;text-transform:uppercase;letter-spacing:0.5px" id="weight-latest-date">No entries yet</div>
             <div style="font-size:26px;font-weight:700;color:#F2EFE7;letter-spacing:-0.5px"><span id="weight-latest-val">—</span> <span style="font-size:14px;font-weight:500;color:#9C9A93">lbs</span></div>
-            <div id="weight-fun-fact" style="font-size:12px;color:#4ADE80;font-weight:600;margin-top:3px;display:none"></div>
           </div>
           <button onclick="openLogModal('weight')" style="background:var(--accent);color:#0B1210;border:none;border-radius:18px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0">Record Weight</button>
         </div>
+        <div id="weight-fun-fact" style="font-size:12px;color:#4ADE80;font-weight:600;margin-top:8px;display:none"></div>
         <!-- Goal edit inline -->
         <div id="weight-goal-edit" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid #1C2320">
           <div class="form-row form-group">
@@ -8603,6 +8603,7 @@ function renderWeightChart() {
   }
 
   if (!filtered.length) {
+    empty.textContent = weightScans.length ? 'No entries in this range — try a wider range' : 'No weight logged yet — tap Record below';
     empty.style.display = 'block'; canvas.style.display = 'none';
     renderBMI(); return;
   }
@@ -8734,6 +8735,7 @@ function renderBfChart() {
   }
 
   if (!filtered.length) {
+    empty.textContent = bfScans.length ? 'No entries in this range — try a wider range' : 'No body fat logged yet — tap Record below';
     empty.style.display = 'block'; canvas.style.display = 'none'; return;
   }
   empty.style.display = 'none'; canvas.style.display = 'block';
@@ -8918,6 +8920,7 @@ function renderMuscleChart() {
   }
 
   if (!filtered.length) {
+    empty.textContent = muscleScans.length ? 'No entries in this range — try a wider range' : 'No muscle mass logged yet — tap Record below';
     empty.style.display = 'block'; canvas.style.display = 'none'; return;
   }
   empty.style.display = 'none'; canvas.style.display = 'block';
