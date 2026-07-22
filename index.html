@@ -274,7 +274,9 @@
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
-        <div id="score-badge"></div>
+        <button onclick="switchTab('aicoach'); switchCoachSubTab('meals'); switchMealIdeasSubTab('shopping');" style="background:none;border:none;cursor:pointer;padding:4px;display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:10px;background:#1C2320">
+          <i class="fa-solid fa-basket-shopping" style="font-size:16px;color:#9C9A93"></i>
+        </button>
         <button style="background:none;border:none;cursor:pointer;padding:4px;display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:10px;background:#1C2320">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9C9A93" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
         </button>
@@ -1023,7 +1025,7 @@
         <div style="display:flex;background:#1C2320;border-radius:12px;padding:4px;margin-bottom:16px">
           <button id="meal-ideas-subtab-btn-ideas" onclick="switchMealIdeasSubTab('ideas')" style="flex:1;padding:10px 4px;border:none;border-radius:9px;background:#141A18;color:#F2EFE7;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,0.08)">💡 Daily Meals</button>
           <button id="meal-ideas-subtab-btn-prep" onclick="switchMealIdeasSubTab('prep')" style="flex:1;padding:10px 4px;border:none;border-radius:9px;background:transparent;color:#9C9A93;font-size:13px;font-weight:700;cursor:pointer">🥘 Weekly Meal Prep</button>
-          <button id="meal-ideas-subtab-btn-shopping" onclick="switchMealIdeasSubTab('shopping')" style="flex:1;padding:10px 4px;border:none;border-radius:9px;background:transparent;color:#9C9A93;font-size:13px;font-weight:700;cursor:pointer">🛒 Shopping List</button>
+          <button id="meal-ideas-subtab-btn-shopping" onclick="switchMealIdeasSubTab('shopping')" style="display:none;flex:1;padding:10px 4px;border:none;border-radius:9px;background:transparent;color:#9C9A93;font-size:13px;font-weight:700;cursor:pointer">🛒 Shopping List</button>
         </div>
 
         <div id="meal-ideas-subtab-ideas">
@@ -4524,10 +4526,10 @@ function updateMacroBars(t) {
   if (score) {
     const map = { great: ['⭐ Great Day', 'score-great'], good: ['<span style="display:inline-flex;width:14px;height:14px;border-radius:4px;background:#CFA13C;align-items:center;justify-content:center;vertical-align:middle"><span style="color:#0B1210;font-size:10px;font-weight:900;line-height:1">✓</span></span> Good Day', 'score-good'], over: ['❌ Over Limit', 'score-needs'] };
     const html = `<span class="score-badge ${map[score][1]}">${map[score][0]}</span>`;
-    badge.innerHTML = html;
+    if(badge) badge.innerHTML = html;
     if(inlineBadge) inlineBadge.innerHTML = html;
   } else {
-    badge.innerHTML = '';
+    if(badge) badge.innerHTML = '';
     if(inlineBadge) inlineBadge.innerHTML = '';
   }
 }
@@ -5281,7 +5283,7 @@ function renderMealTypePills() {
   if (!window._coachMealType) window._coachMealType = guessMealTypeByTime();
   wrap.innerHTML = MEAL_TYPE_ORDER.map(t => `
     <button type="button" onclick="selectCoachMealType('${t}')" data-meal-type="${t}"
-      style="flex:1;padding:8px 4px;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;background:${t === window._coachMealType ? 'var(--accent)' : 'white'};color:${t === window._coachMealType ? 'white' : '#9C9A93'}">
+      style="flex:1;padding:8px 4px;border:none;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;background:${t === window._coachMealType ? 'var(--accent)' : '#1C2320'};color:${t === window._coachMealType ? '#0B1210' : '#9C9A93'}">
       ${MEAL_TYPE_LABELS[t]}
     </button>`).join('');
 }
