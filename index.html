@@ -682,7 +682,7 @@
           </div>
           <div style="margin-top:10px;padding-top:10px;border-top:1px solid #2A322E;text-align:center">
             <span style="font-size:11px;font-weight:600;color:#F2EFE7" id="disp-weight-to-go">—</span>
-            <span style="font-size:11px;color:#9C9A93"> to go</span>
+
           </div>
         </div>
         <div id="weight-no-goal" style="font-size:12px;color:#9C9A93;margin-bottom:12px">Tap <b>Edit Goal</b> to set your target weight</div>
@@ -786,7 +786,7 @@
             </div>
             <div style="margin-top:10px;padding-top:10px;border-top:1px solid #FFE4C4;text-align:center">
               <span style="font-size:11px;font-weight:600;color:#F2EFE7" id="disp-bf-to-go">—</span>
-              <span style="font-size:11px;color:#9C9A93"> to go</span>
+  
             </div>
           </div>
           <div id="bf-no-goal" style="font-size:12px;color:#9C9A93;margin-bottom:12px">Tap <b>Edit Goal</b> to set your body fat % target</div>
@@ -878,7 +878,7 @@
             </div>
             <div style="margin-top:10px;padding-top:10px;border-top:1px solid #BBF7D0;text-align:center">
               <span style="font-size:11px;font-weight:600;color:#F2EFE7" id="disp-muscle-to-go">—</span>
-              <span style="font-size:11px;color:#9C9A93"> to go</span>
+  
             </div>
           </div>
           <div id="muscle-no-goal" style="font-size:12px;color:#9C9A93;margin-bottom:12px">Tap <b>Edit Goal</b> to set a muscle mass target</div>
@@ -10414,13 +10414,13 @@ if (document.readyState === 'loading') {
 <!-- MEAL BUILDER MODAL -->
 <div id="meal-builder-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:800;flex-direction:column;align-items:center;overflow:hidden">
   <div style="background:#141A18;width:100%;max-width:520px;height:100%;display:flex;flex-direction:column;overflow:hidden;box-sizing:border-box">
-  <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #1C2320;box-sizing:border-box">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:calc(16px + env(safe-area-inset-top)) 20px 16px;border-bottom:1px solid #1C2320;box-sizing:border-box;flex-shrink:0">
     <button onclick="closeMealBuilder()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#F2EFE7;padding:0;flex-shrink:0">←</button>
     <div style="font-size:16px;font-weight:700" id="meal-builder-title">Create Meal</div>
     <button onclick="saveMeal()" style="background:var(--accent);color:#0B1210;border:none;border-radius:20px;padding:6px 16px;font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0">Save</button>
   </div>
 
-  <div style="flex:1;overflow-y:auto;overflow-x:hidden;padding:20px;box-sizing:border-box">
+  <div style="flex:1;overflow-y:auto;overflow-x:hidden;padding:20px 20px calc(20px + env(safe-area-inset-bottom));box-sizing:border-box">
     <!-- Meal name -->
     <input type="text" id="meal-builder-name" placeholder="Meal name (e.g. Chicken Rice Bowl)"
       style="width:100%;padding:14px 16px;border:1.5px solid #2A322E;border-radius:12px;font-size:16px;outline:none;box-sizing:border-box;margin-bottom:16px;font-weight:600" />
