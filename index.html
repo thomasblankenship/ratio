@@ -320,7 +320,7 @@
     </button>
     <button class="bottom-nav-btn" data-tab="progress" onclick="switchTab('progress')">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
-      <span>Goals</span>
+      <span>Progress</span>
     </button>
     <button class="bottom-nav-btn" data-tab="aicoach" onclick="switchTab('aicoach')" style="position:relative">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z"/></svg>
@@ -336,11 +336,38 @@
   <div class="content">
     <!-- TODAY -->
     <div id="tab-today">
-      <!-- TODAY SUB-NAV -->
-      <div style="display:flex;background:#1C2320;border-radius:12px;padding:4px;margin-bottom:16px">
-        <button class="today-subtab-btn" data-sub="main" onclick="switchTodaySubTab('main')" style="flex:1;padding:10px 4px;border:none;border-radius:9px;background:#141A18;color:#F2EFE7;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,0.08)">Today</button>
-        <button class="today-subtab-btn" data-sub="history" onclick="switchTodaySubTab('history')" style="flex:1;padding:10px 4px;border:none;border-radius:9px;background:transparent;color:#9C9A93;font-size:13px;font-weight:700;cursor:pointer">History</button>
-        <button class="today-subtab-btn" data-sub="workouts" onclick="switchTodaySubTab('workouts')" style="flex:1;padding:10px 4px;border:none;border-radius:9px;background:transparent;color:#9C9A93;font-size:13px;font-weight:700;cursor:pointer">Workouts</button>
+      <!-- TODAY HEADER + CALENDAR DROPDOWN TOGGLE -->
+      <div onclick="toggleTodayCalendarDropdown()" style="display:flex;align-items:center;gap:8px;margin-bottom:16px;cursor:pointer">
+        <div style="font-size:20px;font-weight:700;color:#CFA13C">Today</div>
+        <i class="fa-solid fa-chevron-down" id="today-calendar-chevron" style="color:#CFA13C;font-size:14px;transition:transform 0.2s"></i>
+      </div>
+
+      <div id="today-calendar-dropdown" style="display:none;margin-bottom:12px">
+        <div class="card" style="padding:16px;background:linear-gradient(160deg,#2B2414,#2A1F1D);border:1px solid #332818">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+            <button onclick="changeMonth(-1)" style="background:none;border:none;font-size:20px;cursor:pointer;color:#9C9A93;padding:4px 8px">‹</button>
+            <div style="font-size:15px;font-weight:700;color:#F2EFE7" id="cal-month-label"></div>
+            <button onclick="changeMonth(1)" style="background:none;border:none;font-size:20px;cursor:pointer;color:#9C9A93;padding:4px 8px">›</button>
+          </div>
+          <!-- Day headers -->
+          <div style="display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:6px">
+            <div style="text-align:center;font-size:10px;font-weight:700;color:#9C9A93;padding:4px 0">S</div>
+            <div style="text-align:center;font-size:10px;font-weight:700;color:#9C9A93;padding:4px 0">M</div>
+            <div style="text-align:center;font-size:10px;font-weight:700;color:#9C9A93;padding:4px 0">T</div>
+            <div style="text-align:center;font-size:10px;font-weight:700;color:#9C9A93;padding:4px 0">W</div>
+            <div style="text-align:center;font-size:10px;font-weight:700;color:#9C9A93;padding:4px 0">T</div>
+            <div style="text-align:center;font-size:10px;font-weight:700;color:#9C9A93;padding:4px 0">F</div>
+            <div style="text-align:center;font-size:10px;font-weight:700;color:#9C9A93;padding:4px 0">S</div>
+          </div>
+          <!-- Calendar grid -->
+          <div id="calendar-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px"></div>
+          <!-- Legend -->
+          <div style="margin-top:10px;background:#141A18;border-radius:8px;padding:8px 12px">
+            <div style="font-size:10px;color:#9C9A93;line-height:1.6">
+              <i class="fa-solid fa-star" style="color:#CFA13C"></i> 85–100% cals + protein hit &nbsp;|&nbsp; <span style="display:inline-flex;width:14px;height:14px;border-radius:4px;background:#CFA13C;align-items:center;justify-content:center;vertical-align:middle"><span style="color:#0B1210;font-size:10px;font-weight:900;line-height:1">✓</span></span> cals or protein &nbsp;|&nbsp; <i class="fa-solid fa-circle-xmark" style="color:#F87171"></i> over limit
+            </div>
+          </div>
+        </div>
       </div>
 
       <div id="today-subtab-main">
@@ -474,80 +501,6 @@
       </div>
       <!-- end today-subtab-main -->
 
-      <div id="today-subtab-workouts" style="display:none">
-      <!-- WORKOUTS -->
-      <div class="card">
-        <div class="card-title">Workouts</div>
-        <div id="workouts-list"><div class="empty">No workouts logged yet</div></div>
-
-        <div style="margin-top:12px">
-          <button onclick="toggleWorkoutForm()" id="add-workout-btn" class="btn">+ Add Workout</button>
-        </div>
-        <div id="workout-form" style="display:none;margin-top:12px;background:#0B1210;border-radius:12px;padding:14px">
-          <!-- Recent workouts quick-fill -->
-          <div id="recent-workouts-section" style="display:none;margin-bottom:14px">
-            <div style="font-size:11px;font-weight:700;color:#9C9A93;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px">Recent — tap to fill in</div>
-            <div id="recent-workouts-list" style="display:flex;flex-direction:column;gap:6px"></div>
-          </div>
-          <div style="text-align:center;font-size:11px;color:#9C9A93;margin-bottom:10px" id="workout-form-divider">— or enter manually —</div>
-          <div class="form-group"><input type="text" id="workout-name" placeholder="Workout (e.g. Leg Day + Cardio)" /></div>
-          <div class="form-row form-group">
-            <div>
-              <div style="font-size:10px;font-weight:700;color:#9C9A93;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Duration (min)</div>
-              <input type="number" id="workout-duration" placeholder="0" min="0" step="1" inputmode="numeric" max="600" oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,3);if(+this.value<0)this.value=0;if(+this.value>600)this.value=600">
-            </div>
-            <div>
-              <div style="font-size:10px;font-weight:700;color:#9C9A93;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Active Cals burned</div>
-              <input type="number" id="workout-cals" placeholder="0" min="0" step="1" inputmode="numeric" oninput="this.value=this.value.replace(/[^0-9]/g,'');if(this.value<0)this.value=0">
-            </div>
-          </div>
-          <button class="btn" onclick="addWorkout()" style="margin-top:4px">Log Workout</button>
-          <button class="btn" onclick="toggleWorkoutForm()" style="background:#2A1616;color:#EF4444;margin-top:8px">Cancel</button>
-        </div>
-      </div>
-      </div>
-      <!-- end today-subtab-workouts -->
-
-      <div id="today-subtab-history" style="display:none">
-      <!-- HISTORY -->
-      <div id="history-list-view">
-
-
-
-        <!-- Calendar Card -->
-        <div class="card" style="padding:16px;background:linear-gradient(160deg,#2B2414,#2A1F1D);border:1px solid #332818">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-            <button onclick="changeMonth(-1)" style="background:none;border:none;font-size:20px;cursor:pointer;color:#9C9A93;padding:4px 8px">‹</button>
-            <div style="font-size:15px;font-weight:700;color:#F2EFE7" id="cal-month-label"></div>
-            <button onclick="changeMonth(1)" style="background:none;border:none;font-size:20px;cursor:pointer;color:#9C9A93;padding:4px 8px">›</button>
-          </div>
-          <!-- Day headers -->
-          <div style="display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:6px">
-            <div style="text-align:center;font-size:10px;font-weight:700;color:#9C9A93;padding:4px 0">S</div>
-            <div style="text-align:center;font-size:10px;font-weight:700;color:#9C9A93;padding:4px 0">M</div>
-            <div style="text-align:center;font-size:10px;font-weight:700;color:#9C9A93;padding:4px 0">T</div>
-            <div style="text-align:center;font-size:10px;font-weight:700;color:#9C9A93;padding:4px 0">W</div>
-            <div style="text-align:center;font-size:10px;font-weight:700;color:#9C9A93;padding:4px 0">T</div>
-            <div style="text-align:center;font-size:10px;font-weight:700;color:#9C9A93;padding:4px 0">F</div>
-            <div style="text-align:center;font-size:10px;font-weight:700;color:#9C9A93;padding:4px 0">S</div>
-          </div>
-          <!-- Calendar grid -->
-          <div id="calendar-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px"></div>
-          <!-- Legend -->
-          <div style="margin-top:10px;background:#141A18;border-radius:8px;padding:8px 12px">
-            <div style="font-size:10px;color:#9C9A93;line-height:1.6">
-              <i class="fa-solid fa-star" style="color:#CFA13C"></i> 85–100% cals + protein hit &nbsp;|&nbsp; <span style="display:inline-flex;width:14px;height:14px;border-radius:4px;background:#CFA13C;align-items:center;justify-content:center;vertical-align:middle"><span style="color:#0B1210;font-size:10px;font-weight:900;line-height:1">✓</span></span> cals or protein &nbsp;|&nbsp; <i class="fa-solid fa-circle-xmark" style="color:#F87171"></i> over limit
-            </div>
-          </div>
-        </div>
-
-        <!-- Recent days list -->
-        <div class="card">
-          <div class="card-title">Recent Days</div>
-          <div id="history-list"><div class="loading">Loading...</div></div>
-        </div>
-      </div>
-
       <div id="history-detail-view" style="display:none">
         <button class="back-btn" onclick="showHistoryList()">← Back</button>
         <div class="card" id="detail-macros"></div>
@@ -610,8 +563,6 @@
         <!-- Add meal to past day -->
 
       </div>
-      </div>
-      <!-- end today-subtab-history -->
     </div>
 
     <!-- MEALS -->
@@ -952,6 +903,43 @@
       <div class="card" id="scan-history-card">
         <div class="card-title">Log History</div>
         <div id="scan-list"><div class="loading">Loading...</div></div>
+      </div>
+
+      <!-- WORKOUTS -->
+      <div class="card">
+        <div class="card-title">Workouts</div>
+        <div id="workouts-list"><div class="empty">No workouts logged yet</div></div>
+
+        <div style="margin-top:12px">
+          <button onclick="toggleWorkoutForm()" id="add-workout-btn" class="btn">+ Add Workout</button>
+        </div>
+        <div id="workout-form" style="display:none;margin-top:12px;background:#0B1210;border-radius:12px;padding:14px">
+          <!-- Recent workouts quick-fill -->
+          <div id="recent-workouts-section" style="display:none;margin-bottom:14px">
+            <div style="font-size:11px;font-weight:700;color:#9C9A93;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px">Recent — tap to fill in</div>
+            <div id="recent-workouts-list" style="display:flex;flex-direction:column;gap:6px"></div>
+          </div>
+          <div style="text-align:center;font-size:11px;color:#9C9A93;margin-bottom:10px" id="workout-form-divider">— or enter manually —</div>
+          <div class="form-group"><input type="text" id="workout-name" placeholder="Workout (e.g. Leg Day + Cardio)" /></div>
+          <div class="form-row form-group">
+            <div>
+              <div style="font-size:10px;font-weight:700;color:#9C9A93;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Duration (min)</div>
+              <input type="number" id="workout-duration" placeholder="0" min="0" step="1" inputmode="numeric" max="600" oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,3);if(+this.value<0)this.value=0;if(+this.value>600)this.value=600">
+            </div>
+            <div>
+              <div style="font-size:10px;font-weight:700;color:#9C9A93;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Active Cals burned</div>
+              <input type="number" id="workout-cals" placeholder="0" min="0" step="1" inputmode="numeric" oninput="this.value=this.value.replace(/[^0-9]/g,'');if(this.value<0)this.value=0">
+            </div>
+          </div>
+          <button class="btn" onclick="addWorkout()" style="margin-top:4px">Log Workout</button>
+          <button class="btn" onclick="toggleWorkoutForm()" style="background:#2A1616;color:#EF4444;margin-top:8px">Cancel</button>
+        </div>
+      </div>
+
+      <!-- RECENT DAYS -->
+      <div class="card">
+        <div class="card-title">Recent Days</div>
+        <div id="history-list"><div class="loading">Loading...</div></div>
       </div>
 
     </div>
@@ -2358,19 +2346,13 @@ function switchTab(tab) {
   }
 }
 
-function switchTodaySubTab(sub) {
-  window.scrollTo(0, 0);
-  saveLastView({ todaySub: sub });
-  ['main','history','workouts'].forEach(s => {
-    document.getElementById(`today-subtab-${s}`).style.display = s === sub ? 'block' : 'none';
-  });
-  document.querySelectorAll('.today-subtab-btn').forEach(btn => {
-    const isActive = btn.dataset.sub === sub;
-    btn.style.background = isActive ? '#141A18' : 'transparent';
-    btn.style.color = isActive ? '#F2EFE7' : '#9C9A93';
-    btn.style.boxShadow = isActive ? '0 1px 3px rgba(0,0,0,0.08)' : 'none';
-  });
-  if (sub === 'history') { renderCalendar(); renderHistoryList(); }
+function toggleTodayCalendarDropdown() {
+  const dropdown = document.getElementById('today-calendar-dropdown');
+  const chevron = document.getElementById('today-calendar-chevron');
+  const isOpen = dropdown.style.display !== 'none';
+  dropdown.style.display = isOpen ? 'none' : 'block';
+  chevron.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
+  if (!isOpen) renderCalendar();
 }
 
 function selectAngle(angle, btn) {
@@ -4516,7 +4498,7 @@ async function appInit() {
   const restoreTab = lastView?.tab || 'today';
   switchTab(restoreTab);
   if (lastView) {
-    if (restoreTab === 'today' && lastView.todaySub) switchTodaySubTab(lastView.todaySub);
+    if (restoreTab === 'today' && lastView.todaySub === 'history') toggleTodayCalendarDropdown();
     if (restoreTab === 'meals' && lastView.mealsSub) switchMealsSubTab(lastView.mealsSub);
     if (restoreTab === 'aicoach' && lastView.coachSub) {
       switchCoachSubTab(lastView.coachSub);
@@ -4953,7 +4935,9 @@ async function addWorkout() {
 // HISTORY - handled by loadDayTotals() and renderCalendar()
 
 async function showHistoryDetail(date) {
-  document.getElementById('history-list-view').style.display = 'none';
+  document.getElementById('today-subtab-main').style.display = 'none';
+  document.getElementById('today-calendar-dropdown').style.display = 'none';
+  document.getElementById('today-calendar-chevron').style.transform = 'rotate(0deg)';
   document.getElementById('history-detail-view').style.display = 'block';
   const [meals, workouts] = await Promise.all([dbGet('meals', `date=eq.${date}&select=id,date,name,meal_type,calories,protein,carbs,fat,fiber,cholesterol,time`), dbGet('workouts', `date=eq.${date}`)]);
   const t = calcTotals(meals);
@@ -5084,7 +5068,7 @@ async function showHistoryDetail(date) {
 }
 
 function showHistoryList() {
-  document.getElementById('history-list-view').style.display = 'block';
+  document.getElementById('today-subtab-main').style.display = 'block';
   document.getElementById('history-detail-view').style.display = 'none';
 }
 
