@@ -274,7 +274,7 @@
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
-        <button onclick="switchTab('aicoach'); switchCoachSubTab('meals'); switchMealIdeasSubTab('shopping');" style="background:none;border:none;cursor:pointer;padding:4px;display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:10px;background:#1C2320">
+        <button onclick="openShoppingListPage()" style="background:none;border:none;cursor:pointer;padding:4px;display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:10px;background:#1C2320">
           <i class="fa-solid fa-basket-shopping" style="font-size:16px;color:#9C9A93"></i>
         </button>
         <button style="background:none;border:none;cursor:pointer;padding:4px;display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:10px;background:#1C2320">
@@ -1011,6 +1011,15 @@
     </div>
 
     <!-- AI COACH -->
+    <!-- SHOPPING LIST — independent page, not nested under Coach, so it can stay free even if Coach becomes a paid feature later -->
+    <div id="tab-shopping" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div style="font-size:18px;font-weight:700">Shopping List</div>
+        <button onclick="closeShoppingListPage()" style="background:#1C2320;border:none;border-radius:10px;width:32px;height:32px;font-size:18px;color:#9C9A93;cursor:pointer">×</button>
+      </div>
+      <div id="shopping-list-results-independent"></div>
+    </div>
+
     <div id="tab-aicoach" style="display:none">
       <!-- AI COACH SUB-NAV -->
       <div style="display:flex;background:#1C2320;border-radius:12px;padding:4px;margin-bottom:16px">
@@ -1025,7 +1034,6 @@
         <div style="display:flex;background:#1C2320;border-radius:12px;padding:4px;margin-bottom:16px">
           <button id="meal-ideas-subtab-btn-ideas" onclick="switchMealIdeasSubTab('ideas')" style="flex:1;padding:10px 4px;border:none;border-radius:9px;background:#141A18;color:#F2EFE7;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,0.08)">💡 Daily Meals</button>
           <button id="meal-ideas-subtab-btn-prep" onclick="switchMealIdeasSubTab('prep')" style="flex:1;padding:10px 4px;border:none;border-radius:9px;background:transparent;color:#9C9A93;font-size:13px;font-weight:700;cursor:pointer">🥘 Weekly Meal Prep</button>
-          <button id="meal-ideas-subtab-btn-shopping" onclick="switchMealIdeasSubTab('shopping')" style="display:none;flex:1;padding:10px 4px;border:none;border-radius:9px;background:transparent;color:#9C9A93;font-size:13px;font-weight:700;cursor:pointer">🛒 Shopping List</button>
         </div>
 
         <div id="meal-ideas-subtab-ideas">
@@ -1049,10 +1057,6 @@
             <div id="meal-prep-day-list" style="background:#141A18;border-radius:14px;overflow:hidden"></div>
           </div>
           <div id="meal-prep-results"></div>
-        </div>
-
-        <div id="meal-ideas-subtab-shopping" style="display:none">
-          <div id="shopping-list-results"></div>
         </div>
       </div>
 
@@ -1981,10 +1985,30 @@ function getRecentLastView() {
   } catch (e) { return null; }
 }
 
+let _tabBeforeShopping = 'today';
+
+function openShoppingListPage() {
+  // Remember whichever tab is currently visible, so the X button can return to it
+  ['today','meals','progress','photos','aicoach'].forEach(t => {
+    const el = document.getElementById(`tab-${t}`);
+    if (el && el.style.display !== 'none') _tabBeforeShopping = t;
+  });
+  switchTab('shopping');
+  if (!mealPrepPlanLoaded) {
+    loadMealPrepPlan().then(() => renderShoppingList());
+  } else {
+    renderShoppingList();
+  }
+}
+
+function closeShoppingListPage() {
+  switchTab(_tabBeforeShopping || 'today');
+}
+
 function switchTab(tab) {
   window.scrollTo(0, 0);
   saveLastView({ tab });
-  ['today','meals','progress','photos','aicoach'].forEach(t => {
+  ['today','meals','progress','photos','aicoach','shopping'].forEach(t => {
     document.getElementById(`tab-${t}`).style.display = t === tab ? 'block' : 'none';
   });
   document.querySelectorAll('.bottom-nav-btn[data-tab]').forEach(btn => {
@@ -5223,8 +5247,8 @@ function switchMealsSubTab(tab) {
 // ===== AI COACH =====
 function switchMealIdeasSubTab(sub) {
   saveLastView({ mealIdeasSub: sub });
-  const panels = { ideas: 'meal-ideas-subtab-ideas', prep: 'meal-ideas-subtab-prep', shopping: 'meal-ideas-subtab-shopping' };
-  const btns = { ideas: 'meal-ideas-subtab-btn-ideas', prep: 'meal-ideas-subtab-btn-prep', shopping: 'meal-ideas-subtab-btn-shopping' };
+  const panels = { ideas: 'meal-ideas-subtab-ideas', prep: 'meal-ideas-subtab-prep' };
+  const btns = { ideas: 'meal-ideas-subtab-btn-ideas', prep: 'meal-ideas-subtab-btn-prep' };
   Object.keys(panels).forEach(key => {
     document.getElementById(panels[key]).style.display = key === sub ? 'block' : 'none';
     const btn = document.getElementById(btns[key]);
@@ -5232,10 +5256,8 @@ function switchMealIdeasSubTab(sub) {
     btn.style.color = key === sub ? '#F2EFE7' : '#9C9A93';
     btn.style.boxShadow = key === sub ? '0 1px 3px rgba(0,0,0,0.08)' : 'none';
   });
-  if ((sub === 'prep' || sub === 'shopping') && !mealPrepPlanLoaded) {
-    loadMealPrepPlan().then(() => { if (sub === 'shopping') renderShoppingList(); });
-  } else if (sub === 'shopping') {
-    renderShoppingList();
+  if (sub === 'prep' && !mealPrepPlanLoaded) {
+    loadMealPrepPlan();
   }
 }
 
@@ -5509,7 +5531,7 @@ function renderMealPrepDayEditorInner(i, day) {
     <div style="padding:0 14px 16px;border-top:1px solid var(--gray-100)">
       <div style="display:flex;justify-content:flex-end;align-items:center;margin:12px 0">
         <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#9C9A93;cursor:pointer">
-          <input type="checkbox" id="meal-prep-no-prep-toggle-${i}" ${day.no_prep ? 'checked' : ''} onchange="toggleMealPrepNoPrep(${i})" />
+          <input type="checkbox" id="meal-prep-no-prep-toggle-${i}" ${day.no_prep ? 'checked' : ''} onchange="toggleMealPrepNoPrep(${i})" style="accent-color:#CFA13C" />
           No Prep Needed
         </label>
       </div>
@@ -5957,7 +5979,7 @@ function renderShoppingListRow(item) {
   return `
     <div class="shopping-row" data-key="${item.key}" style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--gray-100);background:#141A18;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none">
       <span style="color:#33403A;font-size:15px;cursor:grab;flex-shrink:0;padding:0 2px;touch-action:none">⠿</span>
-      <input type="checkbox" ${checked ? 'checked' : ''} onchange="toggleShoppingChecked('${item.key}')" style="flex-shrink:0;cursor:pointer" />
+      <input type="checkbox" ${checked ? 'checked' : ''} onchange="toggleShoppingChecked('${item.key}')" style="flex-shrink:0;cursor:pointer;accent-color:#CFA13C" />
       <div style="flex:1;min-width:0;cursor:pointer" onclick="toggleShoppingChecked('${item.key}')">
         <div style="font-size:14px;font-weight:600;${textStyle}">${item.name}</div>
         ${item.subtitle ? `<div style="font-size:11px;color:${checked ? '#33403A' : '#9C9A93'}">${item.subtitle}</div>` : ''}
@@ -5983,7 +6005,7 @@ function initShoppingListSortable() {
 }
 
 function renderShoppingList() {
-  const el = document.getElementById('shopping-list-results');
+  const el = document.getElementById('shopping-list-results-independent');
   if (!el || !mealPrepPlan) return;
 
   const { items, activeDishCount } = getShoppingListData();
@@ -6338,7 +6360,7 @@ function renderPlanDayEditorInner(i, day) {
       ${!configCollapsed ? `
       <div style="display:flex;justify-content:flex-end;align-items:center;margin:12px 0">
         <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#9C9A93;cursor:pointer">
-          <input type="checkbox" id="plan-day-rest-toggle-${i}" ${day.is_rest_day ? 'checked' : ''} onchange="togglePlanDayRest(${i})" />
+          <input type="checkbox" id="plan-day-rest-toggle-${i}" ${day.is_rest_day ? 'checked' : ''} onchange="togglePlanDayRest(${i})" style="accent-color:#CFA13C" />
           Rest Day
         </label>
       </div>
