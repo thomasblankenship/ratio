@@ -509,9 +509,9 @@
           <!-- Calendar grid -->
           <div id="calendar-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px"></div>
           <!-- Legend -->
-          <div style="margin-top:10px;background:#F7F7F7;border-radius:8px;padding:8px 12px">
+          <div style="margin-top:10px;background:#141A18;border-radius:8px;padding:8px 12px">
             <div style="font-size:10px;color:#9C9A93;line-height:1.6">
-              ⭐ 85–100% cals + protein hit &nbsp;|&nbsp; <span style="display:inline-flex;width:14px;height:14px;border-radius:4px;background:#CFA13C;align-items:center;justify-content:center;vertical-align:middle"><span style="color:#0B1210;font-size:10px;font-weight:900;line-height:1">✓</span></span> cals or protein &nbsp;|&nbsp; ❌ over limit
+              <i class="fa-solid fa-star" style="color:#CFA13C"></i> 85–100% cals + protein hit &nbsp;|&nbsp; <span style="display:inline-flex;width:14px;height:14px;border-radius:4px;background:#CFA13C;align-items:center;justify-content:center;vertical-align:middle"><span style="color:#0B1210;font-size:10px;font-weight:900;line-height:1">✓</span></span> cals or protein &nbsp;|&nbsp; <i class="fa-solid fa-circle-xmark" style="color:#F87171"></i> over limit
             </div>
           </div>
         </div>
@@ -4548,7 +4548,7 @@ function updateMacroBars(t) {
   const badge = document.getElementById('score-badge');
   const inlineBadge = document.getElementById('score-inline');
   if (score) {
-    const map = { great: ['⭐ Great Day', 'score-great'], good: ['<span style="display:inline-flex;width:14px;height:14px;border-radius:4px;background:#CFA13C;align-items:center;justify-content:center;vertical-align:middle"><span style="color:#0B1210;font-size:10px;font-weight:900;line-height:1">✓</span></span> Good Day', 'score-good'], over: ['❌ Over Limit', 'score-needs'] };
+    const map = { great: ['<i class="fa-solid fa-star" style="color:#CFA13C"></i> Great Day', 'score-great'], good: ['<span style="display:inline-flex;width:14px;height:14px;border-radius:4px;background:#CFA13C;align-items:center;justify-content:center;vertical-align:middle"><span style="color:#0B1210;font-size:10px;font-weight:900;line-height:1">✓</span></span> Good Day', 'score-good'], over: ['<i class="fa-solid fa-circle-xmark" style="color:#F87171"></i> Over Limit', 'score-needs'] };
     const html = `<span class="score-badge ${map[score][1]}">${map[score][0]}</span>`;
     if(badge) badge.innerHTML = html;
     if(inlineBadge) inlineBadge.innerHTML = html;
@@ -4617,7 +4617,7 @@ async function showHistoryDetail(date) {
   const [meals, workouts] = await Promise.all([dbGet('meals', `date=eq.${date}&select=id,date,name,meal_type,calories,protein,carbs,fat,fiber,cholesterol,time`), dbGet('workouts', `date=eq.${date}`)]);
   const t = calcTotals(meals);
   const score = dayScore(t.calories, t.protein);
-  const scoreMap = { great: ['⭐ Great Day','score-great'], good: ['<span style="display:inline-flex;width:14px;height:14px;border-radius:4px;background:#CFA13C;align-items:center;justify-content:center;vertical-align:middle"><span style="color:#0B1210;font-size:10px;font-weight:900;line-height:1">✓</span></span> Good Day','score-good'], over: ['❌ Over Limit','score-needs'] };
+  const scoreMap = { great: ['<i class="fa-solid fa-star" style="color:#CFA13C"></i> Great Day','score-great'], good: ['<span style="display:inline-flex;width:14px;height:14px;border-radius:4px;background:#CFA13C;align-items:center;justify-content:center;vertical-align:middle"><span style="color:#0B1210;font-size:10px;font-weight:900;line-height:1">✓</span></span> Good Day','score-good'], over: ['<i class="fa-solid fa-circle-xmark" style="color:#F87171"></i> Over Limit','score-needs'] };
   const s = score ? scoreMap[score] : null;
   const burnedTotal = workouts.reduce((a, w) => a + (+w.calories||0), 0);
   const remaining = TARGETS.calories - t.calories;
@@ -5039,9 +5039,9 @@ function renderCalendar() {
 
     if (!isFuture && data) {
       const score = dayScore(data.calories, data.protein);
-      if (score === 'great') { indicator = '⭐'; bgColor = '#2B2414'; }
+      if (score === 'great') { indicator = '<i class="fa-solid fa-star" style="color:#CFA13C"></i>'; bgColor = '#2B2414'; }
       else if (score === 'good') { indicator = '<span style="display:inline-flex;width:14px;height:14px;border-radius:4px;background:#CFA13C;align-items:center;justify-content:center;vertical-align:middle"><span style="color:#0B1210;font-size:10px;font-weight:900;line-height:1">✓</span></span>'; bgColor = '#16241A'; }
-      else if (score === 'over') { indicator = '❌'; bgColor = '#2A1616'; }
+      else if (score === 'over') { indicator = '<i class="fa-solid fa-circle-xmark" style="color:#F87171"></i>'; bgColor = '#2A1616'; }
     } else if (!isFuture && !isToday && !data) {
       bgColor = '#1C2320';
       textColor = '#9C9A93';
@@ -5061,7 +5061,7 @@ function renderCalendar() {
 
 function renderHistoryList() {
   const el = document.getElementById('history-list');
-  const scoreMap = { great: ['⭐ Great Day','score-great'], good: ['<span style="display:inline-flex;width:14px;height:14px;border-radius:4px;background:#CFA13C;align-items:center;justify-content:center;vertical-align:middle"><span style="color:#0B1210;font-size:10px;font-weight:900;line-height:1">✓</span></span> Good Day','score-good'], over: ['❌ Over Limit','score-needs'] };
+  const scoreMap = { great: ['<i class="fa-solid fa-star" style="color:#CFA13C"></i> Great Day','score-great'], good: ['<span style="display:inline-flex;width:14px;height:14px;border-radius:4px;background:#CFA13C;align-items:center;justify-content:center;vertical-align:middle"><span style="color:#0B1210;font-size:10px;font-weight:900;line-height:1">✓</span></span> Good Day','score-good'], over: ['<i class="fa-solid fa-circle-xmark" style="color:#F87171"></i> Over Limit','score-needs'] };
 
   // Build last 30 days regardless of whether data exists
   const allDays = [];
@@ -5099,7 +5099,6 @@ function renderHistoryList() {
         <div class="day-meta">${nutritionMetaString(t)}</div>
       </div>
       <div class="day-right">
-        ${s ? `<span class="score-badge ${s[1]}">${s[0]}</span>` : ''}
         <span class="day-chevron">›</span>
       </div>
     </div>`;
@@ -9904,8 +9903,8 @@ async function maybeShowCheckin() {
       const poolKey = 'low_protein_' + goal;
       msgPool = CHECKIN_MESSAGES[poolKey] || CHECKIN_MESSAGES.low_protein_fat_loss;
     } else {
-      // STATE 3: On track ⭐
-      state = { emoji: '⭐', badge: 'Nailed it', badgeBg: '#16241A', badgeColor: '#4ADE80' };
+      // STATE 3: On track <i class="fa-solid fa-star" style="color:#CFA13C"></i>
+      state = { emoji: '<i class="fa-solid fa-star" style="color:#CFA13C"></i>', badge: 'Nailed it', badgeBg: '#16241A', badgeColor: '#4ADE80' };
       document.getElementById('ci-cals-val').style.color = '#4ADE80';
       const poolKey = 'on_track_' + goal;
       msgPool = CHECKIN_MESSAGES[poolKey] || CHECKIN_MESSAGES.on_track_fat_loss;
@@ -9915,7 +9914,7 @@ async function maybeShowCheckin() {
   const picked = _fillTemplate(JSON.stringify(_pickRandom(msgPool)), vars);
   const { msg, sub, btn } = JSON.parse(picked);
 
-  document.getElementById('checkin-emoji').textContent = state.emoji;
+  document.getElementById('checkin-emoji').innerHTML = state.emoji;
   document.getElementById('checkin-badge').textContent = state.badge;
   document.getElementById('checkin-badge').style.background = state.badgeBg;
   document.getElementById('checkin-badge').style.color = state.badgeColor;
