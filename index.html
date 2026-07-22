@@ -1160,9 +1160,28 @@
       <div class="profile-subpage-header">
         <button onclick="switchTab('profile')" class="profile-back-btn"><i class="fa-solid fa-arrow-left"></i></button>
         <div class="profile-subpage-title">Food Allergies</div>
-        <button onclick="switchTab('profile')" class="profile-save-btn">Save</button>
+        <button onclick="saveFoodAllergiesPage()" class="profile-save-btn">Save</button>
       </div>
-      <div class="profile-coming-soon">Coming Soon</div>
+
+      <div style="font-size:11px;font-weight:700;color:#9C9A93;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Allergies / Foods to Avoid</div>
+      <div class="card" style="padding:16px">
+        <div id="fa-allergy-chips" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+          <button type="button" class="fa-allergy-chip" data-allergy="Dairy" onclick="faToggleAllergy(this)" style="padding:8px 14px;border:1.5px solid #2A322E;border-radius:20px;background:#141A18;color:#F2EFE7;font-size:13px;font-weight:600;cursor:pointer">Dairy</button>
+          <button type="button" class="fa-allergy-chip" data-allergy="Gluten" onclick="faToggleAllergy(this)" style="padding:8px 14px;border:1.5px solid #2A322E;border-radius:20px;background:#141A18;color:#F2EFE7;font-size:13px;font-weight:600;cursor:pointer">Gluten</button>
+          <button type="button" class="fa-allergy-chip" data-allergy="Nuts" onclick="faToggleAllergy(this)" style="padding:8px 14px;border:1.5px solid #2A322E;border-radius:20px;background:#141A18;color:#F2EFE7;font-size:13px;font-weight:600;cursor:pointer">Nuts</button>
+          <button type="button" class="fa-allergy-chip" data-allergy="Shellfish" onclick="faToggleAllergy(this)" style="padding:8px 14px;border:1.5px solid #2A322E;border-radius:20px;background:#141A18;color:#F2EFE7;font-size:13px;font-weight:600;cursor:pointer">Shellfish</button>
+          <button type="button" class="fa-allergy-chip" data-allergy="Eggs" onclick="faToggleAllergy(this)" style="padding:8px 14px;border:1.5px solid #2A322E;border-radius:20px;background:#141A18;color:#F2EFE7;font-size:13px;font-weight:600;cursor:pointer">Eggs</button>
+          <button type="button" class="fa-allergy-chip" data-allergy="Soy" onclick="faToggleAllergy(this)" style="padding:8px 14px;border:1.5px solid #2A322E;border-radius:20px;background:#141A18;color:#F2EFE7;font-size:13px;font-weight:600;cursor:pointer">Soy</button>
+        </div>
+        <input type="text" id="fa-allergy-other" placeholder="Other allergies (optional)"
+          style="width:100%;padding:11px 14px;border:1.5px solid #2A322E;border-radius:10px;background:#0B1210;color:#F2EFE7;font-size:14px;outline:none;box-sizing:border-box" />
+      </div>
+
+      <div style="font-size:11px;font-weight:700;color:#9C9A93;text-transform:uppercase;letter-spacing:0.5px;margin:16px 0 8px">Favorite Foods</div>
+      <div class="card" style="padding:16px">
+        <textarea id="fa-favorite-foods" rows="3" placeholder="e.g. chicken breast, rice, Greek yogurt..."
+          style="width:100%;padding:11px 14px;border:1.5px solid #2A322E;border-radius:10px;background:#0B1210;color:#F2EFE7;font-size:14px;outline:none;box-sizing:border-box;resize:vertical;font-family:inherit"></textarea>
+      </div>
     </div>
 
     <div id="tab-profile-devices" style="display:none">
@@ -2213,6 +2232,7 @@ function switchTab(tab) {
   if (tab === 'progress') { loadGoals().then(() => { loadScans(); updateGoalsDisplay(); }); }
   if (tab === 'profile') loadCurrentUsername();
   if (tab === 'profile-myprofile') loadMyProfilePage();
+  if (tab === 'profile-allergies') loadFoodAllergiesPage();
   if (tab === 'aicoach') {
     const badge = document.getElementById('ai-coach-new-badge');
     if (badge && badge.style.display !== 'none') {
@@ -9247,6 +9267,39 @@ function showSettings() {
   loadPreferencesSummary();
   loadGoals().then(() => updateGoalsDisplay());
   document.getElementById('settings-modal').style.display = 'flex';
+}
+
+async function loadFoodAllergiesPage() {
+  const prefs = await loadSetting('preferences') || { allergies: [], allergiesOther: '', favoriteFoods: '' };
+  window._currentPreferences = prefs;
+  document.querySelectorAll('.fa-allergy-chip').forEach(chip => {
+    const selected = (prefs.allergies || []).includes(chip.dataset.allergy);
+    chip.classList.toggle('fa-allergy-selected', selected);
+    chip.style.background = selected ? '#2B2414' : '#141A18';
+    chip.style.borderColor = selected ? '#CFA13C' : '#2A322E';
+    chip.style.color = selected ? '#CFA13C' : '#F2EFE7';
+  });
+  document.getElementById('fa-allergy-other').value = prefs.allergiesOther || '';
+  document.getElementById('fa-favorite-foods').value = prefs.favoriteFoods || '';
+}
+
+function faToggleAllergy(el) {
+  el.classList.toggle('fa-allergy-selected');
+  const selected = el.classList.contains('fa-allergy-selected');
+  el.style.background = selected ? '#2B2414' : '#141A18';
+  el.style.borderColor = selected ? '#CFA13C' : '#2A322E';
+  el.style.color = selected ? '#CFA13C' : '#F2EFE7';
+}
+
+async function saveFoodAllergiesPage() {
+  const allergies = Array.from(document.querySelectorAll('.fa-allergy-chip.fa-allergy-selected')).map(el => el.dataset.allergy);
+  const allergiesOther = document.getElementById('fa-allergy-other').value.trim();
+  const favoriteFoods = document.getElementById('fa-favorite-foods').value.trim();
+  const prefs = { allergies, allergiesOther, favoriteFoods };
+  await saveSetting('preferences', prefs);
+  window._currentPreferences = prefs;
+  toast('Food allergies saved ✓');
+  switchTab('profile');
 }
 
 async function loadPreferencesSummary() {
