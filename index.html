@@ -337,7 +337,7 @@
     <div id="tab-today">
       <!-- TODAY HEADER + CALENDAR DROPDOWN TOGGLE -->
       <div onclick="toggleTodayCalendarDropdown()" style="display:flex;align-items:center;gap:8px;margin-bottom:16px;cursor:pointer">
-        <div style="font-size:20px;font-weight:700;color:#CFA13C">Today</div>
+        <div style="font-size:20px;font-weight:700;color:#CFA13C" id="today-header-label">Today</div>
         <i class="fa-solid fa-chevron-down" id="today-calendar-chevron" style="color:#CFA13C;font-size:14px;transition:transform 0.2s"></i>
       </div>
 
@@ -2401,6 +2401,9 @@ function updateLogDateDisplay() {
   yesterday.setDate(yesterday.getDate() - 1);
   const yStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth()+1).padStart(2,'0')}-${String(yesterday.getDate()).padStart(2,'0')}`;
   const isYesterday = logDate === yStr;
+  const headerLabel = isToday ? 'Today' : isYesterday ? 'Yesterday' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const todayHeaderEl = document.getElementById('today-header-label');
+  if (todayHeaderEl) todayHeaderEl.textContent = headerLabel;
   const labelEl = document.getElementById('log-date-label');
   const subEl = document.getElementById('log-date-sublabel');
   const nextBtn = document.getElementById('log-date-next');
