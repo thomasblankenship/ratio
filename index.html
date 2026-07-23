@@ -756,7 +756,7 @@
           </div>
           <div id="bf-no-goal" style="font-size:12px;color:#9C9A93;margin-bottom:12px">Tap <b>Edit Goal</b> to set your body fat % target</div>
           <!-- Estimate button -->
-          <button onclick="openBfCalculator()" style="width:100%;background:#1C2320;color:#F2EFE7;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:12px">📏 Estimate My Body Fat %</button>
+          <button onclick="openBfCalculator()" style="width:100%;background:var(--accent);color:#0B1210;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:12px">Estimate My Body Fat %</button>
           <!-- Time range pills -->
           <div style="display:flex;gap:4px;margin-bottom:14px;overflow-x:auto;padding-bottom:2px">
             <button class="range-pill bf-range" data-range="1W" onclick="setChartRange('bf','1W')">1W</button>
@@ -1470,8 +1470,8 @@
 
     <!-- Method toggle -->
     <div style="display:flex;background:#1C2320;border-radius:10px;padding:3px;gap:2px;margin-bottom:16px">
-      <button id="calc-navy-btn" onclick="setBfCalcMethod('navy')" style="flex:1;padding:8px;font-size:12px;font-weight:600;border:none;border-radius:8px;background:#1C2320;color:#F2EFE7;cursor:pointer">📏 Navy Tape</button>
-      <button id="calc-bmi-btn" onclick="setBfCalcMethod('bmi')" style="flex:1;padding:8px;font-size:12px;font-weight:600;border:none;border-radius:8px;background:transparent;color:#9C9A93;cursor:pointer">⚖️ BMI Estimate</button>
+      <button id="calc-navy-btn" onclick="setBfCalcMethod('navy')" style="flex:1;padding:8px;font-size:12px;font-weight:600;border:none;border-radius:8px;background:var(--accent);color:#0B1210;cursor:pointer">Navy Tape</button>
+      <button id="calc-bmi-btn" onclick="setBfCalcMethod('bmi')" style="flex:1;padding:8px;font-size:12px;font-weight:600;border:none;border-radius:8px;background:transparent;color:#9C9A93;cursor:pointer">BMI Estimate</button>
     </div>
 
     <!-- Navy method inputs -->
@@ -10037,10 +10037,10 @@ function closeBfCalculator() {
 
 function setBfCalcMethod(method) {
   _bfCalcMethod = method;
-  document.getElementById('calc-navy-btn').style.background = method === 'navy' ? '#F2EFE7' : 'transparent';
-  document.getElementById('calc-navy-btn').style.color = method === 'navy' ? 'white' : '#9C9A93';
-  document.getElementById('calc-bmi-btn').style.background = method === 'bmi' ? '#F2EFE7' : 'transparent';
-  document.getElementById('calc-bmi-btn').style.color = method === 'bmi' ? 'white' : '#9C9A93';
+  document.getElementById('calc-navy-btn').style.background = method === 'navy' ? 'var(--accent)' : 'transparent';
+  document.getElementById('calc-navy-btn').style.color = method === 'navy' ? '#0B1210' : '#9C9A93';
+  document.getElementById('calc-bmi-btn').style.background = method === 'bmi' ? 'var(--accent)' : 'transparent';
+  document.getElementById('calc-bmi-btn').style.color = method === 'bmi' ? '#0B1210' : '#9C9A93';
   document.getElementById('calc-navy-inputs').style.display = method === 'navy' ? 'block' : 'none';
   document.getElementById('calc-bmi-inputs').style.display = method === 'bmi' ? 'block' : 'none';
   // Navy only needs height, BMI needs height + weight
