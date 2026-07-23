@@ -189,8 +189,8 @@
     .mp-sheet-option:last-child { border-bottom: none; }
     .mp-sheet-option.active { color: #CFA13C; font-weight: 600; }
     .mp-sheet-option i { color: #CFA13C; font-size: 14px; }
-    .progress-nav-chip { flex-shrink: 0; padding: 7px 14px; border-radius: 20px; border: 1px solid #2A322E; background: #141A18; color: #9C9A93; font-size: 12px; font-weight: 600; font-family: inherit; cursor: pointer; white-space: nowrap; transition: all 0.15s; }
-    .progress-nav-chip.active { border-color: #CFA13C; background: #2B2414; color: #CFA13C; }
+    .progress-nav-chip { flex: 1; padding: 8px 4px; border: none; border-radius: 9px; background: transparent; color: #9C9A93; font-size: 12px; font-weight: 700; font-family: inherit; cursor: pointer; white-space: nowrap; transition: all 0.15s; }
+    .progress-nav-chip.active { background: #2B2414; color: #CFA13C; }
     .legal-doc { font-size: 14px; line-height: 1.6; color: #D8D5CC; padding-bottom: 20px; }
     .legal-doc h3 { font-size: 14px; font-weight: 700; color: #CFA13C; margin: 20px 0 8px; }
     .legal-doc h3:first-of-type { margin-top: 0; }
@@ -627,7 +627,7 @@
     <div id="tab-progress" style="display:none">
 
       <!-- SECTION NAV -->
-      <div id="progress-section-nav" style="display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:14px;position:sticky;top:0;background:var(--gray-50);z-index:50;-webkit-overflow-scrolling:touch;scrollbar-width:none">
+      <div id="progress-section-nav" style="display:flex;background:#1C2320;border-radius:12px;padding:4px;margin-bottom:14px;position:sticky;top:0;z-index:50">
         <button type="button" onclick="scrollToProgressSection('goals')" data-section="goals" class="progress-nav-chip active">Goals</button>
         <button type="button" onclick="scrollToProgressSection('workouts')" data-section="workouts" class="progress-nav-chip">Workouts</button>
         <button type="button" onclick="scrollToProgressSection('photos')" data-section="photos" class="progress-nav-chip">Progress Photos</button>
@@ -1120,7 +1120,7 @@
         <div class="profile-subpage-title">Settings</div>
         <button onclick="switchTab('profile')" class="profile-save-btn">Save</button>
       </div>
-      <div style="font-size:11px;font-weight:700;color:#9C9A93;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Settings</div>
+      <div style="font-size:11px;font-weight:700;color:#CFA13C;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Settings</div>
       <div class="card" style="padding:4px 0">
         <div class="mp-row" onclick="handleChangePasswordTap()">
           <div class="mp-row-label">Change Password</div>
@@ -1368,7 +1368,7 @@
 
         <div id="meal-ideas-subtab-ideas">
           <div class="card" style="background:linear-gradient(160deg,#2B2414,#2A1F1D);border:1px solid #332818">
-            <div class="card-title">Meal Ideas</div>
+            <div class="card-title" style="color:#CFA13C">Meal Ideas</div>
             <div style="font-size:12px;color:#9C9A93;margin-bottom:10px">Which meal are these for?</div>
             <div id="coach-meal-type-pills" style="display:flex;gap:6px;margin-bottom:12px"></div>
             <div style="font-size:12px;color:#9C9A93;margin-bottom:12px" id="coach-meals-remaining-label">Suggestions to help fill out today's remaining macros.</div>
@@ -1380,7 +1380,7 @@
         <div id="meal-ideas-subtab-prep" style="display:none">
           <div class="card" style="background:linear-gradient(160deg,#2B2414,#2A1F1D);border:1px solid #332818">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:4px">
-              <div class="card-title" style="margin-bottom:0">Weekly Meal Prep</div>
+              <div class="card-title" style="margin-bottom:0;color:#CFA13C">Weekly Meal Prep</div>
               <button type="button" onclick="generateMealPrepPlan()" id="meal-prep-generate-btn" style="flex-shrink:0;background:#141A18;color:#CFA13C;border:1px solid #332818;border-radius:20px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">✨ Generate My Prep</button>
             </div>
             <div style="font-size:12px;color:#9C9A93;margin-bottom:14px">Tap a day to mark which meals you want covered by prepped food — could be just lunches, could be the whole day.</div>
@@ -1401,7 +1401,7 @@
         <div id="workouts-subtab-plan">
           <div class="card" style="background:linear-gradient(160deg,#2B2414,#2A1F1D);border:1px solid #332818">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:4px">
-              <div class="card-title" style="margin-bottom:0">This Week's Plan</div>
+              <div class="card-title" style="margin-bottom:0;color:#CFA13C">This Week's Plan</div>
               <button type="button" onclick="getWeeklyPlanFeedback()" id="plan-feedback-btn" style="flex-shrink:0;background:#141A18;color:#CFA13C;border:1px solid #332818;border-radius:20px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">🧠 Get Feedback</button>
             </div>
             <div style="font-size:12px;color:#9C9A93;margin-bottom:14px">Tap a day to set muscle groups and where you're training.</div>
@@ -1415,7 +1415,7 @@
         <div id="workouts-subtab-browse" style="display:none">
         <div class="card" style="background:linear-gradient(160deg,#2B2414,#2A1F1D);border:1px solid #332818">
           <div id="exercise-muscle-list-header">
-            <div class="card-title">Browse Exercises</div>
+            <div class="card-title" style="color:#CFA13C">Browse Exercises</div>
             <div style="font-size:12px;color:#9C9A93;margin-bottom:12px">Not sure what to do at the gym? Pick a muscle group.</div>
           </div>
           <div id="exercise-muscle-list" style="display:flex;flex-direction:column;gap:8px"></div>
@@ -5786,7 +5786,7 @@ function renderAiMealIdeas(suggestions) {
       ` : ''}
       <div style="display:grid;grid-template-columns:${s.type === 'new' || s.type === 'curated_meal' ? '1fr 1fr' : '1fr'};gap:8px">
         <button onclick='logAiMealSuggestion(${JSON.stringify(s).replace(/'/g, "&#39;")})' style="width:100%;background:var(--accent);color:#0B1210;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer">+ Log This</button>
-        ${s.type === 'new' || s.type === 'curated_meal' ? `<button onclick='saveAiSuggestionToMyMeals(${JSON.stringify(s).replace(/'/g, "&#39;")})' style="width:100%;background:#141A18;color:#CFA13C;border:1px solid #332818;border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer">💾 Save to My Meals</button>` : ''}
+        ${s.type === 'new' || s.type === 'curated_meal' ? `<button onclick='saveAiSuggestionToMyMeals(${JSON.stringify(s).replace(/'/g, "&#39;")})' style="width:100%;background:#141A18;color:#CFA13C;border:1px solid #332818;border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer">Save to My Meals</button>` : ''}
       </div>
       </div>
     </div>`).join('') + `
