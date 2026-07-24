@@ -174,8 +174,7 @@
     .profile-row > span { display: flex; align-items: center; gap: 12px; }
     .profile-row-icon { width: 20px; text-align: center; color: #CFA13C; font-size: 15px; }
     .profile-row > i.fa-chevron-right { color: #33403A; font-size: 13px; }
-    .profile-subpage-header { display: flex; align-items: center; justify-content: space-between; position: fixed; top: var(--header-height, 90px); left: 0; right: 0; z-index: 90; background: var(--gray-50); padding: 12px 16px; max-width: 520px; margin: 0 auto; box-sizing: border-box; }
-    .profile-subpage-header + * { margin-top: 56px; }
+    .profile-subpage-header { display: flex; align-items: center; justify-content: space-between; position: sticky; top: -16px; z-index: 90; background: var(--gray-50); margin: -16px -16px 12px; padding: 12px 16px; box-sizing: border-box; }
     .profile-back-btn { background: #1C2320; border: none; border-radius: 10px; width: 36px; height: 36px; font-size: 16px; color: #F2EFE7; cursor: pointer; }
     .profile-subpage-title { font-size: 17px; font-weight: 700; color: #F2EFE7; }
     .profile-save-btn { background: var(--accent); color: #0B1210; border: none; border-radius: 18px; padding: 8px 18px; font-size: 13px; font-weight: 700; cursor: pointer; }
@@ -964,9 +963,10 @@
 
     <!-- PHOTOS -->
     <div id="tab-photos" style="display:none">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-        <div style="font-size:18px;font-weight:700">Progress Photos</div>
-        <button onclick="switchTab('progress')" style="background:#1C2320;border:none;border-radius:10px;width:32px;height:32px;font-size:18px;color:#9C9A93;cursor:pointer">×</button>
+      <div class="profile-subpage-header">
+        <button onclick="switchTab('progress')" class="profile-back-btn"><i class="fa-solid fa-arrow-left"></i></button>
+        <div class="profile-subpage-title">Progress Photos</div>
+        <div style="width:36px"></div>
       </div>
       <div class="card" style="background:linear-gradient(160deg,#2B2414,#2A1F1D);border:1px solid #332818">
         <div class="card-title">Upload Progress Photo</div>
@@ -2474,12 +2474,12 @@ function updateProgressNavHighlight() {
   if (!tabEl || tabEl.style.display === 'none') return;
   const navEl = document.getElementById('progress-section-nav');
   if (!navEl) return;
-  const navHeight = navEl.offsetHeight;
+  const triggerLine = navEl.getBoundingClientRect().bottom + 8;
   const sections = ['goals', 'workouts', 'photos', 'nutrition'];
   let current = sections[0];
   for (const s of sections) {
     const el = document.getElementById(`progress-section-${s}`);
-    if (el && el.getBoundingClientRect().top - navHeight <= 60) current = s;
+    if (el && el.getBoundingClientRect().top <= triggerLine) current = s;
   }
   document.querySelectorAll('.progress-nav-chip').forEach(chip => {
     chip.classList.toggle('active', chip.dataset.section === current);
