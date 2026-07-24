@@ -4,7 +4,7 @@
   <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
   <script>eruda.init();</script>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>Ratio</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
@@ -5627,7 +5627,7 @@ async function searchFoodDatabase(query) {
             <div style="font-size:11px;color:#9C9A93">${nutritionMetaString(m)}</div>
             <div style="font-size:11px;color:#9C9A93">${(m.ingredients||[]).length} ingredient${(m.ingredients||[]).length !== 1 ? 's' : ''}</div>
           </div>
-          <button type="button" onclick="openLogMealModal('${m.id}')" style="background:#CFA13C;color:#0B1210;border:none;border-radius:14px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer">+ Log</button>
+          <button type="button" onclick="document.getElementById('food-search-input').blur();openLogMealModal('${m.id}')" style="background:#CFA13C;color:#0B1210;border:none;border-radius:14px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer">+ Log</button>
         </div>`).join('');
     }
 
@@ -5640,7 +5640,7 @@ async function searchFoodDatabase(query) {
             <div style="font-size:14px;font-weight:500">${f.name}</div>
             <div style="font-size:11px;color:#9C9A93">${nutritionMetaString(f, {perUnit: f.unit})}</div>
           </div>
-          <button type="button" onclick="openFoodModal('${f.id}')" style="background:#CFA13C;color:#0B1210;border:none;border-radius:14px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer">+ Log</button>
+          <button type="button" onclick="document.getElementById('food-search-input').blur();openFoodModal('${f.id}')" style="background:#CFA13C;color:#0B1210;border:none;border-radius:14px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer">+ Log</button>
         </div>`).join('');
     }
 
@@ -5653,7 +5653,7 @@ async function searchFoodDatabase(query) {
             <div style="font-size:14px;font-weight:500">${f.name}</div>
             <div style="font-size:11px;color:#9C9A93">${nutritionMetaString(f, {perUnit: f.serving_size})}</div>
           </div>
-          <button type="button" onclick='logSearchResult(${JSON.stringify(JSON.stringify(f))})' style="background:#CFA13C;color:#0B1210;border:none;border-radius:14px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer">+ Log</button>
+          <button type="button" onclick='document.getElementById("food-search-input").blur();logSearchResult(${JSON.stringify(JSON.stringify(f))})' style="background:#CFA13C;color:#0B1210;border:none;border-radius:14px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer">+ Log</button>
         </div>`).join('');
     }
 
