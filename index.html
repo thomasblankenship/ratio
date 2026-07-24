@@ -938,7 +938,7 @@
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
           <div class="card-title" style="color:#CFA13C;margin-bottom:0">Steps</div>
-          <span style="font-size:11px;color:#9C9A93">Auto-synced from Apple Health</span>
+          <span onclick="editStepGoalDirect()" style="cursor:pointer;font-weight:600;color:#CFA13C;font-size:12px" id="steps-goal-display">— Goal <i class="fa-solid fa-pen" style="font-size:0.7em"></i></span>
         </div>
         <div id="steps-chart-disabled" style="display:none;text-align:center;padding:24px 12px;color:#9C9A93;font-size:13px">
           Connect Apple Health in <b onclick="switchTab('profile-devices')" style="color:#CFA13C;cursor:pointer">App and Devices</b> to see your steps here.
@@ -9278,6 +9278,12 @@ function renderWeightChart() {
   renderBMI();
 }
 
+async function editStepGoalDirect() {
+  switchTab('profile-targets');
+  await loadDailyTargetsPage();
+  openFieldEditSheet('steps');
+}
+
 Chart.register({
   id: 'stepsBarLabels',
   afterDatasetsDraw(chart) {
@@ -9313,6 +9319,10 @@ async function renderStepsChart() {
   disabledEl.style.display = 'none';
   contentEl.style.display = 'block';
 
+  const goal = (userTargets.steps || TARGETS.steps || 10000);
+  const goalDisplayEl = document.getElementById('steps-goal-display');
+  if (goalDisplayEl) goalDisplayEl.innerHTML = `${goal.toLocaleString()} Goal <i class="fa-solid fa-pen" style="font-size:0.7em"></i>`;
+
   const canvas = document.getElementById('steps-chart');
   const empty = document.getElementById('steps-chart-empty');
   if (stepsChartObj) { stepsChartObj.destroy(); stepsChartObj = null; }
@@ -9331,7 +9341,6 @@ async function renderStepsChart() {
   const fmtDate = d => new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   const labels = filtered.map(s => fmtDate(s.date));
   const data = filtered.map(s => s.steps);
-  const goal = (userTargets.steps || TARGETS.steps || 10000);
 
   const datasets = [
     {
