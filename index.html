@@ -947,12 +947,12 @@
         </div>
         <div id="steps-chart-content" style="display:none">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-            <button onclick="stepsWeekNav(1)" style="background:#1C2320;border:none;border-radius:8px;width:32px;height:32px;color:#F2EFE7;font-size:14px;cursor:pointer"><i class="fa-solid fa-chevron-left"></i></button>
+            <button onclick="stepsWeekNav(-1)" style="background:#1C2320;border:none;border-radius:8px;width:32px;height:32px;color:#F2EFE7;font-size:14px;cursor:pointer"><i class="fa-solid fa-chevron-left"></i></button>
             <span id="steps-week-label" style="font-size:13px;font-weight:600;color:#F2EFE7">This Week</span>
-            <button id="steps-week-next-btn" onclick="stepsWeekNav(-1)" style="background:#1C2320;border:none;border-radius:8px;width:32px;height:32px;color:#F2EFE7;font-size:14px;cursor:pointer"><i class="fa-solid fa-chevron-right"></i></button>
+            <button id="steps-week-next-btn" onclick="stepsWeekNav(1)" style="background:#1C2320;border:none;border-radius:8px;width:32px;height:32px;color:#F2EFE7;font-size:14px;cursor:pointer"><i class="fa-solid fa-chevron-right"></i></button>
           </div>
           <div class="chart-wrap" id="steps-chart-wrap"><canvas id="steps-chart"></canvas></div>
-          <div style="margin-top:10px;font-size:11px;color:#9C9A93;text-align:center">Dashed line is your step goal — change it under <b onclick="switchTab('profile-targets')" style="color:#CFA13C;cursor:pointer">Profile → Daily Targets</b></div>
+          <div style="margin-top:10px;font-size:11px;color:#9C9A93;text-align:center">Change your step goal under Profile → Daily Targets</div>
         </div>
       </div>
       <div id="progress-section-photos"></div>
