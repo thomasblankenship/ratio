@@ -1175,7 +1175,10 @@
         <div class="profile-subpage-title">App and Devices</div>
         <button onclick="switchTab('profile')" class="profile-save-btn">Save</button>
       </div>
-      <div class="profile-coming-soon">Coming Soon</div>
+      <div style="padding:20px">
+        <button onclick="testHealthKit()" class="btn">Connect Apple Health (Test)</button>
+        <div id="healthkit-test-result" style="margin-top:16px;font-size:13px;color:#9C9A93;white-space:pre-wrap"></div>
+      </div>
     </div>
 
     <div id="tab-profile-targets" style="display:none">
@@ -2349,6 +2352,19 @@ function openShoppingListPage() {
 
 function closeShoppingListPage() {
   switchTab(_tabBeforeShopping || 'today');
+}
+
+async function testHealthKit() {
+  const resultEl = document.getElementById('healthkit-test-result');
+  resultEl.textContent = 'Requesting authorization...';
+  try {
+    const authResult = await Capacitor.Plugins.HealthKit.requestAuthorization();
+    resultEl.textContent = 'Authorization: ' + JSON.stringify(authResult, null, 2);
+    const workouts = await Capacitor.Plugins.HealthKit.fetchWorkouts({ daysBack: 7 });
+    resultEl.textContent += '\n\nWorkouts: ' + JSON.stringify(workouts, null, 2);
+  } catch (e) {
+    resultEl.textContent = 'Error: ' + (e.message || JSON.stringify(e));
+  }
 }
 
 function switchTab(tab) {
