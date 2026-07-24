@@ -629,6 +629,7 @@
       <div id="progress-section-nav" style="display:flex;background:#1C2320;border-radius:12px;padding:4px;margin-bottom:14px;position:sticky;top:0;z-index:50">
         <button type="button" onclick="scrollToProgressSection('goals')" data-section="goals" class="progress-nav-chip active">Goals</button>
         <button type="button" onclick="scrollToProgressSection('workouts')" data-section="workouts" class="progress-nav-chip">Workouts</button>
+        <button type="button" onclick="scrollToProgressSection('steps')" data-section="steps" class="progress-nav-chip">Steps</button>
         <button type="button" onclick="scrollToProgressSection('photos')" data-section="photos" class="progress-nav-chip">Progress Photos</button>
         <button type="button" onclick="scrollToProgressSection('nutrition')" data-section="nutrition" class="progress-nav-chip">Nutrition</button>
       </div>
@@ -935,6 +936,7 @@
       </div>
 
       <!-- STEPS -->
+      <div id="progress-section-steps"></div>
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
           <div class="card-title" style="color:#CFA13C;margin-bottom:0">Steps</div>
@@ -944,15 +946,11 @@
           Connect Apple Health in <b onclick="switchTab('profile-devices')" style="color:#CFA13C;cursor:pointer">App and Devices</b> to see your steps here.
         </div>
         <div id="steps-chart-content" style="display:none">
-          <div style="display:flex;gap:4px;margin-bottom:14px;overflow-x:auto;padding-bottom:2px">
-            <button class="range-pill steps-range" data-range="1W" onclick="setChartRange('steps','1W')">1W</button>
-            <button class="range-pill steps-range active-pill" data-range="1M" onclick="setChartRange('steps','1M')">1M</button>
-            <button class="range-pill steps-range" data-range="3M" onclick="setChartRange('steps','3M')">3M</button>
-            <button class="range-pill steps-range" data-range="6M" onclick="setChartRange('steps','6M')">6M</button>
-            <button class="range-pill steps-range" data-range="1Y" onclick="setChartRange('steps','1Y')">1Y</button>
-            <button class="range-pill steps-range" data-range="All" onclick="setChartRange('steps','All')">All</button>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+            <button onclick="stepsWeekNav(1)" style="background:#1C2320;border:none;border-radius:8px;width:32px;height:32px;color:#F2EFE7;font-size:14px;cursor:pointer"><i class="fa-solid fa-chevron-left"></i></button>
+            <span id="steps-week-label" style="font-size:13px;font-weight:600;color:#F2EFE7">This Week</span>
+            <button id="steps-week-next-btn" onclick="stepsWeekNav(-1)" style="background:#1C2320;border:none;border-radius:8px;width:32px;height:32px;color:#F2EFE7;font-size:14px;cursor:pointer"><i class="fa-solid fa-chevron-right"></i></button>
           </div>
-          <div id="steps-chart-empty" style="display:none;text-align:center;color:#9C9A93;font-size:13px;padding:30px 0">No step data yet — go for a walk, then Sync Now on App and Devices</div>
           <div class="chart-wrap" id="steps-chart-wrap"><canvas id="steps-chart"></canvas></div>
           <div style="margin-top:10px;font-size:11px;color:#9C9A93;text-align:center">Dashed line is your step goal — change it under <b onclick="switchTab('profile-targets')" style="color:#CFA13C;cursor:pointer">Profile → Daily Targets</b></div>
         </div>
@@ -2518,7 +2516,7 @@ function updateProgressNavHighlight() {
   const navEl = document.getElementById('progress-section-nav');
   if (!navEl) return;
   const triggerLine = navEl.getBoundingClientRect().bottom + 8;
-  const sections = ['goals', 'workouts', 'photos', 'nutrition'];
+  const sections = ['goals', 'workouts', 'steps', 'photos', 'nutrition'];
   let current = sections[0];
   for (const s of sections) {
     const el = document.getElementById(`progress-section-${s}`);
@@ -8802,7 +8800,7 @@ function resetAppState() {
 let weightChartRange = '1M';
 let bfChartRange = '1M';
 let muscleChartRange = '1M';
-let stepsChartRange = '1M';
+let stepsWeekOffset = 0;
 let weightChartObj = null;
 let bfChartObj = null;
 let muscleChartObj = null;
@@ -9026,10 +9024,6 @@ function setChartRange(type, range) {
     bfChartRange = range;
     document.querySelectorAll('.bf-range').forEach(b => b.classList.toggle('active-pill', b.dataset.range === range));
     renderBfChart();
-  } else if (type === 'steps') {
-    stepsChartRange = range;
-    document.querySelectorAll('.steps-range').forEach(b => b.classList.toggle('active-pill', b.dataset.range === range));
-    renderStepsChart();
   } else {
     muscleChartRange = range;
     document.querySelectorAll('.muscle-range').forEach(b => b.classList.toggle('active-pill', b.dataset.range === range));
@@ -9307,6 +9301,28 @@ Chart.register({
   }
 });
 
+function stepsWeekNav(dir) {
+  const next = stepsWeekOffset - dir;
+  if (next < 0) return; // can't go into the future
+  stepsWeekOffset = next;
+  renderStepsChart();
+}
+
+function getStepsWeekDates(offset) {
+  const today = new Date();
+  today.setHours(12, 0, 0, 0);
+  const dow = today.getDay(); // 0 = Sunday
+  const startOfThisWeek = new Date(today);
+  startOfThisWeek.setDate(today.getDate() - dow - (offset * 7));
+  const days = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(startOfThisWeek);
+    d.setDate(startOfThisWeek.getDate() + i);
+    days.push(d);
+  }
+  return days;
+}
+
 async function renderStepsChart() {
   const disabledEl = document.getElementById('steps-chart-disabled');
   const contentEl = document.getElementById('steps-chart-content');
@@ -9324,31 +9340,39 @@ async function renderStepsChart() {
   if (goalDisplayEl) goalDisplayEl.innerHTML = `${goal.toLocaleString()} Goal <i class="fa-solid fa-pen" style="font-size:0.7em"></i>`;
 
   const canvas = document.getElementById('steps-chart');
-  const empty = document.getElementById('steps-chart-empty');
   if (stepsChartObj) { stepsChartObj.destroy(); stepsChartObj = null; }
 
   if (dailyStepsCache === null) {
     dailyStepsCache = await dbGet('daily_steps', 'order=date.asc');
   }
-  const filtered = filterScansByRange(dailyStepsCache, stepsChartRange);
 
-  if (!filtered.length) {
-    empty.style.display = 'block'; canvas.style.display = 'none';
-    return;
+  const weekDates = getStepsWeekDates(stepsWeekOffset);
+  const toDateStr = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const stepsByDate = {};
+  dailyStepsCache.forEach(s => { stepsByDate[s.date] = s.steps; });
+
+  const labels = weekDates.map(d => d.toLocaleDateString('en-US', { weekday: 'short' }));
+  const data = weekDates.map(d => stepsByDate[toDateStr(d)] || 0);
+
+  // Week label
+  const labelEl = document.getElementById('steps-week-label');
+  if (stepsWeekOffset === 0) {
+    labelEl.textContent = 'This Week';
+  } else {
+    const start = weekDates[0], end = weekDates[6];
+    const fmt = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    labelEl.textContent = `${fmt(start)} – ${fmt(end)}`;
   }
-  empty.style.display = 'none'; canvas.style.display = 'block';
-
-  const fmtDate = d => new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  const labels = filtered.map(s => fmtDate(s.date));
-  const data = filtered.map(s => s.steps);
+  const nextBtn = document.getElementById('steps-week-next-btn');
+  if (nextBtn) nextBtn.style.opacity = stepsWeekOffset === 0 ? '0.3' : '1';
 
   const datasets = [
     {
       label: 'Steps',
       data,
-      backgroundColor: data.map(v => v >= goal ? '#4ADE80' : '#CFA13C'),
+      backgroundColor: data.map(v => v >= goal ? '#4ADE80' : (v > 0 ? '#CFA13C' : 'rgba(207,161,60,0.15)')),
       borderRadius: 4,
-      barPercentage: 0.7
+      barPercentage: 0.6
     },
     {
       type: 'line',
@@ -9371,12 +9395,12 @@ async function renderStepsChart() {
         legend: { display: false },
         tooltip: {
           filter: item => item.dataset.label !== 'Goal',
-          callbacks: { label: ctx => `${ctx.raw.toLocaleString()} steps` }
+          callbacks: { label: ctx => ctx.raw > 0 ? `${ctx.raw.toLocaleString()} steps` : 'No data' }
         }
       },
       scales: {
         y: { grid: { color: '#141A18' }, ticks: { font: { size: 11 }, callback: v => v >= 1000 ? (v / 1000) + 'k' : v } },
-        x: { grid: { display: false }, ticks: { font: { size: 11 }, maxTicksLimit: 7 } }
+        x: { grid: { display: false }, ticks: { font: { size: 11 } } }
       }
     }
   });
@@ -10218,7 +10242,7 @@ function closeFieldEditSheet() {
   document.getElementById('mp-edit-sheet').style.display = 'none';
 }
 
-function confirmFieldEdit() {
+async function confirmFieldEdit() {
   const field = window._mpEditingField;
   if (field === 'username') {
     _mpPending.username = document.getElementById('mp-sheet-input').value.trim().toLowerCase();
@@ -10240,6 +10264,13 @@ function confirmFieldEdit() {
   } else if (field === 'steps') {
     _dtPending.steps = +document.getElementById('mp-sheet-input').value || _dtPending.steps;
     refreshDailyTargetsDisplay();
+    closeFieldEditSheet();
+    userTargets.steps = _dtPending.steps;
+    TARGETS.steps = _dtPending.steps;
+    await saveSetting('targets', userTargets);
+    toast('Step goal updated ✓');
+    if (typeof renderStepsChart === 'function') renderStepsChart();
+    return;
   }
   refreshMyProfileDisplay();
   closeFieldEditSheet();
