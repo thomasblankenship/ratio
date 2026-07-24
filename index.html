@@ -37,8 +37,8 @@
       --fat: #FBBF24;
     }
     html, body { overscroll-behavior-y: none; }
-    html, body { overflow-x: hidden; max-width: 100%; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; background: var(--gray-50); color: var(--black); min-height: 100vh; }
+    html, body { overflow-x: hidden; max-width: 100%; height: 100%; overflow: hidden; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; background: var(--gray-50); color: var(--black); }
 
     .numpad-btn { padding:16px;font-size:20px;font-weight:600;border:none;border-radius:12px;background:#1C2320;color:#F2EFE7;cursor:pointer;transition:background 0.1s;-webkit-tap-highlight-color:transparent; }
     .numpad-btn:active { background:#2A322E; }
@@ -51,10 +51,10 @@
     .range-pill.active-pill { background:#CFA13C; color:#0B1210; }
 
     /* LAYOUT */
-    .app { display: flex; flex-direction: column; min-height: 100vh; max-width: 520px; margin: 0 auto; }
+    .app { display: flex; flex-direction: column; height: 100dvh; max-width: 520px; margin: 0 auto; }
     
     /* HEADER */
-    .header { background: var(--white); border-bottom: 1px solid var(--gray-200); padding: calc(20px + env(safe-area-inset-top)) 20px 0; position: sticky; top: 0; z-index: 100; }
+    .header { background: var(--white); border-bottom: 1px solid var(--gray-200); padding: calc(20px + env(safe-area-inset-top)) 20px 0; flex-shrink: 0; z-index: 100; }
     .header-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
     .brand { display: flex; align-items: center; gap: 10px; }
     .brand-mark { width: 32px; height: 32px; background: var(--black); border-radius: 8px; display: flex; align-items: center; justify-content: center; }
@@ -73,8 +73,8 @@
     .tab-btn.active { font-weight: 600; color: var(--accent); border-bottom-color: var(--accent); }
 
     /* CONTENT */
-    .content { flex: 1; padding: 16px; padding-bottom: calc(84px + env(safe-area-inset-bottom)); }
-    .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; display: flex; justify-content: space-around; align-items: center; background: var(--white); border-top: 1px solid var(--gray-200); padding: 8px 4px calc(8px + env(safe-area-inset-bottom)); z-index: 200; }
+    .content { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 16px; order: 2; }
+    .bottom-nav { flex-shrink: 0; order: 3; display: flex; justify-content: space-around; align-items: center; background: var(--white); border-top: 1px solid var(--gray-200); padding: 8px 4px calc(8px + env(safe-area-inset-bottom)); z-index: 200; }
     .bottom-nav-btn { display: flex; flex-direction: column; align-items: center; gap: 3px; background: none; border: none; cursor: pointer; color: var(--gray-400); padding: 6px 14px; border-radius: 14px; transition: all 0.15s; -webkit-tap-highlight-color: transparent; }
     .bottom-nav-btn span { font-size: 11px; font-weight: 500; }
     .bottom-nav-btn.active { color: var(--accent); background: rgba(207,161,60,0.14); }
@@ -1030,8 +1030,9 @@
     <!-- PROFILE — main listing page -->
     <div id="tab-profile" style="display:none">
       <div style="display:flex;flex-direction:column;align-items:center;padding:20px 0 24px">
-        <div style="width:84px;height:84px;border-radius:50%;background:linear-gradient(135deg,#CFA13C,#A67C2E);display:flex;align-items:center;justify-content:center;margin-bottom:12px">
-          <i class="fa-solid fa-user" style="font-size:36px;color:#0B1210"></i>
+        <div style="width:84px;height:84px;border-radius:50%;background:linear-gradient(135deg,#CFA13C,#A67C2E);display:flex;align-items:center;justify-content:center;margin-bottom:12px;overflow:hidden">
+          <i class="fa-solid fa-user" id="profile-page-avatar-icon" style="font-size:36px;color:#0B1210"></i>
+          <img id="profile-page-avatar-img" style="display:none;width:100%;height:100%;object-fit:cover" />
         </div>
         <div style="font-size:17px;font-weight:700;color:#F2EFE7" id="profile-page-username">—</div>
       </div>
@@ -1113,7 +1114,7 @@
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
           <button onclick="closeFieldEditSheet()" style="background:none;border:none;font-size:20px;color:#F2EFE7;cursor:pointer"><i class="fa-solid fa-xmark"></i></button>
           <div style="font-size:16px;font-weight:700;color:#F2EFE7" id="mp-sheet-title">Edit</div>
-          <button onclick="confirmFieldEdit()" style="background:none;border:none;font-size:18px;color:#CFA13C;cursor:pointer"><i class="fa-solid fa-check"></i></button>
+          <button onclick="confirmFieldEdit()" class="profile-save-btn">Save</button>
         </div>
         <div id="mp-sheet-body"></div>
       </div>
@@ -2302,7 +2303,7 @@ function jumpToLogDate(dateStr) {
   loadTodayMeals();
   loadTodayWorkouts();
   toggleTodayCalendarDropdown();
-  window.scrollTo(0, 0);
+  document.querySelector('.content').scrollTop = 0;
 }
 
 function changeLogDate(dir) {
@@ -2426,7 +2427,7 @@ async function initHealthKitSync() {
 }
 
 function switchTab(tab) {
-  window.scrollTo(0, 0);
+  document.querySelector('.content').scrollTop = 0;
   saveLastView({ tab });
   ['today','meals','progress','photos','aicoach','shopping','profile','profile-myprofile','profile-settings','profile-allergies','profile-devices','profile-targets','profile-report','profile-privacy','profile-help','profile-tos','profile-privacy-policy'].forEach(t => {
     document.getElementById(`tab-${t}`).style.display = t === tab ? 'block' : 'none';
@@ -2459,10 +2460,13 @@ function switchTab(tab) {
 function scrollToProgressSection(section) {
   const navEl = document.getElementById('progress-section-nav');
   const target = document.getElementById(`progress-section-${section}`);
-  if (!target) return;
+  const contentEl = document.querySelector('.content');
+  if (!target || !contentEl) return;
   const navHeight = navEl ? navEl.offsetHeight : 0;
-  const y = target.getBoundingClientRect().top + window.scrollY - navHeight - 8;
-  window.scrollTo({ top: y, behavior: 'smooth' });
+  const contentRect = contentEl.getBoundingClientRect();
+  const targetRect = target.getBoundingClientRect();
+  const y = contentEl.scrollTop + (targetRect.top - contentRect.top) - navHeight - 8;
+  contentEl.scrollTo({ top: y, behavior: 'smooth' });
 }
 
 function updateProgressNavHighlight() {
@@ -2481,7 +2485,7 @@ function updateProgressNavHighlight() {
     chip.classList.toggle('active', chip.dataset.section === current);
   });
 }
-window.addEventListener('scroll', updateProgressNavHighlight, { passive: true });
+document.querySelector('.content').addEventListener('scroll', updateProgressNavHighlight, { passive: true });
 
 function toggleTodayCalendarDropdown() {
   const dropdown = document.getElementById('today-calendar-dropdown');
@@ -9598,7 +9602,22 @@ async function savePreferencesChange() {
   toast('Preferences updated ✓');
 }
 
+function refreshProfilePageAvatar() {
+  const img = document.getElementById('profile-page-avatar-img');
+  const icon = document.getElementById('profile-page-avatar-icon');
+  if (!img || !icon) return;
+  if (userProfile?.avatarUrl) {
+    img.src = userProfile.avatarUrl;
+    img.style.display = 'block';
+    icon.style.display = 'none';
+  } else {
+    img.style.display = 'none';
+    icon.style.display = 'block';
+  }
+}
+
 async function loadCurrentUsername() {
+  refreshProfilePageAvatar();
   try {
     const rows = await dbGet('usernames', `user_id=eq.${_currentUser.id}&select=username`);
     const name = rows?.[0]?.username || 'Not set';
@@ -10078,6 +10097,7 @@ async function uploadMyProfilePhoto(file) {
     document.getElementById('mp-avatar-img').src = url;
     document.getElementById('mp-avatar-img').style.display = 'block';
     document.getElementById('mp-avatar-icon').style.display = 'none';
+    refreshProfilePageAvatar();
     toast('Photo updated ✓');
   } catch(e) {
     toast('Could not upload photo');
