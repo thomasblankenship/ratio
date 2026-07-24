@@ -6411,6 +6411,19 @@ function removeShoppingExtra(id) {
   renderShoppingList();
 }
 
+function clearShoppingList() {
+  if (!confirm('Clear your entire shopping list?')) return;
+  const { items } = getShoppingListData();
+  mealPrepPlan.shoppingRemoved = mealPrepPlan.shoppingRemoved || [];
+  items.forEach(item => {
+    if (!mealPrepPlan.shoppingRemoved.includes(item.key)) mealPrepPlan.shoppingRemoved.push(item.key);
+  });
+  mealPrepPlan.shoppingExtras = [];
+  mealPrepPlan.shoppingChecked = [];
+  saveSetting('meal_prep_plan', mealPrepPlan);
+  renderShoppingList();
+}
+
 function addShoppingExtra() {
   const input = document.getElementById('shopping-add-input');
   const val = (input.value || '').trim();
@@ -6445,7 +6458,12 @@ function renderShoppingListRow(item) {
   return `
     <div class="shopping-row" data-key="${item.key}" style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--gray-100);background:#141A18;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none">
       <span style="color:#33403A;font-size:15px;cursor:grab;flex-shrink:0;padding:0 2px;touch-action:none">⠿</span>
-      <input type="checkbox" ${checked ? 'checked' : ''} onchange="toggleShoppingChecked('${item.key}')" style="flex-shrink:0;cursor:pointer;accent-color:#CFA13C" />
+      <span style="position:relative;width:20px;height:20px;flex-shrink:0;display:inline-block">
+        <input type="checkbox" id="shopping-check-${item.key}" ${checked ? 'checked' : ''} onchange="toggleShoppingChecked('${item.key}')" style="position:absolute;inset:0;width:20px;height:20px;margin:0;opacity:0;cursor:pointer;z-index:1" />
+        <span style="position:absolute;inset:0;border:1.5px solid #CFA13C;border-radius:5px;background:${checked ? '#CFA13C' : 'transparent'};display:flex;align-items:center;justify-content:center;pointer-events:none">
+          <i class="fa-solid fa-check" style="font-size:12px;color:#0B1210;${checked ? '' : 'display:none'}"></i>
+        </span>
+      </span>
       <div style="flex:1;min-width:0;cursor:pointer" onclick="toggleShoppingChecked('${item.key}')">
         <div style="font-size:14px;font-weight:600;${textStyle}">${item.name}</div>
         ${item.subtitle ? `<div style="font-size:11px;color:${checked ? '#33403A' : '#9C9A93'}">${item.subtitle}</div>` : ''}
@@ -6493,6 +6511,7 @@ function renderShoppingList() {
       <div id="shopping-list-rows">
         ${items.map(item => renderShoppingListRow(item)).join('')}
       </div>
+      ${items.length ? `<button type="button" onclick="clearShoppingList()" style="width:100%;margin-top:14px;background:none;border:1px solid #3A2020;border-radius:10px;padding:10px;font-size:13px;font-weight:600;color:#EF4444;cursor:pointer">Clear All</button>` : ''}
     </div>`;
 
   initShoppingListSortable();
