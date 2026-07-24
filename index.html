@@ -238,9 +238,9 @@
       <div style="font-size:14px;color:#9C9A93;margin-bottom:32px">Sign in to your account</div>
       <div id="auth-error" style="font-size:13px;color:#F87171;margin-bottom:12px;min-height:20px;text-align:center"></div>
       <div id="auth-login-form">
-        <div style="margin-bottom:12px"><input id="auth-email" type="text" placeholder="Email or Username" autocomplete="username" autocapitalize="off" autocorrect="off" style="width:100%;padding:14px 16px;border:1.5px solid #2A322E;border-radius:12px;font-size:15px;outline:none;box-sizing:border-box" /></div>
+        <div style="margin-bottom:12px"><input id="auth-email" type="text" placeholder="Email or Username" autocomplete="username" autocapitalize="off" autocorrect="off" style="width:100%;padding:14px 16px;border:1.5px solid #2A322E;border-radius:12px;font-size:16px;outline:none;box-sizing:border-box" /></div>
         <div style="margin-bottom:20px;position:relative">
-          <input id="auth-password" type="password" placeholder="Password" autocomplete="current-password" style="width:100%;padding:14px 48px 14px 16px;border:1.5px solid #2A322E;border-radius:12px;font-size:15px;outline:none;box-sizing:border-box" onkeydown="if(event.key==='Enter')handleLogin()" />
+          <input id="auth-password" type="password" placeholder="Password" autocomplete="current-password" style="width:100%;padding:14px 48px 14px 16px;border:1.5px solid #2A322E;border-radius:12px;font-size:16px;outline:none;box-sizing:border-box" onkeydown="if(event.key==='Enter')handleLogin()" />
           <button type="button" onclick="togglePw('auth-password',this)" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:0;font-size:18px;line-height:1;color:#9C9A93">👁️</button>
         </div>
         <label style="display:flex;align-items:center;gap:8px;margin-bottom:20px;cursor:pointer;user-select:none">
@@ -257,7 +257,7 @@
       </div>
       <div id="auth-reset-form" style="display:none">
         <div style="font-size:14px;color:#9C9A93;margin-bottom:20px;line-height:1.5">Enter your email and we'll send you a link to reset your password.</div>
-        <div style="margin-bottom:16px"><input id="auth-reset-email" type="email" placeholder="Email" style="width:100%;padding:14px 16px;border:1.5px solid #2A322E;border-radius:12px;font-size:15px;outline:none;box-sizing:border-box" /></div>
+        <div style="margin-bottom:16px"><input id="auth-reset-email" type="email" placeholder="Email" style="width:100%;padding:14px 16px;border:1.5px solid #2A322E;border-radius:12px;font-size:16px;outline:none;box-sizing:border-box" /></div>
         <button id="auth-reset-btn" onclick="handleResetPassword()" style="width:100%;padding:16px;background:#CFA13C;color:#0B1210;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:12px">Send Reset Link</button>
         <button onclick="showSignIn()" style="width:100%;padding:10px;background:none;border:none;font-size:13px;color:#9C9A93;cursor:pointer">← Back to Sign In</button>
       </div>
@@ -585,7 +585,7 @@
         <!-- Food/meal search — always visible regardless of which sub-tab is active -->
         <div style="position:relative">
           <input type="text" id="food-search-input" placeholder="🔍 Search foods, meals, or database..."
-            style="width:100%;padding:10px 12px;border:1px solid #2A322E;border-radius:10px;font-size:14px;outline:none;box-sizing:border-box"
+            style="width:100%;padding:10px 12px;border:1px solid #2A322E;border-radius:10px;font-size:16px;outline:none;box-sizing:border-box"
             oninput="onFoodSearchInput(this.value)" />
         </div>
         <div id="food-search-results" style="display:none;margin-top:12px"></div>
@@ -1164,7 +1164,7 @@
           <button type="button" class="fa-allergy-chip" data-allergy="Soy" onclick="faToggleAllergy(this)" style="padding:8px 14px;border:1.5px solid #2A322E;border-radius:20px;background:#141A18;color:#F2EFE7;font-size:13px;font-weight:600;cursor:pointer">Soy</button>
         </div>
         <input type="text" id="fa-allergy-other" placeholder="Other allergies (optional)"
-          style="width:100%;padding:11px 14px;border:1.5px solid #2A322E;border-radius:10px;background:#0B1210;color:#F2EFE7;font-size:14px;outline:none;box-sizing:border-box" />
+          style="width:100%;padding:11px 14px;border:1.5px solid #2A322E;border-radius:10px;background:#0B1210;color:#F2EFE7;font-size:16px;outline:none;box-sizing:border-box" />
       </div>
 
       <div style="font-size:11px;font-weight:700;color:#9C9A93;text-transform:uppercase;letter-spacing:0.5px;margin:16px 0 8px">Favorite Foods</div>
@@ -1462,7 +1462,7 @@
           </div>
           <div style="display:flex;gap:8px;padding:12px;border-top:1px solid #332818;background:#141A18">
             <input type="text" id="coach-chat-input" placeholder="Ask your coach..." onkeydown="if(event.key==='Enter')sendCoachChatMessage()"
-              style="flex:1;padding:10px 12px;border:1px solid #2A322E;border-radius:20px;font-size:14px;outline:none" />
+              style="flex:1;padding:10px 12px;border:1px solid #2A322E;border-radius:20px;font-size:16px;outline:none" />
             <button onclick="sendCoachChatMessage()" style="background:var(--accent);color:#0B1210;border:none;border-radius:20px;padding:10px 18px;font-size:14px;font-weight:700;cursor:pointer">Send</button>
           </div>
         </div>
@@ -1511,12 +1511,12 @@
         Measure in inches with a soft tape. <b>Neck:</b> below larynx. <b>Waist:</b> at navel (men) or narrowest point (women). <b>Hips:</b> widest point (women only).
       </div>
       <div class="form-row form-group">
-        <div><div style="font-size:11px;color:#9C9A93;margin-bottom:4px;font-weight:600">Neck (inches)</div><input type="number" min="0" step="0.1" id="calc-neck" placeholder="15.0" style="width:100%;padding:10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:14px;outline:none" oninput="calcBfEstimate()" /></div>
-        <div><div style="font-size:11px;color:#9C9A93;margin-bottom:4px;font-weight:600">Waist (inches)</div><input type="number" min="0" step="0.1" id="calc-waist" placeholder="34.0" style="width:100%;padding:10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:14px;outline:none" oninput="calcBfEstimate()" /></div>
+        <div><div style="font-size:11px;color:#9C9A93;margin-bottom:4px;font-weight:600">Neck (inches)</div><input type="number" min="0" step="0.1" id="calc-neck" placeholder="15.0" style="width:100%;padding:10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:16px;outline:none" oninput="calcBfEstimate()" /></div>
+        <div><div style="font-size:11px;color:#9C9A93;margin-bottom:4px;font-weight:600">Waist (inches)</div><input type="number" min="0" step="0.1" id="calc-waist" placeholder="34.0" style="width:100%;padding:10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:16px;outline:none" oninput="calcBfEstimate()" /></div>
       </div>
       <div id="calc-hips-row" class="form-group" style="display:none">
         <div style="font-size:11px;color:#9C9A93;margin-bottom:4px;font-weight:600">Hips (inches) — women only</div>
-        <input type="number" min="0" step="0.1" id="calc-hips" placeholder="38.0" style="width:100%;padding:10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:14px;outline:none" oninput="calcBfEstimate()" />
+        <input type="number" min="0" step="0.1" id="calc-hips" placeholder="38.0" style="width:100%;padding:10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:16px;outline:none" oninput="calcBfEstimate()" />
       </div>
     </div>
 
@@ -1530,8 +1530,8 @@
 
     <!-- Height + Weight (always shown for BMI; shown for Navy too for height) -->
     <div id="calc-height-weight" class="form-row form-group">
-      <div><div style="font-size:11px;color:#9C9A93;margin-bottom:4px;font-weight:600">Height (inches)</div><input type="number" min="0" step="0.5" id="calc-height" placeholder="69" style="width:100%;padding:10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:14px;outline:none" oninput="calcBfEstimate()" /></div>
-      <div id="calc-weight-col"><div style="font-size:11px;color:#9C9A93;margin-bottom:4px;font-weight:600">Weight (lbs)</div><input type="number" min="0" step="0.1" id="calc-weight" placeholder="180" style="width:100%;padding:10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:14px;outline:none" oninput="calcBfEstimate()" /></div>
+      <div><div style="font-size:11px;color:#9C9A93;margin-bottom:4px;font-weight:600">Height (inches)</div><input type="number" min="0" step="0.5" id="calc-height" placeholder="69" style="width:100%;padding:10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:16px;outline:none" oninput="calcBfEstimate()" /></div>
+      <div id="calc-weight-col"><div style="font-size:11px;color:#9C9A93;margin-bottom:4px;font-weight:600">Weight (lbs)</div><input type="number" min="0" step="0.1" id="calc-weight" placeholder="180" style="width:100%;padding:10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:16px;outline:none" oninput="calcBfEstimate()" /></div>
     </div>
 
     <!-- Result -->
@@ -1578,22 +1578,22 @@
       <div id="profile-edit-form" style="display:none;margin-top:4px">
         <div class="form-group">
           <div style="font-size:11px;color:#9C9A93;margin-bottom:4px;font-weight:600">Name</div>
-          <input type="text" id="edit-name" placeholder="First name" autocomplete="given-name" style="width:100%;padding:10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:14px;outline:none;box-sizing:border-box" />
+          <input type="text" id="edit-name" placeholder="First name" autocomplete="given-name" style="width:100%;padding:10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:16px;outline:none;box-sizing:border-box" />
         </div>
         <div class="form-group">
           <div style="font-size:11px;color:#9C9A93;margin-bottom:4px;font-weight:600">Height</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
             <div style="position:relative">
-              <input type="number" id="edit-height-ft" placeholder="5" min="0" max="7" style="width:100%;padding:10px 36px 10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:14px;outline:none;box-sizing:border-box" oninput="this.value=this.value.replace(/[^0-9]/g,'');if(this.value<0)this.value=0">
+              <input type="number" id="edit-height-ft" placeholder="5" min="0" max="7" style="width:100%;padding:10px 36px 10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:16px;outline:none;box-sizing:border-box" oninput="this.value=this.value.replace(/[^0-9]/g,'');if(this.value<0)this.value=0">
               <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:13px;color:#9C9A93;pointer-events:none">ft</span>
             </div>
             <div style="position:relative">
-              <input type="number" id="edit-height-in" placeholder="9" min="0" max="11" style="width:100%;padding:10px 36px 10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:14px;outline:none;box-sizing:border-box" oninput="this.value=this.value.replace(/[^0-9]/g,'');if(this.value<0)this.value=0">
+              <input type="number" id="edit-height-in" placeholder="9" min="0" max="11" style="width:100%;padding:10px 36px 10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:16px;outline:none;box-sizing:border-box" oninput="this.value=this.value.replace(/[^0-9]/g,'');if(this.value<0)this.value=0">
               <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:13px;color:#9C9A93;pointer-events:none">in</span>
             </div>
           </div>
         </div>
-        <div class="form-group"><div style="font-size:11px;color:#9C9A93;margin-bottom:4px;font-weight:600">Age</div><input type="number" id="edit-age" placeholder="43" min="0" max="100" style="width:100%;padding:10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:14px;outline:none" oninput="this.value=this.value.replace(/[^0-9]/g,'');if(this.value<0)this.value=0"></div>
+        <div class="form-group"><div style="font-size:11px;color:#9C9A93;margin-bottom:4px;font-weight:600">Age</div><input type="number" id="edit-age" placeholder="43" min="0" max="100" style="width:100%;padding:10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:16px;outline:none" oninput="this.value=this.value.replace(/[^0-9]/g,'');if(this.value<0)this.value=0"></div>
         <div class="form-group">
           <div style="font-size:11px;color:#9C9A93;margin-bottom:4px;font-weight:600">Gender</div>
           <select id="edit-gender" style="width:100%;padding:10px 12px;border:1px solid #2A322E;border-radius:8px;font-size:14px;outline:none">
@@ -1632,7 +1632,7 @@
       <div id="settings-username-edit" style="display:none;margin-top:8px">
         <input type="text" id="settings-username-input" placeholder="e.g. alexfit22" autocomplete="off" autocapitalize="off" autocorrect="off"
           oninput="settingsCheckUsername(this.value)"
-          style="width:100%;padding:10px 12px;border:1.5px solid #2A322E;border-radius:10px;font-size:14px;outline:none;box-sizing:border-box" />
+          style="width:100%;padding:10px 12px;border:1.5px solid #2A322E;border-radius:10px;font-size:16px;outline:none;box-sizing:border-box" />
         <div id="settings-username-status" style="font-size:12px;margin-top:6px;display:none"></div>
         <div style="display:flex;gap:8px;margin-top:8px">
           <button onclick="closeUsernameEdit()" style="flex:1;padding:10px;border:1px solid #2A322E;border-radius:10px;background:#141A18;color:#F2EFE7;font-size:13px;font-weight:600;cursor:pointer">Cancel</button>
@@ -1659,7 +1659,7 @@
           <button type="button" class="settings-allergy-chip" data-allergy="Soy" onclick="settingsToggleAllergy(this)" style="padding:7px 12px;border:1.5px solid #2A322E;border-radius:20px;background:#141A18;color:#F2EFE7;font-size:12px;font-weight:600;cursor:pointer">Soy</button>
         </div>
         <input type="text" id="settings-allergy-other" placeholder="Other allergies (optional)"
-          style="width:100%;padding:10px 12px;border:1.5px solid #2A322E;border-radius:10px;font-size:13px;outline:none;box-sizing:border-box;margin-bottom:10px" />
+          style="width:100%;padding:10px 12px;border:1.5px solid #2A322E;border-radius:10px;font-size:16px;outline:none;box-sizing:border-box;margin-bottom:10px" />
         <div style="font-size:11px;font-weight:700;color:#9C9A93;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Favorite foods</div>
         <textarea id="settings-favorite-foods" rows="2" placeholder="e.g. chicken breast, rice, Greek yogurt..."
           style="width:100%;padding:10px 12px;border:1.5px solid #2A322E;border-radius:10px;font-size:13px;outline:none;box-sizing:border-box;resize:vertical;font-family:inherit;margin-bottom:10px"></textarea>
@@ -1736,7 +1736,7 @@
     <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:16px">
       <div style="font-size:11px;font-weight:700;color:#9C9A93;text-transform:uppercase;letter-spacing:0.5px">Date</div>
       <input type="date" id="log-modal-date"
-        style="border:1px solid #2A322E;border-radius:8px;padding:6px 10px;font-size:13px;font-weight:600;outline:none;color:#F2EFE7" />
+        style="border:1px solid #2A322E;border-radius:8px;padding:6px 10px;font-size:16px;font-weight:600;outline:none;color:#F2EFE7" />
     </div>
 
     <!-- Number pad -->
@@ -1874,7 +1874,7 @@
       <div>
         <div style="font-size:10px;font-weight:700;color:#9C9A93;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Serving size</div>
         <div style="display:flex;gap:6px">
-          <input type="number" id="edit-food-serving-qty" placeholder="1" min="0.1" step="0.1" inputmode="decimal" style="width:70px;padding:10px 8px;border:1px solid #2A322E;border-radius:8px;font-size:14px;outline:none;text-align:center" />
+          <input type="number" id="edit-food-serving-qty" placeholder="1" min="0.1" step="0.1" inputmode="decimal" style="width:70px;padding:10px 8px;border:1px solid #2A322E;border-radius:8px;font-size:16px;outline:none;text-align:center" />
           <select id="edit-food-unit" style="flex:1;padding:10px 8px;border:1px solid #2A322E;border-radius:8px;font-size:14px;outline:none;background:#141A18">
           <option value="oz">oz</option>
                 <option value="g">g</option>
@@ -4207,8 +4207,8 @@ function showChangePasswordForm(token) {
       <div style="font-size:16px;font-weight:700;margin-bottom:4px">Set New Password</div>
       <div style="font-size:13px;color:#9C9A93">Enter your new password below</div>
     </div>
-    <div style="margin-bottom:12px;position:relative"><input id="new-password" type="password" placeholder="New password (min 6 chars)" style="width:100%;padding:14px 48px 14px 16px;border:1px solid #2A322E;border-radius:12px;font-size:15px;outline:none;box-sizing:border-box" /><button type="button" onclick="togglePw('new-password',this)" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:0;font-size:18px;line-height:1;color:#9C9A93">👁️</button></div>
-    <div style="margin-bottom:16px;position:relative"><input id="new-password-confirm" type="password" placeholder="Confirm new password" style="width:100%;padding:14px 48px 14px 16px;border:1px solid #2A322E;border-radius:12px;font-size:15px;outline:none;box-sizing:border-box" /><button type="button" onclick="togglePw('new-password-confirm',this)" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:0;font-size:18px;line-height:1;color:#9C9A93">👁️</button></div>
+    <div style="margin-bottom:12px;position:relative"><input id="new-password" type="password" placeholder="New password (min 6 chars)" style="width:100%;padding:14px 48px 14px 16px;border:1px solid #2A322E;border-radius:12px;font-size:16px;outline:none;box-sizing:border-box" /><button type="button" onclick="togglePw('new-password',this)" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:0;font-size:18px;line-height:1;color:#9C9A93">👁️</button></div>
+    <div style="margin-bottom:16px;position:relative"><input id="new-password-confirm" type="password" placeholder="Confirm new password" style="width:100%;padding:14px 48px 14px 16px;border:1px solid #2A322E;border-radius:12px;font-size:16px;outline:none;box-sizing:border-box" /><button type="button" onclick="togglePw('new-password-confirm',this)" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:0;font-size:18px;line-height:1;color:#9C9A93">👁️</button></div>
     <button onclick="handleChangePassword('${token}')" style="width:100%;padding:16px;background:var(--accent);color:#0B1210;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer">Update Password</button>
   `;
 }
@@ -6481,7 +6481,7 @@ function renderShoppingList() {
       <div style="font-size:12px;color:#9C9A93;margin-bottom:14px">${activeDishCount ? `Pulled from ${activeDishCount} dish${activeDishCount === 1 ? '' : 'es'} added to this week's prep plan — add anything else below. ` : 'Nothing from meal prep yet — add whatever you need below. '}Press and hold an item to drag it into your store's order.</div>
 
       <div style="display:flex;gap:8px;margin-bottom:14px">
-        <input type="text" id="shopping-add-input" placeholder="Add an item (e.g. milk, paper towels)" onkeydown="if(event.key==='Enter') addShoppingExtra()" style="flex:1;padding:10px 12px;border:1px solid #2A322E;border-radius:10px;font-size:13px;outline:none" />
+        <input type="text" id="shopping-add-input" placeholder="Add an item (e.g. milk, paper towels)" onkeydown="if(event.key==='Enter') addShoppingExtra()" style="flex:1;padding:10px 12px;border:1px solid #2A322E;border-radius:10px;font-size:16px;outline:none" />
         <button type="button" onclick="addShoppingExtra()" style="background:var(--accent);color:#0B1210;border:none;border-radius:10px;padding:0 16px;font-size:13px;font-weight:700;cursor:pointer">+ Add</button>
       </div>
 
@@ -7997,7 +7997,7 @@ function nutritionCardHTML(prefix, opts = {}) {
   const namePlaceholder = opts.namePlaceholder || 'Food name';
   const nameField = opts.skipName ? '' : `
     <input type="text" id="${prefix}-name" placeholder="${namePlaceholder}" autocomplete="off"
-      style="width:100%;padding:12px;border:1px solid #2A322E;border-radius:8px;font-size:15px;font-weight:600;outline:none;box-sizing:border-box;margin-bottom:12px;background:#141A18" />`;
+      style="width:100%;padding:12px;border:1px solid #2A322E;border-radius:8px;font-size:16px;font-weight:600;outline:none;box-sizing:border-box;margin-bottom:12px;background:#141A18" />`;
   const servingSection = opts.skipServing ? '' : `
     <div style="font-size:11px;font-weight:700;color:#9C9A93;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Serving Size</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
@@ -8014,17 +8014,17 @@ function nutritionCardHTML(prefix, opts = {}) {
     ${nameField}
     <div style="display:grid;grid-template-columns:repeat(6,1fr);text-align:center;gap:4px;margin-bottom:${opts.skipServing ? '0' : '14px'}">
       <div><input type="number" id="${prefix}-cals" value="0" inputmode="decimal" onfocus="this.select()"
-        style="width:100%;text-align:center;border:none;background:none;outline:none;font-size:12px;font-weight:700;color:#CFA13C;padding:0"><div style="font-size:8px;color:#9C9A93">kcal</div></div>
+        style="width:100%;text-align:center;border:none;background:none;outline:none;font-size:16px;font-weight:700;color:#CFA13C;padding:0"><div style="font-size:8px;color:#9C9A93">kcal</div></div>
       <div><input type="number" id="${prefix}-protein" value="0" inputmode="decimal" onfocus="this.select()"
-        style="width:100%;text-align:center;border:none;background:none;outline:none;font-size:12px;font-weight:700;color:#CFA13C;padding:0"><div style="font-size:8px;color:#9C9A93">protein</div></div>
+        style="width:100%;text-align:center;border:none;background:none;outline:none;font-size:16px;font-weight:700;color:#CFA13C;padding:0"><div style="font-size:8px;color:#9C9A93">protein</div></div>
       <div><input type="number" id="${prefix}-carbs" value="0" inputmode="decimal" onfocus="this.select()"
-        style="width:100%;text-align:center;border:none;background:none;outline:none;font-size:12px;font-weight:700;color:#CFA13C;padding:0"><div style="font-size:8px;color:#9C9A93">carbs</div></div>
+        style="width:100%;text-align:center;border:none;background:none;outline:none;font-size:16px;font-weight:700;color:#CFA13C;padding:0"><div style="font-size:8px;color:#9C9A93">carbs</div></div>
       <div><input type="number" id="${prefix}-fat" value="0" inputmode="decimal" onfocus="this.select()"
-        style="width:100%;text-align:center;border:none;background:none;outline:none;font-size:12px;font-weight:700;color:#CFA13C;padding:0"><div style="font-size:8px;color:#9C9A93">fat</div></div>
+        style="width:100%;text-align:center;border:none;background:none;outline:none;font-size:16px;font-weight:700;color:#CFA13C;padding:0"><div style="font-size:8px;color:#9C9A93">fat</div></div>
       <div><input type="number" id="${prefix}-fiber" value="0" inputmode="decimal" onfocus="this.select()"
-        style="width:100%;text-align:center;border:none;background:none;outline:none;font-size:12px;font-weight:700;color:#CFA13C;padding:0"><div style="font-size:8px;color:#9C9A93">fiber</div></div>
+        style="width:100%;text-align:center;border:none;background:none;outline:none;font-size:16px;font-weight:700;color:#CFA13C;padding:0"><div style="font-size:8px;color:#9C9A93">fiber</div></div>
       <div><input type="number" id="${prefix}-cholesterol" value="0" inputmode="decimal" onfocus="this.select()"
-        style="width:100%;text-align:center;border:none;background:none;outline:none;font-size:12px;font-weight:700;color:#CFA13C;padding:0"><div style="font-size:8px;color:#9C9A93">chol mg</div></div>
+        style="width:100%;text-align:center;border:none;background:none;outline:none;font-size:16px;font-weight:700;color:#CFA13C;padding:0"><div style="font-size:8px;color:#9C9A93">chol mg</div></div>
     </div>
     ${servingSection}`;
 }
@@ -11062,7 +11062,7 @@ if (document.readyState === 'loading') {
       <!-- Date picker -->
       <div style="margin-bottom:16px">
         <div style="font-size:12px;font-weight:700;color:#9C9A93;margin-bottom:6px">When was this taken?</div>
-        <input type="date" id="ob-photo-date" style="width:100%;padding:12px 14px;border:1.5px solid #2A322E;border-radius:10px;font-size:15px;outline:none;box-sizing:border-box;color:#F2EFE7" />
+        <input type="date" id="ob-photo-date" style="width:100%;padding:12px 14px;border:1.5px solid #2A322E;border-radius:10px;font-size:16px;outline:none;box-sizing:border-box;color:#F2EFE7" />
         <div style="font-size:12px;color:#9C9A93;margin-top:6px">Change this if you're uploading a photo from earlier in your journey.</div>
       </div>
 
@@ -11125,7 +11125,7 @@ if (document.readyState === 'loading') {
         <button type="button" class="ob-allergy-chip" data-allergy="Soy" onclick="obToggleAllergy(this)" style="padding:8px 14px;border:1.5px solid #2A322E;border-radius:20px;background:#141A18;color:#F2EFE7;font-size:13px;font-weight:600;cursor:pointer">Soy</button>
       </div>
       <input type="text" id="ob-allergy-other" placeholder="Other allergies or foods to avoid (optional)"
-        style="width:100%;padding:12px 14px;border:1.5px solid #2A322E;border-radius:10px;font-size:14px;outline:none;box-sizing:border-box;margin-bottom:24px" />
+        style="width:100%;padding:12px 14px;border:1.5px solid #2A322E;border-radius:10px;font-size:16px;outline:none;box-sizing:border-box;margin-bottom:24px" />
 
       <div style="font-size:13px;font-weight:700;color:#F2EFE7;margin-bottom:10px">A few foods you eat often or love?</div>
       <textarea id="ob-favorite-foods" rows="3" placeholder="e.g. chicken breast, rice, Greek yogurt, avocado..."
@@ -11199,7 +11199,7 @@ if (document.readyState === 'loading') {
     <button onclick="mbOpenManual()" style="background:var(--accent);color:#0B1210;border:none;border-radius:20px;padding:6px 16px;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:10px">+ Ingredient</button>
     <div style="position:relative;margin-bottom:10px">
       <input type="text" id="mb-search-input" placeholder="🔍 Search saved foods or database..."
-        style="width:100%;padding:10px 12px;border:1px solid #2A322E;border-radius:10px;font-size:14px;outline:none;box-sizing:border-box"
+        style="width:100%;padding:10px 12px;border:1px solid #2A322E;border-radius:10px;font-size:16px;outline:none;box-sizing:border-box"
         oninput="mbSearchInput(this.value)" />
     </div>
     <div id="mb-search-results" style="display:none;margin-bottom:12px"></div>
@@ -11311,7 +11311,7 @@ if (document.readyState === 'loading') {
     <div style="font-size:16px;font-weight:700;margin-bottom:6px">Import Recipe from URL</div>
     <div style="font-size:13px;color:#9C9A93;margin-bottom:16px">Paste a recipe URL and we'll extract the ingredients and nutrition info.</div>
     <input type="url" id="url-import-input" placeholder="https://..." inputmode="url"
-      style="width:100%;padding:12px 14px;border:1.5px solid #2A322E;border-radius:10px;font-size:15px;outline:none;box-sizing:border-box;margin-bottom:10px" />
+      style="width:100%;padding:12px 14px;border:1.5px solid #2A322E;border-radius:10px;font-size:16px;outline:none;box-sizing:border-box;margin-bottom:10px" />
     <div id="url-import-status" style="font-size:13px;color:#9C9A93;margin-bottom:12px;display:none"></div>
     <div id="url-import-result" style="display:none;background:#141A18;border-radius:12px;padding:14px;margin-bottom:14px">
       <div id="url-import-meal-name" style="font-size:15px;font-weight:700;margin-bottom:6px"></div>
