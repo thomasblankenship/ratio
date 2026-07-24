@@ -934,7 +934,29 @@
         </div>
       </div>
 
-      <!-- PROGRESS PHOTOS -->
+      <!-- STEPS -->
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div class="card-title" style="color:#CFA13C;margin-bottom:0">Steps</div>
+          <span style="font-size:11px;color:#9C9A93">Auto-synced from Apple Health</span>
+        </div>
+        <div id="steps-chart-disabled" style="display:none;text-align:center;padding:24px 12px;color:#9C9A93;font-size:13px">
+          Connect Apple Health in <b onclick="switchTab('profile-devices')" style="color:#CFA13C;cursor:pointer">App and Devices</b> to see your steps here.
+        </div>
+        <div id="steps-chart-content" style="display:none">
+          <div style="display:flex;gap:4px;margin-bottom:14px;overflow-x:auto;padding-bottom:2px">
+            <button class="range-pill steps-range" data-range="1W" onclick="setChartRange('steps','1W')">1W</button>
+            <button class="range-pill steps-range active-pill" data-range="1M" onclick="setChartRange('steps','1M')">1M</button>
+            <button class="range-pill steps-range" data-range="3M" onclick="setChartRange('steps','3M')">3M</button>
+            <button class="range-pill steps-range" data-range="6M" onclick="setChartRange('steps','6M')">6M</button>
+            <button class="range-pill steps-range" data-range="1Y" onclick="setChartRange('steps','1Y')">1Y</button>
+            <button class="range-pill steps-range" data-range="All" onclick="setChartRange('steps','All')">All</button>
+          </div>
+          <div id="steps-chart-empty" style="display:none;text-align:center;color:#9C9A93;font-size:13px;padding:30px 0">No step data yet — go for a walk, then Sync Now on App and Devices</div>
+          <div class="chart-wrap" id="steps-chart-wrap"><canvas id="steps-chart"></canvas></div>
+          <div style="margin-top:10px;font-size:11px;color:#9C9A93;text-align:center">Dashed line is your step goal — change it under <b onclick="switchTab('profile-targets')" style="color:#CFA13C;cursor:pointer">Profile → Daily Targets</b></div>
+        </div>
+      </div>
       <div id="progress-section-photos"></div>
       <button onclick="switchTab('photos')" style="width:100%;background:#141A18;border:1px solid #2A322E;border-radius:14px;padding:14px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px;cursor:pointer;text-align:left">
         <div style="width:36px;height:36px;border-radius:10px;background:#1C2320;display:flex;align-items:center;justify-content:center;flex-shrink:0">
@@ -1185,7 +1207,7 @@
           </div>
           <input type="checkbox" id="healthkit-toggle" onchange="toggleHealthKitConnection()" style="width:22px;height:22px;accent-color:#CFA13C;cursor:pointer;flex-shrink:0" />
         </div>
-        <button onclick="syncHealthKitWorkouts(false)" class="btn" style="margin-top:12px;width:100%">Sync Now</button>
+        <button onclick="syncHealthKitAll(true)" class="btn" style="margin-top:12px;width:100%">Sync Now</button>
       </div>
     </div>
 
@@ -1209,9 +1231,13 @@
           <div class="mp-row-label">Carbs</div>
           <div class="mp-row-value" id="dt-display-carbs">—</div>
         </div>
-        <div class="mp-row" onclick="openFieldEditSheet('fat')" style="border-bottom:none">
+        <div class="mp-row" onclick="openFieldEditSheet('fat')">
           <div class="mp-row-label">Fat</div>
           <div class="mp-row-value" id="dt-display-fat">—</div>
+        </div>
+        <div class="mp-row" onclick="openFieldEditSheet('steps')" style="border-bottom:none">
+          <div class="mp-row-label">Step Goal</div>
+          <div class="mp-row-value" id="dt-display-steps">—</div>
         </div>
       </div>
       <div style="font-size:11px;color:#33403A;margin-top:10px;padding:0 4px">Your daily target already accounts for your activity level — eat this amount every day regardless of workouts.</div>
@@ -2407,10 +2433,32 @@ async function syncHealthKitWorkouts(showToast) {
   }
 }
 
+async function syncHealthKitSteps(showToast) {
+  if (!window.Capacitor?.Plugins?.HealthKit) return;
+  try {
+    await Capacitor.Plugins.HealthKit.requestAuthorization();
+    const { days } = await Capacitor.Plugins.HealthKit.fetchStepsHistory({ daysBack: 365 });
+    for (const d of days || []) {
+      try {
+        await dbUpsert('daily_steps', { date: d.date, steps: d.steps }, 'user_id,date');
+      } catch (e) { console.error('HealthKit steps import failed for', d.date, e?.message || String(e)); }
+    }
+    dailyStepsCache = null;
+    if (typeof renderStepsChart === 'function') renderStepsChart();
+  } catch (e) {
+    console.error('HealthKit steps sync error', e?.message || String(e));
+  }
+}
+
+async function syncHealthKitAll(showToast) {
+  await syncHealthKitWorkouts(showToast);
+  await syncHealthKitSteps(showToast);
+}
+
 async function toggleHealthKitConnection() {
   const enabled = document.getElementById('healthkit-toggle').checked;
   await saveSetting('healthkit_enabled', enabled);
-  if (enabled) await syncHealthKitWorkouts(true);
+  if (enabled) await syncHealthKitAll(true);
 }
 
 async function initHealthKitSync() {
@@ -2418,7 +2466,7 @@ async function initHealthKitSync() {
   const enabled = await loadSetting('healthkit_enabled');
   const toggle = document.getElementById('healthkit-toggle');
   if (toggle) toggle.checked = !!enabled;
-  if (enabled) syncHealthKitWorkouts(false);
+  if (enabled) syncHealthKitAll(false);
 }
 
 function switchTab(tab) {
@@ -8754,9 +8802,12 @@ function resetAppState() {
 let weightChartRange = '1M';
 let bfChartRange = '1M';
 let muscleChartRange = '1M';
+let stepsChartRange = '1M';
 let weightChartObj = null;
 let bfChartObj = null;
 let muscleChartObj = null;
+let stepsChartObj = null;
+let dailyStepsCache = null;
 
 async function loadGoals() {
   const [sbGoals, sbTargets, sbProfile] = await Promise.all([loadSetting('goals'), loadSetting('targets'), loadSetting('profile')]);
@@ -8975,6 +9026,10 @@ function setChartRange(type, range) {
     bfChartRange = range;
     document.querySelectorAll('.bf-range').forEach(b => b.classList.toggle('active-pill', b.dataset.range === range));
     renderBfChart();
+  } else if (type === 'steps') {
+    stepsChartRange = range;
+    document.querySelectorAll('.steps-range').forEach(b => b.classList.toggle('active-pill', b.dataset.range === range));
+    renderStepsChart();
   } else {
     muscleChartRange = range;
     document.querySelectorAll('.muscle-range').forEach(b => b.classList.toggle('active-pill', b.dataset.range === range));
@@ -9223,6 +9278,102 @@ function renderWeightChart() {
   renderBMI();
 }
 
+Chart.register({
+  id: 'stepsBarLabels',
+  afterDatasetsDraw(chart) {
+    if (chart.canvas.id !== 'steps-chart') return;
+    const { ctx } = chart;
+    const barsDataset = chart.data.datasets.findIndex(d => d.type !== 'line');
+    if (barsDataset === -1) return;
+    const meta = chart.getDatasetMeta(barsDataset);
+    ctx.save();
+    ctx.font = '600 10px -apple-system, sans-serif';
+    ctx.fillStyle = '#0B1210';
+    ctx.textAlign = 'center';
+    meta.data.forEach((bar, i) => {
+      const val = chart.data.datasets[barsDataset].data[i];
+      if (val == null) return;
+      const label = val >= 1000 ? (val / 1000).toFixed(1) + 'k' : String(val);
+      const y = bar.y + 14 < bar.base - 4 ? bar.y + 14 : null;
+      if (y) ctx.fillText(label, bar.x, y);
+    });
+    ctx.restore();
+  }
+});
+
+async function renderStepsChart() {
+  const disabledEl = document.getElementById('steps-chart-disabled');
+  const contentEl = document.getElementById('steps-chart-content');
+  const enabled = window.Capacitor?.Plugins?.HealthKit && await loadSetting('healthkit_enabled');
+  if (!enabled) {
+    disabledEl.style.display = 'block';
+    contentEl.style.display = 'none';
+    return;
+  }
+  disabledEl.style.display = 'none';
+  contentEl.style.display = 'block';
+
+  const canvas = document.getElementById('steps-chart');
+  const empty = document.getElementById('steps-chart-empty');
+  if (stepsChartObj) { stepsChartObj.destroy(); stepsChartObj = null; }
+
+  if (dailyStepsCache === null) {
+    dailyStepsCache = await dbGet('daily_steps', 'order=date.asc');
+  }
+  const filtered = filterScansByRange(dailyStepsCache, stepsChartRange);
+
+  if (!filtered.length) {
+    empty.style.display = 'block'; canvas.style.display = 'none';
+    return;
+  }
+  empty.style.display = 'none'; canvas.style.display = 'block';
+
+  const fmtDate = d => new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const labels = filtered.map(s => fmtDate(s.date));
+  const data = filtered.map(s => s.steps);
+  const goal = (userTargets.steps || TARGETS.steps || 10000);
+
+  const datasets = [
+    {
+      label: 'Steps',
+      data,
+      backgroundColor: data.map(v => v >= goal ? '#4ADE80' : '#CFA13C'),
+      borderRadius: 4,
+      barPercentage: 0.7
+    },
+    {
+      type: 'line',
+      label: 'Goal',
+      data: labels.map(() => goal),
+      borderColor: 'rgba(207,161,60,0.5)',
+      borderWidth: 1.5,
+      borderDash: [5, 4],
+      pointRadius: 0,
+      fill: false
+    }
+  ];
+
+  stepsChartObj = new Chart(canvas, {
+    type: 'bar',
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          filter: item => item.dataset.label !== 'Goal',
+          callbacks: { label: ctx => `${ctx.raw.toLocaleString()} steps` }
+        }
+      },
+      scales: {
+        y: { grid: { color: '#141A18' }, ticks: { font: { size: 11 }, callback: v => v >= 1000 ? (v / 1000) + 'k' : v } },
+        x: { grid: { display: false }, ticks: { font: { size: 11 }, maxTicksLimit: 7 } }
+      }
+    }
+  });
+}
+
+
 function renderBfChart() {
   const canvas = document.getElementById('bf-chart');
   const empty = document.getElementById('bf-chart-empty');
@@ -9406,6 +9557,7 @@ async function loadScans() {
   if (userGoals.muscleMethod === 'estimate') recalcMuscleFromBf();
   renderMuscleChart();
   renderBMI();
+  renderStepsChart();
 }
 
 function renderMuscleChart() {
@@ -9934,7 +10086,7 @@ let _dtPending = {};
 
 async function loadDailyTargetsPage() {
   await loadGoals();
-  _dtPending = { calories: userTargets.calories || 2250, protein: userTargets.protein || 160, carbs: userTargets.carbs || 150, fat: userTargets.fat || 65 };
+  _dtPending = { calories: userTargets.calories || 2250, protein: userTargets.protein || 160, carbs: userTargets.carbs || 150, fat: userTargets.fat || 65, steps: userTargets.steps || 10000 };
   refreshDailyTargetsDisplay();
 }
 
@@ -9943,12 +10095,13 @@ function refreshDailyTargetsDisplay() {
   document.getElementById('dt-display-protein').textContent = _dtPending.protein + 'g';
   document.getElementById('dt-display-carbs').textContent = _dtPending.carbs + 'g';
   document.getElementById('dt-display-fat').textContent = _dtPending.fat + 'g';
+  document.getElementById('dt-display-steps').textContent = _dtPending.steps.toLocaleString();
 }
 
 async function saveDailyTargetsPage() {
   if (!_dtPending.calories || !_dtPending.protein) { toast('Enter at least calories and protein'); return; }
-  userTargets = { calories: _dtPending.calories, protein: _dtPending.protein, carbs: _dtPending.carbs, fat: _dtPending.fat };
-  TARGETS.calories = _dtPending.calories; TARGETS.protein = _dtPending.protein; TARGETS.carbs = _dtPending.carbs; TARGETS.fat = _dtPending.fat;
+  userTargets = { calories: _dtPending.calories, protein: _dtPending.protein, carbs: _dtPending.carbs, fat: _dtPending.fat, steps: _dtPending.steps };
+  TARGETS.calories = _dtPending.calories; TARGETS.protein = _dtPending.protein; TARGETS.carbs = _dtPending.carbs; TARGETS.fat = _dtPending.fat; TARGETS.steps = _dtPending.steps;
   await saveSetting('targets', userTargets);
   updateGoalsDisplay();
   renderMeals();
@@ -9997,7 +10150,7 @@ function refreshMyProfileDisplay() {
 
 function openFieldEditSheet(field) {
   window._mpEditingField = field;
-  const titleMap = { username: 'Username', height: 'Height', gender: 'Sex', age: 'Age', activity: 'Activity Level', calories: 'Calories', protein: 'Protein', carbs: 'Carbs', fat: 'Fat' };
+  const titleMap = { username: 'Username', height: 'Height', gender: 'Sex', age: 'Age', activity: 'Activity Level', calories: 'Calories', protein: 'Protein', carbs: 'Carbs', fat: 'Fat', steps: 'Step Goal' };
   document.getElementById('mp-sheet-title').textContent = titleMap[field] || 'Edit';
   const body = document.getElementById('mp-sheet-body');
   const inputStyle = 'width:100%;padding:12px 14px;border:1px solid #2A322E;border-radius:10px;background:#0B1210;color:#F2EFE7;font-size:16px;outline:none;box-sizing:border-box';
@@ -10032,6 +10185,12 @@ function openFieldEditSheet(field) {
       <div style="position:relative">
         <input type="number" id="mp-sheet-input" value="${_dtPending[field]}" min="0" style="${inputStyle};padding-right:44px" />
         <span style="position:absolute;right:14px;top:50%;transform:translateY(-50%);color:#9C9A93;font-size:14px;pointer-events:none">${unit}</span>
+      </div>`;
+  } else if (field === 'steps') {
+    body.innerHTML = `
+      <div style="position:relative">
+        <input type="number" id="mp-sheet-input" value="${_dtPending.steps}" min="0" step="500" style="${inputStyle};padding-right:60px" />
+        <span style="position:absolute;right:14px;top:50%;transform:translateY(-50%);color:#9C9A93;font-size:14px;pointer-events:none">steps</span>
       </div>`;
   }
 
@@ -10068,6 +10227,9 @@ function confirmFieldEdit() {
     if (selected) _mpPending.activity = selected.dataset.val;
   } else if (['calories','protein','carbs','fat'].includes(field)) {
     _dtPending[field] = +document.getElementById('mp-sheet-input').value || _dtPending[field];
+    refreshDailyTargetsDisplay();
+  } else if (field === 'steps') {
+    _dtPending.steps = +document.getElementById('mp-sheet-input').value || _dtPending.steps;
     refreshDailyTargetsDisplay();
   }
   refreshMyProfileDisplay();
