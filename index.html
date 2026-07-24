@@ -2393,7 +2393,7 @@ async function syncHealthKitWorkouts(showToast) {
           healthkit_id: w.id
         }, 'healthkit_id');
         importedCount++;
-      } catch (e) { console.error('HealthKit workout import failed for', w.id, e); }
+      } catch (e) { console.error('HealthKit workout import failed for', w.id, e?.message || String(e)); }
     }
     const now = new Date();
     await saveSetting('healthkit_last_sync', now.toISOString());
