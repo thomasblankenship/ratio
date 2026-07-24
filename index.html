@@ -1176,8 +1176,15 @@
         <button onclick="switchTab('profile')" class="profile-save-btn">Save</button>
       </div>
       <div style="padding:20px">
-        <button onclick="testHealthKit()" class="btn">Connect Apple Health (Test)</button>
-        <div id="healthkit-test-result" style="margin-top:16px;font-size:13px;color:#9C9A93;white-space:pre-wrap"></div>
+        <div style="background:#141A18;border-radius:12px;padding:16px;display:flex;justify-content:space-between;align-items:center">
+          <div style="flex:1;padding-right:12px">
+            <div style="font-size:15px;font-weight:600;color:#F2EFE7">Apple Health</div>
+            <div style="font-size:12px;color:#9C9A93;margin-top:2px">Auto-import workouts logged via your Apple Watch or other Health apps</div>
+            <div id="healthkit-status" style="font-size:11px;color:#CFA13C;margin-top:6px"></div>
+          </div>
+          <input type="checkbox" id="healthkit-toggle" onchange="toggleHealthKitConnection()" style="width:22px;height:22px;accent-color:#CFA13C;cursor:pointer;flex-shrink:0" />
+        </div>
+        <button onclick="syncHealthKitWorkouts(false)" class="btn" style="margin-top:12px;width:100%">Sync Now</button>
       </div>
     </div>
 
@@ -2354,17 +2361,63 @@ function closeShoppingListPage() {
   switchTab(_tabBeforeShopping || 'today');
 }
 
-async function testHealthKit() {
-  const resultEl = document.getElementById('healthkit-test-result');
-  resultEl.textContent = 'Requesting authorization...';
+const HK_ACTIVITY_NAMES = {
+  1:'American Football',5:'Baseball',6:'Basketball',8:'Boxing',9:'Climbing',11:'Cross Training',
+  13:'Cycling',16:'Elliptical',20:'Functional Strength Training',21:'Golf',24:'Hiking',26:'Hockey',
+  28:'Martial Arts',29:'Mind and Body',35:'Rowing',37:'Running',39:'Skating',40:'Snow Sports',
+  41:'Soccer',44:'Stair Stepper',46:'Swimming',50:'Traditional Strength Training',52:'Walking',
+  53:'Water Fitness',57:'Yoga',59:'Core Training',60:'Cross Country Skiing',61:'Downhill Skiing',
+  63:'HIIT',64:'Jump Rope',65:'Kickboxing',66:'Pilates',67:'Snowboarding',72:'Tai Chi',
+  73:'Mixed Cardio',77:'Cardio Dance',79:'Pickleball',3000:'Workout'
+};
+function hkActivityName(code) { return HK_ACTIVITY_NAMES[code] || 'Workout'; }
+
+async function syncHealthKitWorkouts(showToast) {
+  if (!window.Capacitor?.Plugins?.HealthKit) { if (showToast) toast('Apple Health is only available in the app'); return; }
+  const statusEl = document.getElementById('healthkit-status');
   try {
-    const authResult = await Capacitor.Plugins.HealthKit.requestAuthorization();
-    resultEl.textContent = 'Authorization: ' + JSON.stringify(authResult, null, 2);
-    const workouts = await Capacitor.Plugins.HealthKit.fetchWorkouts({ daysBack: 7 });
-    resultEl.textContent += '\n\nWorkouts: ' + JSON.stringify(workouts, null, 2);
+    if (statusEl) statusEl.textContent = 'Syncing…';
+    await Capacitor.Plugins.HealthKit.requestAuthorization();
+    const { workouts } = await Capacitor.Plugins.HealthKit.fetchWorkouts({ daysBack: 30 });
+    let importedCount = 0;
+    for (const w of workouts) {
+      const dateStr = w.startDate.slice(0, 10);
+      try {
+        await dbUpsert('workouts', {
+          date: dateStr,
+          name: hkActivityName(w.type),
+          duration: w.durationMinutes,
+          calories: w.calories,
+          time: new Date(w.startDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          healthkit_id: w.id
+        }, 'healthkit_id');
+        importedCount++;
+      } catch (e) { console.error('HealthKit workout import failed for', w.id, e); }
+    }
+    const now = new Date();
+    await saveSetting('healthkit_last_sync', now.toISOString());
+    if (statusEl) statusEl.textContent = `Last synced ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    if (showToast) toast(`Synced ${importedCount} workout${importedCount === 1 ? '' : 's'} from Apple Health`);
+    if (typeof loadTodayWorkouts === 'function') loadTodayWorkouts();
   } catch (e) {
-    resultEl.textContent = 'Error: ' + (e.message || JSON.stringify(e));
+    console.error('HealthKit sync error', e);
+    if (statusEl) statusEl.textContent = 'Sync failed';
+    if (showToast) toast('Apple Health sync failed');
   }
+}
+
+async function toggleHealthKitConnection() {
+  const enabled = document.getElementById('healthkit-toggle').checked;
+  await saveSetting('healthkit_enabled', enabled);
+  if (enabled) await syncHealthKitWorkouts(true);
+}
+
+async function initHealthKitSync() {
+  if (!window.Capacitor?.Plugins?.HealthKit) return;
+  const enabled = await loadSetting('healthkit_enabled');
+  const toggle = document.getElementById('healthkit-toggle');
+  if (toggle) toggle.checked = !!enabled;
+  if (enabled) syncHealthKitWorkouts(false);
 }
 
 function switchTab(tab) {
@@ -4487,6 +4540,7 @@ async function appInit() {
   window.addEventListener('resize', updateHeaderHeightVar);
   updateDailyQuote();
   await loadGoals();
+  initHealthKitSync();
   // Load saved foods and meals eagerly so dashboard search works immediately
   dbGet('saved_foods', 'order=name.asc').then(r => { if (r) savedFoods = r; }).catch(() => {});
   dbGet('saved_meals', 'order=created_at.desc').then(r => { if (r) savedMeals = r; }).catch(() => {});
