@@ -10196,11 +10196,11 @@ function openFieldEditSheet(field) {
     body.innerHTML = `
       <div style="display:flex;gap:10px">
         <div style="flex:1;position:relative">
-          <input type="number" id="mp-sheet-ft" value="${ft}" min="0" max="7" style="${inputStyle};padding-right:36px" />
+          <input type="text" inputmode="numeric" id="mp-sheet-ft" value="${ft}" min="0" max="7" style="${inputStyle};padding-right:36px" />
           <span style="position:absolute;right:14px;top:50%;transform:translateY(-50%);color:#9C9A93;font-size:14px;pointer-events:none">ft</span>
         </div>
         <div style="flex:1;position:relative">
-          <input type="number" id="mp-sheet-in" value="${inch}" min="0" max="11" style="${inputStyle};padding-right:36px" />
+          <input type="text" inputmode="numeric" id="mp-sheet-in" value="${inch}" min="0" max="11" style="${inputStyle};padding-right:36px" />
           <span style="position:absolute;right:14px;top:50%;transform:translateY(-50%);color:#9C9A93;font-size:14px;pointer-events:none">in</span>
         </div>
       </div>`;
@@ -10208,7 +10208,7 @@ function openFieldEditSheet(field) {
     const options = [['male','Male'],['female','Female']];
     body.innerHTML = options.map(([val,label]) => `<button type="button" onclick="selectSheetOption('${val}')" data-val="${val}" data-label="${label}" class="mp-sheet-option ${_mpPending.gender === val ? 'active' : ''}"><span>${label}</span>${_mpPending.gender === val ? '<i class="fa-solid fa-check"></i>' : ''}</button>`).join('');
   } else if (field === 'age') {
-    body.innerHTML = `<input type="number" id="mp-sheet-input" value="${_mpPending.age}" min="0" max="100" style="${inputStyle}" />`;
+    body.innerHTML = `<input type="text" inputmode="numeric" id="mp-sheet-input" value="${_mpPending.age}" min="0" max="100" style="${inputStyle}" />`;
   } else if (field === 'activity') {
     const options = [['sedentary','Sedentary'],['light','Lightly Active'],['moderate','Moderately Active'],['active','Very Active'],['athlete','Athlete']];
     body.innerHTML = options.map(([val,label]) => `<button type="button" onclick="selectSheetOption('${val}')" data-val="${val}" data-label="${label}" class="mp-sheet-option ${_mpPending.activity === val ? 'active' : ''}"><span>${label}</span>${_mpPending.activity === val ? '<i class="fa-solid fa-check"></i>' : ''}</button>`).join('');
@@ -10216,13 +10216,13 @@ function openFieldEditSheet(field) {
     const unit = field === 'calories' ? 'kcal' : 'g';
     body.innerHTML = `
       <div style="position:relative">
-        <input type="number" id="mp-sheet-input" value="${_dtPending[field]}" min="0" style="${inputStyle};padding-right:44px" />
+        <input type="text" inputmode="numeric" id="mp-sheet-input" value="${_dtPending[field]}" min="0" style="${inputStyle};padding-right:44px" />
         <span style="position:absolute;right:14px;top:50%;transform:translateY(-50%);color:#9C9A93;font-size:14px;pointer-events:none">${unit}</span>
       </div>`;
   } else if (field === 'steps') {
     body.innerHTML = `
       <div style="position:relative">
-        <input type="number" id="mp-sheet-input" value="${_dtPending.steps}" min="0" step="500" style="${inputStyle};padding-right:60px" />
+        <input type="text" inputmode="numeric" id="mp-sheet-input" value="${_dtPending.steps}" min="0" step="500" style="${inputStyle};padding-right:60px" />
         <span style="position:absolute;right:14px;top:50%;transform:translateY(-50%);color:#9C9A93;font-size:14px;pointer-events:none">steps</span>
       </div>`;
   }
