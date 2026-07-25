@@ -183,6 +183,8 @@
     .mp-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid #1C2320; gap: 10px; cursor: pointer; }
     .mp-row-label { font-size: 14px; color: #9C9A93; flex-shrink: 0; }
     .mp-row-value { font-size: 14px; color: #CFA13C; font-weight: 600; text-align: right; }
+    .mp-inline-pill { background: #1C2320; border: 1px solid #2A322E; border-radius: 14px; padding: 5px 12px; font-size: 12px; font-weight: 600; color: #9C9A93; cursor: pointer; font-family: inherit; }
+    .mp-inline-pill.active { background: #CFA13C; border-color: #CFA13C; color: #0B1210; }
     .mp-row-input { background: none; border: none; outline: none; color: #F2EFE7; font-size: 14px; font-weight: 500; font-family: inherit; text-align: right; padding: 0; cursor: pointer; }
     .mp-row-input:focus { color: #CFA13C; }
     .mp-sheet-option { width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 14px 4px; border: none; border-bottom: 1px solid #1C2320; background: none; color: #F2EFE7; font-size: 15px; font-family: inherit; text-align: left; cursor: pointer; }
@@ -1076,9 +1078,9 @@
 
       <div style="font-size:11px;font-weight:700;color:#CFA13C;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Personal Details</div>
       <div class="card" style="padding:4px 0">
-        <div class="mp-row" onclick="openFieldEditSheet('username')">
+        <div class="mp-row" style="cursor:default">
           <div class="mp-row-label">Username</div>
-          <div class="mp-row-value" id="mp-display-username">—</div>
+          <input type="text" id="mp-display-username" oninput="_mpPending.username=this.value" placeholder="username" style="width:130px;text-align:right;background:none;border:none;color:#CFA13C;font-weight:600;font-size:14px;outline:none;font-family:inherit" />
         </div>
         <div class="mp-row" style="cursor:default">
           <div class="mp-row-label">Email Address</div>
@@ -1092,21 +1094,35 @@
           </div>
           <input type="file" id="mp-photo-input" accept="image/*" style="display:none" onchange="uploadMyProfilePhoto(this.files[0])" />
         </div>
-        <div class="mp-row" onclick="openFieldEditSheet('height')">
+        <div class="mp-row" style="cursor:default">
           <div class="mp-row-label">Height</div>
-          <div class="mp-row-value" id="mp-display-height">—</div>
+          <div style="display:flex;align-items:center;gap:4px">
+            <input type="text" inputmode="numeric" id="mp-display-height-ft" oninput="mpHeightChanged()" style="width:26px;text-align:right;background:none;border:none;color:#CFA13C;font-weight:600;font-size:14px;outline:none;font-family:inherit" />
+            <span style="font-size:12px;color:#9C9A93">ft</span>
+            <input type="text" inputmode="numeric" id="mp-display-height-in" oninput="mpHeightChanged()" style="width:26px;text-align:right;background:none;border:none;color:#CFA13C;font-weight:600;font-size:14px;outline:none;font-family:inherit;margin-left:6px" />
+            <span style="font-size:12px;color:#9C9A93">in</span>
+          </div>
         </div>
-        <div class="mp-row" onclick="openFieldEditSheet('gender')">
+        <div class="mp-row" style="cursor:default">
           <div class="mp-row-label">Sex</div>
-          <div class="mp-row-value" id="mp-display-gender">—</div>
+          <div style="display:flex;gap:6px">
+            <button type="button" onclick="_mpPending.gender='male';refreshMyProfileDisplay()" id="mp-sex-male" class="mp-inline-pill">Male</button>
+            <button type="button" onclick="_mpPending.gender='female';refreshMyProfileDisplay()" id="mp-sex-female" class="mp-inline-pill">Female</button>
+          </div>
         </div>
-        <div class="mp-row" onclick="openFieldEditSheet('age')">
+        <div class="mp-row" style="cursor:default">
           <div class="mp-row-label">Age</div>
-          <div class="mp-row-value" id="mp-display-age">—</div>
+          <input type="text" inputmode="numeric" id="mp-display-age" oninput="_mpPending.age=(parseInt(this.value.replace(/[^0-9]/g,''),10)||0)" style="width:50px;text-align:right;background:none;border:none;color:#CFA13C;font-weight:600;font-size:14px;outline:none;font-family:inherit" />
         </div>
-        <div class="mp-row" onclick="openFieldEditSheet('activity')">
+        <div class="mp-row" style="cursor:default">
           <div class="mp-row-label">Activity Level</div>
-          <div class="mp-row-value" id="mp-display-activity">—</div>
+          <select id="mp-display-activity" onchange="_mpPending.activity=this.value" style="background:#0B1210;color:#CFA13C;font-weight:600;font-size:13px;border:1px solid #2A322E;border-radius:8px;padding:6px 8px;outline:none;font-family:inherit">
+            <option value="sedentary">Sedentary</option>
+            <option value="light">Lightly Active</option>
+            <option value="moderate">Moderately Active</option>
+            <option value="active">Very Active</option>
+            <option value="athlete">Athlete</option>
+          </select>
         </div>
         <div class="mp-row" style="cursor:default">
           <div class="mp-row-label">Date of Birth</div>
@@ -10192,14 +10208,21 @@ async function loadMyProfilePage() {
 }
 
 function refreshMyProfileDisplay() {
-  document.getElementById('mp-display-username').textContent = _mpPending.username || 'Not set';
+  document.getElementById('mp-display-username').value = _mpPending.username || '';
   const ft = Math.floor(_mpPending.heightIn / 12);
   const inch = _mpPending.heightIn % 12;
-  document.getElementById('mp-display-height').textContent = `${ft}'${inch}"`;
-  document.getElementById('mp-display-gender').textContent = _mpPending.gender === 'male' ? 'Male' : 'Female';
-  document.getElementById('mp-display-age').textContent = _mpPending.age;
-  const activityLabels = { sedentary: 'Sedentary', light: 'Lightly Active', moderate: 'Moderately Active', active: 'Very Active', athlete: 'Athlete' };
-  document.getElementById('mp-display-activity').textContent = activityLabels[_mpPending.activity] || _mpPending.activity;
+  document.getElementById('mp-display-height-ft').value = ft;
+  document.getElementById('mp-display-height-in').value = inch;
+  document.getElementById('mp-sex-male').classList.toggle('active', _mpPending.gender === 'male');
+  document.getElementById('mp-sex-female').classList.toggle('active', _mpPending.gender === 'female');
+  document.getElementById('mp-display-age').value = _mpPending.age;
+  document.getElementById('mp-display-activity').value = _mpPending.activity;
+}
+
+function mpHeightChanged() {
+  const ft = parseInt(document.getElementById('mp-display-height-ft').value.replace(/[^0-9]/g, ''), 10) || 0;
+  const inch = parseInt(document.getElementById('mp-display-height-in').value.replace(/[^0-9]/g, ''), 10) || 0;
+  _mpPending.heightIn = (ft * 12) + inch;
 }
 
 function openFieldEditSheet(field) {
