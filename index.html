@@ -1217,25 +1217,40 @@
       </div>
       <div style="font-size:11px;font-weight:700;color:#CFA13C;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Daily Targets</div>
       <div class="card" style="padding:4px 0">
-        <div class="mp-row" onclick="openFieldEditSheet('calories')">
+        <div class="mp-row" style="cursor:default">
           <div class="mp-row-label">Calories</div>
-          <div class="mp-row-value" id="dt-display-calories">—</div>
+          <div style="display:flex;align-items:center;gap:4px">
+            <input type="text" inputmode="numeric" id="dt-display-calories" oninput="dtInputChanged('calories',this.value)" style="width:70px;text-align:right;background:none;border:none;color:#CFA13C;font-weight:600;font-size:14px;outline:none;font-family:inherit" />
+            <span style="font-size:12px;color:#9C9A93">kcal</span>
+          </div>
         </div>
-        <div class="mp-row" onclick="openFieldEditSheet('protein')">
+        <div class="mp-row" style="cursor:default">
           <div class="mp-row-label">Protein</div>
-          <div class="mp-row-value" id="dt-display-protein">—</div>
+          <div style="display:flex;align-items:center;gap:4px">
+            <input type="text" inputmode="numeric" id="dt-display-protein" oninput="dtInputChanged('protein',this.value)" style="width:50px;text-align:right;background:none;border:none;color:#CFA13C;font-weight:600;font-size:14px;outline:none;font-family:inherit" />
+            <span style="font-size:12px;color:#9C9A93">g</span>
+          </div>
         </div>
-        <div class="mp-row" onclick="openFieldEditSheet('carbs')">
+        <div class="mp-row" style="cursor:default">
           <div class="mp-row-label">Carbs</div>
-          <div class="mp-row-value" id="dt-display-carbs">—</div>
+          <div style="display:flex;align-items:center;gap:4px">
+            <input type="text" inputmode="numeric" id="dt-display-carbs" oninput="dtInputChanged('carbs',this.value)" style="width:50px;text-align:right;background:none;border:none;color:#CFA13C;font-weight:600;font-size:14px;outline:none;font-family:inherit" />
+            <span style="font-size:12px;color:#9C9A93">g</span>
+          </div>
         </div>
-        <div class="mp-row" onclick="openFieldEditSheet('fat')">
+        <div class="mp-row" style="cursor:default">
           <div class="mp-row-label">Fat</div>
-          <div class="mp-row-value" id="dt-display-fat">—</div>
+          <div style="display:flex;align-items:center;gap:4px">
+            <input type="text" inputmode="numeric" id="dt-display-fat" oninput="dtInputChanged('fat',this.value)" style="width:50px;text-align:right;background:none;border:none;color:#CFA13C;font-weight:600;font-size:14px;outline:none;font-family:inherit" />
+            <span style="font-size:12px;color:#9C9A93">g</span>
+          </div>
         </div>
-        <div class="mp-row" onclick="openFieldEditSheet('steps')" style="border-bottom:none">
+        <div class="mp-row" style="cursor:default;border-bottom:none">
           <div class="mp-row-label">Step Goal</div>
-          <div class="mp-row-value" id="dt-display-steps">—</div>
+          <div style="display:flex;align-items:center;gap:4px">
+            <input type="text" inputmode="numeric" id="dt-display-steps" oninput="dtInputChanged('steps',this.value)" style="width:70px;text-align:right;background:none;border:none;color:#CFA13C;font-weight:600;font-size:14px;outline:none;font-family:inherit" />
+            <span style="font-size:12px;color:#9C9A93">steps</span>
+          </div>
         </div>
       </div>
       <div style="font-size:11px;color:#33403A;margin-top:10px;padding:0 4px">Your daily target already accounts for your activity level — eat this amount every day regardless of workouts.</div>
@@ -9275,7 +9290,8 @@ function renderWeightChart() {
 async function editStepGoalDirect() {
   switchTab('profile-targets');
   await loadDailyTargetsPage();
-  openFieldEditSheet('steps');
+  const input = document.getElementById('dt-display-steps');
+  if (input) { input.focus(); input.select(); }
 }
 
 Chart.register({
@@ -10124,11 +10140,16 @@ async function loadDailyTargetsPage() {
 }
 
 function refreshDailyTargetsDisplay() {
-  document.getElementById('dt-display-calories').textContent = _dtPending.calories;
-  document.getElementById('dt-display-protein').textContent = _dtPending.protein + 'g';
-  document.getElementById('dt-display-carbs').textContent = _dtPending.carbs + 'g';
-  document.getElementById('dt-display-fat').textContent = _dtPending.fat + 'g';
-  document.getElementById('dt-display-steps').textContent = _dtPending.steps.toLocaleString();
+  document.getElementById('dt-display-calories').value = _dtPending.calories;
+  document.getElementById('dt-display-protein').value = _dtPending.protein;
+  document.getElementById('dt-display-carbs').value = _dtPending.carbs;
+  document.getElementById('dt-display-fat').value = _dtPending.fat;
+  document.getElementById('dt-display-steps').value = _dtPending.steps;
+}
+
+function dtInputChanged(field, val) {
+  const num = parseInt(val.replace(/[^0-9]/g, ''), 10);
+  _dtPending[field] = isNaN(num) ? 0 : num;
 }
 
 async function saveDailyTargetsPage() {
