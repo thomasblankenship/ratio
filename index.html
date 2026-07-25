@@ -1097,9 +1097,9 @@
         <div class="mp-row" style="cursor:default">
           <div class="mp-row-label">Height</div>
           <div style="display:flex;align-items:center;gap:4px">
-            <input type="text" inputmode="numeric" id="mp-display-height-ft" oninput="mpHeightChanged()" style="width:26px;text-align:right;background:none;border:none;color:#CFA13C;font-weight:600;font-size:14px;outline:none;font-family:inherit" />
+            <input type="text" inputmode="numeric" id="mp-display-height-ft" oninput="mpHeightChanged()" style="width:32px;text-align:right;background:none;border:none;color:#CFA13C;font-weight:600;font-size:14px;outline:none;font-family:inherit" />
             <span style="font-size:12px;color:#9C9A93">ft</span>
-            <input type="text" inputmode="numeric" id="mp-display-height-in" oninput="mpHeightChanged()" style="width:26px;text-align:right;background:none;border:none;color:#CFA13C;font-weight:600;font-size:14px;outline:none;font-family:inherit;margin-left:6px" />
+            <input type="text" inputmode="numeric" id="mp-display-height-in" oninput="mpHeightChanged()" style="width:32px;text-align:right;background:none;border:none;color:#CFA13C;font-weight:600;font-size:14px;outline:none;font-family:inherit;margin-left:6px" />
             <span style="font-size:12px;color:#9C9A93">in</span>
           </div>
         </div>
@@ -1116,13 +1116,16 @@
         </div>
         <div class="mp-row" style="cursor:default">
           <div class="mp-row-label">Activity Level</div>
-          <select id="mp-display-activity" onchange="_mpPending.activity=this.value" style="background:#0B1210;color:#CFA13C;font-weight:600;font-size:13px;border:1px solid #2A322E;border-radius:8px;padding:6px 8px;outline:none;font-family:inherit">
-            <option value="sedentary">Sedentary</option>
-            <option value="light">Lightly Active</option>
-            <option value="moderate">Moderately Active</option>
-            <option value="active">Very Active</option>
-            <option value="athlete">Athlete</option>
-          </select>
+          <div style="display:flex;align-items:center;gap:4px">
+            <select id="mp-display-activity" onchange="_mpPending.activity=this.value" style="appearance:none;-webkit-appearance:none;background:none;color:#CFA13C;font-weight:600;font-size:14px;border:none;outline:none;font-family:inherit;text-align:right;text-align-last:right">
+              <option value="sedentary">Sedentary</option>
+              <option value="light">Lightly Active</option>
+              <option value="moderate">Moderately Active</option>
+              <option value="active">Very Active</option>
+              <option value="athlete">Athlete</option>
+            </select>
+            <i class="fa-solid fa-chevron-down" style="font-size:10px;color:#9C9A93"></i>
+          </div>
         </div>
         <div class="mp-row" style="cursor:default">
           <div class="mp-row-label">Date of Birth</div>
@@ -10209,14 +10212,15 @@ async function loadMyProfilePage() {
 
 function refreshMyProfileDisplay() {
   document.getElementById('mp-display-username').value = _mpPending.username || '';
-  const ft = Math.floor(_mpPending.heightIn / 12);
-  const inch = _mpPending.heightIn % 12;
+  const heightIn = _mpPending.heightIn || 69;
+  const ft = Math.floor(heightIn / 12);
+  const inch = heightIn % 12;
   document.getElementById('mp-display-height-ft').value = ft;
   document.getElementById('mp-display-height-in').value = inch;
   document.getElementById('mp-sex-male').classList.toggle('active', _mpPending.gender === 'male');
   document.getElementById('mp-sex-female').classList.toggle('active', _mpPending.gender === 'female');
-  document.getElementById('mp-display-age').value = _mpPending.age;
-  document.getElementById('mp-display-activity').value = _mpPending.activity;
+  document.getElementById('mp-display-age').value = _mpPending.age || 30;
+  document.getElementById('mp-display-activity').value = _mpPending.activity || 'moderate';
 }
 
 function mpHeightChanged() {
