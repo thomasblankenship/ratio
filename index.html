@@ -1080,7 +1080,7 @@
       <div class="card" style="padding:4px 0">
         <div class="mp-row" style="cursor:default">
           <div class="mp-row-label">Username</div>
-          <input type="text" id="mp-display-username" oninput="_mpPending.username=this.value" placeholder="username" style="width:130px;text-align:right;background:none;border:none;color:#CFA13C;font-weight:600;font-size:14px;outline:none;font-family:inherit" />
+          <input type="text" id="mp-display-username" oninput="_mpPending.username=this.value" placeholder="username" onfocus="moveCaretToEnd(this)" style="width:130px;text-align:right;background:none;border:none;color:#CFA13C;font-weight:600;font-size:14px;outline:none;font-family:inherit" />
         </div>
         <div class="mp-row" style="cursor:default">
           <div class="mp-row-label">Email Address</div>
@@ -1094,14 +1094,9 @@
           </div>
           <input type="file" id="mp-photo-input" accept="image/*" style="display:none" onchange="uploadMyProfilePhoto(this.files[0])" />
         </div>
-        <div class="mp-row" style="cursor:default">
+        <div class="mp-row" onclick="openHeightPicker()">
           <div class="mp-row-label">Height</div>
-          <div style="display:flex;align-items:center;gap:4px">
-            <input type="text" inputmode="numeric" id="mp-display-height-ft" oninput="mpHeightChanged()" style="width:32px;text-align:right;background:none;border:none;color:#CFA13C;font-weight:600;font-size:14px;outline:none;font-family:inherit" />
-            <span style="font-size:12px;color:#9C9A93">ft</span>
-            <input type="text" inputmode="numeric" id="mp-display-height-in" oninput="mpHeightChanged()" style="width:32px;text-align:right;background:none;border:none;color:#CFA13C;font-weight:600;font-size:14px;outline:none;font-family:inherit;margin-left:6px" />
-            <span style="font-size:12px;color:#9C9A93">in</span>
-          </div>
+          <div class="mp-row-value" id="mp-display-height">—</div>
         </div>
         <div class="mp-row" style="cursor:default">
           <div class="mp-row-label">Sex</div>
@@ -1112,7 +1107,7 @@
         </div>
         <div class="mp-row" style="cursor:default">
           <div class="mp-row-label">Age</div>
-          <input type="text" inputmode="numeric" id="mp-display-age" oninput="_mpPending.age=(parseInt(this.value.replace(/[^0-9]/g,''),10)||0)" style="width:50px;text-align:right;background:none;border:none;color:#CFA13C;font-weight:600;font-size:14px;outline:none;font-family:inherit" />
+          <input type="text" inputmode="numeric" id="mp-display-age" oninput="_mpPending.age=(parseInt(this.value.replace(/[^0-9]/g,''),10)||0)" onfocus="moveCaretToEnd(this)" style="width:50px;text-align:right;background:none;border:none;color:#CFA13C;font-weight:600;font-size:14px;outline:none;font-family:inherit" />
         </div>
         <div class="mp-row" style="cursor:default">
           <div class="mp-row-label">Activity Level</div>
@@ -1138,6 +1133,29 @@
         <div class="mp-row" style="cursor:default;border-bottom:none">
           <div class="mp-row-label">Time Zone</div>
           <div class="mp-row-value" style="color:#9C9A93">Coming Soon</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Height wheel-scroll picker -->
+    <div id="height-picker-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:850;align-items:flex-end;justify-content:center">
+      <div style="background:#141A18;border-radius:20px 20px 0 0;width:100%;max-width:480px;padding:16px 20px calc(24px + env(safe-area-inset-bottom));box-sizing:border-box">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+          <button onclick="closeHeightPicker()" style="background:none;border:none;font-size:20px;color:#F2EFE7;cursor:pointer"><i class="fa-solid fa-xmark"></i></button>
+          <div style="font-size:16px;font-weight:700;color:#F2EFE7">Height</div>
+          <button onclick="confirmHeightPicker()" class="profile-save-btn">Save</button>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div style="background:#0B1210;border-radius:10px;overflow:hidden;border:1px solid #2A322E;position:relative">
+            <div style="font-size:10px;color:#9C9A93;text-align:center;padding:4px 0;border-bottom:1px solid #1C2320">Feet</div>
+            <div id="height-ft-scroll" style="height:120px;overflow-y:scroll;scroll-snap-type:y mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none"></div>
+            <div style="pointer-events:none;position:absolute;left:0;right:0;height:40px;top:64px;border-top:1px solid #CFA13C;border-bottom:1px solid #CFA13C;background:rgba(207,161,60,0.06)"></div>
+          </div>
+          <div style="background:#0B1210;border-radius:10px;overflow:hidden;border:1px solid #2A322E;position:relative">
+            <div style="font-size:10px;color:#9C9A93;text-align:center;padding:4px 0;border-bottom:1px solid #1C2320">Inches</div>
+            <div id="height-in-scroll" style="height:120px;overflow-y:scroll;scroll-snap-type:y mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none"></div>
+            <div style="pointer-events:none;position:absolute;left:0;right:0;height:40px;top:64px;border-top:1px solid #CFA13C;border-bottom:1px solid #CFA13C;background:rgba(207,161,60,0.06)"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -1238,36 +1256,36 @@
       <div class="card" style="padding:4px 0">
         <div class="mp-row" style="cursor:default">
           <div class="mp-row-label">Calories</div>
-          <div style="display:flex;align-items:center;gap:4px">
-            <input type="text" inputmode="numeric" id="dt-display-calories" oninput="dtInputChanged('calories',this.value)" style="width:70px;text-align:right;background:none;border:none;color:#CFA13C;font-weight:600;font-size:14px;outline:none;font-family:inherit" />
+          <div style="display:flex;align-items:center;gap:2px">
+            <input type="text" inputmode="numeric" id="dt-display-calories" oninput="dtInputChanged('calories',this.value)" onfocus="moveCaretToEnd(this)" style="width:70px;text-align:right;background:none;border:none;color:#CFA13C;font-weight:600;font-size:14px;outline:none;font-family:inherit;padding:0" />
             <span style="font-size:12px;color:#9C9A93">kcal</span>
           </div>
         </div>
         <div class="mp-row" style="cursor:default">
           <div class="mp-row-label">Protein</div>
-          <div style="display:flex;align-items:center;gap:4px">
-            <input type="text" inputmode="numeric" id="dt-display-protein" oninput="dtInputChanged('protein',this.value)" style="width:50px;text-align:right;background:none;border:none;color:#CFA13C;font-weight:600;font-size:14px;outline:none;font-family:inherit" />
+          <div style="display:flex;align-items:center;gap:2px">
+            <input type="text" inputmode="numeric" id="dt-display-protein" oninput="dtInputChanged('protein',this.value)" onfocus="moveCaretToEnd(this)" style="width:50px;text-align:right;background:none;border:none;color:#CFA13C;font-weight:600;font-size:14px;outline:none;font-family:inherit;padding:0" />
             <span style="font-size:12px;color:#9C9A93">g</span>
           </div>
         </div>
         <div class="mp-row" style="cursor:default">
           <div class="mp-row-label">Carbs</div>
-          <div style="display:flex;align-items:center;gap:4px">
-            <input type="text" inputmode="numeric" id="dt-display-carbs" oninput="dtInputChanged('carbs',this.value)" style="width:50px;text-align:right;background:none;border:none;color:#CFA13C;font-weight:600;font-size:14px;outline:none;font-family:inherit" />
+          <div style="display:flex;align-items:center;gap:2px">
+            <input type="text" inputmode="numeric" id="dt-display-carbs" oninput="dtInputChanged('carbs',this.value)" onfocus="moveCaretToEnd(this)" style="width:50px;text-align:right;background:none;border:none;color:#CFA13C;font-weight:600;font-size:14px;outline:none;font-family:inherit;padding:0" />
             <span style="font-size:12px;color:#9C9A93">g</span>
           </div>
         </div>
         <div class="mp-row" style="cursor:default">
           <div class="mp-row-label">Fat</div>
-          <div style="display:flex;align-items:center;gap:4px">
-            <input type="text" inputmode="numeric" id="dt-display-fat" oninput="dtInputChanged('fat',this.value)" style="width:50px;text-align:right;background:none;border:none;color:#CFA13C;font-weight:600;font-size:14px;outline:none;font-family:inherit" />
+          <div style="display:flex;align-items:center;gap:2px">
+            <input type="text" inputmode="numeric" id="dt-display-fat" oninput="dtInputChanged('fat',this.value)" onfocus="moveCaretToEnd(this)" style="width:50px;text-align:right;background:none;border:none;color:#CFA13C;font-weight:600;font-size:14px;outline:none;font-family:inherit;padding:0" />
             <span style="font-size:12px;color:#9C9A93">g</span>
           </div>
         </div>
         <div class="mp-row" style="cursor:default;border-bottom:none">
           <div class="mp-row-label">Step Goal</div>
-          <div style="display:flex;align-items:center;gap:4px">
-            <input type="text" inputmode="numeric" id="dt-display-steps" oninput="dtInputChanged('steps',this.value)" style="width:70px;text-align:right;background:none;border:none;color:#CFA13C;font-weight:600;font-size:14px;outline:none;font-family:inherit" />
+          <div style="display:flex;align-items:center;gap:2px">
+            <input type="text" inputmode="numeric" id="dt-display-steps" oninput="dtInputChanged('steps',this.value)" onfocus="moveCaretToEnd(this)" style="width:70px;text-align:right;background:none;border:none;color:#CFA13C;font-weight:600;font-size:14px;outline:none;font-family:inherit;padding:0" />
             <span style="font-size:12px;color:#9C9A93">steps</span>
           </div>
         </div>
@@ -10166,6 +10184,62 @@ function refreshDailyTargetsDisplay() {
   document.getElementById('dt-display-steps').value = _dtPending.steps;
 }
 
+function buildNumberWheel(scrollContainerId, values, defaultVal, onChange) {
+  const container = document.getElementById(scrollContainerId);
+  if (!container) return;
+  container.innerHTML = '';
+  const itemH = 40;
+  const top = document.createElement('div'); top.style.minHeight = itemH + 'px'; container.appendChild(top);
+  values.forEach(v => {
+    const el = document.createElement('div');
+    el.style.cssText = `min-height:${itemH}px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;scroll-snap-align:center;color:#F2EFE7;`;
+    el.textContent = v;
+    container.appendChild(el);
+  });
+  const bot = document.createElement('div'); bot.style.minHeight = itemH + 'px'; container.appendChild(bot);
+  const startIdx = values.indexOf(defaultVal);
+  if (startIdx >= 0) setTimeout(() => { container.scrollTop = startIdx * itemH; }, 50);
+  let scrollT;
+  container.onscroll = () => {
+    clearTimeout(scrollT);
+    scrollT = setTimeout(() => {
+      const idx = Math.min(Math.max(Math.round(container.scrollTop / itemH), 0), values.length - 1);
+      if (onChange) onChange(values[idx]);
+    }, 80);
+  };
+}
+
+let _heightPickerFt = 5;
+let _heightPickerIn = 9;
+
+function openHeightPicker() {
+  const heightIn = _mpPending.heightIn || 69;
+  _heightPickerFt = Math.floor(heightIn / 12);
+  _heightPickerIn = heightIn % 12;
+  document.getElementById('height-picker-modal').style.display = 'flex';
+  const feet = [1,2,3,4,5,6,7,8];
+  const inches = [0,1,2,3,4,5,6,7,8,9,10,11];
+  buildNumberWheel('height-ft-scroll', feet, _heightPickerFt, v => _heightPickerFt = v);
+  buildNumberWheel('height-in-scroll', inches, _heightPickerIn, v => _heightPickerIn = v);
+}
+
+function closeHeightPicker() {
+  document.getElementById('height-picker-modal').style.display = 'none';
+}
+
+function confirmHeightPicker() {
+  _mpPending.heightIn = (_heightPickerFt * 12) + _heightPickerIn;
+  refreshMyProfileDisplay();
+  closeHeightPicker();
+}
+
+function moveCaretToEnd(el) {
+  requestAnimationFrame(() => {
+    const len = el.value.length;
+    try { el.setSelectionRange(len, len); } catch (e) {}
+  });
+}
+
 function dtInputChanged(field, val) {
   const num = parseInt(val.replace(/[^0-9]/g, ''), 10);
   _dtPending[field] = isNaN(num) ? 0 : num;
@@ -10215,8 +10289,7 @@ function refreshMyProfileDisplay() {
   const heightIn = _mpPending.heightIn || 69;
   const ft = Math.floor(heightIn / 12);
   const inch = heightIn % 12;
-  document.getElementById('mp-display-height-ft').value = ft;
-  document.getElementById('mp-display-height-in').value = inch;
+  document.getElementById('mp-display-height').textContent = `${ft}'${inch}"`;
   document.getElementById('mp-sex-male').classList.toggle('active', _mpPending.gender === 'male');
   document.getElementById('mp-sex-female').classList.toggle('active', _mpPending.gender === 'female');
   document.getElementById('mp-display-age').value = _mpPending.age || 30;
