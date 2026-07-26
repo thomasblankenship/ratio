@@ -1585,6 +1585,27 @@
   </div>
 </div>
 
+<!-- WORKOUT DETAIL MODAL (HealthKit-synced) -->
+<div id="workout-detail-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:800;align-items:flex-end;justify-content:center" onclick="if(event.target===this)closeWorkoutDetail()">
+  <div style="background:#141A18;border-radius:20px 20px 0 0;padding:0 0 40px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:#141A18;padding:16px 20px;border-bottom:1px solid #1C2320;z-index:2">
+      <div style="min-width:0;flex:1">
+        <div id="wd-title" style="font-size:17px;font-weight:800;color:#F2EFE7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+        <div id="wd-date" style="font-size:12px;color:#9C9A93;margin-top:2px"></div>
+      </div>
+      <button onclick="closeWorkoutDetail()" style="background:#1C2320;border:none;border-radius:10px;width:34px;height:34px;font-size:16px;color:#F2EFE7;cursor:pointer;flex-shrink:0;margin-left:12px">×</button>
+    </div>
+    <div style="padding:16px 20px">
+      <div style="font-size:11px;font-weight:700;color:#CFA13C;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">Workout Details</div>
+      <div id="wd-stats" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px"></div>
+      <div id="wd-hr-section" style="display:none">
+        <div style="font-size:11px;font-weight:700;color:#CFA13C;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Heart Rate</div>
+        <div id="wd-hr-avg" style="font-size:12px;color:#9C9A93;margin-bottom:8px"></div>
+        <div class="chart-wrap" style="height:180px"><canvas id="wd-hr-chart"></canvas></div>
+      </div>
+    </div>
+  </div>
+</div>
 <!-- BODY FAT CALCULATOR MODAL -->
 <div id="bf-calc-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:600;align-items:flex-end;justify-content:center">
   <div style="background:#141A18;border-radius:20px 20px 0 0;padding:24px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto">
@@ -2484,7 +2505,13 @@ async function syncHealthKitWorkouts(showToast) {
           date: dateStr,
           name: hkActivityName(w.type),
           duration: w.durationMinutes,
+          duration_seconds: w.durationSeconds ?? null,
           calories: w.calories,
+          total_calories: w.totalCalories ?? null,
+          distance_miles: w.distanceMiles ?? null,
+          elevation_feet: w.elevationFeet ?? null,
+          avg_heart_rate: w.avgHeartRate ?? null,
+          heart_rate_series: w.heartRateSeries ?? null,
           time: new Date(w.startDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           healthkit_id: w.id
         }, 'healthkit_id');
@@ -2960,6 +2987,87 @@ function closeExerciseDetail() {
   const videoEl = document.getElementById('exercise-detail-video');
   if (videoEl) { videoEl.pause(); videoEl.removeAttribute('src'); videoEl.load(); }
   document.getElementById('exercise-detail-modal').style.display = 'none';
+}
+// ===== WORKOUT DETAIL (HealthKit-synced) =====
+let _workoutDetailChartObj = null;
+function fmtWorkoutDuration(w) {
+  const secs = (w.duration_seconds != null && w.duration_seconds > 0) ? Math.round(w.duration_seconds) : Math.round((+w.duration || 0) * 60);
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const s = secs % 60;
+  return h > 0 ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}` : `${m}:${String(s).padStart(2,'0')}`;
+}
+function fmtWorkoutPace(w) {
+  const dist = +w.distance_miles || 0;
+  if (dist <= 0) return null;
+  const durMin = (w.duration_seconds != null && w.duration_seconds > 0) ? (w.duration_seconds / 60) : (+w.duration || 0);
+  if (durMin <= 0) return null;
+  const paceDec = durMin / dist;
+  let m = Math.floor(paceDec);
+  let s = Math.round((paceDec - m) * 60);
+  if (s === 60) { m += 1; s = 0; }
+  return `${m}'${String(s).padStart(2,'0')}"`;
+}
+function _wdStatTile(label, value, unit, valueColor) {
+  return `<div style="background:#0B1210;border-radius:10px;padding:12px 14px">
+    <div style="font-size:11px;color:#9C9A93;font-weight:600">${label}</div>
+    <div style="font-size:22px;font-weight:700;color:${valueColor || '#F2EFE7'};letter-spacing:-0.5px;margin-top:2px">${value}<span style="font-size:12px;font-weight:600;color:#9C9A93;margin-left:2px">${unit || ''}</span></div>
+  </div>`;
+}
+function openWorkoutDetailObj(w) {
+  if (!w) return;
+  document.getElementById('wd-title').textContent = w.name || 'Workout';
+  const dateObj = w.date ? new Date(w.date + 'T12:00:00') : null;
+  const dateStr = dateObj ? dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }) : '';
+  document.getElementById('wd-date').textContent = [dateStr, w.time].filter(Boolean).join(' · ');
+  const tiles = [];
+  tiles.push(_wdStatTile('Workout Time', fmtWorkoutDuration(w), ''));
+  if (+w.distance_miles > 0) tiles.push(_wdStatTile('Distance', (Math.round(w.distance_miles * 100) / 100), 'MI'));
+  tiles.push(_wdStatTile('Active Calories', Math.round(+w.calories || 0), 'CAL'));
+  if (w.total_calories != null && w.total_calories !== '') tiles.push(_wdStatTile('Total Calories', Math.round(+w.total_calories), 'CAL'));
+  if (w.elevation_feet != null && w.elevation_feet !== '') tiles.push(_wdStatTile('Elevation Gain', Math.round(+w.elevation_feet), 'FT'));
+  const pace = fmtWorkoutPace(w);
+  if (pace) tiles.push(_wdStatTile('Avg Pace', pace, '/MI'));
+  if (w.avg_heart_rate != null && w.avg_heart_rate !== '') tiles.push(_wdStatTile('Avg Heart Rate', Math.round(+w.avg_heart_rate), 'BPM', '#EF4444'));
+  document.getElementById('wd-stats').innerHTML = tiles.join('');
+  const hrSection = document.getElementById('wd-hr-section');
+  if (_workoutDetailChartObj) { _workoutDetailChartObj.destroy(); _workoutDetailChartObj = null; }
+  let series = w.heart_rate_series;
+  if (typeof series === 'string') { try { series = JSON.parse(series); } catch(e) { series = null; } }
+  if (Array.isArray(series) && series.length > 1) {
+    hrSection.style.display = 'block';
+    const bpms = series.map(p => +(p.bpm ?? p.b ?? 0));
+    const looksEpoch = series[0] && +(series[0].t) > 1e11;
+    const labels = series.map(p => {
+      const t = +p.t;
+      if (looksEpoch) { const d = new Date(t); return `${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`; }
+      const m = Math.floor(t / 60), s = Math.round(t % 60);
+      return `${m}:${String(s).padStart(2,'0')}`;
+    });
+    const avg = (w.avg_heart_rate != null && w.avg_heart_rate !== '') ? Math.round(+w.avg_heart_rate) : Math.round(bpms.reduce((a,b)=>a+b,0)/bpms.length);
+    const mn = Math.min(...bpms), mx = Math.max(...bpms);
+    document.getElementById('wd-hr-avg').textContent = `${avg} BPM avg · ${mn}–${mx} range`;
+    const canvas = document.getElementById('wd-hr-chart');
+    _workoutDetailChartObj = new Chart(canvas, {
+      type: 'line',
+      data: { labels, datasets: [{ label: 'BPM', data: bpms, borderColor: '#EF4444', backgroundColor: 'rgba(239,68,68,0.08)', borderWidth: 2, pointRadius: 0, tension: 0.35, fill: true }] },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => `${ctx.raw} bpm` } } },
+        scales: {
+          y: { grid: { color: '#141A18' }, ticks: { font: { size: 11 } } },
+          x: { grid: { display: false }, ticks: { font: { size: 11 }, maxTicksLimit: 6 } }
+        }
+      }
+    });
+  } else {
+    hrSection.style.display = 'none';
+  }
+  document.getElementById('workout-detail-modal').style.display = 'flex';
+}
+function closeWorkoutDetail() {
+  if (_workoutDetailChartObj) { _workoutDetailChartObj.destroy(); _workoutDetailChartObj = null; }
+  document.getElementById('workout-detail-modal').style.display = 'none';
 }
 
 
@@ -4921,11 +5029,14 @@ function renderWorkouts() {
   const burnedEl = document.getElementById('workout-burned');
   if (burnedEl) burnedEl.textContent = burnedTotal + ' cal';
   if (!currentWorkouts.length) { el.innerHTML = '<div class="empty">No workouts logged yet</div>'; return; }
-  el.innerHTML = currentWorkouts.map((w, i) => `
-    <div class="workout-row">
+  el.innerHTML = currentWorkouts.map((w, i) => {
+    const hasDetail = !!w.healthkit_id;
+    return `
+    <div class="workout-row" ${hasDetail ? `data-wdetail="${i}" style="cursor:pointer"` : ''}>
       <div style="flex:1;min-width:0">
         <div style="font-size:14px;font-weight:500;display:flex;align-items:center;gap:4px">
           ${w.name}
+          ${hasDetail ? '<i class="fa-solid fa-chevron-right" style="font-size:0.7em;color:#CFA13C"></i>' : ''}
           <button data-wedit="${i}" style="background:none;border:none;cursor:pointer;font-size:11px;color:#9C9A93;padding:0 2px;flex-shrink:0"><i class="fa-solid fa-pen" style="font-size:0.85em"></i></button>
         </div>
         <div style="font-size:11px;color:var(--gray-400);margin-top:2px">${w.time || ''} | ${w.duration} min</div>
@@ -4934,16 +5045,23 @@ function renderWorkouts() {
         <div class="workout-cals">−${w.calories} cal</div>
         <button data-wdelete="${i}" style="background:none;border:none;color:#CCC;cursor:pointer;font-size:20px;line-height:1">×</button>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
+  // Tapping a HealthKit-synced workout opens its full detail view; manual entries do nothing extra.
+  el.querySelectorAll('[data-wdetail]').forEach(row => {
+    row.addEventListener('click', () => openWorkoutDetailObj(currentWorkouts[+row.dataset.wdetail]));
+  });
   // Attach listeners
   el.querySelectorAll('[data-wedit]').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
       const w = currentWorkouts[+btn.dataset.wedit];
       openEditWorkoutModal(w.id, w.name, w.duration, w.calories);
     });
   });
   el.querySelectorAll('[data-wdelete]').forEach(btn => {
-    btn.addEventListener('click', async () => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
       const w = currentWorkouts[+btn.dataset.wdelete];
       if (!confirm(`Delete "${w.name}"?`)) return;
       await dbDelete('workouts', w.id);
@@ -5323,7 +5441,14 @@ async function showHistoryDetail(date) {
 
   const wkEl = document.getElementById('detail-workouts');
   wkEl.style.display = 'block';
-  wkEl.innerHTML = `<div class="card-title" style="color:#CFA13C">Workouts</div>` + (workouts.length ? workouts.map(w => `<div class="workout-row"><div><div style="font-size:14px;font-weight:500">${w.name}</div><div style="font-size:11px;color:var(--gray-400);margin-top:2px">${w.duration} min</div></div><div class="workout-cals">−${w.calories} cal</div></div>`).join('') : '<div class="empty">No workouts logged</div>');
+  window._historyWorkouts = workouts;
+  wkEl.innerHTML = `<div class="card-title" style="color:#CFA13C">Workouts</div>` + (workouts.length ? workouts.map((w, wi) => {
+    const hasDetail = !!w.healthkit_id;
+    return `<div class="workout-row" ${hasDetail ? `data-hwdetail="${wi}" style="cursor:pointer"` : ''}><div><div style="font-size:14px;font-weight:500;display:flex;align-items:center;gap:4px">${w.name}${hasDetail ? ' <i class="fa-solid fa-chevron-right" style="font-size:0.7em;color:#CFA13C"></i>' : ''}</div><div style="font-size:11px;color:var(--gray-400);margin-top:2px">${w.duration} min</div></div><div class="workout-cals">−${w.calories} cal</div></div>`;
+  }).join('') : '<div class="empty">No workouts logged</div>');
+  wkEl.querySelectorAll('[data-hwdetail]').forEach(row => {
+    row.addEventListener('click', () => openWorkoutDetailObj(window._historyWorkouts[+row.dataset.hwdetail]));
+  });
 }
 
 function showHistoryList() {
