@@ -1206,8 +1206,10 @@
           <div class="mp-row-value" id="settings-change-pw-status" style="font-size:13px">Send reset link</div>
         </div>
         <div class="mp-row" style="cursor:default">
-          <div class="mp-row-label">Push Notifications</div>
-          <div class="mp-row-value" style="color:#9C9A93">Coming Soon</div>
+          <div class="mp-row-label">Reminder Notifications</div>
+          <div onclick="toggleNotificationsEnabled()" id="notif-toggle-track" style="cursor:pointer;width:40px;height:22px;border-radius:11px;background:var(--accent);position:relative;transition:background 0.2s;flex-shrink:0">
+            <div id="notif-toggle-knob" style="position:absolute;top:3px;right:3px;width:16px;height:16px;border-radius:50%;background:#141A18;transition:all 0.2s"></div>
+          </div>
         </div>
         <div class="mp-row" style="cursor:default">
           <div class="mp-row-label">Email Settings</div>
@@ -2608,6 +2610,97 @@ async function toggleHealthKitConnection() {
   if (enabled) await syncHealthKitAll(true);
 }
 
+// ===== RE-ENGAGEMENT NUDGES (local notifications — no server needed) =====
+// Every app open/foreground silently reschedules an escalating ladder of
+// on-device notifications (3 / 7 / 14 / 30 days out, each a random message
+// from its pool). Using the app cancels and resets the whole sequence, so
+// nudges only ever fire after real inactivity. Native side just needs the
+// @capacitor/local-notifications plugin; on the web this is a no-op.
+const NUDGE_LADDER = [
+  { days: 3, pool: [
+    { title: "We've missed you 👋", body: "It's been a few days. One quick meal log gets you right back on track." },
+    { title: "Your goals checked in", body: "They're wondering where you went. Thirty seconds and a logged breakfast is all it takes." },
+    { title: "No perfect streaks needed", body: "Life happens. What matters is coming back — and today's a great day for it." },
+    { title: "Still here for you 💪", body: "Your plan, your foods, your progress — all saved and ready when you are." },
+    { title: "Quick check-in?", body: "Three days is nothing. Log one meal and the momentum's back." }
+  ]},
+  { days: 7, pool: [
+    { title: "A week already?", body: "No guilt — just a fresh start. Log the next meal, not the missed ones." },
+    { title: "Fresh week, fresh start", body: "Your plan resets every Sunday. Jump back in and build this week's." },
+    { title: "Your coach misses you", body: "One tap and we pick up right where you left off." }
+  ]},
+  { days: 14, pool: [
+    { title: "We kept your seat warm", body: "Nothing lost, nothing reset. Come see where you left off." },
+    { title: "Remember why you started", body: "That goal is still in your profile. It's not logging itself 😉" }
+  ]},
+  { days: 30, pool: [
+    { title: "Restart beats never-start", body: "Thirty days off doesn't erase progress. One meal today and you're back." },
+    { title: "A month flies by", body: "Your goals haven't expired, and your plan is one tap away." }
+  ]}
+];
+const NUDGE_ID_BASE = 9101;
+let _lastNudgeScheduleAt = 0;
+async function _cancelPendingNudges(LN) {
+  const pending = await LN.getPending();
+  const ours = (pending?.notifications || []).filter(n => +n.id >= NUDGE_ID_BASE && +n.id < NUDGE_ID_BASE + 50);
+  if (ours.length) await LN.cancel({ notifications: ours.map(n => ({ id: +n.id })) });
+}
+async function scheduleReengagementNudges() {
+  const LN = window.Capacitor?.Plugins?.LocalNotifications;
+  if (!LN || !_currentUser) return;
+  if (Date.now() - _lastNudgeScheduleAt < 30 * 60 * 1000) return; // avoid churn on rapid app switches
+  try {
+    const enabled = await loadSetting('notifications_enabled');
+    if (enabled === false) return; // default ON when the setting has never been touched
+    let perm = await LN.checkPermissions();
+    if (perm.display === 'prompt' || perm.display === 'prompt-with-rationale') perm = await LN.requestPermissions();
+    if (perm.display !== 'granted') return;
+    await _cancelPendingNudges(LN);
+    const now = Date.now();
+    const notifications = NUDGE_LADDER.map((step, idx) => {
+      const msg = step.pool[Math.floor(Math.random() * step.pool.length)];
+      return {
+        id: NUDGE_ID_BASE + idx,
+        title: msg.title,
+        body: msg.body,
+        schedule: { at: new Date(now + step.days * 24 * 60 * 60 * 1000) }
+      };
+    });
+    await LN.schedule({ notifications });
+    _lastNudgeScheduleAt = Date.now();
+  } catch (e) { console.error('nudge scheduling failed', e?.message || String(e)); }
+}
+async function cancelReengagementNudges() {
+  const LN = window.Capacitor?.Plugins?.LocalNotifications;
+  if (!LN) return;
+  try { await _cancelPendingNudges(LN); } catch (e) {}
+}
+function _setNotifToggleUI(on) {
+  const track = document.getElementById('notif-toggle-track');
+  const knob = document.getElementById('notif-toggle-knob');
+  if (!track || !knob) return;
+  track.style.background = on ? 'var(--accent)' : '#2A322E';
+  knob.style.right = on ? '3px' : 'auto';
+  knob.style.left = on ? 'auto' : '3px';
+}
+async function loadNotificationsToggle() {
+  const enabled = (await loadSetting('notifications_enabled')) !== false;
+  _setNotifToggleUI(enabled);
+}
+async function toggleNotificationsEnabled() {
+  const cur = (await loadSetting('notifications_enabled')) !== false;
+  const next = !cur;
+  await saveSetting('notifications_enabled', next);
+  _setNotifToggleUI(next);
+  if (next) {
+    _lastNudgeScheduleAt = 0; // force an immediate reschedule
+    scheduleReengagementNudges();
+    toast('Reminders on ✓');
+  } else {
+    cancelReengagementNudges();
+    toast('Reminders off');
+  }
+}
 async function initHealthKitSync() {
   if (!window.Capacitor?.Plugins?.HealthKit) return;
   const enabled = await loadSetting('healthkit_enabled');
@@ -2640,6 +2733,7 @@ function switchTab(tab) {
   if (tab === 'profile-allergies') loadFoodAllergiesPage();
   if (tab === 'profile-targets') loadDailyTargetsPage();
   if (tab === 'profile-report') loadWeeklyReportPage();
+  if (tab === 'profile-settings') loadNotificationsToggle();
   if (tab === 'aicoach') {
     const badge = document.getElementById('ai-coach-new-badge');
     if (badge && badge.style.display !== 'none') {
@@ -3952,7 +4046,7 @@ async function getSession() {
 function startSessionRefreshWatcher() {
   setInterval(() => { getSession(); }, 4 * 60 * 1000); // every 4 minutes
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') getSession();
+    if (document.visibilityState === 'visible') { getSession(); scheduleReengagementNudges(); }
   });
 }
 
@@ -4950,6 +5044,7 @@ async function appInit() {
   // Show daily accountability check-in (once per day, after data is loaded)
   await maybeShowCheckin();
   updateBellDot();
+  scheduleReengagementNudges();
 }
 
 // MOTIVATIONAL QUOTES
