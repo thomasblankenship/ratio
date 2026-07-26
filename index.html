@@ -1145,7 +1145,7 @@
         </div>
         <div class="mp-row" style="cursor:default">
           <div class="mp-row-label">Date of Birth</div>
-          <div class="mp-row-value" style="color:#9C9A93">Coming Soon</div>
+          <input type="date" id="mp-display-dob" onchange="mpDobChanged(this.value)" style="background:none;border:none;color:#CFA13C;font-weight:600;font-size:14px;outline:none;font-family:inherit;text-align:right;padding:0" />
         </div>
         <div class="mp-row" style="cursor:default">
           <div class="mp-row-label">Location</div>
@@ -1261,7 +1261,12 @@
             <div style="font-size:12px;color:#9C9A93;margin-top:2px">Auto-import workouts logged via your Apple Watch or other Health apps</div>
             <div id="healthkit-status" style="font-size:11px;color:#CFA13C;margin-top:6px"></div>
           </div>
-          <input type="checkbox" id="healthkit-toggle" onchange="toggleHealthKitConnection()" style="width:22px;height:22px;accent-color:#CFA13C;cursor:pointer;flex-shrink:0" />
+          <span style="position:relative;width:22px;height:22px;flex-shrink:0;display:inline-block">
+            <input type="checkbox" id="healthkit-toggle" onchange="toggleHealthKitConnection()" style="position:absolute;inset:0;width:22px;height:22px;margin:0;opacity:0;cursor:pointer;z-index:1" />
+            <span id="healthkit-toggle-box" style="position:absolute;inset:0;border:1.5px solid #CFA13C;border-radius:6px;background:transparent;display:flex;align-items:center;justify-content:center;pointer-events:none">
+              <i class="fa-solid fa-check" style="font-size:12px;color:#0B1210"></i>
+            </span>
+          </span>
         </div>
         <button onclick="syncHealthKitAll(true)" class="btn" style="margin-top:12px;width:100%">Sync Now</button>
       </div>
@@ -2597,6 +2602,8 @@ async function syncHealthKitAll(showToast) {
 
 async function toggleHealthKitConnection() {
   const enabled = document.getElementById('healthkit-toggle').checked;
+  const hkBox = document.getElementById('healthkit-toggle-box');
+  if (hkBox) hkBox.style.background = enabled ? '#CFA13C' : 'transparent';
   await saveSetting('healthkit_enabled', enabled);
   if (enabled) await syncHealthKitAll(true);
 }
@@ -2606,6 +2613,8 @@ async function initHealthKitSync() {
   const enabled = await loadSetting('healthkit_enabled');
   const toggle = document.getElementById('healthkit-toggle');
   if (toggle) toggle.checked = !!enabled;
+  const hkBox = document.getElementById('healthkit-toggle-box');
+  if (hkBox) hkBox.style.background = enabled ? '#CFA13C' : 'transparent';
   if (enabled) syncHealthKitAll(false);
 }
 
@@ -3586,7 +3595,7 @@ async function obNext(step) {
   if (step === 3) {
     if (!_obGender) { if (errEl) { errEl.textContent = 'Please select your sex.'; errEl.style.display = 'block'; } return; }
     const age = parseInt(document.getElementById('ob-age').value);
-    if (!age || age < 13 || age > 100) { if (errEl) { errEl.textContent = 'Please enter a valid age.'; errEl.style.display = 'block'; } return; }
+    if (!age || age < 13 || age > 100) { if (errEl) { errEl.textContent = 'Please enter your date of birth.'; errEl.style.display = 'block'; } return; }
     const ft = parseInt(document.getElementById('ob-height-ft').value);
     const inn = parseInt(document.getElementById('ob-height-in').value);
     if (!ft || ft < 3 || ft > 8) { if (errEl) { errEl.textContent = 'Please enter a valid height.'; errEl.style.display = 'block'; } return; }
@@ -3686,6 +3695,10 @@ async function obNext(step) {
     window._obAllergies = Array.from(document.querySelectorAll('.ob-allergy-chip.ob-allergy-selected')).map(el => el.dataset.allergy);
     window._obAllergiesOther = document.getElementById('ob-allergy-other')?.value.trim() || '';
     window._obFavoriteFoods = document.getElementById('ob-favorite-foods')?.value.trim() || '';
+    obShowStep(10);
+    return;
+  }
+  if (step === 10) {
     await handleSignUp();
     return;
   }
@@ -3707,6 +3720,7 @@ function obBack(step) {
   if (step === 7) { obShowStep(6); return; }
   if (step === 8) { obShowStep(7); return; }
   if (step === 9) { obShowStep(8); return; }
+  if (step === 10) { obShowStep(9); return; }
 }
 
 
@@ -3879,7 +3893,7 @@ function obUpdatePhotoBtn() {
   const count = Object.keys(_obPhotos).length;
   const btn = document.getElementById('ob-photo-next-btn');
   if (!btn) return;
-  btn.textContent = count > 0 ? `Create Account (${count} photo${count > 1 ? 's' : ''} added)` : 'Create Account';
+  btn.textContent = count > 0 ? `Next (${count} photo${count > 1 ? 's' : ''} added)` : 'Next';
 }
 
 function obPhotoSelected(evt) {
@@ -4243,6 +4257,7 @@ async function handleLogin() {
         // Verify at least profile saved
         const check = await loadSetting('profile');
         if (!check) throw new Error('Settings did not persist — will retry on next login');
+        if (p.healthOptIn) { try { await saveSetting('healthkit_enabled', true); } catch(e) {} }
         if (p.goals?.weightStart) {
           try { await dbPost('scans', { date: today, weight: p.goals.weightStart }); } catch(e) { console.warn('scan post failed', e); }
         }
@@ -4349,10 +4364,10 @@ async function handleSignUp() {
   const email = window._obSignupEmail || document.getElementById('ob-signup-email')?.value.trim();
   const password = window._obSignupPassword || document.getElementById('ob-signup-password')?.value;
   const confirm = document.getElementById('ob-signup-confirm')?.value;
-  // This function is called from step 8's "Create Account" button — use that
-  // button and its error slot, not step 7's (which is hidden by this point).
-  const btn = document.getElementById('ob-photo-next-btn');
-  const errEl = document.getElementById('ob-step8-error');
+  // This function is called from step 10's Apple Health screen — use that
+  // screen's button and error slot, not step 7's (which is hidden by this point).
+  const btn = document.getElementById('ob-health-create-btn');
+  const errEl = document.getElementById('ob-step10-error');
   const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
   if (errEl) errEl.style.display = 'none';
@@ -4394,7 +4409,7 @@ async function handleSignUp() {
         pendingData = {
           name,
           username,
-          profile: { heightIn: ft * 12 + inn, age, gender: _obGender || 'male', activity: _obActivity || 'active', name, primaryGoal: _obGoalType, weeklyPace: _obPace },
+          profile: { heightIn: ft * 12 + inn, age, gender: _obGender || 'male', activity: _obActivity || 'active', name, primaryGoal: _obGoalType, weeklyPace: _obPace, dob: (document.getElementById('ob-dob')?.value || null), location: (document.getElementById('ob-location')?.value.trim() || ''), timezone: (document.getElementById('ob-timezone')?.value || 'auto') },
           targets: { calories: pendingPlan.calories, protein: pendingPlan.protein, carbs: Math.round((pendingPlan.calories * 0.35) / 4), fat: Math.round((pendingPlan.calories * 0.25) / 9) },
           goals: { weightStart: weight, weightGoal: goalWeight, bfCurrent, bfGoal, bfTrackingOn: true, muscleCurrent, muscleGoal, muscleTrackingOn: true, muscleMethod: null, primaryGoal: _obGoalType },
           preferences: { allergies: window._obAllergies || [], allergiesOther: window._obAllergiesOther || '', favoriteFoods: window._obFavoriteFoods || '' },
@@ -4402,7 +4417,8 @@ async function handleSignUp() {
           obGoalType: _obGoalType,
           obName: name,
           obActivity: _obActivity,
-          obPace: _obPace
+          obPace: _obPace,
+          healthOptIn: !!window._obHealthOptIn
         };
         newUserId = data.user?.id || data.id;
         console.log('[handleSignUp] newUserId:', newUserId);
@@ -4519,7 +4535,8 @@ function obSaveProgress(preserveTimestamp) {
     const fieldIds = [
       'ob-height-ft','ob-height-in','ob-age','ob-weight','ob-goal-weight',
       'ob-bf-current','ob-bf-goal','ob-muscle-current','ob-muscle-goal',
-      'ob-signup-name','ob-signup-username','ob-signup-email'
+      'ob-signup-name','ob-signup-username','ob-signup-email',
+      'ob-dob','ob-location','ob-timezone'
     ];
     const fields = {};
     fieldIds.forEach(id => { const el = document.getElementById(id); if (el) fields[id] = el.value; });
@@ -4583,11 +4600,11 @@ function obRestoreProgress() {
     // Onboarding step screens live inside #app-shell — must be visible or they're invisible too
     const shellEl = document.getElementById('app-shell');
     if (shellEl) shellEl.style.display = 'block';
-    const stepToRestore = snap.step === 8 ? 7 : (snap.step || 1);
+    const stepToRestore = snap.step >= 8 ? 7 : (snap.step || 1);
     console.log('[ob_progress] calling obShowStep with', stepToRestore, snap.step === 8 ? '(backed up from 8 — password needs re-entry)' : '');
     obShowStep(stepToRestore);
     // If we backed up from step 8, show a hint that password needs re-entering
-    if (snap.step === 8) {
+    if (snap.step >= 8) {
       setTimeout(() => {
         const errEl = document.getElementById('ob-signup-error');
         if (errEl) {
@@ -4603,6 +4620,8 @@ function obRestoreProgress() {
       const el = document.getElementById(id);
       if (el && val) el.value = val;
     });
+    const dobRestored = document.getElementById('ob-dob')?.value;
+    if (dobRestored) obDobChanged(dobRestored);
     // Restore numpad display labels for weight/bf/muscle fields
     ['weight','goal-weight','bf-current','bf-goal','muscle-current','muscle-goal'].forEach(f => {
       const input = document.getElementById('ob-' + f);
@@ -4695,7 +4714,10 @@ async function obSaveAndWelcome() {
   const muscleGoal = parseFloat(document.getElementById('ob-muscle-goal')?.value) || null;
   const name = window._obName || '';
 
-  userProfile = { heightIn: ft * 12 + inn, age, gender: _obGender || 'male', activity: _obActivity || 'active', name, primaryGoal: _obGoalType, weeklyPace: _obPace };
+  const obDobVal = document.getElementById('ob-dob')?.value || null;
+  const obLocVal = document.getElementById('ob-location')?.value.trim() || '';
+  const obTzVal = document.getElementById('ob-timezone')?.value || 'auto';
+  userProfile = { heightIn: ft * 12 + inn, age, gender: _obGender || 'male', activity: _obActivity || 'active', name, primaryGoal: _obGoalType, weeklyPace: _obPace, dob: obDobVal, location: obLocVal, timezone: obTzVal };
   userTargets = { calories: plan.calories, protein: plan.protein, carbs: Math.round((plan.calories * 0.35) / 4), fat: Math.round((plan.calories * 0.25) / 9) };
   userGoals = { weightStart: weight, weightGoal: goalWeight, bfCurrent, bfGoal, bfTrackingOn: true, muscleCurrent, muscleGoal, muscleTrackingOn: true, muscleMethod: null, primaryGoal: _obGoalType };
 
@@ -4724,6 +4746,7 @@ async function obSaveAndWelcome() {
       } catch(e) { console.warn('pending Supabase save failed:', e); }
     }
   }
+  if (window._obHealthOptIn) { try { await saveSetting('healthkit_enabled', true); } catch(e) { console.warn('healthkit enable failed', e); } }
   localStorage.setItem('ff_onboarded', '1');
   obClearProgress();
   if (weight) { try { await dbPost('scans', { date: today, weight }); } catch(e) {} }
@@ -4868,6 +4891,7 @@ async function appInit() {
           results.forEach((r, i) => { if (r.status === 'rejected') console.error('[appInit pending] saveSetting failed index', i, r.reason); });
           const check = await loadSetting('profile');
           if (!check) throw new Error('Settings did not persist');
+          if (p.healthOptIn) { try { await saveSetting('healthkit_enabled', true); } catch(e) {} }
           if (p.goals?.weightStart) {
             try { await dbPost('scans', { date: today, weight: p.goals.weightStart }); } catch(e) { console.warn('scan post failed', e); }
           }
@@ -10531,6 +10555,38 @@ function confirmHeightPicker() {
   closeHeightPicker();
 }
 
+function ageFromDob(dobStr) {
+  if (!dobStr) return null;
+  const dob = new Date(dobStr + 'T12:00:00');
+  if (isNaN(dob)) return null;
+  const now = new Date();
+  let age = now.getFullYear() - dob.getFullYear();
+  const m = now.getMonth() - dob.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < dob.getDate())) age--;
+  return age;
+}
+function mpDobChanged(val) {
+  _mpPending.dob = val || '';
+  const age = ageFromDob(val);
+  if (age != null && age > 0 && age < 120) {
+    _mpPending.age = age;
+    const ageInput = document.getElementById('mp-display-age');
+    if (ageInput) ageInput.value = age;
+  }
+}
+function obDobChanged(val) {
+  const age = ageFromDob(val);
+  const ageEl = document.getElementById('ob-age');
+  const note = document.getElementById('ob-age-note');
+  if (age != null && age > 0 && age < 120) {
+    if (ageEl) ageEl.value = age;
+    if (note) note.textContent = 'Age: ' + age;
+  } else {
+    if (ageEl) ageEl.value = '';
+    if (note) note.textContent = '';
+  }
+  obSaveProgress();
+}
 function moveCaretToEnd(el) {
   requestAnimationFrame(() => {
     const len = el.value.length;
@@ -10567,7 +10623,8 @@ async function loadMyProfilePage() {
     age: userProfile.age || 43,
     activity: userProfile.activity || 'moderate',
     location: userProfile.location || '',
-    timezone: userProfile.timezone || 'auto'
+    timezone: userProfile.timezone || 'auto',
+    dob: userProfile.dob || ''
   };
 
   try {
@@ -10598,6 +10655,8 @@ function refreshMyProfileDisplay() {
   if (locEl) locEl.value = _mpPending.location || '';
   const tzEl = document.getElementById('mp-display-timezone');
   if (tzEl) tzEl.textContent = tzDisplayLabel(_mpPending.timezone);
+  const dobEl = document.getElementById('mp-display-dob');
+  if (dobEl) dobEl.value = _mpPending.dob || '';
 }
 
 function mpHeightChanged() {
@@ -10709,7 +10768,7 @@ async function confirmFieldEdit() {
 
 async function saveMyProfilePage() {
   if (!_mpPending.heightIn || !_mpPending.age) { toast('Fill in height and age'); return; }
-  userProfile = { ...userProfile, heightIn: _mpPending.heightIn, age: _mpPending.age, gender: _mpPending.gender, activity: _mpPending.activity, location: (_mpPending.location || '').trim(), timezone: _mpPending.timezone || 'auto' };
+  userProfile = { ...userProfile, heightIn: _mpPending.heightIn, age: _mpPending.age, gender: _mpPending.gender, activity: _mpPending.activity, location: (_mpPending.location || '').trim(), timezone: _mpPending.timezone || 'auto', dob: _mpPending.dob || null };
   await saveSetting('profile', userProfile);
 
   const username = _mpPending.username;
@@ -11738,11 +11797,13 @@ if (document.readyState === 'loading') {
         </div>
       </div>
 
-      <!-- Age -->
+      <!-- Date of birth (age is derived from this for the calorie math) -->
       <div style="margin-bottom:20px">
-        <div style="font-size:13px;font-weight:700;color:#9C9A93;margin-bottom:8px">How old are you?</div>
-        <input id="ob-age" type="number" min="13" max="100" placeholder="Enter your age" inputmode="numeric"
-          style="width:100%;padding:14px 16px;border:2px solid #2A322E;border-radius:12px;font-size:16px;outline:none;box-sizing:border-box" />
+        <div style="font-size:13px;font-weight:700;color:#9C9A93;margin-bottom:8px">When were you born?</div>
+        <input id="ob-dob" type="date" onchange="obDobChanged(this.value)"
+          style="width:100%;padding:14px 16px;border:2px solid #2A322E;border-radius:12px;font-size:16px;outline:none;box-sizing:border-box;color:#F2EFE7;background:#141A18" />
+        <input id="ob-age" type="hidden" />
+        <div id="ob-age-note" style="font-size:12px;color:#9C9A93;margin-top:6px"></div>
       </div>
 
       <!-- Height -->
@@ -11760,6 +11821,27 @@ if (document.readyState === 'loading') {
             <span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:13px;color:#9C9A93;font-weight:600">in</span>
           </div>
         </div>
+      </div>
+      <!-- Location (optional) -->
+      <div style="margin-bottom:20px">
+        <div style="font-size:13px;font-weight:700;color:#9C9A93;margin-bottom:8px">Where are you located? <span style="font-weight:400;color:#9C9A93">(optional)</span></div>
+        <input id="ob-location" type="text" placeholder="City, State" autocomplete="off"
+          style="width:100%;padding:14px 16px;border:2px solid #2A322E;border-radius:12px;font-size:16px;outline:none;box-sizing:border-box" />
+      </div>
+      <!-- Time zone -->
+      <div style="margin-bottom:20px">
+        <div style="font-size:13px;font-weight:700;color:#9C9A93;margin-bottom:8px">Time zone</div>
+        <select id="ob-timezone" style="width:100%;padding:14px 16px;border:2px solid #2A322E;border-radius:12px;font-size:16px;outline:none;box-sizing:border-box;background:#141A18;color:#F2EFE7">
+          <option value="auto">Auto — use my device's time zone</option>
+          <option value="America/New_York">Eastern (ET)</option>
+          <option value="America/Chicago">Central (CT)</option>
+          <option value="America/Denver">Mountain (MT)</option>
+          <option value="America/Phoenix">Arizona (no DST)</option>
+          <option value="America/Los_Angeles">Pacific (PT)</option>
+          <option value="America/Anchorage">Alaska (AKT)</option>
+          <option value="Pacific/Honolulu">Hawaii (HST)</option>
+        </select>
+        <div style="font-size:12px;color:#9C9A93;margin-top:6px">Used for your weekly reports and plan resets.</div>
       </div>
 
       <div id="ob-step3-error" style="font-size:13px;color:#F87171;margin-bottom:8px;display:none"></div>
@@ -12109,12 +12191,55 @@ if (document.readyState === 'loading') {
     <div style="padding:20px 24px 40px;display:flex;flex-direction:column;gap:10px">
       <div style="display:flex;gap:10px">
         <button onclick="obBack(9)" style="padding:16px 20px;border:1px solid #2A322E;border-radius:14px;background:#141A18;color:#F2EFE7;font-size:20px;cursor:pointer">←</button>
-        <button onclick="obNext(9)" style="flex:1;padding:16px;background:#CFA13C;color:#0B1210;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer">Create Account</button>
+        <button onclick="obNext(9)" style="flex:1;padding:16px;background:#CFA13C;color:#0B1210;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer">Next</button>
       </div>
       <button onclick="obNext(9, true)" style="width:100%;padding:12px;background:none;border:none;font-size:14px;color:#9C9A93;cursor:pointer">Skip for now</button>
     </div>
   </div>
 
+  <!-- Step 10: Apple Health -->
+  <div class="ob-screen" id="ob-step-10" style="position:fixed;top:0;left:0;right:0;bottom:0;background:#141A18;display:none;flex-direction:column;z-index:9999">
+    <div style="padding:24px 24px 0;flex:1;overflow-y:auto;min-height:0">
+      <div style="display:flex;gap:4px;margin-bottom:32px">
+        <div style="flex:1;height:4px;background:#CFA13C;border-radius:2px"></div>
+        <div style="flex:1;height:4px;background:#CFA13C;border-radius:2px"></div>
+        <div style="flex:1;height:4px;background:#CFA13C;border-radius:2px"></div>
+        <div style="flex:1;height:4px;background:#CFA13C;border-radius:2px"></div>
+        <div style="flex:1;height:4px;background:#CFA13C;border-radius:2px"></div>
+        <div style="flex:1;height:4px;background:#CFA13C;border-radius:2px"></div>
+        <div style="flex:1;height:4px;background:#CFA13C;border-radius:2px"></div>
+        <div style="flex:1;height:4px;background:#CFA13C;border-radius:2px"></div>
+        <div style="flex:1;height:4px;background:#CFA13C;border-radius:2px"></div>
+        <div style="flex:1;height:4px;background:#CFA13C;border-radius:2px"></div>
+      </div>
+      <div style="font-size:13px;font-weight:700;color:#9C9A93;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">One last thing</div>
+      <div style="font-size:26px;font-weight:800;color:#F2EFE7;letter-spacing:-0.5px;margin-bottom:8px">Connect Apple Health</div>
+      <div style="font-size:14px;color:#9C9A93;margin-bottom:24px;line-height:1.5">Let Ratio import your activity automatically — no manual logging.</div>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px">
+        <div style="display:flex;align-items:center;gap:12px;background:#0B1210;border-radius:12px;padding:14px 16px">
+          <span style="font-size:22px">🏃</span>
+          <div><div style="font-size:14px;font-weight:700;color:#F2EFE7">Workouts sync automatically</div><div style="font-size:12px;color:#9C9A93">From your Apple Watch or any fitness app</div></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;background:#0B1210;border-radius:12px;padding:14px 16px">
+          <span style="font-size:22px">👟</span>
+          <div><div style="font-size:14px;font-weight:700;color:#F2EFE7">Daily steps, tracked for you</div><div style="font-size:12px;color:#9C9A93">Progress charts fill in on their own</div></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;background:#0B1210;border-radius:12px;padding:14px 16px">
+          <span style="font-size:22px">⚖️</span>
+          <div><div style="font-size:14px;font-weight:700;color:#F2EFE7">Weight & body fat auto-import</div><div style="font-size:12px;color:#9C9A93">From a smart scale via Apple Health</div></div>
+        </div>
+      </div>
+      <div style="font-size:12px;color:#9C9A93;line-height:1.5;margin-bottom:8px">You can change this anytime in Profile → App and Devices. If you're signing up on the web, this activates the first time you open the iOS app.</div>
+      <div id="ob-step10-error" style="font-size:13px;color:#F87171;margin-top:4px;display:none"></div>
+    </div>
+    <div style="padding:20px 24px 40px;display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;gap:10px">
+        <button onclick="obBack(10)" style="padding:16px 20px;border:1px solid #2A322E;border-radius:14px;background:#141A18;color:#F2EFE7;font-size:20px;cursor:pointer">←</button>
+        <button id="ob-health-create-btn" onclick="window._obHealthOptIn=true;obNext(10)" style="flex:1;padding:16px;background:#CFA13C;color:#0B1210;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer">Connect & Create Account</button>
+      </div>
+      <button onclick="window._obHealthOptIn=false;obNext(10)" style="width:100%;padding:12px;background:none;border:none;font-size:14px;color:#9C9A93;cursor:pointer">Skip — Create Account without connecting</button>
+    </div>
+  </div>
 <!-- MEAL BUILDER MODAL -->
 <div id="meal-builder-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:800;flex-direction:column;align-items:center;overflow:hidden">
   <div style="background:#141A18;width:100%;max-width:520px;height:100%;display:flex;flex-direction:column;overflow:hidden;box-sizing:border-box">
