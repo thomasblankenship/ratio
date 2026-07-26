@@ -2638,6 +2638,7 @@ function switchTab(tab) {
       saveSetting('ai_coach_badge_seen', true);
     }
     if (!weeklyPlanLoaded) loadWeeklyPlan();
+    else checkPlanWeekRollover();
   }
 }
 
@@ -7015,6 +7016,102 @@ async function loadWeeklyPlan() {
   });
   weeklyPlanLoaded = true;
   renderWeeklyPlanList();
+  checkPlanWeekRollover();
+}
+// ===== WEEKLY PLAN ROLLOVER =====
+// The plan covers one Sun–Sat week. The first time the plan is viewed in a NEW
+// week (per the profile time zone), we ask: keep the same muscle groups per day
+// (check-offs reset, fresh exercises generated), or start the week from scratch.
+// No server cron exists, so this fires lazily on first open of the new week.
+let _planWeekPromptShown = false;
+async function checkPlanWeekRollover() {
+  if (!_currentUser || _planWeekPromptShown) return;
+  try {
+    const curWk = _wrWeekStart(tzTodayStr());
+    const savedWk = await loadSetting('workout_plan_week');
+    if (!savedWk) { saveSetting('workout_plan_week', curWk); return; } // first run — just stamp the week
+    if (savedWk === curWk) return;
+    const hasAnyConfig = weeklyPlan.some(d => d.is_rest_day || (d.muscle_groups || []).length);
+    if (!hasAnyConfig) { saveSetting('workout_plan_week', curWk); return; } // nothing to roll over
+    _planWeekPromptShown = true;
+    window._pendingPlanWeek = curWk;
+    document.getElementById('plan-week-modal').style.display = 'flex';
+  } catch(e) { console.error('plan rollover check failed', e); }
+}
+function dismissPlanWeekModal() {
+  // "Decide later" — modal closes, week is NOT stamped, so it re-asks next session.
+  document.getElementById('plan-week-modal').style.display = 'none';
+}
+async function planWeekKeep() {
+  const btn = document.getElementById('plan-week-keep-btn');
+  const btn2 = document.getElementById('plan-week-fresh-btn');
+  const sub = document.getElementById('plan-week-status');
+  if (btn) { btn.disabled = true; btn.textContent = '✨ Building your week...'; }
+  if (btn2) btn2.disabled = true;
+  try {
+    // Pass 1: zero out last week's check-offs no matter what happens with generation
+    for (let i = 0; i < weeklyPlan.length; i++) {
+      const day = weeklyPlan[i];
+      if ((day.checked_off || []).length) {
+        day.checked_off = [];
+        try {
+          await dbUpsert('workout_plans', {
+            day_of_week: day.day_of_week, location: day.location, muscle_groups: day.muscle_groups,
+            is_rest_day: day.is_rest_day, exercises: day.exercises || [], checked_off: [],
+            updated_at: new Date().toISOString()
+          }, 'user_id,day_of_week');
+        } catch(e) { console.error('check-off clear failed for day', i, e); }
+      }
+    }
+    renderWeeklyPlanList();
+    // Pass 2: fresh exercises for every planned training day
+    for (let i = 0; i < weeklyPlan.length; i++) {
+      const day = weeklyPlan[i];
+      if (!day.is_rest_day && (day.muscle_groups || []).length) {
+        if (sub) sub.textContent = `Picking ${DAY_NAMES_FULL[i]}'s exercises...`;
+        await generateDayWorkout(i);
+      }
+    }
+    await saveSetting('workout_plan_week', window._pendingPlanWeek);
+    renderWeeklyPlanList();
+    toast('New week is ready 💪');
+  } catch(e) {
+    console.error('planWeekKeep error', e);
+    toast('Some days could not be generated — use Regenerate on those days');
+  } finally {
+    document.getElementById('plan-week-modal').style.display = 'none';
+    if (btn) { btn.disabled = false; btn.textContent = 'Keep My Plan — Fresh Exercises'; }
+    if (btn2) btn2.disabled = false;
+    if (sub) sub.textContent = '';
+  }
+}
+async function planWeekFresh() {
+  const btn = document.getElementById('plan-week-keep-btn');
+  const btn2 = document.getElementById('plan-week-fresh-btn');
+  if (btn2) { btn2.disabled = true; btn2.textContent = 'Clearing...'; }
+  if (btn) btn.disabled = true;
+  try {
+    for (let i = 0; i < 7; i++) {
+      await dbUpsert('workout_plans', {
+        day_of_week: i, location: weeklyPlan[i]?.location || 'gym', muscle_groups: [],
+        is_rest_day: false, exercises: [], checked_off: [], updated_at: new Date().toISOString()
+      }, 'user_id,day_of_week');
+      weeklyPlan[i] = { day_of_week: i, location: weeklyPlan[i]?.location || 'gym', muscle_groups: [], is_rest_day: false, exercises: [], checked_off: [] };
+      savedPlanDays.delete(i);
+    }
+    await saveSetting('workout_plan_week', window._pendingPlanWeek);
+    _planFeedback = null;
+    renderPlanFeedback();
+    renderWeeklyPlanList();
+    toast('Fresh week — set up your days');
+  } catch(e) {
+    console.error('planWeekFresh error', e);
+    toast('Could not clear the week — try again');
+  } finally {
+    document.getElementById('plan-week-modal').style.display = 'none';
+    if (btn2) { btn2.disabled = false; btn2.textContent = 'Start From Scratch'; }
+    if (btn) btn.disabled = false;
+  }
 }
 
 function togglePlanDayExpand(i) {
@@ -12202,6 +12299,23 @@ if (document.readyState === 'loading') {
   </div>
 </div>
 
+<!-- WEEKLY PLAN NEW-WEEK MODAL -->
+<div id="plan-week-modal" style="display:none;position:fixed;inset:0;z-index:940;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px)">
+  <div style="background:#141A18;border-radius:28px 28px 0 0;padding:32px 24px 48px;width:100%;max-width:520px">
+    <div style="text-align:center;margin-bottom:16px">
+      <div style="font-size:48px;line-height:1;margin-bottom:10px">📅</div>
+      <div style="display:inline-block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;padding:4px 14px;border-radius:20px;background:#2B2414;color:#CFA13C">New Week</div>
+    </div>
+    <div style="font-size:18px;font-weight:700;color:#F2EFE7;line-height:1.45;text-align:center;margin-bottom:10px">Last week's plan is done. Ready to set up this week?</div>
+    <div style="font-size:14px;color:#9C9A93;line-height:1.6;text-align:center;margin-bottom:8px">Keep the same muscle groups on each day and get fresh exercises picked for you — or start over and build the week from scratch.</div>
+    <div id="plan-week-status" style="font-size:12px;font-weight:600;color:#CFA13C;text-align:center;min-height:18px;margin-bottom:14px"></div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <button id="plan-week-keep-btn" onclick="planWeekKeep()" style="width:100%;padding:16px;background:#CFA13C;color:#0B1210;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer">Keep My Plan — Fresh Exercises</button>
+      <button id="plan-week-fresh-btn" onclick="planWeekFresh()" style="width:100%;padding:14px;background:#1C2320;color:#F2EFE7;border:none;border-radius:14px;font-size:14px;font-weight:700;cursor:pointer">Start From Scratch</button>
+      <button onclick="dismissPlanWeekModal()" style="width:100%;padding:10px;background:none;border:none;font-size:13px;color:#9C9A93;cursor:pointer">Decide later</button>
+    </div>
+  </div>
+</div>
 <!-- DAILY CHECK-IN MODAL -->
 <div id="checkin-modal" style="display:none;position:fixed;inset:0;z-index:950;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px)">
   <div style="background:#141A18;border-radius:28px 28px 0 0;padding:32px 24px 48px;width:100%;max-width:520px;position:relative;max-height:85vh;overflow-y:auto">
