@@ -2547,9 +2547,51 @@ async function syncHealthKitSteps(showToast) {
   }
 }
 
+// Auto-import the latest weight & body-fat readings from Apple Health (e.g. a smart scale)
+// into the scans table so the Progress charts populate without manual entry. Each metric is
+// keyed to the reading's OWN date; re-syncing updates that day's value rather than piling up
+// duplicate rows. Requires the native fetchBodyMeasurements to return weightDate/bodyFatDate —
+// with an older native build (value only, no date) nothing imports, which is the safe default.
+async function _healthUpsertScanMetric(date, field, value) {
+  try {
+    const rows = await dbGet('scans', `date=eq.${encodeURIComponent(date)}`);
+    const existing = (rows || []).filter(r => r[field] != null);
+    if (existing.length) {
+      const row = existing[existing.length - 1];
+      if (Math.abs((+row[field]) - value) < 0.05) return; // unchanged — nothing to do
+      await fetch(`${SUPABASE_URL}/rest/v1/scans?id=eq.${row.id}`, {
+        method: 'PATCH',
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${_authToken || SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [field]: value })
+      });
+    } else {
+      await dbPost('scans', { date, [field]: value });
+    }
+  } catch (e) { console.error('HealthKit scan upsert failed', field, date, e?.message || String(e)); }
+}
+
+async function syncHealthKitBody(showToast) {
+  if (!window.Capacitor?.Plugins?.HealthKit) return;
+  if (!Capacitor.Plugins.HealthKit.fetchBodyMeasurements) return; // native without this method
+  try {
+    await Capacitor.Plugins.HealthKit.requestAuthorization();
+    const r = await Capacitor.Plugins.HealthKit.fetchBodyMeasurements();
+    if (r && r.weightLbs != null && r.weightDate) {
+      await _healthUpsertScanMetric(r.weightDate.slice(0, 10), 'weight', Math.round(r.weightLbs * 10) / 10);
+    }
+    if (r && r.bodyFatPercent != null && r.bodyFatDate) {
+      await _healthUpsertScanMetric(r.bodyFatDate.slice(0, 10), 'body_fat', Math.round(r.bodyFatPercent * 10) / 10);
+    }
+    if (typeof loadScans === 'function') loadScans();
+  } catch (e) {
+    console.error('HealthKit body sync error', e?.message || String(e));
+  }
+}
+
 async function syncHealthKitAll(showToast) {
   await syncHealthKitWorkouts(showToast);
   await syncHealthKitSteps(showToast);
+  await syncHealthKitBody(showToast);
 }
 
 async function toggleHealthKitConnection() {
