@@ -304,8 +304,9 @@
         <button onclick="openShoppingListPage()" style="background:none;border:none;cursor:pointer;padding:4px;display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:10px;background:#1C2320">
           <i class="fa-solid fa-basket-shopping" style="font-size:16px;color:#9C9A93"></i>
         </button>
-        <button style="background:none;border:none;cursor:pointer;padding:4px;display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:10px;background:#1C2320">
+        <button onclick="openWeeklyReportFromBell()" style="position:relative;background:none;border:none;cursor:pointer;padding:4px;display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:10px;background:#1C2320">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9C9A93" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <span id="bell-new-dot" style="display:none;position:absolute;top:5px;right:6px;width:9px;height:9px;border-radius:50%;background:#CFA13C;border:1.5px solid #141A18"></span>
         </button>
       </div>
     </div>
@@ -1148,11 +1149,11 @@
         </div>
         <div class="mp-row" style="cursor:default">
           <div class="mp-row-label">Location</div>
-          <div class="mp-row-value" style="color:#9C9A93">Coming Soon</div>
+          <input type="text" id="mp-display-location" oninput="_mpPending.location=this.value" placeholder="City, State" autocomplete="off" onfocus="moveCaretToEnd(this)" style="width:160px;text-align:right;background:none;border:none;color:#CFA13C;font-weight:600;font-size:14px;outline:none;font-family:inherit" />
         </div>
-        <div class="mp-row" style="cursor:default;border-bottom:none">
+        <div class="mp-row" onclick="openFieldEditSheet('timezone')" style="border-bottom:none">
           <div class="mp-row-label">Time Zone</div>
-          <div class="mp-row-value" style="color:#9C9A93">Coming Soon</div>
+          <div class="mp-row-value" id="mp-display-timezone">Auto</div>
         </div>
       </div>
     </div>
@@ -1317,9 +1318,9 @@
       <div class="profile-subpage-header">
         <button onclick="switchTab('profile')" class="profile-back-btn"><i class="fa-solid fa-arrow-left"></i></button>
         <div class="profile-subpage-title">My Weekly Report</div>
-        <button onclick="switchTab('profile')" class="profile-save-btn">Save</button>
+        <div style="width:36px"></div>
       </div>
-      <div class="profile-coming-soon">Coming Soon</div>
+      <div id="weekly-report-content"><div class="loading">Loading...</div></div>
     </div>
 
     <div id="tab-profile-privacy" style="display:none">
@@ -2629,6 +2630,7 @@ function switchTab(tab) {
   if (tab === 'profile-myprofile') loadMyProfilePage();
   if (tab === 'profile-allergies') loadFoodAllergiesPage();
   if (tab === 'profile-targets') loadDailyTargetsPage();
+  if (tab === 'profile-report') loadWeeklyReportPage();
   if (tab === 'aicoach') {
     const badge = document.getElementById('ai-coach-new-badge');
     if (badge && badge.style.display !== 'none') {
@@ -4925,6 +4927,7 @@ async function appInit() {
   loadPhotos();
   // Show daily accountability check-in (once per day, after data is loaded)
   await maybeShowCheckin();
+  updateBellDot();
 }
 
 // MOTIVATIONAL QUOTES
@@ -10465,7 +10468,9 @@ async function loadMyProfilePage() {
     heightIn: userProfile.heightIn || 69,
     gender: userProfile.gender || 'male',
     age: userProfile.age || 43,
-    activity: userProfile.activity || 'moderate'
+    activity: userProfile.activity || 'moderate',
+    location: userProfile.location || '',
+    timezone: userProfile.timezone || 'auto'
   };
 
   try {
@@ -10492,6 +10497,10 @@ function refreshMyProfileDisplay() {
   document.getElementById('mp-sex-female').classList.toggle('active', _mpPending.gender === 'female');
   document.getElementById('mp-display-age').value = _mpPending.age || 30;
   document.getElementById('mp-display-activity').value = _mpPending.activity || 'moderate';
+  const locEl = document.getElementById('mp-display-location');
+  if (locEl) locEl.value = _mpPending.location || '';
+  const tzEl = document.getElementById('mp-display-timezone');
+  if (tzEl) tzEl.textContent = tzDisplayLabel(_mpPending.timezone);
 }
 
 function mpHeightChanged() {
@@ -10502,7 +10511,7 @@ function mpHeightChanged() {
 
 function openFieldEditSheet(field) {
   window._mpEditingField = field;
-  const titleMap = { username: 'Username', height: 'Height', gender: 'Sex', age: 'Age', activity: 'Activity Level', calories: 'Calories', protein: 'Protein', carbs: 'Carbs', fat: 'Fat', steps: 'Step Goal' };
+  const titleMap = { username: 'Username', height: 'Height', gender: 'Sex', age: 'Age', activity: 'Activity Level', calories: 'Calories', protein: 'Protein', carbs: 'Carbs', fat: 'Fat', steps: 'Step Goal', timezone: 'Time Zone' };
   document.getElementById('mp-sheet-title').textContent = titleMap[field] || 'Edit';
   const body = document.getElementById('mp-sheet-body');
   const inputStyle = 'width:100%;padding:12px 14px;border:1px solid #2A322E;border-radius:10px;background:#0B1210;color:#F2EFE7;font-size:16px;outline:none;box-sizing:border-box';
@@ -10531,6 +10540,9 @@ function openFieldEditSheet(field) {
   } else if (field === 'activity') {
     const options = [['sedentary','Sedentary'],['light','Lightly Active'],['moderate','Moderately Active'],['active','Very Active'],['athlete','Athlete']];
     body.innerHTML = options.map(([val,label]) => `<button type="button" onclick="selectSheetOption('${val}')" data-val="${val}" data-label="${label}" class="mp-sheet-option ${_mpPending.activity === val ? 'active' : ''}"><span>${label}</span>${_mpPending.activity === val ? '<i class="fa-solid fa-check"></i>' : ''}</button>`).join('');
+  } else if (field === 'timezone') {
+    const tzCur = _mpPending.timezone || 'auto';
+    body.innerHTML = TZ_OPTIONS.map(o => `<button type="button" onclick="selectSheetOption('${o.value}')" data-val="${o.value}" data-label="${o.label}" class="mp-sheet-option ${tzCur === o.value ? 'active' : ''}"><span>${o.label}</span>${tzCur === o.value ? '<i class="fa-solid fa-check"></i>' : ''}</button>`).join('');
   } else if (['calories','protein','carbs','fat'].includes(field)) {
     const unit = field === 'calories' ? 'kcal' : 'g';
     body.innerHTML = `
@@ -10577,6 +10589,9 @@ async function confirmFieldEdit() {
   } else if (field === 'activity') {
     const selected = document.querySelector('.mp-sheet-option.active');
     if (selected) _mpPending.activity = selected.dataset.val;
+  } else if (field === 'timezone') {
+    const selected = document.querySelector('.mp-sheet-option.active');
+    if (selected) _mpPending.timezone = selected.dataset.val;
   } else if (['calories','protein','carbs','fat'].includes(field)) {
     _dtPending[field] = +document.getElementById('mp-sheet-input').value || _dtPending[field];
     refreshDailyTargetsDisplay();
@@ -10597,7 +10612,7 @@ async function confirmFieldEdit() {
 
 async function saveMyProfilePage() {
   if (!_mpPending.heightIn || !_mpPending.age) { toast('Fill in height and age'); return; }
-  userProfile = { ...userProfile, heightIn: _mpPending.heightIn, age: _mpPending.age, gender: _mpPending.gender, activity: _mpPending.activity };
+  userProfile = { ...userProfile, heightIn: _mpPending.heightIn, age: _mpPending.age, gender: _mpPending.gender, activity: _mpPending.activity, location: (_mpPending.location || '').trim(), timezone: _mpPending.timezone || 'auto' };
   await saveSetting('profile', userProfile);
 
   const username = _mpPending.username;
@@ -11186,6 +11201,313 @@ async function maybeShowCheckin() {
 
 function dismissCheckin() {
   document.getElementById('checkin-modal').style.display = 'none';
+}
+
+// ═══════════════════════════════════════════════════════════
+// WEEKLY REPORT + NOTIFICATION BELL
+// ═══════════════════════════════════════════════════════════
+// Weeks run Sunday–Saturday (matching the calendar and steps chart). A report
+// always covers a COMPLETED week, so the newest one becomes available Sunday
+// morning — that's when the bell dot appears until the report is opened.
+// Week boundaries respect the Time Zone set in My Profile ('auto' = device).
+const TZ_OPTIONS = [
+  { value: 'auto', label: 'Auto (Device)' },
+  { value: 'America/New_York', label: 'Eastern (ET)' },
+  { value: 'America/Chicago', label: 'Central (CT)' },
+  { value: 'America/Denver', label: 'Mountain (MT)' },
+  { value: 'America/Phoenix', label: 'Arizona (no DST)' },
+  { value: 'America/Los_Angeles', label: 'Pacific (PT)' },
+  { value: 'America/Anchorage', label: 'Alaska (AKT)' },
+  { value: 'Pacific/Honolulu', label: 'Hawaii (HST)' }
+];
+function tzDisplayLabel(val) {
+  if (!val || val === 'auto') {
+    try {
+      const dev = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      return dev ? 'Auto — ' + dev.split('/').pop().replace(/_/g, ' ') : 'Auto (Device)';
+    } catch(e) { return 'Auto (Device)'; }
+  }
+  const opt = TZ_OPTIONS.find(o => o.value === val);
+  return opt ? opt.label : val;
+}
+function userTimeZone() {
+  const tz = userProfile?.timezone;
+  if (tz && tz !== 'auto') return tz;
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone; } catch(e) { return undefined; }
+}
+function tzTodayStr() {
+  try { return new Date().toLocaleDateString('en-CA', { timeZone: userTimeZone() }); } catch(e) { return today; }
+}
+function _wrAddDays(dateStr, n) {
+  const d = new Date(dateStr + 'T12:00:00');
+  d.setDate(d.getDate() + n);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function _wrWeekStart(dateStr) {
+  const d = new Date(dateStr + 'T12:00:00');
+  return _wrAddDays(dateStr, -d.getDay());
+}
+function latestCompletedWeekStart() {
+  return _wrAddDays(_wrWeekStart(tzTodayStr()), -7);
+}
+let weeklyReportOffset = 0; // 0 = most recently completed week
+function openWeeklyReportFromBell() {
+  switchTab('profile-report');
+}
+async function updateBellDot() {
+  if (!_currentUser) return;
+  try {
+    const seen = await loadSetting('weekly_report_seen');
+    const dot = document.getElementById('bell-new-dot');
+    if (dot && seen !== latestCompletedWeekStart()) dot.style.display = 'block';
+  } catch(e) {}
+}
+async function markWeeklyReportSeen() {
+  const wk = latestCompletedWeekStart();
+  const dot = document.getElementById('bell-new-dot');
+  if (dot) dot.style.display = 'none';
+  try {
+    const seen = await loadSetting('weekly_report_seen');
+    if (seen !== wk) await saveSetting('weekly_report_seen', wk);
+  } catch(e) {}
+}
+async function loadWeeklyReportPage() {
+  weeklyReportOffset = 0;
+  markWeeklyReportSeen();
+  await renderWeeklyReport();
+}
+function weeklyReportNav(dir) {
+  const next = weeklyReportOffset + dir;
+  if (next < 0) return;
+  weeklyReportOffset = next;
+  renderWeeklyReport();
+}
+async function _wrFetchWeek(startStr) {
+  const endStr = _wrAddDays(startStr, 6);
+  const range = `date=gte.${startStr}&date=lte.${endStr}`;
+  const [meals, workouts, steps, scans] = await Promise.all([
+    dbGet('meals', `${range}&select=date,calories,protein&order=date.asc`),
+    dbGet('workouts', `${range}&select=date,name,duration,calories&order=date.asc`),
+    dbGet('daily_steps', `${range}&select=date,steps&order=date.asc`),
+    dbGet('scans', `${range}&select=date,weight,body_fat&order=date.asc`)
+  ]);
+  return { startStr, endStr, meals, workouts, steps, scans };
+}
+function _wrComputeStats(w) {
+  const byDay = {};
+  w.meals.forEach(m => {
+    if (!byDay[m.date]) byDay[m.date] = { calories: 0, protein: 0 };
+    byDay[m.date].calories += +m.calories || 0;
+    byDay[m.date].protein += +m.protein || 0;
+  });
+  const loggedDays = Object.keys(byDay).length;
+  const scores = { great: 0, good: 0, over: 0 };
+  let sumCals = 0, sumProt = 0;
+  Object.values(byDay).forEach(t => {
+    sumCals += t.calories; sumProt += t.protein;
+    const sc = dayScore(t.calories, t.protein);
+    if (sc) scores[sc]++;
+  });
+  const workoutCount = w.workouts.length;
+  const workoutMins = w.workouts.reduce((a, x) => a + (+x.duration || 0), 0);
+  const workoutBurn = w.workouts.reduce((a, x) => a + (+x.calories || 0), 0);
+  const stepDays = w.steps.filter(x => +x.steps > 0);
+  const stepTotal = stepDays.reduce((a, x) => a + (+x.steps || 0), 0);
+  const stepGoal = userTargets.steps || TARGETS.steps || 10000;
+  const stepGoalDays = stepDays.filter(x => +x.steps >= stepGoal).length;
+  const weights = w.scans.filter(x => x.weight != null);
+  const weightStart = weights.length ? Math.round(+weights[0].weight * 10) / 10 : null;
+  const weightEnd = weights.length ? Math.round(+weights[weights.length - 1].weight * 10) / 10 : null;
+  return {
+    loggedDays, scores,
+    avgCals: loggedDays ? Math.round(sumCals / loggedDays) : 0,
+    avgProt: loggedDays ? Math.round(sumProt / loggedDays) : 0,
+    workoutCount, workoutMins, workoutBurn,
+    stepTotal, stepDaysCount: stepDays.length,
+    stepAvg: stepDays.length ? Math.round(stepTotal / stepDays.length) : 0,
+    stepGoal, stepGoalDays,
+    weightStart, weightEnd,
+    weightDelta: (weightStart != null && weights.length > 1) ? Math.round((weightEnd - weightStart) * 10) / 10 : null,
+    hasData: loggedDays > 0 || workoutCount > 0 || stepDays.length > 0 || weights.length > 0
+  };
+}
+function _wrDeltaLine(cur, prevVal, unit, mode) {
+  // mode: 'up-good' | 'neutral'
+  if (prevVal == null || !isFinite(cur - prevVal)) return '';
+  const d = Math.round((cur - prevVal) * 10) / 10;
+  if (d === 0) return `<span style="color:#9C9A93;font-weight:600">— even with last week</span>`;
+  const up = d > 0;
+  const arrow = up ? '▲' : '▼';
+  let color = '#CFA13C';
+  if (mode === 'up-good') color = up ? '#4ADE80' : '#C88A2E';
+  return `<span style="color:${color};font-weight:700">${arrow} ${Math.abs(d).toLocaleString()}${unit}</span> <span style="color:#9C9A93">vs last week</span>`;
+}
+function _wrStatTile(label, value, unit) {
+  return `<div class="stat-item"><div class="stat-val">${value}<span style="font-size:12px;font-weight:600;color:#9C9A93;margin-left:2px">${unit || ''}</span></div><div class="stat-label">${label}</div></div>`;
+}
+async function renderWeeklyReport() {
+  const el = document.getElementById('weekly-report-content');
+  if (!el) return;
+  el.innerHTML = '<div class="loading">Building your report...</div>';
+  const wkStart = _wrAddDays(latestCompletedWeekStart(), -7 * weeklyReportOffset);
+  const wkEnd = _wrAddDays(wkStart, 6);
+  let cur, prev;
+  try {
+    [cur, prev] = await Promise.all([_wrFetchWeek(wkStart), _wrFetchWeek(_wrAddDays(wkStart, -7))]);
+  } catch(e) {
+    el.innerHTML = '<div class="empty">Could not load report data — check your connection and try again.</div>';
+    return;
+  }
+  const st = _wrComputeStats(cur);
+  const pv = _wrComputeStats(prev);
+  const cmp = pv.hasData ? pv : null;
+  const fmtD = d => new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const weekLabel = `${fmtD(wkStart)} – ${fmtD(wkEnd)}`;
+  const navHtml = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <button onclick="weeklyReportNav(1)" style="background:#1C2320;border:none;border-radius:8px;width:32px;height:32px;color:#F2EFE7;font-size:14px;cursor:pointer"><i class="fa-solid fa-chevron-left"></i></button>
+      <div style="text-align:center">
+        <div style="font-size:11px;font-weight:700;color:#CFA13C;text-transform:uppercase;letter-spacing:1px">${weeklyReportOffset === 0 ? 'Last Week' : 'Week of'}</div>
+        <div style="font-size:15px;font-weight:700;color:#F2EFE7;margin-top:2px">${weekLabel}</div>
+      </div>
+      <button onclick="weeklyReportNav(-1)" style="background:#1C2320;border:none;border-radius:8px;width:32px;height:32px;color:#F2EFE7;font-size:14px;cursor:pointer;opacity:${weeklyReportOffset === 0 ? '0.3' : '1'}"><i class="fa-solid fa-chevron-right"></i></button>
+    </div>`;
+  if (!st.hasData) {
+    el.innerHTML = navHtml + `
+      <div class="card" style="text-align:center;padding:40px 20px">
+        <div style="font-size:40px;margin-bottom:12px">📭</div>
+        <div style="font-size:16px;font-weight:700;color:#F2EFE7;margin-bottom:6px">Nothing logged this week</div>
+        <div style="font-size:13px;color:#9C9A93;line-height:1.5">No meals, workouts, or steps were recorded ${weekLabel}. Reports fill in automatically as you log.</div>
+      </div>`;
+    return;
+  }
+  const pct = (v, t) => Math.min((v / t) * 100, 100).toFixed(1);
+  const calPct = pct(st.avgCals, TARGETS.calories);
+  const protPct = pct(st.avgProt, TARGETS.protein);
+  const badges = [];
+  if (st.scores.great) badges.push(`<span class="score-badge score-great"><i class="fa-solid fa-star" style="color:#CFA13C"></i> ${st.scores.great} Great</span>`);
+  if (st.scores.good) badges.push(`<span class="score-badge score-good">${st.scores.good} Good</span>`);
+  if (st.scores.over) badges.push(`<span class="score-badge score-needs">${st.scores.over} Over</span>`);
+  const weightHtml = st.weightStart != null ? `
+    <div class="card">
+      <div class="card-title" style="color:#CFA13C">Weight</div>
+      <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;text-align:center">
+        <div><div style="font-size:20px;font-weight:700;color:#F2EFE7">${st.weightStart}</div><div style="font-size:11px;color:#9C9A93">start of week</div></div>
+        <div style="font-size:18px;color:#9C9A93">→</div>
+        <div><div style="font-size:20px;font-weight:700;color:#F2EFE7">${st.weightEnd}</div><div style="font-size:11px;color:#9C9A93">end of week</div></div>
+      </div>
+      ${st.weightDelta != null ? `<div style="text-align:center;margin-top:10px;padding-top:10px;border-top:1px solid #1C2320;font-size:13px;font-weight:700;color:${st.weightDelta < 0 ? '#4ADE80' : st.weightDelta > 0 ? '#CFA13C' : '#9C9A93'}">${st.weightDelta > 0 ? '+' : ''}${st.weightDelta} lbs this week</div>` : '<div style="text-align:center;margin-top:10px;font-size:11px;color:#9C9A93">Only one weigh-in this week — log two or more to see the change</div>'}
+    </div>` : '';
+  const stepsHtml = st.stepDaysCount ? `
+    <div class="card">
+      <div class="card-title" style="color:#CFA13C">Steps</div>
+      <div class="stat-grid" style="grid-template-columns:1fr 1fr 1fr;margin-bottom:0">
+        ${_wrStatTile('Total', st.stepTotal.toLocaleString(), '')}
+        ${_wrStatTile('Avg / Day', st.stepAvg.toLocaleString(), '')}
+        ${_wrStatTile('Goal Days', st.stepGoalDays + '/' + st.stepDaysCount, '')}
+      </div>
+      ${cmp && cmp.stepDaysCount ? `<div style="font-size:12px;margin-top:10px">${_wrDeltaLine(st.stepAvg, cmp.stepAvg, '/day', 'up-good')}</div>` : ''}
+    </div>` : '';
+  el.innerHTML = navHtml + `
+    <div style="background:linear-gradient(160deg,#2B2414,#2A1F1D);border-radius:16px;padding:20px;margin-bottom:12px;border:1px solid #332818">
+      <div style="font-size:11px;font-weight:700;color:#CFA13C;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Week in Review</div>
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:12px">
+        <div style="font-size:34px;font-weight:800;color:#F2EFE7;letter-spacing:-1px">${st.loggedDays}<span style="font-size:16px;color:#9C9A93;font-weight:600">/7</span></div>
+        <div style="font-size:13px;color:#9C9A93">days logged</div>
+      </div>
+      ${badges.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap">${badges.join('')}</div>` : '<div style="font-size:12px;color:#9C9A93">Log meals to earn day scores</div>'}
+    </div>
+    <div class="card" id="wr-ai-card" style="background:linear-gradient(160deg,#2B2414,#2A1F1D);border:1px solid #332818">
+      <div class="card-title" style="color:#CFA13C">Coach's Summary</div>
+      <div id="wr-ai-text" style="font-size:14px;color:#9C9A93;line-height:1.6;font-style:italic">✨ Your coach is reviewing the week...</div>
+      <button id="wr-ai-regen" onclick="regenerateWeeklyAi('${wkStart}')" style="display:none;background:none;border:none;color:#9C9A93;font-size:11px;cursor:pointer;padding:8px 0 0;text-decoration:underline">Regenerate summary</button>
+    </div>
+    <div class="card">
+      <div class="card-title" style="color:#CFA13C">Nutrition — Daily Averages</div>
+      <div class="macro-bar">
+        <div class="macro-bar-header"><span class="macro-label">Calories</span><span class="macro-value">${st.avgCals.toLocaleString()} / ${TARGETS.calories.toLocaleString()} kcal</span></div>
+        <div class="macro-track"><div class="macro-fill" style="background:${macroBarColor(calPct)};width:${calPct}%"></div></div>
+      </div>
+      <div class="macro-bar" style="margin-bottom:0">
+        <div class="macro-bar-header"><span class="macro-label">Protein</span><span class="macro-value">${st.avgProt} / ${TARGETS.protein}g</span></div>
+        <div class="macro-track"><div class="macro-fill" style="background:${macroBarColor(protPct)};width:${protPct}%"></div></div>
+      </div>
+      ${cmp && cmp.loggedDays ? `<div style="font-size:12px;margin-top:12px;display:flex;flex-direction:column;gap:4px">
+        <div>Calories: ${_wrDeltaLine(st.avgCals, cmp.avgCals, ' kcal/day', 'neutral')}</div>
+        <div>Protein: ${_wrDeltaLine(st.avgProt, cmp.avgProt, 'g/day', 'up-good')}</div>
+      </div>` : ''}
+    </div>
+    <div class="card">
+      <div class="card-title" style="color:#CFA13C">Training</div>
+      <div class="stat-grid" style="grid-template-columns:1fr 1fr 1fr;margin-bottom:0">
+        ${_wrStatTile('Workouts', st.workoutCount, '')}
+        ${_wrStatTile('Minutes', st.workoutMins.toLocaleString(), '')}
+        ${_wrStatTile('Burned', st.workoutBurn.toLocaleString(), 'cal')}
+      </div>
+      ${cmp ? `<div style="font-size:12px;margin-top:10px">${_wrDeltaLine(st.workoutCount, cmp.workoutCount, ' workouts', 'up-good')}</div>` : ''}
+    </div>
+    ${stepsHtml}
+    ${weightHtml}`;
+  _wrLoadAiSummary(wkStart, weekLabel, st, cmp);
+}
+function _wrBuildAiMessage(weekLabel, st, cmp) {
+  const lines = [];
+  lines.push(`This is a RETROSPECTIVE weekly report for my completed week (${weekLabel}). Ignore any "today" totals in your context — do not comment on today.`);
+  lines.push(`My week: logged ${st.loggedDays}/7 days. Daily averages: ${st.avgCals} kcal (target ${TARGETS.calories}), ${st.avgProt}g protein (target ${TARGETS.protein}g).`);
+  lines.push(`Day scores: ${st.scores.great} great, ${st.scores.good} good, ${st.scores.over} over limit.`);
+  lines.push(`Training: ${st.workoutCount} workouts, ${st.workoutMins} minutes, ${st.workoutBurn} cal burned.`);
+  if (st.stepDaysCount) lines.push(`Steps: ${st.stepTotal.toLocaleString()} total, ${st.stepAvg.toLocaleString()}/day average, hit my ${st.stepGoal.toLocaleString()}-step goal on ${st.stepGoalDays} of ${st.stepDaysCount} tracked days.`);
+  if (st.weightDelta != null) lines.push(`Weight went from ${st.weightStart} to ${st.weightEnd} lbs (${st.weightDelta > 0 ? '+' : ''}${st.weightDelta} lbs).`);
+  if (cmp && cmp.loggedDays) lines.push(`Previous week for comparison: ${cmp.loggedDays}/7 days logged, ${cmp.avgCals} kcal and ${cmp.avgProt}g protein daily averages, ${cmp.workoutCount} workouts.`);
+  if (userProfile.location) lines.push(`My location: ${userProfile.location}.`);
+  lines.push(`Write my weekly summary now: 3 to 5 sentences, warm but honest, reference my actual numbers, and end with exactly ONE specific focus for next week. No greeting, no bullet points, no markdown, no emoji.`);
+  return lines.join('\n');
+}
+async function _wrGetAiSummary(weekStart, weekLabel, st, cmp) {
+  const cache = (await loadSetting('weekly_report_ai')) || {};
+  if (cache[weekStart]) return cache[weekStart];
+  const prefs = window._currentPreferences || await loadSetting('preferences') || {};
+  const res = await fetch(`${WORKER_URL}/ai-coach-chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      message: _wrBuildAiMessage(weekLabel, st, cmp),
+      history: [],
+      context: {
+        primaryGoal: userProfile.primaryGoal, activity: userProfile.activity,
+        targets: userTargets, todayTotals: { calories: 0, protein: 0 },
+        allergies: prefs.allergies, allergiesOther: prefs.allergiesOther, favoriteFoods: prefs.favoriteFoods
+      }
+    })
+  });
+  const data = await res.json();
+  if (!data.reply) throw new Error(data.error || 'No reply');
+  cache[weekStart] = data.reply;
+  const keys = Object.keys(cache).sort();
+  while (keys.length > 8) { delete cache[keys.shift()]; }
+  saveSetting('weekly_report_ai', cache);
+  return data.reply;
+}
+async function _wrLoadAiSummary(weekStart, weekLabel, st, cmp) {
+  try {
+    const summary = await _wrGetAiSummary(weekStart, weekLabel, st, cmp);
+    const el = document.getElementById('wr-ai-text');
+    if (el) { el.style.fontStyle = 'normal'; el.style.color = '#D8D5CC'; el.textContent = summary; }
+    const regen = document.getElementById('wr-ai-regen');
+    if (regen) regen.style.display = 'inline-block';
+  } catch(e) {
+    console.error('weekly AI summary error', e);
+    const el = document.getElementById('wr-ai-text');
+    if (el) el.innerHTML = '<span style="color:#F87171;font-style:normal">Could not reach your coach right now.</span> <button onclick="renderWeeklyReport()" style="background:none;border:none;color:#CFA13C;font-weight:700;cursor:pointer;text-decoration:underline;font-size:12px;padding:0">Try again</button>';
+  }
+}
+async function regenerateWeeklyAi(weekStart) {
+  try {
+    const cache = (await loadSetting('weekly_report_ai')) || {};
+    delete cache[weekStart];
+    await saveSetting('weekly_report_ai', cache);
+  } catch(e) {}
+  renderWeeklyReport();
 }
 
 let _obSaveDebounce = null;
