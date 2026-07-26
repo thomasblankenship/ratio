@@ -3622,7 +3622,8 @@ async function obNext(step) {
   if (step === 3) {
     if (!_obGender) { if (errEl) { errEl.textContent = 'Please select your sex.'; errEl.style.display = 'block'; } return; }
     const age = parseInt(document.getElementById('ob-age').value);
-    if (!age || age < 13 || age > 100) { if (errEl) { errEl.textContent = 'Please enter your date of birth.'; errEl.style.display = 'block'; } return; }
+    if (!age || age > 100) { if (errEl) { errEl.textContent = 'Please enter your date of birth.'; errEl.style.display = 'block'; } return; }
+    if (age < 16) { if (errEl) { errEl.textContent = 'You must be at least 16 years old to use Ratio Fitness.'; errEl.style.display = 'block'; } return; }
     const ft = parseInt(document.getElementById('ob-height-ft').value);
     const inn = parseInt(document.getElementById('ob-height-in').value);
     if (!ft || ft < 3 || ft > 8) { if (errEl) { errEl.textContent = 'Please enter a valid height.'; errEl.style.display = 'block'; } return; }
@@ -10597,7 +10598,7 @@ function openDobPicker() {
   document.getElementById('dob-picker-modal').style.display = 'flex';
   const nowY = new Date().getFullYear();
   const years = [];
-  for (let y = nowY - 13; y >= nowY - 100; y--) years.push(y);
+  for (let y = nowY - 16; y >= nowY - 100; y--) years.push(y);
   const days = [];
   for (let d = 1; d <= 31; d++) days.push(d);
   buildNumberWheel('dob-month-scroll', DOB_MONTHS, DOB_MONTHS[_dobPickerM - 1], v => _dobPickerM = DOB_MONTHS.indexOf(v) + 1);
@@ -10628,8 +10629,12 @@ function ageFromDob(dobStr) {
   return age;
 }
 function mpDobChanged(val) {
-  _mpPending.dob = val || '';
   const age = ageFromDob(val);
+  if (val && age != null && age < 16) {
+    toast('You must be at least 16 years old to use Ratio Fitness');
+    return; // keep the previous DOB — under-16 dates are not accepted
+  }
+  _mpPending.dob = val || '';
   if (age != null && age > 0 && age < 120) {
     _mpPending.age = age;
     const ageInput = document.getElementById('mp-display-age');
@@ -10642,7 +10647,10 @@ function obDobChanged(val) {
   const note = document.getElementById('ob-age-note');
   if (age != null && age > 0 && age < 120) {
     if (ageEl) ageEl.value = age;
-    if (note) note.textContent = 'Age: ' + age;
+    if (note) {
+      if (age < 16) { note.textContent = 'You must be at least 16 years old to use Ratio Fitness.'; note.style.color = '#F87171'; }
+      else { note.textContent = 'Age: ' + age; note.style.color = '#9C9A93'; }
+    }
   } else {
     if (ageEl) ageEl.value = '';
     if (note) note.textContent = '';
@@ -10830,6 +10838,7 @@ async function confirmFieldEdit() {
 
 async function saveMyProfilePage() {
   if (!_mpPending.heightIn || !_mpPending.age) { toast('Fill in height and age'); return; }
+  if (_mpPending.age < 16) { toast('You must be at least 16 years old to use Ratio Fitness'); return; }
   userProfile = { ...userProfile, heightIn: _mpPending.heightIn, age: _mpPending.age, gender: _mpPending.gender, activity: _mpPending.activity, location: (_mpPending.location || '').trim(), timezone: _mpPending.timezone || 'auto', dob: _mpPending.dob || null };
   await saveSetting('profile', userProfile);
 
