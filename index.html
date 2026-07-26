@@ -237,7 +237,7 @@
       <div style="font-size:14px;color:#9C9A93;margin-bottom:32px">Sign in to your account</div>
       <div id="auth-error" style="font-size:13px;color:#F87171;margin-bottom:12px;min-height:20px;text-align:center"></div>
       <div id="auth-login-form">
-        <div style="margin-bottom:12px"><input id="auth-email" type="text" placeholder="Email or Username" autocomplete="username" autocapitalize="off" autocorrect="off" style="width:100%;padding:14px 16px;border:1.5px solid #2A322E;border-radius:12px;font-size:16px;outline:none;box-sizing:border-box" /></div>
+        <div style="margin-bottom:12px"><input id="auth-email" type="text" placeholder="Email or Username" autocomplete="username" autocapitalize="off" autocorrect="off" onfocus="moveCaretToEnd(this)" style="width:100%;padding:14px 16px;border:1.5px solid #2A322E;border-radius:12px;font-size:16px;outline:none;box-sizing:border-box" /></div>
         <div style="margin-bottom:20px;position:relative">
           <input id="auth-password" type="password" placeholder="Password" autocomplete="current-password" style="width:100%;padding:14px 48px 14px 16px;border:1.5px solid #2A322E;border-radius:12px;font-size:16px;outline:none;box-sizing:border-box" onkeydown="if(event.key==='Enter')handleLogin()" />
           <button type="button" onclick="togglePw('auth-password',this)" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:0;font-size:18px;line-height:1;color:#9C9A93">👁️</button>
@@ -948,6 +948,26 @@
           Connect Apple Health in <b onclick="switchTab('profile-devices')" style="color:#CFA13C;cursor:pointer">App and Devices</b> to see your steps here.
         </div>
         <div id="steps-chart-content" style="display:none">
+          <div style="display:flex;justify-content:center;margin-bottom:16px">
+            <div style="position:relative;flex-shrink:0">
+              <svg width="90" height="90" viewBox="0 0 90 90">
+                <circle cx="45" cy="45" r="36" fill="none" stroke="#332818" stroke-width="8"/>
+                <circle cx="45" cy="45" r="36" fill="none" stroke="url(#stepsRingGrad)" stroke-width="8"
+                  stroke-dasharray="226" id="steps-ring-fill" stroke-dashoffset="226"
+                  stroke-linecap="round" transform="rotate(-90 45 45)" style="transition:stroke-dashoffset 0.6s ease"/>
+                <defs>
+                  <linearGradient id="stepsRingGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stop-color="#CFA13C"/>
+                    <stop offset="100%" stop-color="#E8C468"/>
+                  </linearGradient>
+                </defs>
+              </svg>
+              <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center">
+                <div style="font-size:17px;font-weight:700;color:#F2EFE7" id="steps-ring-count">0</div>
+                <div style="font-size:9px;color:#9C9A93;text-transform:uppercase;letter-spacing:0.5px">Today</div>
+              </div>
+            </div>
+          </div>
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
             <button onclick="stepsWeekNav(-1)" style="background:#1C2320;border:none;border-radius:8px;width:32px;height:32px;color:#F2EFE7;font-size:14px;cursor:pointer"><i class="fa-solid fa-chevron-left"></i></button>
             <span id="steps-week-label" style="font-size:13px;font-weight:600;color:#F2EFE7">This Week</span>
@@ -9407,6 +9427,16 @@ async function renderStepsChart() {
   const labels = weekDates.map(d => d.toLocaleDateString('en-US', { weekday: 'short' }));
   const data = weekDates.map(d => stepsByDate[toDateStr(d)] || 0);
 
+  // Today's ring
+  const todaySteps = stepsByDate[toDateStr(new Date())] || 0;
+  const ringPct = Math.min(todaySteps / goal, 1);
+  const ringCircumference = 226;
+  const ringOffset = ringCircumference - (ringPct * ringCircumference);
+  const ringFillEl = document.getElementById('steps-ring-fill');
+  if (ringFillEl) ringFillEl.style.strokeDashoffset = ringOffset;
+  const ringCountEl = document.getElementById('steps-ring-count');
+  if (ringCountEl) ringCountEl.textContent = todaySteps.toLocaleString();
+
   // Week label
   const labelEl = document.getElementById('steps-week-label');
   if (stepsWeekOffset === 0) {
@@ -9425,7 +9455,8 @@ async function renderStepsChart() {
       data,
       backgroundColor: data.map(v => v >= goal ? '#4ADE80' : (v > 0 ? '#CFA13C' : 'rgba(207,161,60,0.15)')),
       borderRadius: 4,
-      barPercentage: 0.6
+      barPercentage: 0.85,
+      categoryPercentage: 0.9
     },
     {
       type: 'line',
