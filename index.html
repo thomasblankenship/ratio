@@ -1143,9 +1143,9 @@
             <i class="fa-solid fa-chevron-down" style="font-size:10px;color:#9C9A93"></i>
           </div>
         </div>
-        <div class="mp-row" style="cursor:default">
+        <div class="mp-row" onclick="openDobPicker()">
           <div class="mp-row-label">Date of Birth</div>
-          <input type="date" id="mp-display-dob" onchange="mpDobChanged(this.value)" style="background:none;border:none;color:#CFA13C;font-weight:600;font-size:14px;outline:none;font-family:inherit;text-align:right;padding:0" />
+          <div class="mp-row-value" id="mp-display-dob">Not set</div>
         </div>
         <div class="mp-row" style="cursor:default">
           <div class="mp-row-label">Location</div>
@@ -1181,6 +1181,33 @@
       </div>
     </div>
 
+    <!-- Date of birth wheel-scroll picker -->
+    <div id="dob-picker-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:850;align-items:center;justify-content:center;padding:20px;box-sizing:border-box">
+      <div style="background:#141A18;border-radius:20px;width:100%;max-width:400px;padding:20px;box-sizing:border-box">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+          <button onclick="closeDobPicker()" style="background:none;border:none;font-size:20px;color:#F2EFE7;cursor:pointer"><i class="fa-solid fa-xmark"></i></button>
+          <div style="font-size:16px;font-weight:700;color:#F2EFE7">Date of Birth</div>
+          <button onclick="confirmDobPicker()" class="profile-save-btn">Save</button>
+        </div>
+        <div style="display:grid;grid-template-columns:1.2fr 0.9fr 1.1fr;gap:10px">
+          <div style="background:#0B1210;border-radius:10px;overflow:hidden;border:1px solid #2A322E;position:relative">
+            <div style="font-size:10px;color:#9C9A93;text-align:center;padding:4px 0;border-bottom:1px solid #1C2320">Month</div>
+            <div id="dob-month-scroll" style="height:120px;overflow-y:scroll;scroll-snap-type:y mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none"></div>
+            <div style="pointer-events:none;position:absolute;left:0;right:0;height:40px;top:64px;border-top:1px solid #CFA13C;border-bottom:1px solid #CFA13C;background:rgba(207,161,60,0.06)"></div>
+          </div>
+          <div style="background:#0B1210;border-radius:10px;overflow:hidden;border:1px solid #2A322E;position:relative">
+            <div style="font-size:10px;color:#9C9A93;text-align:center;padding:4px 0;border-bottom:1px solid #1C2320">Day</div>
+            <div id="dob-day-scroll" style="height:120px;overflow-y:scroll;scroll-snap-type:y mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none"></div>
+            <div style="pointer-events:none;position:absolute;left:0;right:0;height:40px;top:64px;border-top:1px solid #CFA13C;border-bottom:1px solid #CFA13C;background:rgba(207,161,60,0.06)"></div>
+          </div>
+          <div style="background:#0B1210;border-radius:10px;overflow:hidden;border:1px solid #2A322E;position:relative">
+            <div style="font-size:10px;color:#9C9A93;text-align:center;padding:4px 0;border-bottom:1px solid #1C2320">Year</div>
+            <div id="dob-year-scroll" style="height:120px;overflow-y:scroll;scroll-snap-type:y mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none"></div>
+            <div style="pointer-events:none;position:absolute;left:0;right:0;height:40px;top:64px;border-top:1px solid #CFA13C;border-bottom:1px solid #CFA13C;background:rgba(207,161,60,0.06)"></div>
+          </div>
+        </div>
+      </div>
+    </div>
     <!-- Shared bottom-sheet editor for My Profile fields -->
     <div id="mp-edit-sheet" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:850;align-items:flex-end;justify-content:center">
       <div style="background:#141A18;border-radius:20px 20px 0 0;width:100%;max-width:480px;padding:16px 20px calc(24px + env(safe-area-inset-bottom));box-sizing:border-box">
@@ -10554,6 +10581,41 @@ function confirmHeightPicker() {
   refreshMyProfileDisplay();
   closeHeightPicker();
 }
+const DOB_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+let _dobPickerM = 1;
+let _dobPickerD = 1;
+let _dobPickerY = 1990;
+function openDobPicker() {
+  const cur = _mpPending.dob || '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(cur)) {
+    _dobPickerY = +cur.slice(0, 4);
+    _dobPickerM = +cur.slice(5, 7);
+    _dobPickerD = +cur.slice(8, 10);
+  } else {
+    _dobPickerY = 1990; _dobPickerM = 1; _dobPickerD = 1;
+  }
+  document.getElementById('dob-picker-modal').style.display = 'flex';
+  const nowY = new Date().getFullYear();
+  const years = [];
+  for (let y = nowY - 13; y >= nowY - 100; y--) years.push(y);
+  const days = [];
+  for (let d = 1; d <= 31; d++) days.push(d);
+  buildNumberWheel('dob-month-scroll', DOB_MONTHS, DOB_MONTHS[_dobPickerM - 1], v => _dobPickerM = DOB_MONTHS.indexOf(v) + 1);
+  buildNumberWheel('dob-day-scroll', days, _dobPickerD, v => _dobPickerD = v);
+  buildNumberWheel('dob-year-scroll', years, _dobPickerY, v => _dobPickerY = v);
+}
+function closeDobPicker() {
+  document.getElementById('dob-picker-modal').style.display = 'none';
+}
+function confirmDobPicker() {
+  // Clamp the day to the chosen month's real length (Feb 31 -> Feb 28/29)
+  const maxDay = new Date(_dobPickerY, _dobPickerM, 0).getDate();
+  const day = Math.min(_dobPickerD, maxDay);
+  const dob = `${_dobPickerY}-${String(_dobPickerM).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  mpDobChanged(dob);
+  refreshMyProfileDisplay();
+  closeDobPicker();
+}
 
 function ageFromDob(dobStr) {
   if (!dobStr) return null;
@@ -10656,7 +10718,7 @@ function refreshMyProfileDisplay() {
   const tzEl = document.getElementById('mp-display-timezone');
   if (tzEl) tzEl.textContent = tzDisplayLabel(_mpPending.timezone);
   const dobEl = document.getElementById('mp-display-dob');
-  if (dobEl) dobEl.value = _mpPending.dob || '';
+  if (dobEl) dobEl.textContent = _mpPending.dob ? new Date(_mpPending.dob + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Not set';
 }
 
 function mpHeightChanged() {
