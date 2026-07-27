@@ -3188,42 +3188,40 @@ async function vlSendToAI(text) {
 
 function vlTryAgain() { vlResetToIdle(); }
 
-function _vlFmtMacroLine(o) {
-  return `${Math.round(o.calories||0)} kcal · ${Math.round((o.protein||0)*10)/10}p / ${Math.round((o.carbs||0)*10)/10}c / ${Math.round((o.fat||0)*10)/10}f`;
-}
-
 function vlRenderConfirm(data) {
   const body = document.getElementById('vl-confirm-body');
   let title = '', itemsHtml = '';
-  let totals = { calories: 0, protein: 0, carbs: 0, fat: 0 };
+  let totals = { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, cholesterol: 0 };
 
   if (data.action === 'log_food') {
     const items = data.logFood?.items || [];
-    items.forEach(i => { totals.calories += +i.calories||0; totals.protein += +i.protein||0; totals.carbs += +i.carbs||0; totals.fat += +i.fat||0; });
+    items.forEach(i => { totals.calories += +i.calories||0; totals.protein += +i.protein||0; totals.carbs += +i.carbs||0; totals.fat += +i.fat||0; totals.fiber += +i.fiber||0; totals.cholesterol += +i.cholesterol||0; });
     title = `Log to ${(data.logFood?.mealType || 'meal').replace(/^\w/, c => c.toUpperCase())}`;
-    itemsHtml = items.map(i => `<div style="padding:8px 0;border-bottom:1px solid var(--surface-2)"><div style="font-size:14px;font-weight:500;color:var(--ink)">${i.name}${i.quantity ? ' — ' + i.quantity : ''}</div><div style="font-size:12px;color:var(--muted);margin-top:2px">${_vlFmtMacroLine(i)}</div></div>`).join('');
+    itemsHtml = items.map(i => `<div style="padding:8px 0;border-bottom:1px solid var(--surface-2)"><div style="font-size:14px;font-weight:500;color:var(--ink)">${i.name}${i.quantity ? ' — ' + i.quantity : ''}</div><div class="meal-meta" style="margin-top:2px">${nutritionMetaString(i)}</div></div>`).join('');
   } else if (data.action === 'save_meal') {
     const ings = data.saveMeal?.ingredients || [];
-    ings.forEach(i => { totals.calories += +i.calories||0; totals.protein += +i.protein||0; totals.carbs += +i.carbs||0; totals.fat += +i.fat||0; });
+    ings.forEach(i => { totals.calories += +i.calories||0; totals.protein += +i.protein||0; totals.carbs += +i.carbs||0; totals.fat += +i.fat||0; totals.fiber += +i.fiber||0; });
     title = `Save "${data.saveMeal?.name || 'Meal'}" to My Meals`;
-    itemsHtml = ings.map(i => `<div style="padding:8px 0;border-bottom:1px solid var(--surface-2)"><div style="font-size:14px;font-weight:500;color:var(--ink)">${i.name}${i.amount ? ' — ' + i.amount : ''}</div><div style="font-size:12px;color:var(--muted);margin-top:2px">${_vlFmtMacroLine(i)}</div></div>`).join('');
+    // skipChol: save_meal ingredients carry no cholesterol data (by contract),
+    // so rendering it would always show a false "Chol:0mg".
+    itemsHtml = ings.map(i => `<div style="padding:8px 0;border-bottom:1px solid var(--surface-2)"><div style="font-size:14px;font-weight:500;color:var(--ink)">${i.name}${i.amount ? ' — ' + i.amount : ''}</div><div class="meal-meta" style="margin-top:2px">${nutritionMetaString(i, { skipChol: true })}</div></div>`).join('');
   } else if (data.action === 'save_food') {
     const f = data.saveFood || {};
-    totals = { calories: f.calories||0, protein: f.protein||0, carbs: f.carbs||0, fat: f.fat||0 };
+    totals = { calories: f.calories||0, protein: f.protein||0, carbs: f.carbs||0, fat: f.fat||0, fiber: f.fiber||0, cholesterol: f.cholesterol||0 };
     title = `Save "${f.name || 'Food'}" to My Foods`;
-    itemsHtml = `<div style="padding:8px 0"><div style="font-size:14px;font-weight:500;color:var(--ink)">${f.name || ''}${f.servingSize ? ' — per ' + f.servingSize : ''}</div><div style="font-size:12px;color:var(--muted);margin-top:2px">${_vlFmtMacroLine(f)}</div></div>`;
+    itemsHtml = `<div style="padding:8px 0"><div style="font-size:14px;font-weight:500;color:var(--ink)">${f.name || ''}</div><div class="meal-meta" style="margin-top:2px">${nutritionMetaString(f, f.servingSize ? { perUnit: f.servingSize } : {})}</div></div>`;
   } else if (data.action === 'log_workout') {
     const w = data.logWorkout || {};
     title = 'Log Workout';
-    itemsHtml = `<div style="padding:8px 0"><div style="font-size:14px;font-weight:500;color:var(--ink)">${w.name || 'Workout'}</div><div style="font-size:12px;color:var(--muted);margin-top:2px">${w.durationMinutes ? w.durationMinutes + ' min · ' : ''}${Math.round(w.caloriesBurned||0)} kcal burned</div></div>`;
+    itemsHtml = `<div style="padding:8px 0;display:flex;justify-content:space-between;align-items:center;gap:8px"><div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:500;color:var(--ink)">${w.name || 'Workout'}</div><div style="font-size:11px;color:var(--gray-400);margin-top:2px">${w.durationMinutes || 0} min</div></div><div class="workout-cals">−${Math.round(w.caloriesBurned||0)} cal</div></div>`;
   } else {
     title = 'Unrecognized';
     itemsHtml = `<div style="font-size:13px;color:var(--muted)">Could not understand that action.</div>`;
   }
 
   const totalsHtml = (data.action === 'log_food' || data.action === 'save_meal') ? `
-    <div style="display:flex;justify-content:space-between;padding-top:10px;font-size:13px;font-weight:700;color:#CFA13C">
-      <span>Total</span><span>${_vlFmtMacroLine(totals)}</span>
+    <div style="padding-top:10px;font-size:13px;font-weight:700;color:#CFA13C">
+      <div>Total</div><div style="font-weight:600;font-size:12px;margin-top:2px">${nutritionMetaString(totals, data.action === 'save_meal' ? { skipChol: true } : {})}</div>
     </div>` : '';
 
   const isKnownAction = ['log_food','save_meal','save_food','log_workout'].includes(data.action);
@@ -9110,8 +9108,12 @@ function nutritionMetaString(item, opts = {}) {
   const fiber = r1(item.fiber ?? item.fiber_per_unit ?? 0);
   const chol = r0(item.cholesterol ?? item.cholesterol_per_unit ?? 0);
   let str = opts.skipCals
-    ? `Protein:${protein}g | Carbs:${carbs}g | Fat:${fat}g | Fiber:${fiber}g | Chol:${chol}mg`
-    : `${cals} kcal | Protein:${protein}g | Carbs:${carbs}g | Fat:${fat}g | Fiber:${fiber}g | Chol:${chol}mg`;
+    ? `Protein:${protein}g | Carbs:${carbs}g | Fat:${fat}g | Fiber:${fiber}g`
+    : `${cals} kcal | Protein:${protein}g | Carbs:${carbs}g | Fat:${fat}g | Fiber:${fiber}g`;
+  // skipChol: for contexts where cholesterol data genuinely doesn't exist
+  // (e.g. voice-log save_meal ingredients) — showing "Chol:0mg" there would
+  // assert a false zero for foods that clearly have cholesterol.
+  if (!opts.skipChol) str += ` | Chol:${chol}mg`;
   if (opts.perUnit) str += ` per ${opts.perUnit}`;
   return str;
 }
