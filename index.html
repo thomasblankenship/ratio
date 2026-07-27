@@ -1249,11 +1249,11 @@
           <div class="mp-row-label">Date of Birth</div>
           <div class="mp-row-value" id="mp-display-dob">Not set</div>
         </div>
-        <div class="mp-row" onclick="openSearchPicker('city', mpCityPicked)">
+        <div class="mp-row" onclick="openLocationPicker('mp', mpLocationPicked)">
           <div class="mp-row-label">Location</div>
           <div class="mp-row-value" id="mp-display-location" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Not set</div>
         </div>
-        <div class="mp-row" onclick="openSearchPicker('timezone', mpTzPicked)" style="border-bottom:none">
+        <div class="mp-row" onclick="openTimezonePicker(mpTzPicked)" style="border-bottom:none">
           <div class="mp-row-label">Time Zone</div>
           <div class="mp-row-value" id="mp-display-timezone">Auto</div>
         </div>
@@ -11772,43 +11772,41 @@ function refreshMyProfileDisplay() {
   if (dobEl) dobEl.textContent = _mpPending.dob ? new Date(_mpPending.dob + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Not set';
 }
 
-// ── City/TZ picker callbacks for My Profile ──
-function mpCityPicked(item) {
-  _mpPending.location = item.value; // "City, Region, Country"
+// ── Location picker callbacks for My Profile ──
+function mpLocationPicked(result) {
+  _mpPending.location = result.location;
   const locEl = document.getElementById('mp-display-location');
-  if (locEl) locEl.textContent = item.value;
-  // Auto-suggest timezone from the city
-  if (item.tz && item.tz !== 'auto') {
-    _mpPending.timezone = item.tz;
+  if (locEl) locEl.textContent = result.location;
+  if (result.timezone) {
+    _mpPending.timezone = result.timezone;
     const tzEl = document.getElementById('mp-display-timezone');
-    if (tzEl) tzEl.textContent = tzDisplayLabel(item.tz);
+    if (tzEl) tzEl.textContent = tzDisplayLabel(result.timezone);
   }
 }
-function mpTzPicked(item) {
-  _mpPending.timezone = item.value;
+function mpTzPicked(val) {
+  _mpPending.timezone = val;
   const tzEl = document.getElementById('mp-display-timezone');
-  if (tzEl) tzEl.textContent = tzDisplayLabel(item.value);
+  if (tzEl) tzEl.textContent = tzDisplayLabel(val);
 }
 
-// ── City/TZ picker callbacks for Onboarding ──
-function obCityPicked(item) {
+// ── Location picker callbacks for Onboarding ──
+function obLocationPicked(result) {
   const hiddenEl = document.getElementById('ob-location');
   const displayEl = document.getElementById('ob-location-display');
-  if (hiddenEl) hiddenEl.value = item.value;
-  if (displayEl) displayEl.textContent = item.value;
-  // Auto-suggest timezone
-  if (item.tz && item.tz !== 'auto') {
+  if (hiddenEl) hiddenEl.value = result.location;
+  if (displayEl) displayEl.textContent = result.location;
+  if (result.timezone) {
     const tzHidden = document.getElementById('ob-timezone');
     const tzDisplay = document.getElementById('ob-timezone-display');
-    if (tzHidden) tzHidden.value = item.tz;
-    if (tzDisplay) tzDisplay.textContent = tzDisplayLabel(item.tz);
+    if (tzHidden) tzHidden.value = result.timezone;
+    if (tzDisplay) tzDisplay.textContent = tzDisplayLabel(result.timezone);
   }
 }
-function obTzPicked(item) {
+function obTzPicked(val) {
   const tzHidden = document.getElementById('ob-timezone');
   const tzDisplay = document.getElementById('ob-timezone-display');
-  if (tzHidden) tzHidden.value = item.value;
-  if (tzDisplay) tzDisplay.textContent = tzDisplayLabel(item.value);
+  if (tzHidden) tzHidden.value = val;
+  if (tzDisplay) tzDisplay.textContent = tzDisplayLabel(val);
 }
 
 function mpHeightChanged() {
@@ -11849,9 +11847,9 @@ function openFieldEditSheet(field) {
     const options = [['sedentary','Sedentary'],['light','Lightly Active'],['moderate','Moderately Active'],['active','Very Active'],['athlete','Athlete']];
     body.innerHTML = options.map(([val,label]) => `<button type="button" onclick="selectSheetOption('${val}')" data-val="${val}" data-label="${label}" class="mp-sheet-option ${_mpPending.activity === val ? 'active' : ''}"><span>${label}</span>${_mpPending.activity === val ? '<i class="fa-solid fa-check"></i>' : ''}</button>`).join('');
   } else if (field === 'timezone') {
-    // Use the global search picker instead of inline buttons
+    // Use the global timezone picker instead of inline buttons
     closeFieldEditSheet();
-    openSearchPicker('timezone', mpTzPicked);
+    openTimezonePicker(mpTzPicked);
     return;
   } else if (['calories','protein','carbs','fat'].includes(field)) {
     const unit = field === 'calories' ? 'kcal' : 'g';
@@ -12521,27 +12519,16 @@ function dismissCheckin() {
 // always covers a COMPLETED week, so the newest one becomes available Sunday
 // morning — that's when the bell dot appears until the report is opened.
 // Week boundaries respect the Time Zone set in My Profile ('auto' = device).
-// ── City + timezone database (184 cities) ──
-const WORLD_CITIES = [["New York","NY","US","America/New_York"],["Los Angeles","CA","US","America/Los_Angeles"],["Chicago","IL","US","America/Chicago"],["Houston","TX","US","America/Chicago"],["Phoenix","AZ","US","America/Phoenix"],["Philadelphia","PA","US","America/New_York"],["San Antonio","TX","US","America/Chicago"],["San Diego","CA","US","America/Los_Angeles"],["Dallas","TX","US","America/Chicago"],["San Jose","CA","US","America/Los_Angeles"],["Austin","TX","US","America/Chicago"],["Jacksonville","FL","US","America/New_York"],["Fort Worth","TX","US","America/Chicago"],["Columbus","OH","US","America/New_York"],["Charlotte","NC","US","America/New_York"],["Indianapolis","IN","US","America/Indiana/Indianapolis"],["San Francisco","CA","US","America/Los_Angeles"],["Seattle","WA","US","America/Los_Angeles"],["Denver","CO","US","America/Denver"],["Nashville","TN","US","America/Chicago"],["Washington","DC","US","America/New_York"],["Oklahoma City","OK","US","America/Chicago"],["El Paso","TX","US","America/Denver"],["Boston","MA","US","America/New_York"],["Portland","OR","US","America/Los_Angeles"],["Las Vegas","NV","US","America/Los_Angeles"],["Memphis","TN","US","America/Chicago"],["Louisville","KY","US","America/Kentucky/Louisville"],["Baltimore","MD","US","America/New_York"],["Milwaukee","WI","US","America/Chicago"],["Albuquerque","NM","US","America/Denver"],["Tucson","AZ","US","America/Phoenix"],["Fresno","CA","US","America/Los_Angeles"],["Sacramento","CA","US","America/Los_Angeles"],["Mesa","AZ","US","America/Phoenix"],["Kansas City","MO","US","America/Chicago"],["Atlanta","GA","US","America/New_York"],["Omaha","NE","US","America/Chicago"],["Colorado Springs","CO","US","America/Denver"],["Raleigh","NC","US","America/New_York"],["Miami","FL","US","America/New_York"],["Tampa","FL","US","America/New_York"],["Minneapolis","MN","US","America/Chicago"],["New Orleans","LA","US","America/Chicago"],["Cleveland","OH","US","America/New_York"],["Honolulu","HI","US","Pacific/Honolulu"],["Anchorage","AK","US","America/Anchorage"],["St. Louis","MO","US","America/Chicago"],["Pittsburgh","PA","US","America/New_York"],["Cincinnati","OH","US","America/New_York"],["Orlando","FL","US","America/New_York"],["Salt Lake City","UT","US","America/Denver"],["Detroit","MI","US","America/Detroit"],["Toronto","ON","CA","America/Toronto"],["Montreal","QC","CA","America/Montreal"],["Vancouver","BC","CA","America/Vancouver"],["Calgary","AB","CA","America/Edmonton"],["Edmonton","AB","CA","America/Edmonton"],["Ottawa","ON","CA","America/Toronto"],["Winnipeg","MB","CA","America/Winnipeg"],["Halifax","NS","CA","America/Halifax"],["Mexico City","","MX","America/Mexico_City"],["Guadalajara","","MX","America/Mexico_City"],["Monterrey","","MX","America/Monterrey"],["Cancún","","MX","America/Cancun"],["San José","","CR","America/Costa_Rica"],["Panama City","","PA","America/Panama"],["Guatemala City","","GT","America/Guatemala"],["San Juan","PR","US","America/Puerto_Rico"],["Kingston","","JM","America/Jamaica"],["Havana","","CU","America/Havana"],["São Paulo","","BR","America/Sao_Paulo"],["Rio de Janeiro","","BR","America/Sao_Paulo"],["Buenos Aires","","AR","America/Argentina/Buenos_Aires"],["Bogotá","","CO","America/Bogota"],["Lima","","PE","America/Lima"],["Santiago","","CL","America/Santiago"],["Medellín","","CO","America/Bogota"],["Caracas","","VE","America/Caracas"],["Quito","","EC","America/Guayaquil"],["Montevideo","","UY","America/Montevideo"],["London","","GB","Europe/London"],["Manchester","","GB","Europe/London"],["Birmingham","","GB","Europe/London"],["Edinburgh","","GB","Europe/London"],["Dublin","","IE","Europe/Dublin"],["Paris","","FR","Europe/Paris"],["Madrid","","ES","Europe/Madrid"],["Barcelona","","ES","Europe/Madrid"],["Lisbon","","PT","Europe/Lisbon"],["Amsterdam","","NL","Europe/Amsterdam"],["Brussels","","BE","Europe/Brussels"],["Zurich","","CH","Europe/Zurich"],["Geneva","","CH","Europe/Zurich"],["Berlin","","DE","Europe/Berlin"],["Munich","","DE","Europe/Berlin"],["Frankfurt","","DE","Europe/Berlin"],["Vienna","","AT","Europe/Vienna"],["Prague","","CZ","Europe/Prague"],["Warsaw","","PL","Europe/Warsaw"],["Budapest","","HU","Europe/Budapest"],["Copenhagen","","DK","Europe/Copenhagen"],["Stockholm","","SE","Europe/Stockholm"],["Oslo","","NO","Europe/Oslo"],["Helsinki","","FI","Europe/Helsinki"],["Rome","","IT","Europe/Rome"],["Milan","","IT","Europe/Rome"],["Athens","","GR","Europe/Athens"],["Istanbul","","TR","Europe/Istanbul"],["Bucharest","","RO","Europe/Bucharest"],["Kyiv","","UA","Europe/Kyiv"],["Moscow","","RU","Europe/Moscow"],["St. Petersburg","","RU","Europe/Moscow"],["Dubai","","AE","Asia/Dubai"],["Abu Dhabi","","AE","Asia/Dubai"],["Riyadh","","SA","Asia/Riyadh"],["Doha","","QA","Asia/Qatar"],["Tel Aviv","","IL","Asia/Jerusalem"],["Jerusalem","","IL","Asia/Jerusalem"],["Amman","","JO","Asia/Amman"],["Beirut","","LB","Asia/Beirut"],["Kuwait City","","KW","Asia/Kuwait"],["Baghdad","","IQ","Asia/Baghdad"],["Tehran","","IR","Asia/Tehran"],["Cairo","","EG","Africa/Cairo"],["Lagos","","NG","Africa/Lagos"],["Johannesburg","","ZA","Africa/Johannesburg"],["Cape Town","","ZA","Africa/Johannesburg"],["Nairobi","","KE","Africa/Nairobi"],["Casablanca","","MA","Africa/Casablanca"],["Accra","","GH","Africa/Accra"],["Addis Ababa","","ET","Africa/Addis_Ababa"],["Dar es Salaam","","TZ","Africa/Dar_es_Salaam"],["Algiers","","DZ","Africa/Algiers"],["Tunis","","TN","Africa/Tunis"],["Dakar","","SN","Africa/Dakar"],["Kampala","","UG","Africa/Kampala"],["Kigali","","RW","Africa/Kigali"],["Mumbai","","IN","Asia/Kolkata"],["Delhi","","IN","Asia/Kolkata"],["Bangalore","","IN","Asia/Kolkata"],["Hyderabad","","IN","Asia/Kolkata"],["Chennai","","IN","Asia/Kolkata"],["Pune","","IN","Asia/Kolkata"],["Kolkata","","IN","Asia/Kolkata"],["Ahmedabad","","IN","Asia/Kolkata"],["Karachi","","PK","Asia/Karachi"],["Lahore","","PK","Asia/Karachi"],["Islamabad","","PK","Asia/Karachi"],["Dhaka","","BD","Asia/Dhaka"],["Colombo","","LK","Asia/Colombo"],["Kathmandu","","NP","Asia/Kathmandu"],["Tokyo","","JP","Asia/Tokyo"],["Osaka","","JP","Asia/Tokyo"],["Seoul","","KR","Asia/Seoul"],["Beijing","","CN","Asia/Shanghai"],["Shanghai","","CN","Asia/Shanghai"],["Shenzhen","","CN","Asia/Shanghai"],["Guangzhou","","CN","Asia/Shanghai"],["Hong Kong","","HK","Asia/Hong_Kong"],["Taipei","","TW","Asia/Taipei"],["Ulaanbaatar","","MN","Asia/Ulaanbaatar"],["Singapore","","SG","Asia/Singapore"],["Bangkok","","TH","Asia/Bangkok"],["Jakarta","","ID","Asia/Jakarta"],["Kuala Lumpur","","MY","Asia/Kuala_Lumpur"],["Manila","","PH","Asia/Manila"],["Ho Chi Minh City","","VN","Asia/Ho_Chi_Minh"],["Hanoi","","VN","Asia/Ho_Chi_Minh"],["Phnom Penh","","KH","Asia/Phnom_Penh"],["Bali","","ID","Asia/Makassar"],["Tashkent","","UZ","Asia/Tashkent"],["Almaty","","KZ","Asia/Almaty"],["Tbilisi","","GE","Asia/Tbilisi"],["Baku","","AZ","Asia/Baku"],["Yerevan","","AM","Asia/Yerevan"],["Sydney","","AU","Australia/Sydney"],["Melbourne","","AU","Australia/Melbourne"],["Brisbane","","AU","Australia/Brisbane"],["Perth","","AU","Australia/Perth"],["Adelaide","","AU","Australia/Adelaide"],["Auckland","","NZ","Pacific/Auckland"],["Wellington","","NZ","Pacific/Auckland"],["Fiji","","FJ","Pacific/Fiji"]];
-
-const COUNTRY_NAMES = {US:'United States',CA:'Canada',MX:'Mexico',CR:'Costa Rica',PA:'Panama',GT:'Guatemala',JM:'Jamaica',CU:'Cuba',BR:'Brazil',AR:'Argentina',CO:'Colombia',PE:'Peru',CL:'Chile',VE:'Venezuela',EC:'Ecuador',UY:'Uruguay',GB:'United Kingdom',IE:'Ireland',FR:'France',ES:'Spain',PT:'Portugal',NL:'Netherlands',BE:'Belgium',CH:'Switzerland',DE:'Germany',AT:'Austria',CZ:'Czech Republic',PL:'Poland',HU:'Hungary',DK:'Denmark',SE:'Sweden',NO:'Norway',FI:'Finland',IT:'Italy',GR:'Greece',TR:'Turkey',RO:'Romania',UA:'Ukraine',RU:'Russia',AE:'UAE',SA:'Saudi Arabia',QA:'Qatar',IL:'Israel',JO:'Jordan',LB:'Lebanon',KW:'Kuwait',IQ:'Iraq',IR:'Iran',EG:'Egypt',NG:'Nigeria',ZA:'South Africa',KE:'Kenya',MA:'Morocco',GH:'Ghana',ET:'Ethiopia',TZ:'Tanzania',DZ:'Algeria',TN:'Tunisia',SN:'Senegal',UG:'Uganda',RW:'Rwanda',IN:'India',PK:'Pakistan',BD:'Bangladesh',LK:'Sri Lanka',NP:'Nepal',JP:'Japan',KR:'South Korea',CN:'China',HK:'Hong Kong',TW:'Taiwan',MN:'Mongolia',SG:'Singapore',TH:'Thailand',ID:'Indonesia',MY:'Malaysia',PH:'Philippines',VN:'Vietnam',KH:'Cambodia',UZ:'Uzbekistan',KZ:'Kazakhstan',GE:'Georgia',AZ:'Azerbaijan',AM:'Armenia',AU:'Australia',NZ:'New Zealand',FJ:'Fiji'};
-
-function cityDisplayLabel(city) {
-  if (!city) return '';
-  const [name, region, country] = city;
-  const parts = [name];
-  if (region) parts.push(region);
-  parts.push(COUNTRY_NAMES[country] || country);
-  return parts.join(', ');
-}
+// ── Country + timezone database (119 countries) ──
+// Format: [name, code, zones[], zoneLabels[]?]  — zoneLabels only for multi-tz countries
+const COUNTRIES = [["United States","US",["America/New_York","America/Chicago","America/Denver","America/Los_Angeles","America/Phoenix","America/Anchorage","Pacific/Honolulu","America/Indiana/Indianapolis","America/Kentucky/Louisville","America/Detroit","America/Puerto_Rico"],["Eastern","Central","Mountain","Pacific","Arizona (no DST)","Alaska","Hawaii","Indiana","Kentucky","Detroit","Puerto Rico"]],["Canada","CA",["America/Toronto","America/Winnipeg","America/Edmonton","America/Vancouver","America/Halifax","America/St_Johns"],["Eastern","Central","Mountain","Pacific","Atlantic","Newfoundland"]],["Australia","AU",["Australia/Sydney","Australia/Brisbane","Australia/Adelaide","Australia/Perth","Australia/Darwin"],["Sydney / Melbourne","Brisbane","Adelaide","Perth","Darwin"]],["Russia","RU",["Europe/Moscow","Europe/Samara","Asia/Yekaterinburg","Asia/Novosibirsk","Asia/Krasnoyarsk","Asia/Irkutsk","Asia/Vladivostok","Asia/Kamchatka"],["Moscow","Samara","Yekaterinburg","Novosibirsk","Krasnoyarsk","Irkutsk","Vladivostok","Kamchatka"]],["Brazil","BR",["America/Sao_Paulo","America/Manaus","America/Belem","America/Noronha"],["São Paulo / Brasília","Manaus","Belém","Fernando de Noronha"]],["Mexico","MX",["America/Mexico_City","America/Cancun","America/Tijuana","America/Chihuahua"],["Mexico City / Central","Cancún / Eastern","Tijuana / Pacific","Chihuahua / Mountain"]],["Indonesia","ID",["Asia/Jakarta","Asia/Makassar","Asia/Jayapura"],["Jakarta / Western","Makassar / Central","Jayapura / Eastern"]],["China","CN",["Asia/Shanghai"],["China Standard"]],["Afghanistan","AF",["Asia/Kabul"]],["Albania","AL",["Europe/Tirane"]],["Algeria","DZ",["Africa/Algiers"]],["Argentina","AR",["America/Argentina/Buenos_Aires"]],["Armenia","AM",["Asia/Yerevan"]],["Austria","AT",["Europe/Vienna"]],["Azerbaijan","AZ",["Asia/Baku"]],["Bahrain","BH",["Asia/Bahrain"]],["Bangladesh","BD",["Asia/Dhaka"]],["Belgium","BE",["Europe/Brussels"]],["Bolivia","BO",["America/La_Paz"]],["Bosnia and Herzegovina","BA",["Europe/Sarajevo"]],["Bulgaria","BG",["Europe/Sofia"]],["Cambodia","KH",["Asia/Phnom_Penh"]],["Cameroon","CM",["Africa/Douala"]],["Chile","CL",["America/Santiago"]],["Colombia","CO",["America/Bogota"]],["Costa Rica","CR",["America/Costa_Rica"]],["Croatia","HR",["Europe/Zagreb"]],["Cuba","CU",["America/Havana"]],["Czech Republic","CZ",["Europe/Prague"]],["Denmark","DK",["Europe/Copenhagen"]],["Dominican Republic","DO",["America/Santo_Domingo"]],["Ecuador","EC",["America/Guayaquil"]],["Egypt","EG",["Africa/Cairo"]],["El Salvador","SV",["America/El_Salvador"]],["Estonia","EE",["Europe/Tallinn"]],["Ethiopia","ET",["Africa/Addis_Ababa"]],["Fiji","FJ",["Pacific/Fiji"]],["Finland","FI",["Europe/Helsinki"]],["France","FR",["Europe/Paris"]],["Georgia","GE",["Asia/Tbilisi"]],["Germany","DE",["Europe/Berlin"]],["Ghana","GH",["Africa/Accra"]],["Greece","GR",["Europe/Athens"]],["Guatemala","GT",["America/Guatemala"]],["Honduras","HN",["America/Tegucigalpa"]],["Hong Kong","HK",["Asia/Hong_Kong"]],["Hungary","HU",["Europe/Budapest"]],["Iceland","IS",["Atlantic/Reykjavik"]],["India","IN",["Asia/Kolkata"]],["Iran","IR",["Asia/Tehran"]],["Iraq","IQ",["Asia/Baghdad"]],["Ireland","IE",["Europe/Dublin"]],["Israel","IL",["Asia/Jerusalem"]],["Italy","IT",["Europe/Rome"]],["Jamaica","JM",["America/Jamaica"]],["Japan","JP",["Asia/Tokyo"]],["Jordan","JO",["Asia/Amman"]],["Kazakhstan","KZ",["Asia/Almaty"]],["Kenya","KE",["Africa/Nairobi"]],["Kuwait","KW",["Asia/Kuwait"]],["Laos","LA",["Asia/Vientiane"]],["Latvia","LV",["Europe/Riga"]],["Lebanon","LB",["Asia/Beirut"]],["Libya","LY",["Africa/Tripoli"]],["Lithuania","LT",["Europe/Vilnius"]],["Luxembourg","LU",["Europe/Luxembourg"]],["Malaysia","MY",["Asia/Kuala_Lumpur"]],["Malta","MT",["Europe/Malta"]],["Morocco","MA",["Africa/Casablanca"]],["Myanmar","MM",["Asia/Yangon"]],["Nepal","NP",["Asia/Kathmandu"]],["Netherlands","NL",["Europe/Amsterdam"]],["New Zealand","NZ",["Pacific/Auckland"]],["Nicaragua","NI",["America/Managua"]],["Nigeria","NG",["Africa/Lagos"]],["North Korea","KP",["Asia/Pyongyang"]],["Norway","NO",["Europe/Oslo"]],["Oman","OM",["Asia/Muscat"]],["Pakistan","PK",["Asia/Karachi"]],["Panama","PA",["America/Panama"]],["Paraguay","PY",["America/Asuncion"]],["Peru","PE",["America/Lima"]],["Philippines","PH",["Asia/Manila"]],["Poland","PL",["Europe/Warsaw"]],["Portugal","PT",["Europe/Lisbon"]],["Puerto Rico","PR",["America/Puerto_Rico"]],["Qatar","QA",["Asia/Qatar"]],["Romania","RO",["Europe/Bucharest"]],["Rwanda","RW",["Africa/Kigali"]],["Saudi Arabia","SA",["Asia/Riyadh"]],["Senegal","SN",["Africa/Dakar"]],["Serbia","RS",["Europe/Belgrade"]],["Singapore","SG",["Asia/Singapore"]],["Slovakia","SK",["Europe/Bratislava"]],["Slovenia","SI",["Europe/Ljubljana"]],["South Africa","ZA",["Africa/Johannesburg"]],["South Korea","KR",["Asia/Seoul"]],["Spain","ES",["Europe/Madrid"]],["Sri Lanka","LK",["Asia/Colombo"]],["Sudan","SD",["Africa/Khartoum"]],["Sweden","SE",["Europe/Stockholm"]],["Switzerland","CH",["Europe/Zurich"]],["Syria","SY",["Asia/Damascus"]],["Taiwan","TW",["Asia/Taipei"]],["Tanzania","TZ_",["Africa/Dar_es_Salaam"]],["Thailand","TH",["Asia/Bangkok"]],["Trinidad and Tobago","TT",["America/Port_of_Spain"]],["Tunisia","TN_",["Africa/Tunis"]],["Turkey","TR",["Europe/Istanbul"]],["UAE","AE",["Asia/Dubai"]],["Uganda","UG",["Africa/Kampala"]],["Ukraine","UA",["Europe/Kyiv"]],["United Kingdom","GB",["Europe/London"]],["Uruguay","UY",["America/Montevideo"]],["Uzbekistan","UZ",["Asia/Tashkent"]],["Venezuela","VE",["America/Caracas"]],["Vietnam","VN",["Asia/Ho_Chi_Minh"]],["Yemen","YE",["Asia/Aden"]],["Zimbabwe","ZW",["Africa/Harare"]]];
 
 function _tzOffsetLabel(tz) {
   try {
-    const now = new Date();
     const fmt = new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName: 'shortOffset' });
-    const parts = fmt.formatToParts(now);
-    const offsetPart = parts.find(p => p.type === 'timeZoneName');
-    return offsetPart ? offsetPart.value.replace('GMT', 'UTC') : '';
+    const parts = fmt.formatToParts(new Date());
+    const p = parts.find(p => p.type === 'timeZoneName');
+    return p ? p.value.replace('GMT', 'UTC') : '';
   } catch(e) { return ''; }
 }
 
@@ -12552,116 +12539,293 @@ function tzDisplayLabel(val) {
       return dev ? 'Auto — ' + dev.split('/').pop().replace(/_/g, ' ') : 'Auto (Device)';
     } catch(e) { return 'Auto (Device)'; }
   }
-  // Try to find a friendly city name for this IANA zone
-  const city = WORLD_CITIES.find(c => c[3] === val);
-  const friendlyCity = city ? city[0] : val.split('/').pop().replace(/_/g, ' ');
+  const friendly = val.split('/').pop().replace(/_/g, ' ');
   const offset = _tzOffsetLabel(val);
-  return offset ? `${friendlyCity} (${offset})` : friendlyCity;
+  return offset ? `${friendly} (${offset})` : friendly;
 }
 
-// ── Shared type-to-search picker (used for location + timezone) ──
-let _searchPickerCallback = null;
-let _searchPickerItems = [];
-let _searchPickerMode = ''; // 'city' | 'timezone'
+// ═══════════════════════════════════════════════════════════
+// LOCATION + TIMEZONE PICKER
+// ═══════════════════════════════════════════════════════════
+// Flow: 1) Try device geolocation → reverse geocode for city
+//       2) If declined/failed → pick country → type city name
+//       3) Timezone auto-set from device or country; editable via search
 
-function openSearchPicker(mode, callback) {
-  _searchPickerMode = mode;
-  _searchPickerCallback = callback;
+let _locPickerCallback = null;  // receives { location, timezone }
+let _locPickerContext = '';      // 'mp' or 'ob'
+
+// ── Main entry: open the location picker flow ──
+function openLocationPicker(context, callback) {
+  _locPickerContext = context;
+  _locPickerCallback = callback;
   const modal = document.getElementById('search-picker-modal');
+  const list = document.getElementById('search-picker-list');
   const input = document.getElementById('search-picker-input');
   const title = document.getElementById('search-picker-title');
 
-  if (mode === 'city') {
-    title.textContent = 'Search City';
-    input.placeholder = 'Type a city name…';
-    _searchPickerItems = WORLD_CITIES.map(c => ({
-      label: cityDisplayLabel(c),
-      value: cityDisplayLabel(c),
-      tz: c[3],
-      data: c
-    }));
-  } else {
-    title.textContent = 'Search Time Zone';
-    input.placeholder = 'Type a city or zone…';
-    // Build timezone list from WORLD_CITIES unique zones + auto option
-    const seen = new Set();
-    const items = [{ label: 'Auto (Device)', value: 'auto', tz: 'auto', data: null }];
-    // Also get all IANA zones from Intl if available
-    let allZones = [];
-    try { allZones = Intl.supportedValuesOf('timeZone'); } catch(e) {}
-    // Add city-based zones first (friendlier labels)
-    WORLD_CITIES.forEach(c => {
-      if (!seen.has(c[3])) {
-        seen.add(c[3]);
-        const offset = _tzOffsetLabel(c[3]);
-        items.push({
-          label: `${c[0]} — ${c[3].replace(/_/g, ' ')}${offset ? ' (' + offset + ')' : ''}`,
-          value: c[3],
-          tz: c[3],
-          data: c
-        });
-      }
+  title.textContent = 'Your Location';
+  input.style.display = 'none'; // hide search initially — show detect vs country options
+  list.innerHTML = `
+    <div style="padding:24px 20px;text-align:center">
+      <div style="font-size:14px;color:var(--muted);margin-bottom:20px">How would you like to set your location?</div>
+      <button type="button" onclick="_locDetectDevice()" style="width:100%;padding:14px 16px;background:var(--gold-tint);border:1px solid #CFA13C;border-radius:12px;font-size:14px;font-weight:600;color:#CFA13C;cursor:pointer;margin-bottom:12px;font-family:inherit">
+        <i class="fa-solid fa-location-crosshairs" style="margin-right:8px"></i>Use My Location
+      </button>
+      <button type="button" onclick="_locShowCountrySearch()" style="width:100%;padding:14px 16px;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;font-size:14px;font-weight:600;color:var(--ink);cursor:pointer;font-family:inherit">
+        <i class="fa-solid fa-globe" style="margin-right:8px"></i>Pick Country
+      </button>
+    </div>`;
+  modal.style.display = 'flex';
+}
+
+// ── Path 1: Device geolocation ──
+function _locDetectDevice() {
+  const list = document.getElementById('search-picker-list');
+  list.innerHTML = '<div style="padding:40px 20px;text-align:center;color:var(--muted);font-size:14px"><i class="fa-solid fa-spinner fa-spin" style="margin-right:8px"></i>Detecting location…</div>';
+
+  if (!navigator.geolocation) {
+    _locGeoFailed('Location not supported on this device');
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    pos => _locReverseGeocode(pos.coords.latitude, pos.coords.longitude),
+    err => {
+      const msgs = { 1: 'Location permission denied', 2: 'Location unavailable', 3: 'Location request timed out' };
+      _locGeoFailed(msgs[err.code] || 'Could not detect location');
+    },
+    { timeout: 10000, maximumAge: 300000 }
+  );
+}
+
+async function _locReverseGeocode(lat, lon) {
+  const list = document.getElementById('search-picker-list');
+  try {
+    const resp = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&addressdetails=1`, {
+      headers: { 'Accept-Language': 'en' }
     });
-    // Add remaining IANA zones not covered by cities
-    allZones.forEach(tz => {
-      if (!seen.has(tz)) {
-        seen.add(tz);
-        const offset = _tzOffsetLabel(tz);
-        const friendly = tz.split('/').pop().replace(/_/g, ' ');
-        items.push({
-          label: `${friendly} — ${tz}${offset ? ' (' + offset + ')' : ''}`,
-          value: tz,
-          tz: tz,
-          data: null
-        });
-      }
-    });
-    _searchPickerItems = items;
+    const data = await resp.json();
+    const addr = data.address || {};
+    const city = addr.city || addr.town || addr.village || addr.hamlet || addr.county || '';
+    const country = addr.country || '';
+    const locationStr = city ? `${city}, ${country}` : country;
+    const deviceTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+    list.innerHTML = `
+      <div style="padding:24px 20px;text-align:center">
+        <div style="font-size:14px;color:var(--muted);margin-bottom:8px">Detected location</div>
+        <div style="font-size:18px;font-weight:700;color:var(--ink);margin-bottom:4px">${locationStr}</div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:24px">${tzDisplayLabel(deviceTz)}</div>
+        <button type="button" onclick="_locConfirm('${locationStr.replace(/'/g,"\\'")}','${deviceTz}')" style="width:100%;padding:14px;background:#CFA13C;border:none;border-radius:12px;font-size:15px;font-weight:700;color:#101512;cursor:pointer;margin-bottom:10px;font-family:inherit">Use This Location</button>
+        <button type="button" onclick="_locShowCountrySearch()" style="width:100%;padding:12px;background:none;border:none;font-size:13px;color:var(--muted);cursor:pointer;font-family:inherit">Pick a different location</button>
+      </div>`;
+  } catch(e) {
+    console.error('Reverse geocode failed:', e);
+    // Fallback: use device timezone to guess country
+    const deviceTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    _locGeoFailed('Could not determine city — pick your country instead');
+  }
+}
+
+function _locGeoFailed(msg) {
+  const list = document.getElementById('search-picker-list');
+  list.innerHTML = `
+    <div style="padding:24px 20px;text-align:center">
+      <div style="font-size:14px;color:var(--muted);margin-bottom:20px">${msg}</div>
+      <button type="button" onclick="_locShowCountrySearch()" style="width:100%;padding:14px 16px;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;font-size:14px;font-weight:600;color:var(--ink);cursor:pointer;font-family:inherit">
+        <i class="fa-solid fa-globe" style="margin-right:8px"></i>Pick Country Instead
+      </button>
+    </div>`;
+}
+
+// ── Path 2: Country search → city text → timezone ──
+function _locShowCountrySearch() {
+  const input = document.getElementById('search-picker-input');
+  const title = document.getElementById('search-picker-title');
+  title.textContent = 'Select Country';
+  input.style.display = '';
+  input.placeholder = 'Type a country name…';
+  input.value = '';
+  _locRenderCountries('');
+  setTimeout(() => input.focus(), 120);
+  // rewire input handler for country search
+  input.oninput = function() { _locRenderCountries(this.value.trim()); };
+}
+
+function _locRenderCountries(query) {
+  const list = document.getElementById('search-picker-list');
+  let filtered = COUNTRIES;
+  if (query) {
+    const q = query.toLowerCase();
+    filtered = COUNTRIES.filter(c => c[0].toLowerCase().includes(q));
+  }
+  if (filtered.length === 0) {
+    list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);font-size:14px">No countries found</div>';
+    return;
+  }
+  list.innerHTML = filtered.slice(0, 40).map((c, i) =>
+    `<button type="button" onclick="_locCountrySelected(${COUNTRIES.indexOf(c)})" style="display:block;width:100%;text-align:left;padding:14px 16px;background:none;border:none;border-bottom:1px solid var(--line);color:var(--ink);font-size:14px;font-family:inherit;cursor:pointer">${c[0]}</button>`
+  ).join('');
+}
+
+function _locCountrySelected(idx) {
+  const country = COUNTRIES[idx];
+  if (!country) return;
+  const input = document.getElementById('search-picker-input');
+  const title = document.getElementById('search-picker-title');
+  const list = document.getElementById('search-picker-list');
+
+  // Show city input + timezone selection
+  title.textContent = country[0];
+  input.style.display = 'none';
+
+  const hasMultipleZones = country[2].length > 1 && country[3];
+  const deviceTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  // If device TZ matches one of this country's zones, pre-select it
+  const matchedIdx = country[2].indexOf(deviceTz);
+  const defaultTz = matchedIdx >= 0 ? deviceTz : country[2][0];
+
+  let tzHtml = '';
+  if (hasMultipleZones) {
+    tzHtml = `
+      <div style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:8px;margin-top:16px">Time Zone</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        ${country[2].map((tz, i) => {
+          const label = country[3][i];
+          const offset = _tzOffsetLabel(tz);
+          const isActive = tz === defaultTz;
+          return `<button type="button" onclick="_locSelectZone(this,'${tz}')" data-tz="${tz}" class="loc-tz-btn${isActive ? ' active' : ''}" style="padding:8px 14px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;border:1px solid ${isActive ? '#CFA13C' : 'var(--line)'};background:${isActive ? 'var(--gold-tint)' : 'var(--surface-2)'};color:${isActive ? '#CFA13C' : 'var(--ink)'}">${label}${offset ? ' <span style="font-weight:400;color:var(--muted);font-size:11px">' + offset + '</span>' : ''}</button>`;
+        }).join('')}
+      </div>`;
   }
 
+  list.innerHTML = `
+    <div style="padding:20px">
+      <div style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:8px">City <span style="font-weight:400">(optional)</span></div>
+      <input type="text" id="loc-city-input" placeholder="e.g. Austin, Berlin, Lagos…" autocomplete="off" style="width:100%;padding:12px 16px;border:2px solid var(--line);border-radius:12px;font-size:15px;background:var(--bg-deep);color:var(--ink);outline:none;font-family:inherit;box-sizing:border-box" />
+      ${tzHtml}
+      <button type="button" onclick="_locConfirmCountry(${idx})" style="width:100%;padding:14px;background:#CFA13C;border:none;border-radius:12px;font-size:15px;font-weight:700;color:#101512;cursor:pointer;margin-top:20px;font-family:inherit">Confirm</button>
+      <button type="button" onclick="_locShowCountrySearch()" style="width:100%;padding:10px;background:none;border:none;font-size:13px;color:var(--muted);cursor:pointer;margin-top:4px;font-family:inherit">← Back to countries</button>
+    </div>`;
+
+  window._locSelectedTz = defaultTz;
+  setTimeout(() => { const ci = document.getElementById('loc-city-input'); if (ci) ci.focus(); }, 120);
+}
+
+function _locSelectZone(btn, tz) {
+  window._locSelectedTz = tz;
+  document.querySelectorAll('.loc-tz-btn').forEach(b => {
+    const isActive = b.dataset.tz === tz;
+    b.classList.toggle('active', isActive);
+    b.style.border = `1px solid ${isActive ? '#CFA13C' : 'var(--line)'}`;
+    b.style.background = isActive ? 'var(--gold-tint)' : 'var(--surface-2)';
+    b.style.color = isActive ? '#CFA13C' : 'var(--ink)';
+  });
+}
+
+function _locConfirmCountry(idx) {
+  const country = COUNTRIES[idx];
+  const cityInput = document.getElementById('loc-city-input');
+  const city = cityInput ? cityInput.value.trim() : '';
+  const location = city ? `${city}, ${country[0]}` : country[0];
+  const tz = window._locSelectedTz || country[2][0];
+  _locConfirm(location, tz);
+}
+
+function _locConfirm(location, timezone) {
+  if (_locPickerCallback) _locPickerCallback({ location, timezone });
+  closeSearchPicker();
+}
+
+// ── Timezone-only search picker ──
+let _tzPickerCallback = null;
+
+function openTimezonePicker(callback) {
+  _tzPickerCallback = callback;
+  const modal = document.getElementById('search-picker-modal');
+  const input = document.getElementById('search-picker-input');
+  const title = document.getElementById('search-picker-title');
+  title.textContent = 'Search Time Zone';
+  input.style.display = '';
+  input.placeholder = 'Type a city or zone…';
   input.value = '';
+  input.oninput = function() { _tzRenderResults(this.value.trim()); };
+  _tzRenderResults('');
   modal.style.display = 'flex';
-  renderSearchPickerResults('');
   setTimeout(() => input.focus(), 120);
 }
 
-function closeSearchPicker() {
-  document.getElementById('search-picker-modal').style.display = 'none';
-  _searchPickerCallback = null;
+function _tzBuildItems() {
+  const items = [{ label: 'Auto (Device)', value: 'auto', search: 'auto device' }];
+  const seen = new Set();
+  // Country-based zones with friendly labels
+  COUNTRIES.forEach(c => {
+    c[2].forEach((tz, i) => {
+      if (seen.has(tz)) return;
+      seen.add(tz);
+      const offset = _tzOffsetLabel(tz);
+      const label = c[3] ? c[3][i] : c[0];
+      const friendly = tz.split('/').pop().replace(/_/g, ' ');
+      items.push({
+        label: `${label} — ${friendly}${offset ? ' (' + offset + ')' : ''}`,
+        value: tz,
+        search: `${label} ${friendly} ${c[0]} ${tz} ${offset}`.toLowerCase()
+      });
+    });
+  });
+  // Add remaining IANA zones
+  try {
+    Intl.supportedValuesOf('timeZone').forEach(tz => {
+      if (seen.has(tz)) return;
+      seen.add(tz);
+      const offset = _tzOffsetLabel(tz);
+      const friendly = tz.split('/').pop().replace(/_/g, ' ');
+      items.push({
+        label: `${friendly} — ${tz}${offset ? ' (' + offset + ')' : ''}`,
+        value: tz,
+        search: `${friendly} ${tz} ${offset}`.toLowerCase()
+      });
+    });
+  } catch(e) {}
+  return items;
 }
 
-function onSearchPickerInput(val) {
-  renderSearchPickerResults(val.trim());
-}
-
-function renderSearchPickerResults(query) {
+let _tzItems = null;
+function _tzRenderResults(query) {
+  if (!_tzItems) _tzItems = _tzBuildItems();
   const list = document.getElementById('search-picker-list');
   let filtered;
   if (!query) {
-    filtered = _searchPickerItems.slice(0, 30);
+    filtered = _tzItems.slice(0, 30);
   } else {
-    const q = query.toLowerCase();
-    const words = q.split(/\s+/);
-    filtered = _searchPickerItems.filter(item => {
-      const lbl = item.label.toLowerCase();
-      return words.every(w => lbl.includes(w));
-    }).slice(0, 30);
+    const words = query.toLowerCase().split(/\s+/);
+    filtered = _tzItems.filter(item => words.every(w => item.search.includes(w))).slice(0, 30);
   }
-  if (filtered.length === 0) {
-    list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);font-size:14px">No matches found</div>';
+  if (!filtered.length) {
+    list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);font-size:14px">No time zones found</div>';
     return;
   }
-  list.innerHTML = filtered.map((item, i) => `<button type="button" onclick="selectSearchPickerItem(${i})" data-idx="${i}" style="display:block;width:100%;text-align:left;padding:14px 16px;background:none;border:none;border-bottom:1px solid var(--line);color:var(--ink);font-size:14px;font-family:inherit;cursor:pointer">${item.label}</button>`).join('');
-  // store filtered list for selection
-  list._filtered = filtered;
+  list.innerHTML = filtered.map((item, i) =>
+    `<button type="button" onclick="_tzSelectItem(${i})" style="display:block;width:100%;text-align:left;padding:14px 16px;background:none;border:none;border-bottom:1px solid var(--line);color:var(--ink);font-size:14px;font-family:inherit;cursor:pointer">${item.label}</button>`
+  ).join('');
+  list._tzFiltered = filtered;
 }
 
-function selectSearchPickerItem(idx) {
+function _tzSelectItem(idx) {
   const list = document.getElementById('search-picker-list');
-  const item = list._filtered[idx];
+  const item = list._tzFiltered[idx];
   if (!item) return;
-  if (_searchPickerCallback) _searchPickerCallback(item);
+  if (_tzPickerCallback) _tzPickerCallback(item.value);
   closeSearchPicker();
+}
+
+function closeSearchPicker() {
+  const modal = document.getElementById('search-picker-modal');
+  modal.style.display = 'none';
+  // Reset input handler and visibility
+  const input = document.getElementById('search-picker-input');
+  if (input) { input.oninput = null; input.style.display = ''; }
+  _locPickerCallback = null;
+  _tzPickerCallback = null;
 }
 function userTimeZone() {
   const tz = userProfile?.timezone;
@@ -13088,12 +13252,12 @@ if (document.readyState === 'loading') {
             <span style="font-size:12px;color:var(--muted)">in</span>
           </div>
         </div>
-        <div class="mp-row" onclick="openSearchPicker('city', obCityPicked)">
+        <div class="mp-row" onclick="openLocationPicker('ob', obLocationPicked)">
           <div class="mp-row-label">Location <span style="font-size:11px;color:var(--muted-2)">(optional)</span></div>
           <div class="mp-row-value" id="ob-location-display" style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Tap to set</div>
         </div>
         <input id="ob-location" type="hidden" value="" />
-        <div class="mp-row" onclick="openSearchPicker('timezone', obTzPicked)" style="border-bottom:none">
+        <div class="mp-row" onclick="openTimezonePicker(obTzPicked)" style="border-bottom:none">
           <div class="mp-row-label">Time Zone</div>
           <div class="mp-row-value" id="ob-timezone-display" style="max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Auto (Device)</div>
         </div>
