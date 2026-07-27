@@ -2916,6 +2916,7 @@ let _vlSessionId = 0; // bumped whenever a session ends/restarts, so a stale in-
 let _vlStarting = false; // guards against a double-tap on the mic starting two concurrent listening sessions
 let _vlHistory = []; // conversation turns for the current multi-turn parse ({role:'user'|'assistant', content})
 let _vlAwaitingFollowup = false; // true while the next utterance should be treated as an answer to a follow-up question, not a fresh command
+let _vlCorrecting = false; // true while the next utterance is a correction to the proposal shown on the confirm card ("the apple should be a snack") — affects only the listening-screen hint text
 let _vlFollowupCount = 0;
 const VL_MAX_FOLLOWUPS = 2; // after this many follow-up rounds, force the AI to finalize with its best guess rather than ask again
 
@@ -2961,7 +2962,7 @@ function vlResetToIdle() {
   const typeWrap = document.getElementById('vl-type-instead');
   if (typeWrap) typeWrap.style.display = 'none';
   const typeInput = document.getElementById('vl-type-input');
-  if (typeInput) typeInput.value = '';
+  if (typeInput) { typeInput.value = ''; typeInput.placeholder = 'e.g. Log a banana and peanut butter for a snack'; }
   const liveEl = document.getElementById('vl-live-transcript');
   if (liveEl) liveEl.textContent = '';
   const ctxEl = document.getElementById('vl-listening-context');
@@ -2970,6 +2971,7 @@ function vlResetToIdle() {
   _vlParsed = null;
   _vlHistory = [];
   _vlAwaitingFollowup = false;
+  _vlCorrecting = false;
   _vlFollowupCount = 0;
 }
 
@@ -3061,7 +3063,12 @@ async function vlStartListening() {
   if (typeInput) typeInput.value = '';
   const ctxEl = document.getElementById('vl-listening-context');
   if (ctxEl) {
-    if (_vlAwaitingFollowup && _vlHistory.length) {
+    if (_vlCorrecting) {
+      // Correction mode — the last assistant turn in history is the raw JSON
+      // proposal, not something to display. Show a generic prompt instead.
+      ctxEl.textContent = 'Say what to change — e.g. "the apple should be a snack, not lunch"';
+      ctxEl.style.display = 'block';
+    } else if (_vlAwaitingFollowup && _vlHistory.length) {
       const lastQ = [...(_vlHistory || [])].reverse().find(t => t.role === 'assistant');
       ctxEl.textContent = lastQ ? lastQ.content : '';
       ctxEl.style.display = lastQ ? 'block' : 'none';
@@ -3123,6 +3130,7 @@ async function vlStopListening() {
 // Entry point for every finalized utterance, whether it's a fresh command, a typed command,
 // or the answer to a follow-up question. Routes into the (possibly multi-turn) AI conversation.
 function vlHandleUtterance(text) {
+  _vlCorrecting = false; // the correction (if any) has been captured — the hint is no longer needed
   if (_vlAwaitingFollowup) {
     _vlHistory.push({ role: 'user', content: text });
   } else {
@@ -3150,7 +3158,7 @@ async function vlSendToAI(text) {
         forceFinalize,
         context: {
           defaultMealType,
-          savedFoods: (savedFoods || []).slice(0, 60).map(f => ({ name: f.name, unit: f.unit, calories: f.calories_per_unit, protein: f.protein_per_unit, carbs: f.carbs_per_unit, fat: f.fat_per_unit, fiber: f.fiber_per_unit, cholesterol: f.cholesterol_per_unit })),
+          savedFoods: (savedFoods || []).slice(0, 60).map(f => ({ name: f.name, unit: f.unit, calories: f.cals_per_unit || f.calories_per_unit || 0, protein: f.protein_per_unit, carbs: f.carbs_per_unit, fat: f.fat_per_unit, fiber: f.fiber_per_unit, cholesterol: f.cholesterol_per_unit })),
           savedMeals: (savedMeals || []).slice(0, 60).map(m => ({ name: m.name, calories: m.calories, protein: m.protein, carbs: m.carbs, fat: m.fat, fiber: m.fiber }))
         }
       })
@@ -3159,7 +3167,11 @@ async function vlSendToAI(text) {
     if (sessionId !== _vlSessionId) return; // user already left or restarted this session — discard
     if (data.error || !data.action) throw new Error(data.error || 'No action returned');
 
-    if (data.action === 'followup' && !forceFinalize) {
+    // Accept a followup even when we asked the AI to finalize — if the model
+    // asks anyway, showing the question (which the user can answer or cancel)
+    // beats dumping the whole session into an "Unrecognized" dead end. The
+    // user drives every round, so this can't loop on its own.
+    if (data.action === 'followup') {
       _vlFollowupCount++;
       _vlAwaitingFollowup = true;
       _vlHistory.push({ role: 'assistant', content: data.followupQuestion || 'Can you say more?' });
@@ -3175,6 +3187,10 @@ async function vlSendToAI(text) {
       document.getElementById('vl-clarify-text').textContent = data.clarifyQuestion || "I didn't quite catch that — try again?";
       vlShowState('clarify');
     } else {
+      // Keep the proposal in the conversation history so the person can talk
+      // back to it from the confirm card ("the apple should be a snack") and
+      // the AI can return a corrected version of THIS exact proposal.
+      _vlHistory.push({ role: 'assistant', content: JSON.stringify(data) });
       vlRenderConfirm(data); // known actions render normally; anything else renders the "Could not understand" card with no Log/Edit buttons
       vlShowState('confirm');
     }
@@ -3188,6 +3204,41 @@ async function vlSendToAI(text) {
 
 function vlTryAgain() { vlResetToIdle(); }
 
+// Groups log_food items by their per-item mealType (falling back to the
+// action-level default), preserving first-appearance order and sanitizing
+// anything the AI returns that isn't a real meal type.
+function vlGroupItemsByMealType(items, defaultType) {
+  const VALID = ['breakfast','lunch','dinner','snack'];
+  const fallback = VALID.includes((defaultType || '').toLowerCase()) ? (defaultType || '').toLowerCase() : 'snack';
+  const groups = [];
+  (items || []).forEach(i => {
+    let mt = (i.mealType || '').toLowerCase();
+    if (!VALID.includes(mt)) mt = fallback;
+    let g = groups.find(x => x.type === mt);
+    if (!g) { g = { type: mt, items: [] }; groups.push(g); }
+    g.items.push(i);
+  });
+  return groups;
+}
+
+// "Say a Change" / "Type a Change" on the confirm card — open dialogue with
+// the proposal. The next utterance is sent as a continuation of the same
+// conversation (the proposal JSON is already in _vlHistory), so the AI
+// returns a corrected full proposal and the card re-renders.
+function vlCorrect() {
+  _vlAwaitingFollowup = true; // continue this conversation rather than starting a fresh one
+  _vlCorrecting = true;
+  vlStartListening();
+}
+
+function vlCorrectType() {
+  _vlAwaitingFollowup = true;
+  _vlCorrecting = true;
+  vlShowTypeInstead();
+  const inp = document.getElementById('vl-type-input');
+  if (inp) { inp.placeholder = 'e.g. The apple should be a snack, not lunch'; inp.focus(); }
+}
+
 function vlRenderConfirm(data) {
   const body = document.getElementById('vl-confirm-body');
   let title = '', itemsHtml = '';
@@ -3196,8 +3247,20 @@ function vlRenderConfirm(data) {
   if (data.action === 'log_food') {
     const items = data.logFood?.items || [];
     items.forEach(i => { totals.calories += +i.calories||0; totals.protein += +i.protein||0; totals.carbs += +i.carbs||0; totals.fat += +i.fat||0; totals.fiber += +i.fiber||0; totals.cholesterol += +i.cholesterol||0; });
-    title = `Log to ${(data.logFood?.mealType || 'meal').replace(/^\w/, c => c.toUpperCase())}`;
-    itemsHtml = items.map(i => `<div style="padding:8px 0;border-bottom:1px solid var(--surface-2)"><div style="font-size:14px;font-weight:500;color:var(--ink)">${i.name}${i.quantity ? ' — ' + i.quantity : ''}</div><div class="meal-meta" style="margin-top:2px">${nutritionMetaString(i)}</div></div>`).join('');
+    const groups = vlGroupItemsByMealType(items, data.logFood?.mealType);
+    const cap = s => s.replace(/^\w/, c => c.toUpperCase());
+    const rowHtml = i => `<div style="padding:8px 0;border-bottom:1px solid var(--surface-2)"><div style="font-size:14px;font-weight:500;color:var(--ink)">${i.name}${i.quantity ? ' — ' + i.quantity : ''}</div><div class="meal-meta" style="margin-top:2px">${nutritionMetaString(i)}</div></div>`;
+    if (groups.length <= 1) {
+      // Everything goes to one meal — same simple card as before
+      title = `Log to ${cap(groups[0]?.type || 'meal')}`;
+      itemsHtml = items.map(rowHtml).join('');
+    } else {
+      // Mixed meal types in one utterance ("an apple for a snack, chicken and
+      // rice for lunch") — section the card per meal so it's obvious where
+      // each item will land.
+      title = 'Log Food';
+      itemsHtml = groups.map(g => `<div style="font-size:11px;font-weight:700;color:#CFA13C;text-transform:uppercase;letter-spacing:0.5px;margin-top:10px">${cap(g.type)}</div>` + g.items.map(rowHtml).join('')).join('');
+    }
   } else if (data.action === 'save_meal') {
     const ings = data.saveMeal?.ingredients || [];
     ings.forEach(i => { totals.calories += +i.calories||0; totals.protein += +i.protein||0; totals.carbs += +i.carbs||0; totals.fat += +i.fat||0; totals.fiber += +i.fiber||0; });
@@ -3227,6 +3290,10 @@ function vlRenderConfirm(data) {
   const isKnownAction = ['log_food','save_meal','save_food','log_workout'].includes(data.action);
   const actionButtonsHtml = isKnownAction ? `
     <button class="btn" onclick="vlConfirmSave()" style="margin-top:16px">Looks good — Log it</button>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="btn" onclick="vlCorrect()" style="background:var(--surface-2);color:var(--ink);flex:1"><i class="fa-solid fa-microphone" style="color:#CFA13C"></i>&nbsp; Say a Change</button>
+      <button class="btn" onclick="vlCorrectType()" style="background:var(--surface-2);color:var(--ink);flex:1"><i class="fa-solid fa-keyboard" style="color:#CFA13C"></i>&nbsp; Type a Change</button>
+    </div>
     <button class="btn" onclick="vlEditManually()" style="margin-top:8px;background:var(--surface-2);color:var(--ink)">Edit Manually</button>
     <button onclick="vlTryAgain()" style="background:none;border:none;color:var(--muted);font-size:13px;margin-top:12px;width:100%;padding:8px;cursor:pointer">Cancel</button>
   ` : `
@@ -3252,15 +3319,21 @@ async function vlConfirmSave() {
   try {
     if (data.action === 'log_food') {
       const items = data.logFood?.items || [];
-      const totals = items.reduce((a,i) => ({ calories: a.calories+(+i.calories||0), protein: a.protein+(+i.protein||0), carbs: a.carbs+(+i.carbs||0), fat: a.fat+(+i.fat||0), fiber: a.fiber+(+i.fiber||0), cholesterol: a.cholesterol+(+i.cholesterol||0) }), {calories:0,protein:0,carbs:0,fat:0,fiber:0,cholesterol:0});
-      const name = items.map(i => i.name).join(', ') || 'Voice-logged meal';
-      await dbPost('meals', {
-        date: logDate, name, meal_type: data.logFood?.mealType || 'snack',
-        calories: Math.round(totals.calories), protein: Math.round(totals.protein*10)/10,
-        carbs: Math.round(totals.carbs*10)/10, fat: Math.round(totals.fat*10)/10,
-        fiber: Math.round(totals.fiber*10)/10, cholesterol: Math.round(totals.cholesterol*10)/10,
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      });
+      // One meals row PER MEAL TYPE — "an apple for a snack and chicken for
+      // lunch" writes two rows, each under its own meal, not one combined row.
+      const groups = vlGroupItemsByMealType(items, data.logFood?.mealType);
+      if (!groups.length) { toast('Nothing to log — try again'); return; }
+      for (const g of groups) {
+        const totals = g.items.reduce((a,i) => ({ calories: a.calories+(+i.calories||0), protein: a.protein+(+i.protein||0), carbs: a.carbs+(+i.carbs||0), fat: a.fat+(+i.fat||0), fiber: a.fiber+(+i.fiber||0), cholesterol: a.cholesterol+(+i.cholesterol||0) }), {calories:0,protein:0,carbs:0,fat:0,fiber:0,cholesterol:0});
+        const name = g.items.map(i => i.name).join(', ') || 'Voice-logged meal';
+        await dbPost('meals', {
+          date: logDate, name, meal_type: g.type,
+          calories: Math.round(totals.calories), protein: Math.round(totals.protein*10)/10,
+          carbs: Math.round(totals.carbs*10)/10, fat: Math.round(totals.fat*10)/10,
+          fiber: Math.round(totals.fiber*10)/10, cholesterol: Math.round(totals.cholesterol*10)/10,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        });
+      }
       await loadTodayMeals();
       toast('Logged ✓');
     } else if (data.action === 'save_meal') {
@@ -3317,7 +3390,8 @@ function vlEditManually() {
     const totals = items.reduce((a,i) => ({ calories: a.calories+(+i.calories||0), protein: a.protein+(+i.protein||0), carbs: a.carbs+(+i.carbs||0), fat: a.fat+(+i.fat||0), fiber: a.fiber+(+i.fiber||0), cholesterol: a.cholesterol+(+i.cholesterol||0) }), {calories:0,protein:0,carbs:0,fat:0,fiber:0,cholesterol:0});
     if (document.getElementById('meal-form').style.display === 'none') toggleMealForm();
     document.getElementById('meal-name').value = items.map(i => i.name).join(', ');
-    selectMealType(data.logFood?.mealType || 'snack', null);
+    const _vlEditMt = (items[0]?.mealType || data.logFood?.mealType || 'snack').toLowerCase();
+    selectMealType(['breakfast','lunch','dinner','snack'].includes(_vlEditMt) ? _vlEditMt : 'snack', null);
     const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
     set('meal-cals', Math.round(totals.calories));
     set('meal-protein', Math.round(totals.protein*10)/10);
@@ -6727,6 +6801,10 @@ async function logSearchResult(jsonStr) {
 
 // MEALS TAB
 let savedMeals = [];
+// savedFoods was previously only ever created by implicit assignment after
+// login/load — any code path touching it before then (e.g. voice log on a
+// fresh session) threw a ReferenceError. Declare it properly like savedMeals.
+let savedFoods = [];
 
 function switchMealsSubTab(tab) {
   saveLastView({ mealsSub: tab });
