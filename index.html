@@ -3524,18 +3524,27 @@ function updateProgressNavHighlight() {
   if (!tabEl || tabEl.style.display === 'none') return;
   const navEl = document.getElementById('progress-section-nav');
   if (!navEl) return;
-  const triggerLine = navEl.getBoundingClientRect().bottom + 8;
+  const contentEl = document.querySelector('.content');
+  if (!contentEl) return;
+  const navHeight = navEl.offsetHeight;
   const sections = ['goals', 'workouts', 'steps', 'photos', 'nutrition'];
   let current = sections[0];
   for (const s of sections) {
     const el = document.getElementById(`progress-section-${s}`);
-    if (el && el.getBoundingClientRect().top <= triggerLine) current = s;
+    if (!el) continue;
+    // Use scroll-based offset calculation (more reliable on iOS/WKWebView than getBoundingClientRect)
+    const elTop = el.offsetTop - contentEl.scrollTop;
+    const contentTop = contentEl.getBoundingClientRect().top;
+    const triggerLine = contentTop + navHeight + 16;
+    if (el.getBoundingClientRect().top <= triggerLine) current = s;
   }
   document.querySelectorAll('.progress-nav-chip').forEach(chip => {
     chip.classList.toggle('active', chip.dataset.section === current);
   });
 }
+// Use both scroll and a periodic check for iOS reliability
 document.querySelector('.content').addEventListener('scroll', updateProgressNavHighlight, { passive: true });
+document.querySelector('.content').addEventListener('touchmove', updateProgressNavHighlight, { passive: true });
 
 function toggleTodayCalendarDropdown() {
   const dropdown = document.getElementById('today-calendar-dropdown');
@@ -7079,8 +7088,40 @@ async function loadMealPrepPlan() {
   mealPrepPlan.days.forEach(d => { if (!d.assigned) d.assigned = []; });
   mealPrepPlan.dishes = (mealPrepPlan.dishes || []).map(normalizeMealPrepDish);
   mealPrepPlanLoaded = true;
+  await checkMealPrepWeekRollover();
   renderMealPrepDayList();
   renderMealPrepDishes();
+}
+
+// ===== MEAL PREP WEEKLY ROLLOVER =====
+// Each Sunday (new week boundary), clear the generated dishes and day
+// assignments so the user can re-pick and regenerate for the new week.
+// The day template (which meal types each day needs) is kept.
+let _mealPrepRolloverChecked = false;
+async function checkMealPrepWeekRollover() {
+  if (!_currentUser || _mealPrepRolloverChecked || !mealPrepPlan) return;
+  _mealPrepRolloverChecked = true;
+  try {
+    const curWk = _wrWeekStart(tzTodayStr());
+    const savedWk = await loadSetting('meal_prep_week');
+    if (!savedWk) { await saveSetting('meal_prep_week', curWk); return; }
+    if (savedWk === curWk) return;
+    // New week — check if there's anything to clear
+    const hasDishes = (mealPrepPlan.dishes || []).length > 0;
+    const hasAssigned = mealPrepPlan.days.some(d => (d.assigned || []).length > 0);
+    if (!hasDishes && !hasAssigned) { await saveSetting('meal_prep_week', curWk); return; }
+    // Clear generated dishes and day assignments, keep the day template
+    mealPrepPlan.dishes = [];
+    mealPrepPlan.summary = '';
+    mealPrepPlan.resultsCollapsed = false;
+    mealPrepPlan.days.forEach(d => { d.assigned = []; });
+    await saveSetting('meal_prep_plan', mealPrepPlan);
+    await saveSetting('meal_prep_week', curWk);
+    // Clear rendered results
+    const resultsEl = document.getElementById('meal-prep-results');
+    if (resultsEl) resultsEl.innerHTML = '';
+    toast('New week — meal prep reset. Tap Generate to plan this week!');
+  } catch(e) { console.error('meal prep rollover check failed', e); }
 }
 
 function toggleMealPrepDayExpand(i) {
@@ -8374,6 +8415,9 @@ async function confirmLogSavedMeal() {
     time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   });
   document.getElementById('log-meal-modal').style.display = 'none';
+  // Clear Meals-tab search so the query doesn't linger after logging
+  const fsi2 = document.getElementById('food-search-input');
+  if (fsi2 && fsi2.value) { fsi2.value = ''; onFoodSearchInput(''); }
   toast(`"${meal.name}" logged to ${type} ✓`);
   if (window._modalLogDate) {
     const d = window._modalLogDate;
@@ -9156,9 +9200,11 @@ function openFoodModal(id) {
   document.getElementById('food-modal-serving-label').textContent = servingUnit;
   _buildFoodUnitWheel();
   updateFoodModalPreview();
-  window._foodModalType = 'breakfast';
+  // Carry forward the currently selected meal type instead of resetting to breakfast
+  const carryType = window._selectedMealType || 'breakfast';
+  window._foodModalType = carryType;
   document.querySelectorAll('.food-modal-type-btn').forEach(b => {
-    const active = b.dataset.type === 'breakfast';
+    const active = b.dataset.type === carryType;
     b.style.border = active ? '1px solid #CFA13C' : '1px solid var(--line)';
     b.style.background = active ? 'var(--gold-tint)' : 'var(--surface)';
     b.style.color = active ? '#CFA13C' : 'var(--muted)';
@@ -9354,6 +9400,9 @@ function updateFoodModalPreview() {
 function closeFoodModal() {
   document.getElementById('food-modal').style.display = 'none';
   activeFoodForModal = null;
+  // Clear Meals-tab search so the query doesn't linger after logging
+  const fsi = document.getElementById('food-search-input');
+  if (fsi && fsi.value) { fsi.value = ''; onFoodSearchInput(''); }
 }
 
 function selectFoodModalType(type, btn) {
