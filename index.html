@@ -3523,26 +3523,23 @@ function updateProgressNavHighlight() {
   const tabEl = document.getElementById('tab-progress');
   if (!tabEl || tabEl.style.display === 'none') return;
   const navEl = document.getElementById('progress-section-nav');
-  if (!navEl) return;
   const contentEl = document.querySelector('.content');
-  if (!contentEl) return;
-  const navHeight = navEl.offsetHeight;
+  if (!navEl || !contentEl) return;
   const sections = ['goals', 'workouts', 'steps', 'photos', 'nutrition'];
+  // Trigger line = vertical midpoint of the visible area below the sticky nav
+  const navBottom = navEl.getBoundingClientRect().bottom;
+  const contentBottom = contentEl.getBoundingClientRect().bottom;
+  const midpoint = (navBottom + contentBottom) / 2;
+  // Find the last section whose anchor is above the midpoint
   let current = sections[0];
   for (const s of sections) {
     const el = document.getElementById(`progress-section-${s}`);
-    if (!el) continue;
-    // Use scroll-based offset calculation (more reliable on iOS/WKWebView than getBoundingClientRect)
-    const elTop = el.offsetTop - contentEl.scrollTop;
-    const contentTop = contentEl.getBoundingClientRect().top;
-    const triggerLine = contentTop + navHeight + 16;
-    if (el.getBoundingClientRect().top <= triggerLine) current = s;
+    if (el && el.getBoundingClientRect().top <= midpoint) current = s;
   }
   document.querySelectorAll('.progress-nav-chip').forEach(chip => {
     chip.classList.toggle('active', chip.dataset.section === current);
   });
 }
-// Use both scroll and a periodic check for iOS reliability
 document.querySelector('.content').addEventListener('scroll', updateProgressNavHighlight, { passive: true });
 document.querySelector('.content').addEventListener('touchmove', updateProgressNavHighlight, { passive: true });
 
