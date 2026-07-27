@@ -990,11 +990,50 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9C9A93" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
       </button>
 
-      <!-- RECENT DAYS -->
+      <!-- NUTRITION -->
       <div id="progress-section-nutrition"></div>
       <div class="card">
-        <div class="card-title" style="color:#CFA13C">Recent Days</div>
-        <div id="history-list"><div class="loading">Loading...</div></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div class="card-title" style="color:#CFA13C;margin-bottom:0">Nutrition</div>
+          <div style="display:flex;align-items:center;gap:4px">
+            <select id="nutrition-metric-select" onchange="setNutritionMetric(this.value)" style="appearance:none;-webkit-appearance:none;background:none;color:#CFA13C;font-weight:600;font-size:13px;border:none;outline:none;font-family:inherit;text-align:right;text-align-last:right;cursor:pointer">
+              <option value="calories" selected>Calories</option>
+              <option value="protein">Protein</option>
+              <option value="carbs">Carbs</option>
+              <option value="fat">Fat</option>
+              <option value="fiber">Fiber</option>
+              <option value="cholesterol">Cholesterol</option>
+            </select>
+            <i class="fa-solid fa-chevron-down" style="font-size:10px;color:#9C9A93"></i>
+          </div>
+        </div>
+        <div style="display:flex;justify-content:center;margin-bottom:6px">
+          <div style="position:relative;flex-shrink:0">
+            <svg width="90" height="90" viewBox="0 0 90 90">
+              <circle cx="45" cy="45" r="36" fill="none" stroke="#332818" stroke-width="8"/>
+              <circle cx="45" cy="45" r="36" fill="none" stroke="url(#nutRingGrad)" stroke-width="8"
+                stroke-dasharray="226" id="nutrition-ring-fill" stroke-dashoffset="226"
+                stroke-linecap="round" transform="rotate(-90 45 45)" style="transition:stroke-dashoffset 0.6s ease"/>
+              <defs>
+                <linearGradient id="nutRingGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stop-color="#CFA13C"/>
+                  <stop offset="100%" stop-color="#E8C468"/>
+                </linearGradient>
+              </defs>
+            </svg>
+            <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center">
+              <div style="font-size:15px;font-weight:700;color:#F2EFE7" id="nutrition-ring-count">0</div>
+              <div style="font-size:9px;color:#9C9A93;text-transform:uppercase;letter-spacing:0.5px">Today</div>
+            </div>
+          </div>
+        </div>
+        <div id="nutrition-ring-target" style="text-align:center;font-size:11px;color:#9C9A93;margin-bottom:14px"></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <button onclick="nutritionWeekNav(-1)" style="background:#1C2320;border:none;border-radius:8px;width:32px;height:32px;color:#F2EFE7;font-size:14px;cursor:pointer"><i class="fa-solid fa-chevron-left"></i></button>
+          <span id="nutrition-week-label" style="font-size:13px;font-weight:600;color:#F2EFE7">This Week</span>
+          <button id="nutrition-week-next-btn" onclick="nutritionWeekNav(1)" style="background:#1C2320;border:none;border-radius:8px;width:32px;height:32px;color:#F2EFE7;font-size:14px;cursor:pointer"><i class="fa-solid fa-chevron-right"></i></button>
+        </div>
+        <div class="chart-wrap" id="nutrition-chart-wrap"><canvas id="nutrition-chart"></canvas></div>
       </div>
 
     </div>
@@ -2727,7 +2766,7 @@ function switchTab(tab) {
     if (detailEl) detailEl.style.display = 'none';
   }
   if (tab === 'meals') loadMealsTab();
-  if (tab === 'progress') { loadGoals().then(() => { loadScans(); updateGoalsDisplay(); }); }
+  if (tab === 'progress') { loadGoals().then(() => { loadScans(); updateGoalsDisplay(); }); loadDayTotals(); }
   if (tab === 'profile') loadCurrentUsername();
   if (tab === 'profile-myprofile') loadMyProfilePage();
   if (tab === 'profile-allergies') loadFoodAllergiesPage();
@@ -5879,7 +5918,7 @@ async function loadDayTotals() {
     dayTotalsCache[m.date].cholesterol += +m.cholesterol || 0;
   });
   renderCalendar();
-  renderHistoryList();
+  renderNutritionChart();
 }
 
 
@@ -5928,48 +5967,6 @@ function renderCalendar() {
   }
 
   document.getElementById('calendar-grid').innerHTML = html;
-}
-
-function renderHistoryList() {
-  const el = document.getElementById('history-list');
-  const scoreMap = { great: ['<i class="fa-solid fa-star" style="color:#CFA13C"></i> Great Day','score-great'], good: ['<span style="display:inline-flex;width:14px;height:14px;border-radius:4px;background:#CFA13C;align-items:center;justify-content:center;vertical-align:middle"><span style="color:#0B1210;font-size:10px;font-weight:900;line-height:1">✓</span></span> Good Day','score-good'], over: ['<i class="fa-solid fa-circle-xmark" style="color:#F87171"></i> Over Limit','score-needs'] };
-
-  // Build last 30 days regardless of whether data exists
-  const allDays = [];
-  for (let i = 0; i < 30; i++) {
-    const d = new Date(today + 'T12:00:00');
-    d.setDate(d.getDate() - i);
-    const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-    allDays.push(dateStr);
-  }
-
-  el.innerHTML = allDays.map(d => {
-    const t = dayTotalsCache[d];
-    const dateLabel = new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-
-    if (!t) {
-      // Empty day — show encouraging prompt
-      const isToday = d === today;
-      return `<div class="day-row">
-        <div>
-          <div class="day-date">${dateLabel}</div>
-          <div class="day-meta" style="color:#9C9A93">${isToday ? 'Start logging today!' : 'Nothing logged'}</div>
-        </div>
-        <div class="day-right">
-          <span class="score-badge" style="background:#1C2320;color:#9C9A93;border:none">—</span>
-        </div>
-      </div>`;
-    }
-
-    const score = dayScore(t.calories, t.protein);
-    const s = score ? scoreMap[score] : null;
-    return `<div class="day-row">
-      <div>
-        <div class="day-date">${dateLabel}</div>
-        <div class="day-meta">${nutritionMetaString(t)}</div>
-      </div>
-    </div>`;
-  }).join('');
 }
 
 // FOOD SEARCH
@@ -9874,6 +9871,110 @@ async function renderStepsChart() {
 }
 
 
+// ===== NUTRITION WEEK CHART (Progress tab) =====
+let nutritionWeekOffset = 0;
+let nutritionMetric = 'calories';
+let nutritionChartObj = null;
+const NUTRITION_METRICS = {
+  calories:    { label: 'Calories',    unit: 'kcal', target: () => TARGETS.calories,    overIsBad: true },
+  protein:     { label: 'Protein',     unit: 'g',    target: () => TARGETS.protein },
+  carbs:       { label: 'Carbs',       unit: 'g',    target: () => TARGETS.carbs },
+  fat:         { label: 'Fat',         unit: 'g',    target: () => TARGETS.fat },
+  fiber:       { label: 'Fiber',       unit: 'g',    target: () => 30 },
+  cholesterol: { label: 'Cholesterol', unit: 'mg',   target: () => 300, limit: true }
+};
+function setNutritionMetric(v) {
+  nutritionMetric = NUTRITION_METRICS[v] ? v : 'calories';
+  renderNutritionChart();
+}
+function nutritionWeekNav(dir) {
+  const next = nutritionWeekOffset - dir;
+  if (next < 0) return; // can't go into the future
+  nutritionWeekOffset = next;
+  renderNutritionChart();
+}
+function _nutBarColor(v, target, m) {
+  if (!v) return 'rgba(207,161,60,0.15)'; // no data that day
+  if (m.limit) return v <= target ? '#4ADE80' : '#EF4444';           // limit metric: under = good
+  if (m.overIsBad && v > target) return '#EF4444';                   // calories over target
+  if (m.overIsBad) return v >= target * 0.85 ? '#4ADE80' : '#CFA13C'; // calories in the 85–100% zone
+  return v >= target ? '#4ADE80' : '#CFA13C';                        // goal metrics: hit = green
+}
+function renderNutritionChart() {
+  const canvas = document.getElementById('nutrition-chart');
+  if (!canvas) return;
+  if (nutritionChartObj) { nutritionChartObj.destroy(); nutritionChartObj = null; }
+  const m = NUTRITION_METRICS[nutritionMetric];
+  const target = m.target() || 0;
+  const r1 = v => Math.round((v || 0) * 10) / 10;
+  const fmtVal = v => (nutritionMetric === 'calories' || nutritionMetric === 'cholesterol') ? Math.round(v || 0) : r1(v);
+  // Today ring
+  const todayTotals = dayTotalsCache[today] || {};
+  const todayVal = fmtVal(todayTotals[nutritionMetric]);
+  const ringPct = Math.min(target > 0 ? todayVal / target : 0, 1);
+  const circumference = 226;
+  const fill = document.getElementById('nutrition-ring-fill');
+  if (fill) fill.style.strokeDashoffset = circumference - (ringPct * circumference);
+  const cnt = document.getElementById('nutrition-ring-count');
+  if (cnt) cnt.textContent = (+todayVal).toLocaleString();
+  const tgtEl = document.getElementById('nutrition-ring-target');
+  if (tgtEl) tgtEl.textContent = `of ${target.toLocaleString()} ${m.unit} ${m.limit ? 'limit' : 'target'}`;
+  // Week bars
+  const weekDates = getStepsWeekDates(nutritionWeekOffset);
+  const toDateStr = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const labels = weekDates.map(d => d.toLocaleDateString('en-US', { weekday: 'short' }));
+  const data = weekDates.map(d => fmtVal((dayTotalsCache[toDateStr(d)] || {})[nutritionMetric]));
+  const labelEl = document.getElementById('nutrition-week-label');
+  if (labelEl) {
+    if (nutritionWeekOffset === 0) labelEl.textContent = 'This Week';
+    else {
+      const fmt = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      labelEl.textContent = `${fmt(weekDates[0])} – ${fmt(weekDates[6])}`;
+    }
+  }
+  const nextBtn = document.getElementById('nutrition-week-next-btn');
+  if (nextBtn) nextBtn.style.opacity = nutritionWeekOffset === 0 ? '0.3' : '1';
+  nutritionChartObj = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: m.label,
+          data,
+          backgroundColor: data.map(v => _nutBarColor(v, target, m)),
+          borderRadius: 4,
+          barPercentage: 0.85,
+          categoryPercentage: 0.9
+        },
+        {
+          type: 'line',
+          label: 'Target',
+          data: labels.map(() => target),
+          borderColor: 'rgba(207,161,60,0.5)',
+          borderWidth: 1.5,
+          borderDash: [5, 4],
+          pointRadius: 0,
+          fill: false
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          filter: item => item.dataset.label !== 'Target',
+          callbacks: { label: ctx => ctx.raw > 0 ? `${(+ctx.raw).toLocaleString()} ${m.unit}` : 'No data' }
+        }
+      },
+      scales: {
+        y: { grid: { color: '#141A18' }, ticks: { font: { size: 11 }, callback: v => v >= 1000 ? (v / 1000) + 'k' : v } },
+        x: { grid: { display: false }, ticks: { font: { size: 11 } } }
+      }
+    }
+  });
+}
 function renderBfChart() {
   const canvas = document.getElementById('bf-chart');
   const empty = document.getElementById('bf-chart-empty');
