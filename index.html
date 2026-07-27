@@ -243,6 +243,15 @@
     .appearance-check { color: #CFA13C; font-size: 12px; display: none; }
     .appearance-card.active .appearance-check { display: inline-block; }
     .appearance-card.active .appearance-card-label { color: #CFA13C; }
+    .vl-fab { position: fixed; right: 18px; bottom: 90px; width: 56px; height: 56px; border-radius: 50%; background: #CFA13C; border: none; box-shadow: 0 4px 14px rgba(207,161,60,0.4); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 300; }
+    .vl-fab i { font-size: 22px; color: #101512; }
+    .vl-mic-circle { width: 120px; height: 120px; border-radius: 50%; background: var(--gold-tint); border: 2px solid #CFA13C; display: flex; align-items: center; justify-content: center; margin: 0 auto; cursor: pointer; }
+    .vl-mic-circle i { font-size: 40px; color: #CFA13C; }
+    .vl-mic-circle.listening { animation: vlPulse 1.4s ease-in-out infinite; background: #CFA13C; }
+    .vl-mic-circle.listening i { color: #101512; }
+    @keyframes vlPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(207,161,60,0.5); } 50% { box-shadow: 0 0 0 18px rgba(207,161,60,0); } }
+    .vl-spinner { width: 36px; height: 36px; border-radius: 50%; border: 3px solid var(--line); border-top-color: #CFA13C; margin: 0 auto; animation: vlSpin 0.8s linear infinite; }
+    @keyframes vlSpin { to { transform: rotate(360deg); } }
     .progress-nav-chip { flex: 1; padding: 8px 4px; border: none; border-radius: 9px; background: transparent; color: var(--muted); font-size: 12px; font-weight: 700; font-family: inherit; cursor: pointer; white-space: nowrap; transition: all 0.15s; }
     .progress-nav-chip.active { background: var(--gold-tint); color: #CFA13C; }
     .legal-doc { font-size: 14px; line-height: 1.6; color: var(--ink-2); padding-bottom: 20px; }
@@ -387,6 +396,8 @@
       <span>Profile</span>
     </button>
   </div>
+
+  <button class="vl-fab" onclick="openVoiceLog()" aria-label="Voice Log"><i class="fa-solid fa-microphone"></i></button>
 
   <div class="content">
     <!-- TODAY -->
@@ -1583,6 +1594,65 @@
           <div class="mp-row-label">Contact Support</div>
           <div class="mp-row-value">sb@funolio.com</div>
         </div>
+      </div>
+    </div>
+
+    <div id="tab-voicelog" style="display:none">
+      <div class="profile-subpage-header">
+        <button onclick="closeVoiceLog()" class="profile-back-btn"><i class="fa-solid fa-arrow-left"></i></button>
+        <div class="profile-subpage-title">Voice Log</div>
+        <div style="width:36px"></div>
+      </div>
+
+      <!-- IDLE -->
+      <div id="vl-state-idle" style="text-align:center;padding:40px 20px 20px">
+        <button class="vl-mic-circle" id="vl-mic-btn" onclick="vlStartListening()"><i class="fa-solid fa-microphone"></i></button>
+        <div style="font-size:15px;font-weight:600;color:var(--ink);margin-top:20px">Tap to speak</div>
+        <div style="font-size:13px;color:var(--muted);margin-top:8px;line-height:1.6;max-width:280px;margin-left:auto;margin-right:auto">
+          Try: "Log 2 eggs and toast for breakfast"<br>"Save chicken and rice as a meal"<br>"I ran 3 miles in 28 minutes"
+        </div>
+        <button onclick="vlShowTypeInstead()" style="background:none;border:none;color:#CFA13C;font-size:13px;font-weight:600;margin-top:20px;cursor:pointer">Type instead</button>
+      </div>
+
+      <!-- FOLLOW-UP QUESTION -->
+      <div id="vl-state-followup" style="display:none;text-align:center;padding:40px 20px 20px">
+        <div style="font-size:32px;margin-bottom:12px">🎤</div>
+        <div id="vl-followup-question" style="font-size:16px;font-weight:600;color:var(--ink);margin-bottom:24px;line-height:1.5"></div>
+        <button class="vl-mic-circle" id="vl-followup-mic-btn" onclick="vlStartListening()"><i class="fa-solid fa-microphone"></i></button>
+        <div style="font-size:13px;color:var(--muted);margin-top:16px">Tap to answer</div>
+        <button onclick="vlShowTypeInstead()" style="background:none;border:none;color:#CFA13C;font-size:13px;font-weight:600;margin-top:16px;cursor:pointer">Type instead</button>
+      </div>
+
+      <!-- LISTENING -->
+      <div id="vl-state-listening" style="display:none;text-align:center;padding:40px 20px 20px">
+        <div id="vl-listening-context" style="display:none;font-size:14px;color:var(--muted);margin-bottom:16px;line-height:1.5;max-width:300px;margin-left:auto;margin-right:auto"></div>
+        <button class="vl-mic-circle listening" id="vl-mic-btn-listening" onclick="vlStopListening()"><i class="fa-solid fa-microphone"></i></button>
+        <div style="font-size:15px;font-weight:600;color:#CFA13C;margin-top:20px">Listening... tap to stop</div>
+        <div id="vl-live-transcript" style="font-size:15px;color:var(--ink);margin-top:16px;min-height:44px;line-height:1.5;max-width:300px;margin-left:auto;margin-right:auto"></div>
+      </div>
+
+      <!-- PROCESSING -->
+      <div id="vl-state-processing" style="display:none;text-align:center;padding:60px 20px 20px">
+        <div class="vl-spinner"></div>
+        <div style="font-size:14px;color:var(--muted);margin-top:16px">Thinking...</div>
+      </div>
+
+      <!-- CONFIRM -->
+      <div id="vl-state-confirm" style="display:none;padding:12px 0">
+        <div id="vl-confirm-body"></div>
+      </div>
+
+      <!-- CLARIFY / ERROR -->
+      <div id="vl-state-clarify" style="display:none;text-align:center;padding:40px 20px 20px">
+        <div style="font-size:32px;margin-bottom:12px">🤔</div>
+        <div id="vl-clarify-text" style="font-size:15px;color:var(--ink);margin-bottom:20px;line-height:1.5"></div>
+        <button class="btn" onclick="vlTryAgain()" style="max-width:200px;margin:0 auto">Try Again</button>
+      </div>
+
+      <!-- TYPE-INSTEAD (shared fallback — appears below whichever state above is active) -->
+      <div id="vl-type-instead" style="display:none;margin-top:6px;padding:0 20px;max-width:320px;margin-left:auto;margin-right:auto">
+        <textarea id="vl-type-input" rows="2" placeholder="e.g. Log a banana and peanut butter for a snack" style="width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--bg-deep);color:var(--ink);font-size:14px;outline:none;box-sizing:border-box;resize:vertical;font-family:inherit"></textarea>
+        <button class="btn" onclick="vlSubmitTyped()" style="margin-top:8px">Send</button>
       </div>
     </div>
 
@@ -2837,6 +2907,457 @@ async function loadAppTheme() {
     _applyThemeClass(t === 'light'); // anything else (including unset) = dark default
   } catch(e) {}
 }
+
+// ===== VOICE LOG =====
+let _vlReturnTab = 'today';
+let _vlLiveText = '';
+let _vlParsed = null;
+let _vlSessionId = 0; // bumped whenever a session ends/restarts, so a stale in-flight AI response can't land on a newer session
+let _vlStarting = false; // guards against a double-tap on the mic starting two concurrent listening sessions
+let _vlHistory = []; // conversation turns for the current multi-turn parse ({role:'user'|'assistant', content})
+let _vlAwaitingFollowup = false; // true while the next utterance should be treated as an answer to a follow-up question, not a fresh command
+let _vlFollowupCount = 0;
+const VL_MAX_FOLLOWUPS = 2; // after this many follow-up rounds, force the AI to finalize with its best guess rather than ask again
+
+// Recorder safety timers — a "forgot to tap stop" / stuck-listening safeguard
+const VL_SILENCE_STOP_MS = 3000; // auto-stop N ms after the last new word, once something has been heard
+const VL_NO_SPEECH_TIMEOUT_MS = 7000; // give up if literally nothing is heard within this window
+const VL_MAX_LISTEN_MS = 25000; // hard ceiling regardless of activity — this is the actual answer to "what if someone leaves the recorder on"
+let _vlListenStartedAt = 0;
+let _vlLastPartialAt = 0;
+let _vlWatchdogTimer = null;
+
+function openVoiceLog() {
+  const activeBtn = document.querySelector('.bottom-nav-btn.active');
+  _vlReturnTab = activeBtn ? activeBtn.dataset.tab : 'today';
+  switchTab('voicelog');
+  vlResetToIdle();
+}
+
+async function closeVoiceLog() {
+  _vlSessionId++;
+  _vlClearWatchdog();
+  try { await vlStopListeningQuiet(); } catch(e) {}
+  switchTab(_vlReturnTab);
+}
+
+async function vlStopListeningQuiet() {
+  _vlClearWatchdog();
+  const plugin = window.Capacitor?.Plugins?.SpeechRecognition;
+  if (plugin) { try { await plugin.stop(); await plugin.removeAllListeners(); } catch(e) {} }
+}
+
+function vlShowState(state) {
+  ['idle','followup','listening','processing','confirm','clarify'].forEach(s => {
+    const el = document.getElementById(`vl-state-${s}`);
+    if (el) el.style.display = (s === state) ? 'block' : 'none';
+  });
+}
+
+function vlResetToIdle() {
+  _vlSessionId++; // any in-flight AI response from a prior session is now stale and will be ignored
+  _vlClearWatchdog();
+  vlShowState('idle');
+  const typeWrap = document.getElementById('vl-type-instead');
+  if (typeWrap) typeWrap.style.display = 'none';
+  const typeInput = document.getElementById('vl-type-input');
+  if (typeInput) typeInput.value = '';
+  const liveEl = document.getElementById('vl-live-transcript');
+  if (liveEl) liveEl.textContent = '';
+  const ctxEl = document.getElementById('vl-listening-context');
+  if (ctxEl) { ctxEl.style.display = 'none'; ctxEl.textContent = ''; }
+  _vlLiveText = '';
+  _vlParsed = null;
+  _vlHistory = [];
+  _vlAwaitingFollowup = false;
+  _vlFollowupCount = 0;
+}
+
+function vlShowTypeInstead() {
+  const el = document.getElementById('vl-type-instead');
+  if (el) el.style.display = 'block';
+}
+
+function vlSubmitTyped() {
+  const text = document.getElementById('vl-type-input').value.trim();
+  if (!text) { toast('Type something first'); return; }
+  const typeWrap = document.getElementById('vl-type-instead');
+  if (typeWrap) typeWrap.style.display = 'none';
+  document.getElementById('vl-type-input').value = '';
+  _vlLiveText = text;
+  vlHandleUtterance(text);
+}
+
+function _vlClearWatchdog() {
+  if (_vlWatchdogTimer) { clearInterval(_vlWatchdogTimer); _vlWatchdogTimer = null; }
+}
+
+function _vlStartWatchdog() {
+  _vlClearWatchdog();
+  _vlListenStartedAt = Date.now();
+  _vlLastPartialAt = 0;
+  _vlWatchdogTimer = setInterval(() => {
+    if (document.getElementById('vl-state-listening').style.display === 'none') { _vlClearWatchdog(); return; }
+    const now = Date.now();
+    const elapsed = now - _vlListenStartedAt;
+    if (elapsed >= VL_MAX_LISTEN_MS) {
+      // Hard ceiling — force-stop no matter what. This is the actual guard against a forgotten/stuck recorder.
+      _vlClearWatchdog();
+      vlStopListening();
+      return;
+    }
+    if (_vlLastPartialAt && (now - _vlLastPartialAt) >= VL_SILENCE_STOP_MS) {
+      // Heard something, then went quiet for a bit — treat as "done speaking" and process it.
+      _vlClearWatchdog();
+      vlStopListening();
+      return;
+    }
+    if (!_vlLastPartialAt && elapsed >= VL_NO_SPEECH_TIMEOUT_MS) {
+      // Nothing at all was heard — give up rather than sit there listening indefinitely.
+      _vlClearWatchdog();
+      _vlLiveText = '';
+      vlStopListeningQuiet();
+      vlResetToIdle();
+      toast("Didn't catch anything — try again");
+      return;
+    }
+  }, 500);
+}
+
+async function vlStartListening() {
+  if (_vlStarting) return; // guards against a double-tap starting two concurrent listening sessions
+  _vlStarting = true;
+
+  const plugin = window.Capacitor?.Plugins?.SpeechRecognition;
+  if (!plugin) { _vlStarting = false; vlShowTypeInstead(); toast('Voice input not available on this device — type instead'); return; }
+
+  try {
+    const avail = await plugin.available();
+    if (!avail.available) { _vlStarting = false; vlShowTypeInstead(); toast('Speech recognition not available on this device'); return; }
+    let perm = await plugin.checkPermissions();
+    if (perm.speechRecognition !== 'granted') perm = await plugin.requestPermissions();
+    if (perm.speechRecognition !== 'granted') {
+      _vlStarting = false;
+      toast('Microphone/speech permission needed — enable in iPhone Settings');
+      vlShowTypeInstead();
+      return;
+    }
+  } catch(e) {
+    console.error('vlStartListening permission check error', e);
+    _vlStarting = false;
+    vlShowTypeInstead();
+    return;
+  }
+
+  _vlLiveText = '';
+  const liveEl = document.getElementById('vl-live-transcript');
+  if (liveEl) liveEl.textContent = '';
+  // Hide/clear any stale typed text from whichever screen was showing before — otherwise leftover
+  // text from an earlier turn (e.g. typed but never sent on the idle screen) could end up submitted
+  // as the answer to this listening turn once the type box reappears on a later screen.
+  const typeWrap = document.getElementById('vl-type-instead');
+  if (typeWrap) typeWrap.style.display = 'none';
+  const typeInput = document.getElementById('vl-type-input');
+  if (typeInput) typeInput.value = '';
+  const ctxEl = document.getElementById('vl-listening-context');
+  if (ctxEl) {
+    if (_vlAwaitingFollowup && _vlHistory.length) {
+      const lastQ = [...(_vlHistory || [])].reverse().find(t => t.role === 'assistant');
+      ctxEl.textContent = lastQ ? lastQ.content : '';
+      ctxEl.style.display = lastQ ? 'block' : 'none';
+    } else {
+      ctxEl.style.display = 'none';
+      ctxEl.textContent = '';
+    }
+  }
+  vlShowState('listening');
+  _vlStarting = false; // the listening-state button is now shown instead of the idle mic button, so re-entrancy is no longer possible
+  _vlStartWatchdog();
+
+  try { await plugin.removeAllListeners(); } catch(e) {}
+
+  plugin.addListener('partialResults', (data) => {
+    const text = (data.matches && data.matches[0]) || '';
+    _vlLiveText = text;
+    if (text) _vlLastPartialAt = Date.now();
+    const el = document.getElementById('vl-live-transcript');
+    if (el) el.textContent = text;
+  });
+
+  plugin.addListener('listeningState', (data) => {
+    if (data.status === 'stopped' && document.getElementById('vl-state-listening').style.display !== 'none' && _vlLiveText) {
+      _vlClearWatchdog();
+      vlHandleUtterance(_vlLiveText);
+    }
+  });
+
+  try {
+    const result = await plugin.start({ language: 'en-US', partialResults: true, maxResults: 1, popup: false });
+    const finalText = (result?.matches && result.matches[0]) || _vlLiveText;
+    if (document.getElementById('vl-state-listening').style.display !== 'none' && finalText) {
+      _vlClearWatchdog();
+      vlHandleUtterance(finalText);
+    }
+  } catch(e) {
+    console.error('vlStartListening start error', e);
+    if (document.getElementById('vl-state-listening').style.display !== 'none') {
+      _vlClearWatchdog();
+      vlResetToIdle();
+      toast('Could not start listening — try again');
+    }
+  }
+}
+
+async function vlStopListening() {
+  _vlClearWatchdog();
+  const plugin = window.Capacitor?.Plugins?.SpeechRecognition;
+  if (plugin) { try { await plugin.stop(); } catch(e) {} }
+  // Guard against a race with the native 'listeningState:stopped' event, which may have already
+  // fired plugin.stop()'s own handler and moved us into 'processing' by the time this resolves —
+  // without this check both paths could call vlHandleUtterance for the same utterance.
+  if (document.getElementById('vl-state-listening').style.display === 'none') return;
+  if (_vlLiveText) vlHandleUtterance(_vlLiveText);
+  else vlResetToIdle();
+}
+
+// Entry point for every finalized utterance, whether it's a fresh command, a typed command,
+// or the answer to a follow-up question. Routes into the (possibly multi-turn) AI conversation.
+function vlHandleUtterance(text) {
+  if (_vlAwaitingFollowup) {
+    _vlHistory.push({ role: 'user', content: text });
+  } else {
+    _vlHistory = [{ role: 'user', content: text }];
+  }
+  vlSendToAI(text);
+}
+
+async function vlSendToAI(text) {
+  const sessionId = _vlSessionId; // snapshot — if the user leaves/restarts before this resolves, we must not apply a stale result
+  vlShowState('processing');
+  await vlStopListeningQuiet();
+
+  const hour = new Date().getHours();
+  const defaultMealType = hour < 11 ? 'breakfast' : hour < 16 ? 'lunch' : hour < 21 ? 'dinner' : 'snack';
+  const forceFinalize = _vlFollowupCount >= VL_MAX_FOLLOWUPS;
+
+  try {
+    const res = await fetch(`${WORKER_URL}/ai-voice-action`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        transcript: text,
+        history: _vlHistory.slice(0, -1), // prior turns, not including the transcript we just sent above
+        forceFinalize,
+        context: {
+          defaultMealType,
+          savedFoods: (savedFoods || []).slice(0, 60).map(f => ({ name: f.name, unit: f.unit, calories: f.calories_per_unit, protein: f.protein_per_unit, carbs: f.carbs_per_unit, fat: f.fat_per_unit, fiber: f.fiber_per_unit, cholesterol: f.cholesterol_per_unit })),
+          savedMeals: (savedMeals || []).slice(0, 60).map(m => ({ name: m.name, calories: m.calories, protein: m.protein, carbs: m.carbs, fat: m.fat, fiber: m.fiber }))
+        }
+      })
+    });
+    const data = await res.json();
+    if (sessionId !== _vlSessionId) return; // user already left or restarted this session — discard
+    if (data.error || !data.action) throw new Error(data.error || 'No action returned');
+
+    if (data.action === 'followup' && !forceFinalize) {
+      _vlFollowupCount++;
+      _vlAwaitingFollowup = true;
+      _vlHistory.push({ role: 'assistant', content: data.followupQuestion || 'Can you say more?' });
+      document.getElementById('vl-followup-question').textContent = data.followupQuestion || 'Can you say more?';
+      vlShowState('followup');
+      return;
+    }
+
+    // Any other response ends the conversation thread (success, clarify, or unrecognized)
+    _vlAwaitingFollowup = false;
+    _vlParsed = data;
+    if (data.action === 'clarify') {
+      document.getElementById('vl-clarify-text').textContent = data.clarifyQuestion || "I didn't quite catch that — try again?";
+      vlShowState('clarify');
+    } else {
+      vlRenderConfirm(data); // known actions render normally; anything else renders the "Could not understand" card with no Log/Edit buttons
+      vlShowState('confirm');
+    }
+  } catch(e) {
+    if (sessionId !== _vlSessionId) return; // user already left or restarted this session — discard
+    console.error('vlSendToAI error', e);
+    document.getElementById('vl-clarify-text').textContent = 'Could not reach the voice assistant — check your connection and try again.';
+    vlShowState('clarify');
+  }
+}
+
+function vlTryAgain() { vlResetToIdle(); }
+
+function _vlFmtMacroLine(o) {
+  return `${Math.round(o.calories||0)} kcal · ${Math.round((o.protein||0)*10)/10}p / ${Math.round((o.carbs||0)*10)/10}c / ${Math.round((o.fat||0)*10)/10}f`;
+}
+
+function vlRenderConfirm(data) {
+  const body = document.getElementById('vl-confirm-body');
+  let title = '', itemsHtml = '';
+  let totals = { calories: 0, protein: 0, carbs: 0, fat: 0 };
+
+  if (data.action === 'log_food') {
+    const items = data.logFood?.items || [];
+    items.forEach(i => { totals.calories += +i.calories||0; totals.protein += +i.protein||0; totals.carbs += +i.carbs||0; totals.fat += +i.fat||0; });
+    title = `Log to ${(data.logFood?.mealType || 'meal').replace(/^\w/, c => c.toUpperCase())}`;
+    itemsHtml = items.map(i => `<div style="padding:8px 0;border-bottom:1px solid var(--surface-2)"><div style="font-size:14px;font-weight:500;color:var(--ink)">${i.name}${i.quantity ? ' — ' + i.quantity : ''}</div><div style="font-size:12px;color:var(--muted);margin-top:2px">${_vlFmtMacroLine(i)}</div></div>`).join('');
+  } else if (data.action === 'save_meal') {
+    const ings = data.saveMeal?.ingredients || [];
+    ings.forEach(i => { totals.calories += +i.calories||0; totals.protein += +i.protein||0; totals.carbs += +i.carbs||0; totals.fat += +i.fat||0; });
+    title = `Save "${data.saveMeal?.name || 'Meal'}" to My Meals`;
+    itemsHtml = ings.map(i => `<div style="padding:8px 0;border-bottom:1px solid var(--surface-2)"><div style="font-size:14px;font-weight:500;color:var(--ink)">${i.name}${i.amount ? ' — ' + i.amount : ''}</div><div style="font-size:12px;color:var(--muted);margin-top:2px">${_vlFmtMacroLine(i)}</div></div>`).join('');
+  } else if (data.action === 'save_food') {
+    const f = data.saveFood || {};
+    totals = { calories: f.calories||0, protein: f.protein||0, carbs: f.carbs||0, fat: f.fat||0 };
+    title = `Save "${f.name || 'Food'}" to My Foods`;
+    itemsHtml = `<div style="padding:8px 0"><div style="font-size:14px;font-weight:500;color:var(--ink)">${f.name || ''}${f.servingSize ? ' — per ' + f.servingSize : ''}</div><div style="font-size:12px;color:var(--muted);margin-top:2px">${_vlFmtMacroLine(f)}</div></div>`;
+  } else if (data.action === 'log_workout') {
+    const w = data.logWorkout || {};
+    title = 'Log Workout';
+    itemsHtml = `<div style="padding:8px 0"><div style="font-size:14px;font-weight:500;color:var(--ink)">${w.name || 'Workout'}</div><div style="font-size:12px;color:var(--muted);margin-top:2px">${w.durationMinutes ? w.durationMinutes + ' min · ' : ''}${Math.round(w.caloriesBurned||0)} kcal burned</div></div>`;
+  } else {
+    title = 'Unrecognized';
+    itemsHtml = `<div style="font-size:13px;color:var(--muted)">Could not understand that action.</div>`;
+  }
+
+  const totalsHtml = (data.action === 'log_food' || data.action === 'save_meal') ? `
+    <div style="display:flex;justify-content:space-between;padding-top:10px;font-size:13px;font-weight:700;color:#CFA13C">
+      <span>Total</span><span>${_vlFmtMacroLine(totals)}</span>
+    </div>` : '';
+
+  const isKnownAction = ['log_food','save_meal','save_food','log_workout'].includes(data.action);
+  const actionButtonsHtml = isKnownAction ? `
+    <button class="btn" onclick="vlConfirmSave()" style="margin-top:16px">Looks good — Log it</button>
+    <button class="btn" onclick="vlEditManually()" style="margin-top:8px;background:var(--surface-2);color:var(--ink)">Edit Manually</button>
+    <button onclick="vlTryAgain()" style="background:none;border:none;color:var(--muted);font-size:13px;margin-top:12px;width:100%;padding:8px;cursor:pointer">Cancel</button>
+  ` : `
+    <button class="btn" onclick="vlTryAgain()" style="margin-top:16px">Try Again</button>
+  `;
+
+  const heard = (_vlLiveText || '').trim();
+  body.innerHTML = `
+    ${heard ? `<div style="font-size:11px;font-weight:700;color:#CFA13C;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Heard: "${heard}"</div>` : ''}
+    <div class="card" style="padding:14px 16px">
+      <div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:6px">${title}</div>
+      ${itemsHtml}
+      ${totalsHtml}
+    </div>
+    ${isKnownAction ? `<div style="font-size:11px;color:var(--muted-2);margin-top:10px;padding:0 4px">AI-estimated — review before logging.</div>` : ''}
+    ${actionButtonsHtml}
+  `;
+}
+
+async function vlConfirmSave() {
+  const data = _vlParsed;
+  if (!data) return;
+  try {
+    if (data.action === 'log_food') {
+      const items = data.logFood?.items || [];
+      const totals = items.reduce((a,i) => ({ calories: a.calories+(+i.calories||0), protein: a.protein+(+i.protein||0), carbs: a.carbs+(+i.carbs||0), fat: a.fat+(+i.fat||0), fiber: a.fiber+(+i.fiber||0), cholesterol: a.cholesterol+(+i.cholesterol||0) }), {calories:0,protein:0,carbs:0,fat:0,fiber:0,cholesterol:0});
+      const name = items.map(i => i.name).join(', ') || 'Voice-logged meal';
+      await dbPost('meals', {
+        date: logDate, name, meal_type: data.logFood?.mealType || 'snack',
+        calories: Math.round(totals.calories), protein: Math.round(totals.protein*10)/10,
+        carbs: Math.round(totals.carbs*10)/10, fat: Math.round(totals.fat*10)/10,
+        fiber: Math.round(totals.fiber*10)/10, cholesterol: Math.round(totals.cholesterol*10)/10,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      });
+      await loadTodayMeals();
+      toast('Logged ✓');
+    } else if (data.action === 'save_meal') {
+      const ings = data.saveMeal?.ingredients || [];
+      const totals = ings.reduce((a,i) => ({ calories: a.calories+(+i.calories||0), protein: a.protein+(+i.protein||0), carbs: a.carbs+(+i.carbs||0), fat: a.fat+(+i.fat||0), fiber: a.fiber+(+i.fiber||0) }), {calories:0,protein:0,carbs:0,fat:0,fiber:0});
+      await dbPost('saved_meals', {
+        name: data.saveMeal?.name || 'Voice Meal',
+        ingredients: ings.map(i => ({ name: i.name, qty: 1, unit: i.amount || 'serving', calories: i.calories||0, protein: i.protein||0, carbs: i.carbs||0, fat: i.fat||0, fiber: i.fiber||0 })),
+        calories: Math.round(totals.calories), protein: Math.round(totals.protein*10)/10,
+        carbs: Math.round(totals.carbs*10)/10, fat: Math.round(totals.fat*10)/10, fiber: Math.round(totals.fiber*10)/10
+      });
+      savedMeals = await dbGet('saved_meals', 'order=created_at.desc') || [];
+      toast(`"${data.saveMeal?.name || 'Meal'}" saved to My Meals ✓`);
+    } else if (data.action === 'save_food') {
+      const f = data.saveFood || {};
+      await dbPost('saved_foods', {
+        name: f.name || 'Voice Food', unit: f.servingSize || 'serving',
+        calories_per_unit: f.calories||0, protein_per_unit: f.protein||0, carbs_per_unit: f.carbs||0,
+        fat_per_unit: f.fat||0, fiber_per_unit: f.fiber||0, cholesterol_per_unit: f.cholesterol||0
+      });
+      savedFoods = await dbGet('saved_foods', 'order=name.asc');
+      toast(`"${f.name || 'Food'}" saved to My Foods ✓`);
+    } else if (data.action === 'log_workout') {
+      const w = data.logWorkout || {};
+      await dbPost('workouts', {
+        date: logDate, name: w.name || 'Workout', duration: Math.round(w.durationMinutes||0),
+        calories: Math.round(w.caloriesBurned||0), time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      });
+      await loadTodayWorkouts();
+      toast('Workout logged ✓');
+    } else {
+      toast('Could not understand that — try again');
+      return;
+    }
+    closeVoiceLog();
+  } catch(e) {
+    console.error('vlConfirmSave error', e);
+    toast('Could not save — try again');
+  }
+}
+
+function vlEditManually() {
+  const data = _vlParsed;
+  if (!data) return;
+
+  if (!['log_food','save_meal','save_food','log_workout'].includes(data.action)) {
+    toast('Nothing to edit — try recording again');
+    return;
+  }
+
+  if (data.action === 'log_food') {
+    switchTab('today');
+    const items = data.logFood?.items || [];
+    const totals = items.reduce((a,i) => ({ calories: a.calories+(+i.calories||0), protein: a.protein+(+i.protein||0), carbs: a.carbs+(+i.carbs||0), fat: a.fat+(+i.fat||0), fiber: a.fiber+(+i.fiber||0), cholesterol: a.cholesterol+(+i.cholesterol||0) }), {calories:0,protein:0,carbs:0,fat:0,fiber:0,cholesterol:0});
+    if (document.getElementById('meal-form').style.display === 'none') toggleMealForm();
+    document.getElementById('meal-name').value = items.map(i => i.name).join(', ');
+    selectMealType(data.logFood?.mealType || 'snack', null);
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+    set('meal-cals', Math.round(totals.calories));
+    set('meal-protein', Math.round(totals.protein*10)/10);
+    set('meal-carbs', Math.round(totals.carbs*10)/10);
+    set('meal-fat', Math.round(totals.fat*10)/10);
+    set('meal-fiber', Math.round(totals.fiber*10)/10);
+    set('meal-cholesterol', Math.round(totals.cholesterol*10)/10);
+  } else if (data.action === 'save_meal') {
+    switchTab('meals');
+    switchMealsSubTab('meals');
+    openMealBuilder();
+    document.getElementById('meal-builder-name').value = data.saveMeal?.name || '';
+    _mbIngredients = (data.saveMeal?.ingredients || []).map(i => ({ name: i.name, qty: 1, unit: i.amount || 'serving', calories: i.calories||0, protein: i.protein||0, carbs: i.carbs||0, fat: i.fat||0, fiber: i.fiber||0, cholesterol: i.cholesterol||0 }));
+    mbRenderIngredients();
+    mbUpdateTotals();
+  } else if (data.action === 'save_food') {
+    switchTab('meals');
+    switchMealsSubTab('foods');
+    if (document.getElementById('add-food-form').style.display === 'none') toggleAddFood();
+    const f = data.saveFood || {};
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+    set('food-name', f.name || '');
+    set('food-cals', f.calories||0);
+    set('food-protein', f.protein||0);
+    set('food-carbs', f.carbs||0);
+    set('food-fat', f.fat||0);
+    set('food-fiber', f.fiber||0);
+    set('food-cholesterol', f.cholesterol||0);
+  } else if (data.action === 'log_workout') {
+    switchTab('today');
+    if (document.getElementById('workout-form').style.display === 'none') toggleWorkoutForm();
+    const w = data.logWorkout || {};
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+    set('workout-name', w.name || '');
+    set('workout-duration', Math.round(w.durationMinutes||0));
+    set('workout-cals', Math.round(w.caloriesBurned||0));
+  }
+}
 async function loadNotificationsToggle() {
   const enabled = (await loadSetting('notifications_enabled')) !== false;
   _setNotifToggleUI(enabled);
@@ -2868,12 +3389,14 @@ async function initHealthKitSync() {
 function switchTab(tab) {
   document.querySelector('.content').scrollTop = 0;
   saveLastView({ tab });
-  ['today','meals','progress','photos','aicoach','shopping','profile','profile-myprofile','profile-settings','profile-appearance','profile-allergies','profile-devices','profile-targets','profile-report','profile-privacy','profile-help','profile-tos','profile-privacy-policy'].forEach(t => {
+  ['today','meals','progress','photos','aicoach','shopping','profile','profile-myprofile','profile-settings','profile-appearance','profile-allergies','profile-devices','profile-targets','profile-report','profile-privacy','profile-help','profile-tos','profile-privacy-policy','voicelog'].forEach(t => {
     document.getElementById(`tab-${t}`).style.display = t === tab ? 'block' : 'none';
   });
   document.querySelectorAll('.bottom-nav-btn[data-tab]').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.tab === tab);
   });
+  const vlFab = document.querySelector('.vl-fab');
+  if (vlFab) vlFab.style.display = (tab === 'voicelog') ? 'none' : 'flex';
   if (tab === 'today') {
     const mainEl = document.getElementById('today-subtab-main');
     const detailEl = document.getElementById('history-detail-view');
