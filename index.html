@@ -12579,6 +12579,7 @@ function openLocationPicker(context, callback) {
 }
 
 // ── Path 1: Device geolocation ──
+let _locGeoTimer = null;
 function _locDetectDevice() {
   const list = document.getElementById('search-picker-list');
   list.innerHTML = '<div style="padding:40px 20px;text-align:center;color:var(--muted);font-size:14px"><i class="fa-solid fa-spinner fa-spin" style="margin-right:8px"></i>Detecting location…</div>';
@@ -12587,28 +12588,42 @@ function _locDetectDevice() {
     _locGeoFailed('Location not supported on this device');
     return;
   }
+
+  let settled = false;
+  function settle() { if (settled) return false; settled = true; clearTimeout(_locGeoTimer); return true; }
+
+  // Hard 8-second timeout — WKWebView often ignores the API timeout option
+  _locGeoTimer = setTimeout(() => {
+    if (settle()) _locGeoFailed('Location request timed out');
+  }, 8000);
+
   navigator.geolocation.getCurrentPosition(
-    pos => _locReverseGeocode(pos.coords.latitude, pos.coords.longitude),
+    pos => { if (settle()) _locReverseGeocode(pos.coords.latitude, pos.coords.longitude); },
     err => {
+      if (!settle()) return;
       const msgs = { 1: 'Location permission denied', 2: 'Location unavailable', 3: 'Location request timed out' };
       _locGeoFailed(msgs[err.code] || 'Could not detect location');
     },
-    { timeout: 10000, maximumAge: 300000 }
+    { timeout: 7000, maximumAge: 300000 }
   );
 }
 
 async function _locReverseGeocode(lat, lon) {
   const list = document.getElementById('search-picker-list');
+  const deviceTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
   try {
+    const controller = new AbortController();
+    const fetchTimer = setTimeout(() => controller.abort(), 6000);
     const resp = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&addressdetails=1`, {
-      headers: { 'Accept-Language': 'en' }
+      headers: { 'Accept-Language': 'en' },
+      signal: controller.signal
     });
+    clearTimeout(fetchTimer);
     const data = await resp.json();
     const addr = data.address || {};
     const city = addr.city || addr.town || addr.village || addr.hamlet || addr.county || '';
     const country = addr.country || '';
     const locationStr = city ? `${city}, ${country}` : country;
-    const deviceTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
     list.innerHTML = `
       <div style="padding:24px 20px;text-align:center">
@@ -12620,9 +12635,9 @@ async function _locReverseGeocode(lat, lon) {
       </div>`;
   } catch(e) {
     console.error('Reverse geocode failed:', e);
-    // Fallback: use device timezone to guess country
-    const deviceTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    _locGeoFailed('Could not determine city — pick your country instead');
+    // Geocode failed but we still have the device timezone — offer to use it
+    const tzCity = deviceTz.split('/').pop().replace(/_/g, ' ');
+    _locGeoFailed(`Could not look up city — pick your country instead`);
   }
 }
 
