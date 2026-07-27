@@ -12555,6 +12555,27 @@ let _locPickerCallback = null;  // receives { location, timezone }
 let _locPickerContext = '';      // 'mp' or 'ob'
 
 // ── Main entry: open the location picker flow ──
+// ── Detect country from device timezone (no permissions needed) ──
+function _detectCountryFromTz() {
+  try {
+    const deviceTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (!deviceTz) return null;
+    // Find which country owns this timezone
+    for (const c of COUNTRIES) {
+      if (c[2].includes(deviceTz)) return { country: c, tz: deviceTz };
+    }
+    // Fallback: match by region prefix (e.g. America/, Europe/)
+    const prefix = deviceTz.split('/')[0];
+    const regionMap = { 'America': 'US', 'Europe': 'GB', 'Asia': 'IN', 'Africa': 'NG', 'Australia': 'AU', 'Pacific': 'NZ' };
+    const fallbackCode = regionMap[prefix];
+    if (fallbackCode) {
+      const c = COUNTRIES.find(c => c[1] === fallbackCode);
+      if (c) return { country: c, tz: deviceTz };
+    }
+    return null;
+  } catch(e) { return null; }
+}
+
 function openLocationPicker(context, callback) {
   _locPickerContext = context;
   _locPickerCallback = callback;
@@ -12564,92 +12585,47 @@ function openLocationPicker(context, callback) {
   const title = document.getElementById('search-picker-title');
 
   title.textContent = 'Your Location';
-  input.style.display = 'none'; // hide search initially — show detect vs country options
-  list.innerHTML = `
-    <div style="padding:24px 20px;text-align:center">
-      <div style="font-size:14px;color:var(--muted);margin-bottom:20px">How would you like to set your location?</div>
-      <button type="button" onclick="_locDetectDevice()" style="width:100%;padding:14px 16px;background:var(--gold-tint);border:1px solid #CFA13C;border-radius:12px;font-size:14px;font-weight:600;color:#CFA13C;cursor:pointer;margin-bottom:12px;font-family:inherit">
-        <i class="fa-solid fa-location-crosshairs" style="margin-right:8px"></i>Use My Location
-      </button>
-      <button type="button" onclick="_locShowCountrySearch()" style="width:100%;padding:14px 16px;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;font-size:14px;font-weight:600;color:var(--ink);cursor:pointer;font-family:inherit">
-        <i class="fa-solid fa-globe" style="margin-right:8px"></i>Pick Country
-      </button>
-    </div>`;
+  input.style.display = 'none';
+
+  // Try to auto-detect country from device timezone (instant, no permissions)
+  const detected = _detectCountryFromTz();
+
+  if (detected) {
+    const countryName = detected.country[0];
+    const deviceTz = detected.tz;
+    const tzLabel = tzDisplayLabel(deviceTz);
+    list.innerHTML = `
+      <div style="padding:24px 20px;text-align:center">
+        <div style="font-size:14px;color:var(--muted);margin-bottom:8px">Based on your device</div>
+        <div style="font-size:18px;font-weight:700;color:var(--ink);margin-bottom:4px">${countryName}</div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:20px">${tzLabel}</div>
+        <div style="margin-bottom:16px">
+          <div style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:8px;text-align:left">City <span style="font-weight:400">(optional)</span></div>
+          <input type="text" id="loc-detect-city" placeholder="e.g. Austin, Berlin, Lagos…" autocomplete="off" style="width:100%;padding:12px 16px;border:2px solid var(--line);border-radius:12px;font-size:15px;background:var(--bg-deep);color:var(--ink);outline:none;font-family:inherit;box-sizing:border-box" />
+        </div>
+        <button type="button" onclick="_locConfirmDetected()" style="width:100%;padding:14px;background:#CFA13C;border:none;border-radius:12px;font-size:15px;font-weight:700;color:#101512;cursor:pointer;margin-bottom:10px;font-family:inherit">Confirm</button>
+        <button type="button" onclick="_locShowCountrySearch()" style="width:100%;padding:10px;background:none;border:none;font-size:13px;color:var(--muted);cursor:pointer;font-family:inherit">Not in ${countryName}? Pick a different country</button>
+      </div>`;
+    window._locDetectedCountry = detected.country;
+    window._locDetectedTz = deviceTz;
+    setTimeout(() => { const ci = document.getElementById('loc-detect-city'); if (ci) ci.focus(); }, 120);
+  } else {
+    // Couldn't detect — go straight to country search
+    list.innerHTML = '';
+    _locShowCountrySearch();
+  }
+
   modal.style.display = 'flex';
 }
 
-// ── Path 1: Device geolocation ──
-let _locGeoTimer = null;
-function _locDetectDevice() {
-  const list = document.getElementById('search-picker-list');
-  list.innerHTML = '<div style="padding:40px 20px;text-align:center;color:var(--muted);font-size:14px"><i class="fa-solid fa-spinner fa-spin" style="margin-right:8px"></i>Detecting location…</div>';
-
-  if (!navigator.geolocation) {
-    _locGeoFailed('Location not supported on this device');
-    return;
-  }
-
-  let settled = false;
-  function settle() { if (settled) return false; settled = true; clearTimeout(_locGeoTimer); return true; }
-
-  // Hard 8-second timeout — WKWebView often ignores the API timeout option
-  _locGeoTimer = setTimeout(() => {
-    if (settle()) _locGeoFailed('Location request timed out');
-  }, 8000);
-
-  navigator.geolocation.getCurrentPosition(
-    pos => { if (settle()) _locReverseGeocode(pos.coords.latitude, pos.coords.longitude); },
-    err => {
-      if (!settle()) return;
-      const msgs = { 1: 'Location permission denied', 2: 'Location unavailable', 3: 'Location request timed out' };
-      _locGeoFailed(msgs[err.code] || 'Could not detect location');
-    },
-    { timeout: 7000, maximumAge: 300000 }
-  );
-}
-
-async function _locReverseGeocode(lat, lon) {
-  const list = document.getElementById('search-picker-list');
-  const deviceTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  try {
-    const controller = new AbortController();
-    const fetchTimer = setTimeout(() => controller.abort(), 6000);
-    const resp = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&addressdetails=1`, {
-      headers: { 'Accept-Language': 'en' },
-      signal: controller.signal
-    });
-    clearTimeout(fetchTimer);
-    const data = await resp.json();
-    const addr = data.address || {};
-    const city = addr.city || addr.town || addr.village || addr.hamlet || addr.county || '';
-    const country = addr.country || '';
-    const locationStr = city ? `${city}, ${country}` : country;
-
-    list.innerHTML = `
-      <div style="padding:24px 20px;text-align:center">
-        <div style="font-size:14px;color:var(--muted);margin-bottom:8px">Detected location</div>
-        <div style="font-size:18px;font-weight:700;color:var(--ink);margin-bottom:4px">${locationStr}</div>
-        <div style="font-size:13px;color:var(--muted);margin-bottom:24px">${tzDisplayLabel(deviceTz)}</div>
-        <button type="button" onclick="_locConfirm('${locationStr.replace(/'/g,"\\'")}','${deviceTz}')" style="width:100%;padding:14px;background:#CFA13C;border:none;border-radius:12px;font-size:15px;font-weight:700;color:#101512;cursor:pointer;margin-bottom:10px;font-family:inherit">Use This Location</button>
-        <button type="button" onclick="_locShowCountrySearch()" style="width:100%;padding:12px;background:none;border:none;font-size:13px;color:var(--muted);cursor:pointer;font-family:inherit">Pick a different location</button>
-      </div>`;
-  } catch(e) {
-    console.error('Reverse geocode failed:', e);
-    // Geocode failed but we still have the device timezone — offer to use it
-    const tzCity = deviceTz.split('/').pop().replace(/_/g, ' ');
-    _locGeoFailed(`Could not look up city — pick your country instead`);
-  }
-}
-
-function _locGeoFailed(msg) {
-  const list = document.getElementById('search-picker-list');
-  list.innerHTML = `
-    <div style="padding:24px 20px;text-align:center">
-      <div style="font-size:14px;color:var(--muted);margin-bottom:20px">${msg}</div>
-      <button type="button" onclick="_locShowCountrySearch()" style="width:100%;padding:14px 16px;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;font-size:14px;font-weight:600;color:var(--ink);cursor:pointer;font-family:inherit">
-        <i class="fa-solid fa-globe" style="margin-right:8px"></i>Pick Country Instead
-      </button>
-    </div>`;
+function _locConfirmDetected() {
+  const country = window._locDetectedCountry;
+  const tz = window._locDetectedTz;
+  if (!country) return;
+  const cityInput = document.getElementById('loc-detect-city');
+  const city = cityInput ? cityInput.value.trim() : '';
+  const location = city ? `${city}, ${country[0]}` : country[0];
+  _locConfirm(location, tz);
 }
 
 // ── Path 2: Country search → city text → timezone ──
