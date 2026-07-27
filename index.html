@@ -229,6 +229,20 @@
     .mp-sheet-option:last-child { border-bottom: none; }
     .mp-sheet-option.active { color: #CFA13C; font-weight: 600; }
     .mp-sheet-option i { color: #CFA13C; font-size: 14px; }
+    .appearance-card { flex: 1; display: flex; flex-direction: column; align-items: stretch; gap: 10px; padding: 0; border: none; background: none; cursor: pointer; font-family: inherit; }
+    .appearance-preview { position: relative; border-radius: 14px; padding: 14px; height: 108px; box-sizing: border-box; border: 2px solid var(--line); display: flex; flex-direction: column; gap: 8px; transition: border-color 0.15s; }
+    .appearance-card.active .appearance-preview { border-color: #CFA13C; }
+    .appearance-preview-bar { width: 30%; height: 8px; border-radius: 4px; background: #CFA13C; }
+    .appearance-preview-line { height: 6px; border-radius: 3px; }
+    .appearance-preview-dot { position: absolute; bottom: 12px; right: 12px; width: 16px; height: 16px; border-radius: 50%; background: #CFA13C; }
+    .appearance-preview-dark { background: #0B1210; }
+    .appearance-preview-dark .appearance-preview-line { background: #2A322E; }
+    .appearance-preview-light { background: #F2EFE7; }
+    .appearance-preview-light .appearance-preview-line { background: #D9D5CA; }
+    .appearance-card-label { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--ink); }
+    .appearance-check { color: #CFA13C; font-size: 12px; display: none; }
+    .appearance-card.active .appearance-check { display: inline-block; }
+    .appearance-card.active .appearance-card-label { color: #CFA13C; }
     .progress-nav-chip { flex: 1; padding: 8px 4px; border: none; border-radius: 9px; background: transparent; color: var(--muted); font-size: 12px; font-weight: 700; font-family: inherit; cursor: pointer; white-space: nowrap; transition: all 0.15s; }
     .progress-nav-chip.active { background: var(--gold-tint); color: #CFA13C; }
     .legal-doc { font-size: 14px; line-height: 1.6; color: var(--ink-2); padding-bottom: 20px; }
@@ -1292,11 +1306,41 @@
           <div class="mp-row-label">Email Settings</div>
           <div class="mp-row-value" style="color:var(--muted)">Coming Soon</div>
         </div>
-        <div class="mp-row" onclick="openFieldEditSheet('appearance')" style="border-bottom:none">
+        <div class="mp-row" onclick="switchTab('profile-appearance')" style="border-bottom:none">
           <div class="mp-row-label">App Appearance</div>
           <div class="mp-row-value" id="settings-appearance-value">Dark</div>
         </div>
       </div>
+    </div>
+
+    <div id="tab-profile-appearance" style="display:none">
+      <div class="profile-subpage-header">
+        <button onclick="switchTab('profile-settings')" class="profile-back-btn"><i class="fa-solid fa-arrow-left"></i></button>
+        <div class="profile-subpage-title">App Appearance</div>
+        <div style="width:36px"></div>
+      </div>
+      <div style="font-size:11px;font-weight:700;color:#CFA13C;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px">Choose a Skin</div>
+      <div style="display:flex;gap:12px">
+        <button type="button" onclick="selectAppearance('dark')" id="appearance-card-dark" class="appearance-card">
+          <div class="appearance-preview appearance-preview-dark">
+            <div class="appearance-preview-bar"></div>
+            <div class="appearance-preview-line" style="width:70%"></div>
+            <div class="appearance-preview-line" style="width:45%"></div>
+            <div class="appearance-preview-dot"></div>
+          </div>
+          <div class="appearance-card-label"><span>Gold &amp; Black</span><i class="fa-solid fa-check appearance-check" id="appearance-check-dark"></i></div>
+        </button>
+        <button type="button" onclick="selectAppearance('light')" id="appearance-card-light" class="appearance-card">
+          <div class="appearance-preview appearance-preview-light">
+            <div class="appearance-preview-bar"></div>
+            <div class="appearance-preview-line" style="width:70%"></div>
+            <div class="appearance-preview-line" style="width:45%"></div>
+            <div class="appearance-preview-dot"></div>
+          </div>
+          <div class="appearance-card-label"><span>Gold &amp; White</span><i class="fa-solid fa-check appearance-check" id="appearance-check-light"></i></div>
+        </button>
+      </div>
+      <div style="font-size:11px;color:var(--muted-2);margin-top:14px;padding:0 4px">More skins coming soon.</div>
     </div>
 
     <div id="tab-profile-allergies" style="display:none">
@@ -2772,6 +2816,14 @@ function _applyThemeClass(light) {
 function refreshAppearanceValue() {
   const el = document.getElementById('settings-appearance-value');
   if (el) el.textContent = window._currentTheme === 'light' ? 'Light' : 'Dark';
+  const cur = window._currentTheme === 'light' ? 'light' : 'dark';
+  const darkCard = document.getElementById('appearance-card-dark');
+  const lightCard = document.getElementById('appearance-card-light');
+  if (darkCard) darkCard.classList.toggle('active', cur === 'dark');
+  if (lightCard) lightCard.classList.toggle('active', cur === 'light');
+}
+function selectAppearance(theme) {
+  setAppTheme(theme);
 }
 function setAppTheme(theme) {
   const light = theme === 'light';
@@ -2816,7 +2868,7 @@ async function initHealthKitSync() {
 function switchTab(tab) {
   document.querySelector('.content').scrollTop = 0;
   saveLastView({ tab });
-  ['today','meals','progress','photos','aicoach','shopping','profile','profile-myprofile','profile-settings','profile-allergies','profile-devices','profile-targets','profile-report','profile-privacy','profile-help','profile-tos','profile-privacy-policy'].forEach(t => {
+  ['today','meals','progress','photos','aicoach','shopping','profile','profile-myprofile','profile-settings','profile-appearance','profile-allergies','profile-devices','profile-targets','profile-report','profile-privacy','profile-help','profile-tos','profile-privacy-policy'].forEach(t => {
     document.getElementById(`tab-${t}`).style.display = t === tab ? 'block' : 'none';
   });
   document.querySelectorAll('.bottom-nav-btn[data-tab]').forEach(btn => {
@@ -2836,6 +2888,7 @@ function switchTab(tab) {
   if (tab === 'profile-targets') loadDailyTargetsPage();
   if (tab === 'profile-report') loadWeeklyReportPage();
   if (tab === 'profile-settings') { loadNotificationsToggle(); refreshAppearanceValue(); }
+  if (tab === 'profile-appearance') refreshAppearanceValue();
   if (tab === 'aicoach') {
     const badge = document.getElementById('ai-coach-new-badge');
     if (badge && badge.style.display !== 'none') {
@@ -10976,7 +11029,7 @@ function mpHeightChanged() {
 
 function openFieldEditSheet(field) {
   window._mpEditingField = field;
-  const titleMap = { username: 'Username', height: 'Height', gender: 'Sex', age: 'Age', activity: 'Activity Level', calories: 'Calories', protein: 'Protein', carbs: 'Carbs', fat: 'Fat', steps: 'Step Goal', timezone: 'Time Zone', appearance: 'App Appearance' };
+  const titleMap = { username: 'Username', height: 'Height', gender: 'Sex', age: 'Age', activity: 'Activity Level', calories: 'Calories', protein: 'Protein', carbs: 'Carbs', fat: 'Fat', steps: 'Step Goal', timezone: 'Time Zone' };
   document.getElementById('mp-sheet-title').textContent = titleMap[field] || 'Edit';
   const body = document.getElementById('mp-sheet-body');
   const inputStyle = 'width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--bg-deep);color:var(--ink);font-size:16px;outline:none;box-sizing:border-box';
@@ -11008,10 +11061,6 @@ function openFieldEditSheet(field) {
   } else if (field === 'timezone') {
     const tzCur = _mpPending.timezone || 'auto';
     body.innerHTML = TZ_OPTIONS.map(o => `<button type="button" onclick="selectSheetOption('${o.value}')" data-val="${o.value}" data-label="${o.label}" class="mp-sheet-option ${tzCur === o.value ? 'active' : ''}"><span>${o.label}</span>${tzCur === o.value ? '<i class="fa-solid fa-check"></i>' : ''}</button>`).join('');
-  } else if (field === 'appearance') {
-    const cur = window._currentTheme === 'light' ? 'light' : 'dark';
-    const options = [['dark', 'Dark'], ['light', 'Light']];
-    body.innerHTML = options.map(([val, label]) => `<button type="button" onclick="selectSheetOption('${val}')" data-val="${val}" data-label="${label}" class="mp-sheet-option ${cur === val ? 'active' : ''}"><span>${label}</span>${cur === val ? '<i class="fa-solid fa-check"></i>' : ''}</button>`).join('');
   } else if (['calories','protein','carbs','fat'].includes(field)) {
     const unit = field === 'calories' ? 'kcal' : 'g';
     body.innerHTML = `
@@ -11061,11 +11110,6 @@ async function confirmFieldEdit() {
   } else if (field === 'timezone') {
     const selected = document.querySelector('.mp-sheet-option.active');
     if (selected) _mpPending.timezone = selected.dataset.val;
-  } else if (field === 'appearance') {
-    const selected = document.querySelector('.mp-sheet-option.active');
-    if (selected) setAppTheme(selected.dataset.val);
-    closeFieldEditSheet();
-    return;
   } else if (['calories','protein','carbs','fat'].includes(field)) {
     _dtPending[field] = +document.getElementById('mp-sheet-input').value || _dtPending[field];
     refreshDailyTargetsDisplay();
