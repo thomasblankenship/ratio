@@ -5979,9 +5979,13 @@ async function loadTodayWorkouts() {
 function renderMealSection(meals, indices, showEmpty) {
   if (!meals.length) return showEmpty ? '<div class="empty" style="padding:10px 0;font-size:12px">Nothing logged</div>' : '';
   return meals.map((m) => {
+    const idx = m.name.lastIndexOf(' ');
+    const rest = idx === -1 ? '' : m.name.slice(0, idx);
+    const lastWord = idx === -1 ? m.name : m.name.slice(idx + 1);
+    const nameHtml = `${rest ? `<button data-edit="${m.id}" style="background:none;border:none;cursor:pointer;font-size:inherit;font-weight:inherit;color:inherit;text-align:left;padding:0;font-family:inherit">${rest}</button> ` : ''}<span style="white-space:nowrap"><button data-edit="${m.id}" style="background:none;border:none;cursor:pointer;font-size:inherit;font-weight:inherit;color:inherit;text-align:left;padding:0;font-family:inherit">${lastWord}</button><button data-edit="${m.id}" style="background:none;border:none;cursor:pointer;font-size:11px;color:var(--muted);padding:0 2px"><i class="fa-solid fa-pen" style="font-size:0.85em"></i></button></span>`;
     return `<div class="meal-row">
       <div class="meal-info" style="min-width:0;flex:1">
-        <div class="meal-name" style="word-break:break-word">${withTrailingIcon(m.name, `<button data-edit="${m.id}" style="background:none;border:none;cursor:pointer;font-size:11px;color:var(--muted);padding:0 2px"><i class="fa-solid fa-pen" style="font-size:0.85em"></i></button>`)}</div>
+        <div class="meal-name" style="word-break:break-word">${nameHtml}</div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px;gap:8px">
           <div class="meal-meta" style="margin-top:0">${nutritionMetaString(m)}</div>
           <button class="delete-btn" data-delete="${m.id}" style="flex-shrink:0">×</button>
