@@ -1609,7 +1609,7 @@
         <button class="vl-mic-circle" id="vl-mic-btn" onclick="vlStartListening()"><i class="fa-solid fa-microphone"></i></button>
         <div style="font-size:15px;font-weight:600;color:var(--ink);margin-top:20px">Tap to speak</div>
         <div style="font-size:13px;color:var(--muted);margin-top:8px;line-height:1.6;max-width:280px;margin-left:auto;margin-right:auto">
-          Try: "Log 2 eggs and toast for breakfast"<br>"Save chicken and rice as a meal"<br>"I ran 3 miles in 28 minutes"
+          Try: "Log 2 eggs and toast for breakfast"<br>"Save chicken and rice as a meal"<br>"I ran 3 miles in 28 minutes"<br>"Find me a recipe for airfryer potatoes"<br>"Add chicken and rice to my shopping list"
         </div>
         <button onclick="vlShowTypeInstead()" style="background:none;border:none;color:#CFA13C;font-size:13px;font-weight:600;margin-top:20px;cursor:pointer">Type instead</button>
       </div>
@@ -1634,7 +1634,7 @@
       <!-- PROCESSING -->
       <div id="vl-state-processing" style="display:none;text-align:center;padding:60px 20px 20px">
         <div class="vl-spinner"></div>
-        <div style="font-size:14px;color:var(--muted);margin-top:16px">Thinking...</div>
+        <div id="vl-processing-text" style="font-size:14px;color:var(--muted);margin-top:16px">Thinking...</div>
       </div>
 
       <!-- CONFIRM -->
@@ -3198,6 +3198,8 @@ async function vlSendToAI(text) {
     if (data.action === 'clarify') {
       document.getElementById('vl-clarify-text').textContent = data.clarifyQuestion || "I didn't quite catch that — try again?";
       vlShowState('clarify');
+    } else if (data.action === 'find_recipe') {
+      vlFindRecipe(data.findRecipe?.dishName);
     } else {
       // Keep the proposal in the conversation history so the person can talk
       // back to it from the confirm card ("the apple should be a snack") and
@@ -3249,6 +3251,65 @@ function vlCorrectType() {
   vlShowTypeInstead();
   const inp = document.getElementById('vl-type-input');
   if (inp) { inp.placeholder = 'e.g. The apple should be a snack, not lunch'; inp.focus(); }
+}
+
+async function vlFindRecipe(dishName) {
+  if (!dishName) {
+    document.getElementById('vl-clarify-text').textContent = "I didn't catch what dish you wanted a recipe for — try again?";
+    vlShowState('clarify');
+    return;
+  }
+  document.getElementById('vl-processing-text').textContent = `Searching the web for a recipe for "${dishName}"...`;
+  vlShowState('processing');
+  try {
+    const res = await fetch(`${WORKER_URL}/find-recipe`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dishName })
+    });
+    const data = await res.json();
+    document.getElementById('vl-processing-text').textContent = 'Thinking...';
+    if (data.error) {
+      document.getElementById('vl-clarify-text').textContent = data.error;
+      vlShowState('clarify');
+      return;
+    }
+    vlRenderFoundRecipe(data);
+    vlShowState('confirm');
+  } catch (e) {
+    document.getElementById('vl-processing-text').textContent = 'Thinking...';
+    document.getElementById('vl-clarify-text').textContent = "Couldn't reach the web right now — try again shortly.";
+    vlShowState('clarify');
+  }
+}
+
+function vlRenderFoundRecipe(recipe) {
+  const body = document.getElementById('vl-confirm-body');
+  const ingredientsHtml = (recipe.ingredients || []).map(ing => `• ${formatAiIngredientLine(ing)}`).join('<br>');
+  const instructionsHtml = (recipe.instructions || []).length ? `
+    <details style="margin-bottom:12px">
+      <summary style="font-size:11px;font-weight:700;color:#CFA13C;text-transform:uppercase;letter-spacing:0.5px;cursor:pointer;list-style:none;display:flex;align-items:center;gap:4px">▸ How To Make It (${recipe.instructions.length} steps)</summary>
+      <ol style="padding-left:18px;margin:10px 0 0;display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--muted);line-height:1.4">${recipe.instructions.map(step => `<li>${step}</li>`).join('')}</ol>
+    </details>` : '';
+
+  body.innerHTML = `
+    <div class="card" style="${recipe.image_url ? 'padding:0;overflow:hidden' : 'padding:14px 16px'}">
+      ${recipe.image_url ? `<img src="${recipe.image_url}" loading="lazy" style="width:100%;aspect-ratio:16/9;object-fit:cover;display:block;background:var(--surface-2)" onerror="this.style.display='none'" />` : ''}
+      <div style="${recipe.image_url ? 'padding:16px' : ''}">
+        <div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:4px">${recipe.name || 'Recipe'}</div>
+        ${recipe.source ? `<div style="font-size:11px;color:#CFA13C;font-weight:600;margin-bottom:8px">${recipe.sourceUrl ? `<a href="${recipe.sourceUrl}" target="_blank" style="color:#CFA13C;text-decoration:none">via ${recipe.source} <i class="fa-solid fa-arrow-up-right-from-square" style="font-size:0.7em"></i></a>` : `via ${recipe.source}`}</div>` : ''}
+        <div style="font-size:12px;color:var(--muted);margin-bottom:10px">${nutritionMetaString(recipe)}${recipe.servings ? ` · Serves ${recipe.servings}` : ''}</div>
+        ${ingredientsHtml ? `<div style="font-size:12px;color:var(--muted);margin-bottom:10px">${ingredientsHtml}</div>` : ''}
+        ${instructionsHtml}
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--muted-2);margin-top:10px;padding:0 4px">Found via web search — nutrition is AI-estimated from the ingredients.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px">
+      <button onclick='logAiMealSuggestion(${JSON.stringify(recipe).replace(/'/g, "&#39;")})' style="width:100%;background:var(--accent);color:#101512;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:700;cursor:pointer">+ Log It</button>
+      <button onclick='saveAiSuggestionToMyMeals(${JSON.stringify(recipe).replace(/'/g, "&#39;")})' style="width:100%;background:var(--surface);color:#CFA13C;border:1px solid var(--gold-line);border-radius:10px;padding:12px;font-size:13px;font-weight:700;cursor:pointer">Save to My Meals</button>
+    </div>
+    <button onclick="vlTryAgain()" style="background:none;border:none;color:var(--muted);font-size:13px;margin-top:12px;width:100%;padding:8px;cursor:pointer">Cancel</button>
+  `;
 }
 
 function vlRenderConfirm(data) {
