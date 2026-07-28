@@ -3383,6 +3383,7 @@ async function vlConfirmSave() {
     } else if (data.action === 'add_to_shopping_list') {
       const items = data.shoppingItems || [];
       if (!items.length) { toast('Nothing to add — try again'); return; }
+      if (!mealPrepPlan) { const saved = await loadSetting('meal_prep_plan'); mealPrepPlan = (saved && saved.days) ? saved : defaultMealPrepPlan(); }
       mealPrepPlan.shoppingExtras = mealPrepPlan.shoppingExtras || [];
       items.forEach(name => {
         mealPrepPlan.shoppingExtras.push({ id: 'x' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name });
