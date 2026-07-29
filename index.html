@@ -365,6 +365,9 @@
         <button onclick="openShoppingListPage()" style="background:none;border:none;cursor:pointer;padding:4px;display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:10px;background:var(--surface-2)">
           <i class="fa-solid fa-basket-shopping" style="font-size:16px;color:var(--muted)"></i>
         </button>
+        <button onclick="openTodoListPage()" style="background:none;border:none;cursor:pointer;padding:4px;display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:10px;background:var(--surface-2)">
+          <i class="fa-solid fa-list-check" style="font-size:16px;color:var(--muted)"></i>
+        </button>
         <button onclick="openWeeklyReportFromBell()" style="position:relative;background:none;border:none;cursor:pointer;padding:4px;display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:10px;background:var(--surface-2)">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8A8880" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
           <span id="bell-new-dot" style="display:none;position:absolute;top:5px;right:6px;width:9px;height:9px;border-radius:50%;background:#CFA13C;border:1.5px solid var(--surface)"></span>
@@ -1167,6 +1170,15 @@
       <div id="shopping-list-results-independent"></div>
     </div>
 
+    <!-- TO-DO LIST — independent top-level page -->
+    <div id="tab-todo" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div style="font-size:18px;font-weight:700">To-Do List</div>
+        <button onclick="closeTodoListPage()" style="background:var(--surface-2);border:none;border-radius:10px;width:32px;height:32px;font-size:18px;color:var(--muted);cursor:pointer">×</button>
+      </div>
+      <div id="todo-list-results"></div>
+    </div>
+
     <!-- PROFILE — main listing page -->
     <div id="tab-profile" style="display:none">
       <div style="display:flex;flex-direction:column;align-items:center;padding:20px 0 24px">
@@ -1311,6 +1323,12 @@
           <div class="mp-row-label">Reminder Notifications</div>
           <div onclick="toggleNotificationsEnabled()" id="notif-toggle-track" style="cursor:pointer;width:40px;height:22px;border-radius:11px;background:var(--accent);position:relative;transition:background 0.2s;flex-shrink:0">
             <div id="notif-toggle-knob" style="position:absolute;top:3px;right:3px;width:16px;height:16px;border-radius:50%;background:var(--surface);transition:all 0.2s"></div>
+          </div>
+        </div>
+        <div class="mp-row" style="cursor:default">
+          <div class="mp-row-label">To-Do Reminders</div>
+          <div onclick="toggleTodoNotificationsEnabled()" id="todo-notif-toggle-track" style="cursor:pointer;width:40px;height:22px;border-radius:11px;background:var(--accent);position:relative;transition:background 0.2s;flex-shrink:0">
+            <div id="todo-notif-toggle-knob" style="position:absolute;top:3px;right:3px;width:16px;height:16px;border-radius:50%;background:var(--surface);transition:all 0.2s"></div>
           </div>
         </div>
         <div class="mp-row" style="cursor:default">
@@ -1609,7 +1627,7 @@
         <button class="vl-mic-circle" id="vl-mic-btn" onclick="vlStartListening()"><i class="fa-solid fa-microphone"></i></button>
         <div style="font-size:15px;font-weight:600;color:var(--ink);margin-top:20px">Tap to speak</div>
         <div style="font-size:13px;color:var(--muted);margin-top:8px;line-height:1.6;max-width:280px;margin-left:auto;margin-right:auto">
-          Try: "Log 2 eggs and toast for breakfast"<br>"Save chicken and rice as a meal"<br>"I ran 3 miles in 28 minutes"<br>"Find me a recipe for airfryer potatoes"<br>"Add chicken and rice to my shopping list"
+          Try: "Log 2 eggs and toast for breakfast"<br>"Save chicken and rice as a meal"<br>"I ran 3 miles in 28 minutes"<br>"Find me a recipe for airfryer potatoes"<br>"Add chicken and rice to my shopping list"<br>"Add mow the lawn to my to-do list"
         </div>
         <button onclick="vlShowTypeInstead()" style="background:none;border:none;color:#CFA13C;font-size:13px;font-weight:600;margin-top:20px;cursor:pointer">Type instead</button>
       </div>
@@ -2692,6 +2710,287 @@ function closeShoppingListPage() {
   switchTab(_tabBeforeShopping || 'today');
 }
 
+// ===== TO-DO LIST (independent top-level page, mirrors Shopping List) =====
+// Stored in user_settings under key 'todo_list' as { items: [...], seeded: bool }.
+// Each item: { id, name, dueDate (ISO local string or null), completed (bool) }.
+// Sorted soonest-due-first; undated items sink to the bottom.
+// Local notifications (one per dated, not-completed item) fire at the due time
+// unless the task is completed/removed first — gated by the 'todo_notifications_enabled'
+// setting (default ON). Native side uses @capacitor/local-notifications; web is a no-op.
+let todoList = null;          // { items, seeded }
+let todoListLoaded = false;
+let _tabBeforeTodo = 'today';
+
+function defaultTodoList() { return { items: [], seeded: false }; }
+
+// The example list a first-time user sees — item #1 pre-checked to show it's an option.
+function seededTodoItems() {
+  const mk = (name, dateStr, completed) => ({
+    id: 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    name, dueDate: dateStr, completed: !!completed
+  });
+  return [
+    mk('Mow Lawn', '2026-07-29T11:00:00', true),
+    mk('Organize Garage', '2026-07-30T14:00:00', false),
+    mk('Take Olivia to Gymnastics', '2026-08-03T16:30:00', false),
+    mk('Give Mom a Call', null, false)
+  ];
+}
+
+async function loadTodoList() {
+  const saved = await loadSetting('todo_list');
+  todoList = (saved && Array.isArray(saved.items)) ? saved : defaultTodoList();
+  // First ever visit: seed the example list once, then persist so it never re-seeds.
+  if (!todoList.seeded) {
+    todoList.items = seededTodoItems();
+    todoList.seeded = true;
+    await saveSetting('todo_list', todoList);
+  }
+  todoListLoaded = true;
+  scheduleTodoNotifications();
+}
+
+function openTodoListPage() {
+  ['today','meals','progress','photos','aicoach'].forEach(t => {
+    const el = document.getElementById(`tab-${t}`);
+    if (el && el.style.display !== 'none') _tabBeforeTodo = t;
+  });
+  switchTab('todo');
+  if (!todoListLoaded) {
+    loadTodoList().then(() => renderTodoList());
+  } else {
+    renderTodoList();
+  }
+}
+
+function closeTodoListPage() {
+  switchTab(_tabBeforeTodo || 'today');
+}
+
+// Soonest due first; undated items last (kept in insertion order among themselves).
+function sortedTodoItems() {
+  const items = (todoList?.items || []).slice();
+  return items.sort((a, b) => {
+    if (a.dueDate && b.dueDate) return new Date(a.dueDate) - new Date(b.dueDate);
+    if (a.dueDate && !b.dueDate) return -1;
+    if (!a.dueDate && b.dueDate) return 1;
+    return 0;
+  });
+}
+
+function formatTodoDue(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d)) return '';
+  const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  let h = d.getHours(), m = d.getMinutes();
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12; if (h === 0) h = 12;
+  const time = `${h}:${String(m).padStart(2,'0')} ${ampm}`;
+  const overdue = !isNaN(d) && d.getTime() < Date.now();
+  return `${days[d.getDay()]}, ${months[d.getMonth()]} ${d.getDate()} · ${time}${overdue ? ' · overdue' : ''}`;
+}
+
+function renderTodoListRow(item, index) {
+  const checked = !!item.completed;
+  const textStyle = checked ? 'text-decoration:line-through;font-style:italic;color:var(--muted)' : 'color:var(--ink)';
+  const due = formatTodoDue(item.dueDate);
+  const overdue = item.dueDate && !checked && new Date(item.dueDate).getTime() < Date.now();
+  const dueColor = checked ? 'var(--muted-2)' : (overdue ? '#EF4444' : 'var(--muted)');
+  return `
+    <div class="todo-row" data-id="${item.id}" style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--gray-100);background:var(--surface);-webkit-user-select:none;user-select:none">
+      <span style="color:var(--muted-2);font-size:13px;flex-shrink:0;width:16px;text-align:right;font-weight:600">${index + 1}.</span>
+      <span style="position:relative;width:20px;height:20px;flex-shrink:0;display:inline-block">
+        <input type="checkbox" id="todo-check-${item.id}" ${checked ? 'checked' : ''} onchange="toggleTodoChecked('${item.id}')" style="position:absolute;inset:0;width:20px;height:20px;margin:0;opacity:0;cursor:pointer;z-index:1" />
+        <span style="position:absolute;inset:0;border:1.5px solid #CFA13C;border-radius:5px;background:${checked ? '#CFA13C' : 'transparent'};display:flex;align-items:center;justify-content:center;pointer-events:none">
+          <i class="fa-solid fa-check" style="font-size:12px;color:#101512;${checked ? '' : 'display:none'}"></i>
+        </span>
+      </span>
+      <div style="flex:1;min-width:0;cursor:pointer" onclick="toggleTodoChecked('${item.id}')">
+        <div style="font-size:14px;font-weight:600;${textStyle}">${escapeHtmlTodo(item.name)}</div>
+        ${due ? `<div style="font-size:11px;color:${dueColor}">${due}</div>` : `<div style="font-size:11px;color:var(--muted-2)">No due date</div>`}
+      </div>
+      <button type="button" onclick="removeTodoItem('${item.id}')" aria-label="Remove" style="flex-shrink:0;background:none;border:none;color:var(--muted-2);font-size:18px;line-height:1;cursor:pointer;padding:2px 6px">×</button>
+    </div>`;
+}
+
+function escapeHtmlTodo(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function renderTodoList() {
+  const el = document.getElementById('todo-list-results');
+  if (!el || !todoList) return;
+  const items = sortedTodoItems();
+  el.innerHTML = `
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:4px">
+        <div class="card-title" style="margin-bottom:0">To-Do List</div>
+        <button type="button" onclick="shareTodoList()" style="flex-shrink:0;background:var(--surface);color:#CFA13C;border:1px solid var(--gold-line);border-radius:20px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">📤 Share</button>
+      </div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Sorted by soonest due date. Tap a task to check it off; tap × to remove it. You'll get a reminder when a task is due (unless it's already done).</div>
+
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <input type="text" id="todo-add-input" placeholder="Add a task (e.g. Mow the lawn)" onkeydown="if(event.key==='Enter') addTodoItemFromInput()" style="flex:1;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:16px;outline:none" />
+        <button type="button" onclick="addTodoItemFromInput()" style="background:var(--accent);color:#101512;border:none;border-radius:10px;padding:0 16px;font-size:13px;font-weight:700;cursor:pointer">+ Add</button>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:14px;align-items:center">
+        <input type="datetime-local" id="todo-add-due" style="flex:1;padding:9px 12px;border:1px solid var(--line);border-radius:10px;font-size:14px;outline:none;color:var(--muted)" />
+        <span style="font-size:11px;color:var(--muted-2);white-space:nowrap">Due date (optional)</span>
+      </div>
+
+      ${!items.length ? `<div style="text-align:center;padding:16px;color:var(--muted);font-size:13px">Nothing on your list yet.</div>` : ''}
+      <div id="todo-list-rows">
+        ${items.map((item, i) => renderTodoListRow(item, i)).join('')}
+      </div>
+      ${items.length ? `<button type="button" onclick="clearTodoList()" style="width:100%;margin-top:14px;background:none;border:1px solid #3A2020;border-radius:10px;padding:10px;font-size:13px;font-weight:600;color:#EF4444;cursor:pointer">Clear All</button>` : ''}
+    </div>`;
+}
+
+function addTodoItem(name, dueDate) {
+  const val = (name || '').trim();
+  if (!val) return null;
+  if (!todoList) todoList = defaultTodoList();
+  const item = {
+    id: 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    name: val,
+    dueDate: dueDate || null,
+    completed: false
+  };
+  todoList.items = todoList.items || [];
+  todoList.items.push(item);
+  saveSetting('todo_list', todoList);
+  scheduleTodoNotifications();
+  return item;
+}
+
+function addTodoItemFromInput() {
+  const input = document.getElementById('todo-add-input');
+  const dueEl = document.getElementById('todo-add-due');
+  const val = (input.value || '').trim();
+  if (!val) return;
+  // datetime-local gives "YYYY-MM-DDTHH:mm" (local, no seconds) — store with seconds for consistency.
+  const dueRaw = dueEl && dueEl.value ? dueEl.value : null;
+  const due = dueRaw ? (dueRaw.length === 16 ? dueRaw + ':00' : dueRaw) : null;
+  addTodoItem(val, due);
+  input.value = '';
+  if (dueEl) dueEl.value = '';
+  renderTodoList();
+}
+
+function toggleTodoChecked(id) {
+  if (!todoList) return;
+  const item = (todoList.items || []).find(t => t.id === id);
+  if (!item) return;
+  item.completed = !item.completed;
+  saveSetting('todo_list', todoList);
+  scheduleTodoNotifications();
+  renderTodoList();
+}
+
+function removeTodoItem(id) {
+  if (!todoList) return;
+  todoList.items = (todoList.items || []).filter(t => t.id !== id);
+  saveSetting('todo_list', todoList);
+  scheduleTodoNotifications();
+  renderTodoList();
+}
+
+function clearTodoList() {
+  if (!confirm('Clear your entire to-do list?')) return;
+  if (!todoList) return;
+  todoList.items = [];
+  saveSetting('todo_list', todoList);
+  scheduleTodoNotifications();
+  renderTodoList();
+}
+
+// Plain text only — pastes cleanly into Messages / Notes.
+function shareTodoList() {
+  const items = sortedTodoItems();
+  if (!items.length) { toast('Nothing on the list yet'); return; }
+  const lines = items.map((it, i) => {
+    const due = it.dueDate ? formatTodoDue(it.dueDate).replace(' · overdue','') : '';
+    const mark = it.completed ? '[x]' : '[ ]';
+    return `${i + 1}. ${mark} ${it.name}${due ? ' — ' + due : ''}`;
+  });
+  const text = `To-Do List:\n\n${lines.join('\n')}`;
+  if (navigator.share) {
+    navigator.share({ text }).catch(() => {});
+  } else if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(() => toast('Copied to clipboard ✓')).catch(() => toast('Could not copy — try again'));
+  } else {
+    toast('Sharing is not supported on this browser');
+  }
+}
+
+// ---- To-Do notifications ----
+// One local notification per dated, not-completed, still-future task. Rescheduled
+// wholesale on any change (add/complete/remove/clear) so it always matches the list.
+const TODO_NOTIF_ID_BASE = 9301; // separate range from the 9101 re-engagement nudges
+async function _cancelPendingTodoNotifs(LN) {
+  const pending = await LN.getPending();
+  const ours = (pending?.notifications || []).filter(n => +n.id >= TODO_NOTIF_ID_BASE && +n.id < TODO_NOTIF_ID_BASE + 200);
+  if (ours.length) await LN.cancel({ notifications: ours.map(n => ({ id: +n.id })) });
+}
+async function scheduleTodoNotifications() {
+  const LN = window.Capacitor?.Plugins?.LocalNotifications;
+  if (!LN || !_currentUser) return;
+  try {
+    await _cancelPendingTodoNotifs(LN);
+    const enabled = await loadSetting('todo_notifications_enabled');
+    if (enabled === false) return; // default ON when never touched
+    let perm = await LN.checkPermissions();
+    if (perm.display === 'prompt' || perm.display === 'prompt-with-rationale') perm = await LN.requestPermissions();
+    if (perm.display !== 'granted') return;
+    const now = Date.now();
+    const due = (todoList?.items || [])
+      .filter(it => it.dueDate && !it.completed && new Date(it.dueDate).getTime() > now)
+      .slice(0, 60); // iOS caps pending notifications; stay well under
+    const notifications = due.map((it, idx) => ({
+      id: TODO_NOTIF_ID_BASE + idx,
+      title: 'To-Do Reminder',
+      body: it.name,
+      schedule: { at: new Date(it.dueDate) }
+    }));
+    if (notifications.length) await LN.schedule({ notifications });
+  } catch (e) { console.error('todo notif scheduling failed', e?.message || String(e)); }
+}
+async function cancelTodoNotifications() {
+  const LN = window.Capacitor?.Plugins?.LocalNotifications;
+  if (!LN) return;
+  try { await _cancelPendingTodoNotifs(LN); } catch (e) {}
+}
+function _setTodoNotifToggleUI(on) {
+  const track = document.getElementById('todo-notif-toggle-track');
+  const knob = document.getElementById('todo-notif-toggle-knob');
+  if (!track || !knob) return;
+  track.style.background = on ? 'var(--accent)' : 'var(--line)';
+  knob.style.right = on ? '3px' : 'auto';
+  knob.style.left = on ? 'auto' : '3px';
+}
+async function loadTodoNotificationsToggle() {
+  const enabled = (await loadSetting('todo_notifications_enabled')) !== false;
+  _setTodoNotifToggleUI(enabled);
+}
+async function toggleTodoNotificationsEnabled() {
+  const cur = (await loadSetting('todo_notifications_enabled')) !== false;
+  const next = !cur;
+  await saveSetting('todo_notifications_enabled', next);
+  _setTodoNotifToggleUI(next);
+  if (next) {
+    if (!todoListLoaded) await loadTodoList();
+    scheduleTodoNotifications();
+    toast('To-Do reminders on ✓');
+  } else {
+    cancelTodoNotifications();
+    toast('To-Do reminders off');
+  }
+}
+
+
+
 const HK_ACTIVITY_NAMES = {
   1:'American Football',5:'Baseball',6:'Basketball',8:'Boxing',9:'Climbing',11:'Cross Training',
   13:'Cycling',16:'Elliptical',20:'Functional Strength Training',21:'Golf',24:'Hiking',26:'Hockey',
@@ -3170,6 +3469,8 @@ async function vlSendToAI(text) {
         forceFinalize,
         context: {
           defaultMealType,
+          todayDate: new Date().toISOString().slice(0,10),
+          todayWeekday: ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][new Date().getDay()],
           savedFoods: (savedFoods || []).slice(0, 60).map(f => ({ name: f.name, unit: f.unit, calories: f.cals_per_unit || f.calories_per_unit || 0, protein: f.protein_per_unit, carbs: f.carbs_per_unit, fat: f.fat_per_unit, fiber: f.fiber_per_unit, cholesterol: f.cholesterol_per_unit })),
           savedMeals: (savedMeals || []).slice(0, 60).map(m => ({ name: m.name, calories: m.calories, protein: m.protein, carbs: m.carbs, fat: m.fat, fiber: m.fiber }))
         }
@@ -3354,6 +3655,11 @@ function vlRenderConfirm(data) {
     const items = data.shoppingItems || [];
     title = 'Add to Shopping List';
     itemsHtml = items.map(name => `<div style="padding:8px 0;border-bottom:1px solid var(--surface-2)"><div style="font-size:14px;font-weight:500;color:var(--ink)">${name}</div></div>`).join('');
+  } else if (data.action === 'add_to_todo') {
+    const t = data.todoItem || {};
+    title = 'Add to To-Do List';
+    const dueStr = t.dueDate ? formatTodoDue(t.dueDate) : 'No due date';
+    itemsHtml = `<div style="padding:8px 0"><div style="font-size:14px;font-weight:500;color:var(--ink)">${escapeHtmlTodo(t.name || 'Task')}</div><div style="font-size:11px;color:var(--muted);margin-top:2px">${dueStr}</div></div>`;
   } else {
     title = 'Unrecognized';
     itemsHtml = `<div style="font-size:13px;color:var(--muted)">Could not understand that action.</div>`;
@@ -3364,7 +3670,7 @@ function vlRenderConfirm(data) {
       <div>Total</div><div style="font-weight:600;font-size:12px;margin-top:2px">${nutritionMetaString(totals, data.action === 'save_meal' ? { skipChol: true } : {})}</div>
     </div>` : '';
 
-  const isKnownAction = ['log_food','save_meal','save_food','log_workout','add_to_shopping_list'].includes(data.action);
+  const isKnownAction = ['log_food','save_meal','save_food','log_workout','add_to_shopping_list','add_to_todo'].includes(data.action);
   const actionButtonsHtml = isKnownAction ? `
     <button class="btn" onclick="vlConfirmSave()" style="margin-top:16px">Looks good — Log it</button>
     <div style="display:flex;gap:8px;margin-top:8px">
@@ -3452,6 +3758,13 @@ async function vlConfirmSave() {
       saveSetting('meal_prep_plan', mealPrepPlan);
       renderShoppingList();
       toast(items.length === 1 ? `"${items[0]}" added to shopping list ✓` : `${items.length} items added to shopping list ✓`);
+    } else if (data.action === 'add_to_todo') {
+      const t = data.todoItem || {};
+      if (!t.name) { toast('Nothing to add — try again'); return; }
+      if (!todoListLoaded) await loadTodoList();
+      addTodoItem(t.name, t.dueDate || null);
+      renderTodoList();
+      toast(`"${t.name}" added to your to-do list ✓`);
     } else {
       toast('Could not understand that — try again');
       return;
@@ -3467,7 +3780,7 @@ function vlEditManually() {
   const data = _vlParsed;
   if (!data) return;
 
-  if (!['log_food','save_meal','save_food','log_workout','add_to_shopping_list'].includes(data.action)) {
+  if (!['log_food','save_meal','save_food','log_workout','add_to_shopping_list','add_to_todo'].includes(data.action)) {
     toast('Nothing to edit — try recording again');
     return;
   }
@@ -3476,6 +3789,14 @@ function vlEditManually() {
     switchTab('shopping');
     const input = document.getElementById('shopping-add-input');
     if (input) { input.value = (data.shoppingItems || []).join(', '); input.focus(); }
+    return;
+  }
+
+  if (data.action === 'add_to_todo') {
+    if (!todoListLoaded) { loadTodoList().then(() => { switchTab('todo'); renderTodoList(); }); }
+    else { switchTab('todo'); renderTodoList(); }
+    const input = document.getElementById('todo-add-input');
+    if (input) { input.value = (data.todoItem && data.todoItem.name) || ''; input.focus(); }
     return;
   }
 
@@ -3556,7 +3877,7 @@ async function initHealthKitSync() {
 function switchTab(tab) {
   document.querySelector('.content').scrollTop = 0;
   saveLastView({ tab });
-  ['today','meals','progress','photos','aicoach','shopping','profile','profile-myprofile','profile-settings','profile-appearance','profile-allergies','profile-devices','profile-targets','profile-report','profile-privacy','profile-help','profile-tos','profile-privacy-policy','voicelog'].forEach(t => {
+  ['today','meals','progress','photos','aicoach','shopping','todo','profile','profile-myprofile','profile-settings','profile-appearance','profile-allergies','profile-devices','profile-targets','profile-report','profile-privacy','profile-help','profile-tos','profile-privacy-policy','voicelog'].forEach(t => {
     document.getElementById(`tab-${t}`).style.display = t === tab ? 'block' : 'none';
   });
   document.querySelectorAll('.bottom-nav-btn[data-tab]').forEach(btn => {
@@ -3577,7 +3898,7 @@ function switchTab(tab) {
   if (tab === 'profile-allergies') loadFoodAllergiesPage();
   if (tab === 'profile-targets') loadDailyTargetsPage();
   if (tab === 'profile-report') loadWeeklyReportPage();
-  if (tab === 'profile-settings') { loadNotificationsToggle(); refreshAppearanceValue(); }
+  if (tab === 'profile-settings') { loadNotificationsToggle(); loadTodoNotificationsToggle(); refreshAppearanceValue(); }
   if (tab === 'profile-appearance') refreshAppearanceValue();
   if (tab === 'aicoach') {
     const badge = document.getElementById('ai-coach-new-badge');
@@ -5907,6 +6228,7 @@ async function appInit() {
   await maybeShowCheckin();
   updateBellDot();
   scheduleReengagementNudges();
+  loadTodoList();
   loadAppTheme();
 }
 
