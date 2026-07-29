@@ -818,7 +818,7 @@
           <div id="bf-goal-display-card" style="display:none;background:linear-gradient(160deg,var(--gold-tint),var(--gold-tint-2));border:1px solid var(--gold-line);border-radius:10px;padding:12px;margin-bottom:12px">
             <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;text-align:center">
               <div>
-                <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px">Current</div>
+                <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px">Starting</div>
                 <div style="font-size:20px;font-weight:700;color:var(--ink)" id="disp-bf-current">—</div>
                 <div style="font-size:11px;color:var(--muted)">%</div>
               </div>
@@ -858,7 +858,7 @@
           <!-- Goal edit inline -->
           <div id="bf-goal-edit" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid var(--surface-2)">
             <div class="form-row form-group">
-              <div><div style="font-size:11px;color:var(--muted);margin-bottom:4px;font-weight:600">Current Body Fat %</div>
+              <div><div style="font-size:11px;color:var(--muted);margin-bottom:4px;font-weight:600">Starting Body Fat %</div>
                 <button onclick="openGoalNumpad('bf-current','%')" id="edit-bf-current-btn" style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:14px;text-align:left;background:var(--surface);cursor:pointer;color:var(--ink)">Tap to set</button>
                 <input type="hidden" id="edit-bf-current" /></div>
               <div><div style="font-size:11px;color:var(--muted);margin-bottom:4px;font-weight:600">Goal Body Fat %</div>
@@ -910,7 +910,7 @@
           <div id="muscle-goal-display" style="display:none;background:linear-gradient(160deg,var(--gold-tint),var(--gold-tint-2));border:1px solid var(--gold-line);border-radius:10px;padding:12px;margin-bottom:12px">
             <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;text-align:center">
               <div>
-                <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px">Current</div>
+                <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px">Starting</div>
                 <div style="font-size:20px;font-weight:700;color:var(--ink)" id="disp-muscle-current">—</div>
                 <div style="font-size:11px;color:var(--muted)">lbs</div>
               </div>
@@ -5036,8 +5036,8 @@ function obOpenNumpad(field, unit) {
   const unitEl = document.getElementById('ob-numpad-unit');
   const labels = {
     'weight': 'Current Weight', 'goal-weight': 'Goal Weight',
-    'bf-current': 'Current Body Fat', 'bf-goal': 'Goal Body Fat',
-    'muscle-current': 'Current Muscle Mass', 'muscle-goal': 'Goal Muscle Mass'
+    'bf-current': 'Starting Body Fat', 'bf-goal': 'Goal Body Fat',
+    'muscle-current': 'Starting Muscle Mass', 'muscle-goal': 'Goal Muscle Mass'
   };
   title.textContent = labels[field] || field;
   unitEl.textContent = unit;
@@ -10692,7 +10692,7 @@ function openGoalNumpad(field, unit) {
   _goalNumpadUnit = unit;
   const existing = document.getElementById('edit-' + field)?.value;
   _goalNumpadVal = (existing && parseFloat(existing) > 0 && parseFloat(existing) < 500) ? existing : '';
-  const labels = { 'weight-start':'Starting Weight','weight-goal':'Goal Weight','bf-current':'Current Body Fat','bf-goal':'Goal Body Fat','muscle-current':'Current Muscle Mass','muscle-goal':'Goal Muscle Mass' };
+  const labels = { 'weight-start':'Starting Weight','weight-goal':'Goal Weight','bf-current':'Starting Body Fat','bf-goal':'Goal Body Fat','muscle-current':'Starting Muscle Mass','muscle-goal':'Goal Muscle Mass' };
   document.getElementById('goal-numpad-title').textContent = labels[field] || field;
   document.getElementById('goal-numpad-display').textContent = _goalNumpadVal || '0';
   document.getElementById('goal-numpad-modal').style.display = 'flex';
