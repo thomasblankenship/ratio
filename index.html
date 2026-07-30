@@ -3661,8 +3661,8 @@ function vlRenderConfirm(data) {
     const dueStr = t.dueDate ? formatTodoDue(t.dueDate) : 'No due date';
     itemsHtml = `<div style="padding:8px 0"><div style="font-size:14px;font-weight:500;color:var(--ink)">${escapeHtmlTodo(t.name || 'Task')}</div><div style="font-size:11px;color:var(--muted);margin-top:2px">${dueStr}</div></div>`;
   } else {
-    title = 'Unrecognized';
-    itemsHtml = `<div style="font-size:13px;color:var(--muted)">Could not understand that action.</div>`;
+    title = 'Sorry, try again';
+    itemsHtml = `<div style="font-size:13px;color:var(--muted)">I can log meals, save foods, log workouts, find recipes, or add to your shopping list or to-do list.</div>`;
   }
 
   const totalsHtml = (data.action === 'log_food' || data.action === 'save_meal') ? `
