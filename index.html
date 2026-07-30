@@ -2092,6 +2092,20 @@
   </div>
 </div>
 
+<!-- CALORIE ADJUSTMENT SUGGESTION MODAL — shown after a new weight entry, if estimated -->
+<!-- TDEE has shifted meaningfully since the previous entry. Never auto-changes the target -->
+<!-- — this only informs and points to where the user can change it themselves. -->
+<div id="calorie-suggest-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:650;align-items:flex-end;justify-content:center">
+  <div style="background:var(--surface);border-radius:20px 20px 0 0;padding:24px;width:100%;max-width:520px">
+    <div style="font-size:16px;font-weight:700;margin-bottom:8px">📊 Your Calorie Needs May Have Shifted</div>
+    <div id="calorie-suggest-text" style="font-size:14px;color:var(--muted);line-height:1.5;margin-bottom:18px"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <button class="btn" onclick="closeCalorieSuggestModal()" style="background:var(--surface-2);color:var(--ink)">Not Now</button>
+      <button class="btn" onclick="goToCalorieTargetFromSuggestion()">Review Target</button>
+    </div>
+  </div>
+</div>
+
 <!-- EDIT MEAL MODAL -->
 <div id="edit-meal-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:600;align-items:flex-end;justify-content:center">
   <div style="background:var(--surface);border-radius:20px 20px 0 0;padding:24px;width:100%;max-width:520px">
@@ -11421,10 +11435,49 @@ async function saveLogEntry() {
     closeLogModal();
     await loadScans();
     toast('Saved ✓');
+    if (_logModalType === 'weight') maybeSuggestCalorieUpdate();
   } catch(e) {
     console.error('saveLogEntry error:', e);
     toast('Error: ' + (e.message || 'Save failed'));
   }
+}
+
+// ---- Calorie-shift suggestion (weight entries only) ----
+// Never auto-changes userTargets.calories — only informs, and points to Daily Targets.
+function maybeSuggestCalorieUpdate() {
+  const weightScans = (allScans || []).filter(s => s.weight != null).sort((a, b) => new Date(a.date) - new Date(b.date));
+  if (weightScans.length < 2) return; // need a previous weight to compare against
+  const latest = weightScans[weightScans.length - 1];
+  const previous = weightScans[weightScans.length - 2];
+  if (typeof calcTDEE !== 'function') return;
+
+  const tdeeNew = calcTDEE(latest.weight);
+  const tdeeOld = calcTDEE(previous.weight);
+  const shift = Math.round(tdeeNew - tdeeOld);
+
+  // Small day-to-day weight noise shouldn't trigger this — only a meaningful shift.
+  if (Math.abs(shift) < 15) return;
+
+  const direction = shift < 0 ? 'lower' : 'higher';
+  const suggestedTarget = Math.max(1200, Math.round((userTargets.calories || 0) + shift));
+  const text = `Since your last weigh-in, your estimated daily calorie needs are about ${Math.abs(shift)} calories ${direction} `
+    + `(based on your new weight of ${latest.weight} lbs). Your current target is ${(userTargets.calories || 0).toLocaleString()} `
+    + `cal/day — a matching adjustment would be roughly ${suggestedTarget.toLocaleString()} cal/day. `
+    + `We won't change this automatically. You can review or update it anytime in Profile → Daily Targets.`;
+
+  document.getElementById('calorie-suggest-text').textContent = text;
+  document.getElementById('calorie-suggest-modal').style.display = 'flex';
+}
+
+function closeCalorieSuggestModal() {
+  document.getElementById('calorie-suggest-modal').style.display = 'none';
+}
+
+function goToCalorieTargetFromSuggestion() {
+  closeCalorieSuggestModal();
+  // 'profile-targets' is the actual Daily Targets sub-page tab id — switchTab
+  // automatically calls loadDailyTargetsPage() for it (see the tab-switch handler).
+  switchTab('profile-targets');
 }
 
 async function loadScans() {
