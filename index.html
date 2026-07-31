@@ -2106,6 +2106,88 @@
   </div>
 </div>
 
+<!-- GOAL CELEBRATION — full-screen confetti + congratulations overlay -->
+<canvas id="confetti-canvas" style="display:none;position:fixed;inset:0;z-index:900;pointer-events:none"></canvas>
+<div id="celebrate-modal" style="display:none;position:fixed;inset:0;z-index:910;align-items:center;justify-content:center;background:rgba(0,0,0,0.6)" onclick="closeCelebration()">
+  <div style="background:var(--surface);border-radius:20px;padding:32px 24px;max-width:340px;text-align:center" onclick="event.stopPropagation()">
+    <div style="font-size:48px;margin-bottom:8px">🎉</div>
+    <div style="font-size:22px;font-weight:800;color:var(--ink);margin-bottom:8px">Congratulations!</div>
+    <div id="celebrate-text" style="font-size:15px;color:var(--muted);line-height:1.5;margin-bottom:20px"></div>
+    <button class="btn" onclick="closeCelebration()" style="width:100%">Keep Going 💪</button>
+  </div>
+</div>
+
+<!-- WHAT'S NEXT — multi-step modal: choose → enter new goal or maintain → see suggested calories → apply -->
+<div id="whats-next-modal" style="display:none;position:fixed;inset:0;z-index:920;align-items:center;justify-content:center;background:rgba(0,0,0,0.6)" onclick="closeWhatsNextModal()">
+  <div style="background:var(--surface);border-radius:20px;padding:32px 24px;max-width:360px;text-align:center" onclick="event.stopPropagation()">
+    <div style="font-size:36px;margin-bottom:8px">🏆</div>
+    <div style="font-size:18px;font-weight:800;color:var(--ink);margin-bottom:6px">What's Next?</div>
+    <div id="whats-next-subtitle" style="font-size:14px;color:var(--muted);line-height:1.5;margin-bottom:20px"></div>
+
+    <!-- Step 1: choices -->
+    <div id="whats-next-choices" style="display:flex;flex-direction:column;gap:10px">
+      <button class="btn" onclick="whatsNextNewGoal()" style="width:100%">Set a New Goal</button>
+      <button class="btn" onclick="whatsNextMaintain()" style="width:100%;background:var(--surface-2);color:var(--ink)">Maintain Current Weight</button>
+      <button onclick="closeWhatsNextModal()" style="background:none;border:none;color:var(--muted);font-size:13px;padding:8px;cursor:pointer;width:100%">Decide Later</button>
+    </div>
+
+    <!-- Step 2: enter new goal value -->
+    <div id="whats-next-new-goal" style="display:none">
+      <div id="whats-next-goal-label" style="font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">New Goal</div>
+      <input type="number" id="whats-next-goal-input" placeholder="Enter your new goal" style="width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;font-size:18px;font-weight:700;text-align:center;outline:none;margin-bottom:12px;box-sizing:border-box" />
+      <div style="display:flex;gap:8px">
+        <button class="btn" onclick="whatsNextBackToChoices()" style="flex:1;background:var(--surface-2);color:var(--ink)">Back</button>
+        <button class="btn" onclick="whatsNextCalculateNewGoal()" style="flex:1">Calculate</button>
+      </div>
+    </div>
+
+    <!-- Step 3: result — show suggested calories with Apply button -->
+    <div id="whats-next-result" style="display:none">
+      <div id="whats-next-result-text" style="font-size:14px;color:var(--muted);line-height:1.5;margin-bottom:12px"></div>
+      <div id="whats-next-result-number" style="font-size:42px;font-weight:800;color:var(--accent);margin-bottom:4px">—</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:16px">calories / day</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn" onclick="whatsNextBackToChoices()" style="flex:1;background:var(--surface-2);color:var(--ink)">Back</button>
+        <button class="btn" onclick="whatsNextApply()" style="flex:1">Update My Target</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- WHAT'S NEXT — shown after a goal celebration; choose new goal or maintain -->
+<div id="whats-next-modal" style="display:none;position:fixed;inset:0;z-index:920;align-items:center;justify-content:center;background:rgba(0,0,0,0.6)">
+  <div style="background:var(--surface);border-radius:20px;padding:28px 24px;max-width:360px;width:90%" onclick="event.stopPropagation()">
+    <div style="font-size:18px;font-weight:800;color:var(--ink);margin-bottom:6px;text-align:center">What's Next?</div>
+    <div id="whats-next-subtitle" style="font-size:13px;color:var(--muted);line-height:1.4;margin-bottom:18px;text-align:center">You crushed your goal. Would you like to set a new target or maintain where you are?</div>
+
+    <!-- Choice buttons (initial state) -->
+    <div id="whats-next-choices" style="display:flex;flex-direction:column;gap:10px">
+      <button class="btn" onclick="whatsNextNewGoal()" style="width:100%">🎯 Set a New Goal</button>
+      <button class="btn" onclick="whatsNextMaintain()" style="width:100%;background:var(--surface-2);color:var(--ink)">⚖️ Maintain Current Weight</button>
+      <button onclick="closeWhatsNextModal()" style="background:none;border:none;color:var(--muted);font-size:13px;margin-top:4px;padding:8px;cursor:pointer;width:100%">Decide Later</button>
+    </div>
+
+    <!-- New goal input (hidden until they tap "Set a New Goal") -->
+    <div id="whats-next-new-goal" style="display:none">
+      <div id="whats-next-goal-label" style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">New Goal Weight (lbs)</div>
+      <input type="number" id="whats-next-goal-input" placeholder="e.g. 170" style="width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;font-size:18px;font-weight:700;text-align:center;outline:none;margin-bottom:12px;box-sizing:border-box" />
+      <button class="btn" onclick="whatsNextCalculateNewGoal()" style="width:100%;margin-bottom:8px">Calculate Suggested Calories</button>
+      <button onclick="whatsNextBackToChoices()" style="background:none;border:none;color:var(--muted);font-size:13px;padding:8px;cursor:pointer;width:100%">← Back</button>
+    </div>
+
+    <!-- Suggestion result (hidden until calculated) -->
+    <div id="whats-next-result" style="display:none">
+      <div style="background:var(--surface-2);border-radius:12px;padding:16px;margin-bottom:14px">
+        <div id="whats-next-result-text" style="font-size:14px;color:var(--ink);line-height:1.5"></div>
+        <div id="whats-next-result-number" style="font-size:32px;font-weight:800;color:#CFA13C;margin-top:8px;text-align:center"></div>
+        <div style="font-size:11px;color:var(--muted);text-align:center">calories / day</div>
+      </div>
+      <button class="btn" onclick="whatsNextApply()" style="width:100%;margin-bottom:8px">Update My Targets</button>
+      <button onclick="closeWhatsNextModal()" style="background:none;border:none;color:var(--muted);font-size:13px;padding:8px;cursor:pointer;width:100%">Not Now</button>
+    </div>
+  </div>
+</div>
+
 <!-- EDIT MEAL MODAL -->
 <div id="edit-meal-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:600;align-items:flex-end;justify-content:center">
   <div style="background:var(--surface);border-radius:20px 20px 0 0;padding:24px;width:100%;max-width:520px">
@@ -11435,7 +11517,14 @@ async function saveLogEntry() {
     closeLogModal();
     await loadScans();
     toast('Saved ✓');
-    if (_logModalType === 'weight') maybeSuggestCalorieUpdate();
+    if (_logModalType === 'weight') {
+      const goalMet = checkGoalAchievement('weight', val);
+      if (!goalMet) maybeSuggestCalorieUpdate();
+    } else if (_logModalType === 'bf') {
+      checkGoalAchievement('bf', val);
+    } else if (_logModalType === 'muscle') {
+      checkGoalAchievement('muscle', val);
+    }
   } catch(e) {
     console.error('saveLogEntry error:', e);
     toast('Error: ' + (e.message || 'Save failed'));
@@ -11478,6 +11567,244 @@ function goToCalorieTargetFromSuggestion() {
   // 'profile-targets' is the actual Daily Targets sub-page tab id — switchTab
   // automatically calls loadDailyTargetsPage() for it (see the tab-switch handler).
   switchTab('profile-targets');
+}
+
+// ===== GOAL CELEBRATION — confetti + congratulations =====
+// Fires when a new scan entry meets or beats a set goal. Each goal type can only
+// trigger once per session to prevent repeated celebrations on the same data.
+const _celebratedGoals = {};
+let _whatsNextSuggestedCals = null;
+
+function checkGoalAchievement(type, value) {
+  if (_celebratedGoals[type]) return false; // already celebrated this session
+  let goalVal, message;
+
+  if (type === 'weight' && userGoals.weightGoal) {
+    goalVal = userGoals.weightGoal;
+    // Weight goals are typically loss-oriented: goal is lower than start.
+    // But if someone's gaining, the goal would be higher.
+    const isLossGoal = (userGoals.weightStart || 999) > goalVal;
+    const met = isLossGoal ? (value <= goalVal) : (value >= goalVal);
+    if (!met) return false;
+    message = `You hit your weight goal of ${goalVal} lbs! All that hard work paid off.`;
+  } else if (type === 'bf' && userGoals.bfGoal) {
+    goalVal = userGoals.bfGoal;
+    if (value > goalVal) return false; // body fat goals are always "get lower"
+    message = `You reached your body fat goal of ${goalVal}%! Incredible dedication.`;
+  } else if (type === 'muscle' && userGoals.muscleGoal) {
+    goalVal = userGoals.muscleGoal;
+    if (value < goalVal) return false; // muscle goals are always "get higher"
+    message = `You hit your muscle mass goal of ${goalVal} lbs! The gains are real.`;
+  } else {
+    return false;
+  }
+
+  _celebratedGoals[type] = true;
+  showCelebration(message, type);
+  return true;
+}
+
+let _celebratedGoalType = null; // tracks which goal type was just hit for the What's Next flow
+
+function showCelebration(message, goalType) {
+  _celebratedGoalType = goalType || null;
+  document.getElementById('celebrate-text').textContent = message;
+  document.getElementById('celebrate-modal').style.display = 'flex';
+  launchConfetti();
+}
+
+function closeCelebration() {
+  document.getElementById('celebrate-modal').style.display = 'none';
+  const canvas = document.getElementById('confetti-canvas');
+  canvas.style.display = 'none';
+  _confettiRunning = false;
+  // Transition to "What's Next?" so the user can set a new goal or maintain
+  openWhatsNextModal();
+}
+
+// ---- Confetti engine (canvas-based, gold/accent themed) ----
+let _confettiRunning = false;
+function launchConfetti() {
+  const canvas = document.getElementById('confetti-canvas');
+  canvas.style.display = 'block';
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  const ctx = canvas.getContext('2d');
+  _confettiRunning = true;
+
+  const colors = ['#CFA13C', '#FFD700', '#FFA500', '#FF6347', '#4ADE80', '#60A5FA', '#F472B6', '#A78BFA', '#FBBF24', '#FFFFFF'];
+  const pieces = [];
+  const totalPieces = 150;
+
+  for (let i = 0; i < totalPieces; i++) {
+    pieces.push({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height * -1.2,  // start above the screen
+      w: 4 + Math.random() * 8,
+      h: 6 + Math.random() * 10,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      vx: (Math.random() - 0.5) * 4,
+      vy: 2 + Math.random() * 4,
+      rot: Math.random() * 360,
+      rotV: (Math.random() - 0.5) * 12,
+      opacity: 1,
+      shape: Math.random() > 0.5 ? 'rect' : 'circle'
+    });
+  }
+
+  const startTime = Date.now();
+  const duration = 4000; // 4 seconds
+
+  function frame() {
+    if (!_confettiRunning) return;
+    const elapsed = Date.now() - startTime;
+    const fadeStart = duration * 0.6;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    pieces.forEach(p => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.08; // gravity
+      p.rot += p.rotV;
+      p.vx *= 0.99; // air drag
+      if (elapsed > fadeStart) {
+        p.opacity = Math.max(0, 1 - (elapsed - fadeStart) / (duration - fadeStart));
+      }
+
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot * Math.PI / 180);
+      ctx.globalAlpha = p.opacity;
+      ctx.fillStyle = p.color;
+      if (p.shape === 'rect') {
+        ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+      } else {
+        ctx.beginPath();
+        ctx.arc(0, 0, p.w / 2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    });
+
+    if (elapsed < duration) {
+      requestAnimationFrame(frame);
+    } else {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      canvas.style.display = 'none';
+      _confettiRunning = false;
+    }
+  }
+  requestAnimationFrame(frame);
+}
+
+// (What's Next functions are defined below, after the confetti engine)
+
+
+// ===== WHAT'S NEXT — post-goal-achievement flow =====
+function openWhatsNextModal() {
+  document.getElementById('whats-next-choices').style.display = 'flex';
+  document.getElementById('whats-next-new-goal').style.display = 'none';
+  document.getElementById('whats-next-result').style.display = 'none';
+
+  const subtitles = {
+    weight: 'You crushed your weight goal! Would you like to set a new target or maintain where you are?',
+    bf: 'You hit your body fat goal! Would you like to push further or maintain your current level?',
+    muscle: 'You reached your muscle goal! Want to keep building or maintain your gains?'
+  };
+  document.getElementById('whats-next-subtitle').textContent = subtitles[_celebratedGoalType] || subtitles.weight;
+
+  const labels = { weight: 'New Goal Weight (lbs)', bf: 'New Body Fat Goal (%)', muscle: 'New Muscle Mass Goal (lbs)' };
+  document.getElementById('whats-next-goal-label').textContent = labels[_celebratedGoalType] || labels.weight;
+
+  document.getElementById('whats-next-modal').style.display = 'flex';
+}
+
+function closeWhatsNextModal() {
+  document.getElementById('whats-next-modal').style.display = 'none';
+}
+
+function whatsNextNewGoal() {
+  document.getElementById('whats-next-choices').style.display = 'none';
+  document.getElementById('whats-next-result').style.display = 'none';
+  document.getElementById('whats-next-new-goal').style.display = 'block';
+  document.getElementById('whats-next-goal-input').value = '';
+  document.getElementById('whats-next-goal-input').focus();
+}
+
+function whatsNextBackToChoices() {
+  document.getElementById('whats-next-new-goal').style.display = 'none';
+  document.getElementById('whats-next-result').style.display = 'none';
+  document.getElementById('whats-next-choices').style.display = 'flex';
+}
+
+function whatsNextMaintain() {
+  if (typeof calcTDEE !== 'function') { toast('Could not calculate — try again later'); return; }
+  const weightScans = (allScans || []).filter(s => s.weight != null).sort((a, b) => new Date(a.date) - new Date(b.date));
+  const currentWeight = weightScans.length ? weightScans[weightScans.length - 1].weight : (_celebratedGoalValue || 170);
+  const tdee = Math.round(calcTDEE(currentWeight));
+  _whatsNextSuggestedCals = tdee;
+
+  document.getElementById('whats-next-choices').style.display = 'none';
+  document.getElementById('whats-next-new-goal').style.display = 'none';
+  document.getElementById('whats-next-result-text').textContent = `To maintain your current weight of ${currentWeight} lbs, your estimated daily calorie need is:`;
+  document.getElementById('whats-next-result-number').textContent = tdee.toLocaleString();
+  document.getElementById('whats-next-result').style.display = 'block';
+}
+
+function whatsNextCalculateNewGoal() {
+  const input = document.getElementById('whats-next-goal-input');
+  const newGoal = parseFloat(input.value);
+  if (!newGoal || newGoal <= 0) { toast('Enter a valid number'); return; }
+  if (typeof calcTDEE !== 'function') { toast('Could not calculate — try again later'); return; }
+
+  const weightScans = (allScans || []).filter(s => s.weight != null).sort((a, b) => new Date(a.date) - new Date(b.date));
+  const currentWeight = weightScans.length ? weightScans[weightScans.length - 1].weight : (_celebratedGoalValue || 170);
+  const tdee = Math.round(calcTDEE(currentWeight));
+
+  let suggestedCals, description;
+  if (_celebratedGoalType === 'weight') {
+    const isLoss = newGoal < currentWeight;
+    const deficit = isLoss ? -500 : 300;
+    suggestedCals = Math.max(1200, tdee + deficit);
+    description = isLoss
+      ? `To work toward ${newGoal} lbs from your current ${currentWeight} lbs (moderate deficit), your suggested daily intake is:`
+      : `To build toward ${newGoal} lbs from your current ${currentWeight} lbs (lean surplus), your suggested daily intake is:`;
+    userGoals.weightGoal = newGoal;
+    userGoals.weightStart = currentWeight;
+    saveSetting('goals', userGoals);
+  } else if (_celebratedGoalType === 'bf') {
+    suggestedCals = Math.max(1200, tdee - 400);
+    description = `To work toward ${newGoal}% body fat, your suggested daily intake is:`;
+    userGoals.bfGoal = newGoal;
+    saveSetting('goals', userGoals);
+  } else if (_celebratedGoalType === 'muscle') {
+    suggestedCals = tdee + 300;
+    description = `To build toward ${newGoal} lbs of muscle mass (lean surplus), your suggested daily intake is:`;
+    userGoals.muscleGoal = newGoal;
+    saveSetting('goals', userGoals);
+  } else {
+    suggestedCals = tdee;
+    description = 'Your estimated maintenance calories:';
+  }
+
+  _whatsNextSuggestedCals = suggestedCals;
+
+  document.getElementById('whats-next-new-goal').style.display = 'none';
+  document.getElementById('whats-next-result-text').textContent = description;
+  document.getElementById('whats-next-result-number').textContent = suggestedCals.toLocaleString();
+  document.getElementById('whats-next-result').style.display = 'block';
+}
+
+function whatsNextApply() {
+  if (_whatsNextSuggestedCals && _whatsNextSuggestedCals > 0) {
+    userTargets.calories = _whatsNextSuggestedCals;
+    saveSetting('targets', userTargets);
+    TARGETS.calories = userTargets.calories;
+    toast(`Daily calorie target updated to ${_whatsNextSuggestedCals.toLocaleString()} cal ✓`);
+  }
+  closeWhatsNextModal();
+  if (typeof refreshDailyTargetsDisplay === 'function') refreshDailyTargetsDisplay();
+  if (typeof updateGoalsDisplay === 'function') updateGoalsDisplay();
 }
 
 async function loadScans() {
