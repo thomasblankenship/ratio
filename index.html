@@ -3187,11 +3187,10 @@ async function syncHealthKitWorkouts(showToast) {
           elevation_feet: w.elevationFeet ?? null,
           avg_heart_rate: w.avgHeartRate ?? null,
           heart_rate_series: w.heartRateSeries ?? null,
-          // Apple's Workout Effort Score (1-10, iOS 18+). Requires the native
-          // plugin to read HKQuantityTypeIdentifierWorkoutEffortScore — until
-          // that ships this is simply undefined and the field is left alone,
-          // so a re-sync can never wipe an effort the user set by hand.
-          ...(w.effort != null ? { effort: w.effort } : {}),
+          // Apple's Workout Effort Score (1-10, iOS 18+). Accepts either key the
+          // native plugin might send. Omitted entirely when absent, so an older
+          // native build re-syncing can never wipe an effort set by hand.
+          ...((w.effort ?? w.effortScore) != null ? { effort: (w.effort ?? w.effortScore) } : {}),
           time: new Date(w.startDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           healthkit_id: w.id
         }, 'healthkit_id');
