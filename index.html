@@ -4584,6 +4584,16 @@ async function dbDelete(table, id) {
     headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${_authToken || SUPABASE_KEY}` }
   });
 }
+async function dbPatch(table, id, data) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
+    method: 'PATCH',
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${_authToken || SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+    body: JSON.stringify(data)
+  });
+  const result = await res.json();
+  if (!res.ok) throw new Error(JSON.stringify(result));
+  return result;
+}
 async function storageUpload(bucket, path, file) {
   // DELETE first then POST to handle overwrites cleanly
   await fetch(`${SUPABASE_URL}/storage/v1/object/${bucket}/${path}`, {
@@ -11551,14 +11561,26 @@ async function saveLogEntry() {
   const val = parseFloat(_numpadValue);
   const date = document.getElementById('log-modal-date').value;
   if (!val || !date) { toast('Enter a value and date'); return; }
+
+  // Only one entry per day per metric — if one already exists for this date,
+  // update it in place instead of creating a duplicate (which broke the charts).
+  const fieldName = _logModalType === 'weight' ? 'weight' : _logModalType === 'bf' ? 'body_fat' : 'muscle_mass';
+  const existing = (allScans || []).find(s => s.date === date && s[fieldName] != null);
+
   const typeLabel = _logModalType === 'weight' ? `${val} lbs` : _logModalType === 'bf' ? `${val}%` : `${val} lbs muscle`;
-  if (!confirm(`Save ${typeLabel} for ${date}?`)) return;
+  const confirmMsg = existing
+    ? `You already have an entry for ${date} — update it to ${typeLabel}?`
+    : `Save ${typeLabel} for ${date}?`;
+  if (!confirm(confirmMsg)) return;
+
   const entry = { date };
-  if (_logModalType === 'weight') entry.weight = val;
-  else if (_logModalType === 'bf') entry.body_fat = val;
-  else if (_logModalType === 'muscle') entry.muscle_mass = val;
+  entry[fieldName] = val;
   try {
-    await dbPost('scans', entry);
+    if (existing) {
+      await dbPatch('scans', existing.id, { [fieldName]: val });
+    } else {
+      await dbPost('scans', entry);
+    }
     closeLogModal();
     await loadScans();
     toast('Saved ✓');
