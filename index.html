@@ -2096,6 +2096,35 @@
   </div>
 </div>
 
+<!-- APP CONFIRM MODAL — in-app replacement for native confirm(). Native dialogs block the -->
+<!-- WKWebView event loop and can't have their button labels changed; this can do both. -->
+<!-- Always in the DOM (never injected) per the iOS display:none injection bug. -->
+<div id="app-confirm-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);z-index:1200;align-items:center;justify-content:center;padding:24px;box-sizing:border-box">
+  <div style="background:var(--surface);border-radius:18px;padding:22px;width:100%;max-width:380px">
+    <div id="app-confirm-title" style="font-size:16px;font-weight:700;color:var(--ink);margin-bottom:8px">Confirm</div>
+    <div id="app-confirm-message" style="font-size:14px;color:var(--ink-2);line-height:1.5;margin-bottom:20px"></div>
+    <div id="app-confirm-buttons" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <button class="btn" id="app-confirm-no" onclick="_appConfirmResolve(false)" style="background:var(--surface-2);color:var(--ink)">Cancel</button>
+      <button class="btn" id="app-confirm-yes" onclick="_appConfirmResolve(true)">Yes</button>
+    </div>
+  </div>
+</div>
+
+<!-- APP PROMPT MODAL — in-app replacement for native prompt(), used by Log History edits. -->
+<div id="app-prompt-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);z-index:1200;align-items:center;justify-content:center;padding:24px;box-sizing:border-box">
+  <div style="background:var(--surface);border-radius:18px;padding:22px;width:100%;max-width:380px">
+    <div id="app-prompt-title" style="font-size:16px;font-weight:700;color:var(--ink);margin-bottom:6px">Edit</div>
+    <div id="app-prompt-message" style="font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:14px"></div>
+    <input type="text" inputmode="decimal" id="app-prompt-input"
+      onkeydown="if(event.key==='Enter')_appPromptResolve(true)"
+      style="width:100%;border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-size:22px;font-weight:700;text-align:center;outline:none;background:var(--surface-2);color:var(--ink);margin-bottom:18px" />
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <button class="btn" onclick="_appPromptResolve(false)" style="background:var(--surface-2);color:var(--ink)">Cancel</button>
+      <button class="btn" id="app-prompt-ok" onclick="_appPromptResolve(true)">Save</button>
+    </div>
+  </div>
+</div>
+
 <!-- CALORIE ADJUSTMENT SUGGESTION MODAL — shown after a new weight entry, if estimated -->
 <!-- TDEE has shifted meaningfully since the previous entry. Never auto-changes the target -->
 <!-- — this only informs and points to where the user can change it themselves. -->
@@ -11545,6 +11574,84 @@ function numpadPress(key) {
   document.getElementById('log-modal-display').textContent = _numpadValue || '—';
 }
 
+// ---- In-app confirm dialog ----
+// Replaces native confirm() where the wording matters. Native dialogs can't
+// relabel their OK button and they hard-block the WKWebView event loop, which
+// on iOS can leave the app unresponsive if anything else fires mid-dialog.
+// Returns a Promise<boolean>. Usage: if (!await appConfirm('…')) return;
+let _appConfirmPending = null;
+
+function appConfirm(message, { title = 'Confirm', yesLabel = 'Yes', noLabel = 'Cancel', singleButton = false } = {}) {
+  const modal = document.getElementById('app-confirm-modal');
+  // No modal in the DOM (shouldn't happen) — fall back rather than hanging forever.
+  if (!modal) return Promise.resolve(singleButton ? (alert(message), true) : confirm(message));
+  // A second confirm while one is open would strand the first promise — resolve it false.
+  if (_appConfirmPending) { _appConfirmPending(false); _appConfirmPending = null; }
+  document.getElementById('app-confirm-title').textContent = title;
+  document.getElementById('app-confirm-message').textContent = message;
+  document.getElementById('app-confirm-yes').textContent = yesLabel;
+  document.getElementById('app-confirm-no').textContent = noLabel;
+  // Informational mode — one dismiss button, no choice to make.
+  const noBtn = document.getElementById('app-confirm-no');
+  const btnRow = document.getElementById('app-confirm-buttons');
+  if (noBtn) noBtn.style.display = singleButton ? 'none' : '';
+  if (btnRow) btnRow.style.gridTemplateColumns = singleButton ? '1fr' : '1fr 1fr';
+  modal.style.display = 'flex';
+  return new Promise(resolve => { _appConfirmPending = resolve; });
+}
+
+// Informational dialog — a single "Got it" button, nothing to decide.
+function appAlert(message, { title = 'Heads Up', okLabel = 'Got It' } = {}) {
+  return appConfirm(message, { title, yesLabel: okLabel, singleButton: true });
+}
+
+// In-app replacement for native prompt(). Resolves to the entered string, or
+// null if cancelled — same contract as prompt(), so callers read the same.
+let _appPromptPending = null;
+
+function appPrompt(message, { title = 'Edit', value = '', okLabel = 'Save' } = {}) {
+  const modal = document.getElementById('app-prompt-modal');
+  if (!modal) return Promise.resolve(prompt(message, value));
+  if (_appPromptPending) { _appPromptPending(null); _appPromptPending = null; }
+  document.getElementById('app-prompt-title').textContent = title;
+  document.getElementById('app-prompt-message').textContent = message;
+  document.getElementById('app-prompt-ok').textContent = okLabel;
+  const input = document.getElementById('app-prompt-input');
+  input.value = value == null ? '' : String(value);
+  modal.style.display = 'flex';
+  // Delay focus/select — focusing an element in a just-shown container is
+  // unreliable on iOS until the layout has settled.
+  setTimeout(() => { try { input.focus(); input.select(); } catch(e) {} }, 120);
+  return new Promise(resolve => { _appPromptPending = resolve; });
+}
+
+function _appPromptResolve(accepted) {
+  const modal = document.getElementById('app-prompt-modal');
+  const input = document.getElementById('app-prompt-input');
+  const val = input ? input.value : '';
+  if (modal) modal.style.display = 'none';
+  const resolve = _appPromptPending;
+  _appPromptPending = null;
+  if (resolve) resolve(accepted ? val : null);
+}
+
+function _appConfirmResolve(answer) {
+  const modal = document.getElementById('app-confirm-modal');
+  if (modal) modal.style.display = 'none';
+  const resolve = _appConfirmPending;
+  _appConfirmPending = null;
+  if (resolve) resolve(answer);
+}
+
+// "2026-07-31" -> "July 31, 2026". The T12:00:00 keeps the date from shifting a
+// day backwards in timezones behind UTC (same guard used by the charts).
+function fmtLongDate(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr + 'T12:00:00');
+  if (isNaN(d)) return dateStr;
+  return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+}
+
 function openLogModal(type) {
   _logModalType = type;
   _numpadValue = '';
@@ -11569,22 +11676,40 @@ async function saveLogEntry() {
   const date = document.getElementById('log-modal-date').value;
   if (!val || !date) { toast('Enter a value and date'); return; }
 
-  // Only one entry per day per metric — if one already exists for this date,
-  // update it in place instead of creating a duplicate (which broke the charts).
+  // ONE ENTRY PER DAY, for all three metrics (weight / body fat / muscle mass).
+  // A scans row represents a single day's body measurements and can hold all three,
+  // so a second metric logged on a date that already has a row must MERGE into that
+  // row — creating a second row for the same date would show the day twice in the
+  // entry list and leave two records to keep in sync.
   const fieldName = _logModalType === 'weight' ? 'weight' : _logModalType === 'bf' ? 'body_fat' : 'muscle_mass';
-  const existing = (allScans || []).find(s => s.date === date && s[fieldName] != null);
+  const sameDateRows = (allScans || []).filter(s => s.date === date);
+  const existing = sameDateRows.find(s => s[fieldName] != null); // this metric already logged today
+  const rowForDate = existing || sameDateRows[0] || null;        // any row for this date
 
   const typeLabel = _logModalType === 'weight' ? `${val} lbs` : _logModalType === 'bf' ? `${val}%` : `${val} lbs muscle`;
-  const confirmMsg = existing
-    ? `You already have an entry for ${date} — update it to ${typeLabel}?`
-    : `Save ${typeLabel} for ${date}?`;
-  if (!confirm(confirmMsg)) return;
+  const metricName = _logModalType === 'weight' ? 'weight' : _logModalType === 'bf' ? 'body fat' : 'muscle mass';
+  const unit = _logModalType === 'bf' ? '%' : ' lbs';
+  const prettyDate = fmtLongDate(date);
+
+  // Already logged this metric today — offer to overwrite it right here rather than
+  // sending them off to Log History for what is a one-tap change. Declining closes
+  // the whole flow (not just this dialog), since backing out to a number pad they'd
+  // only have to cancel again was the annoying part.
+  if (existing) {
+    const proceed = await appConfirm(
+      `You already logged ${metricName} for ${prettyDate} — ${existing[fieldName]}${unit}. Replace it with ${typeLabel}?`,
+      { title: 'Entry Already Exists', yesLabel: 'Yes, Update', noLabel: 'Keep Current' }
+    );
+    if (!proceed) { closeLogModal(); return; }
+  } else if (!await appConfirm(`Save ${typeLabel} for ${prettyDate}?`, { title: 'Save Entry', yesLabel: 'Yes, Save' })) {
+    return;
+  }
 
   const entry = { date };
   entry[fieldName] = val;
   try {
-    if (existing) {
-      await dbPatch('scans', existing.id, { [fieldName]: val });
+    if (rowForDate) {
+      await dbPatch('scans', rowForDate.id, { [fieldName]: val });
     } else {
       await dbPost('scans', entry);
     }
@@ -11592,8 +11717,8 @@ async function saveLogEntry() {
     await loadScans();
     toast('Saved ✓');
     // Goal celebration + calorie-shift suggestion only make sense for a genuinely
-    // NEW day's entry — correcting/updating an existing same-day entry isn't a real
-    // new data point, so skip both to avoid re-triggering them on every edit.
+    // NEW day's entry — overwriting an existing same-day value isn't a new data
+    // point, so skip both to avoid re-triggering them on every correction.
     if (!existing) {
       if (_logModalType === 'weight') {
         const goalMet = checkGoalAchievement('weight', val);
@@ -12320,10 +12445,28 @@ async function saveMuscleGoal() {
   toast('Muscle goal saved ✓');
 }
 
+// Log History shows the newest few entries and loads more on demand — the full
+// list grows without bound and pushed the rest of the Progress tab off-screen.
+const SCAN_PAGE_SIZE = 5;
+let _scanListLimit = SCAN_PAGE_SIZE;
+
+function showMoreScans() {
+  _scanListLimit += SCAN_PAGE_SIZE;
+  renderScans();
+}
+
 function renderScans() {
   const el = document.getElementById('scan-list');
   if (!allScans.length) { el.innerHTML = '<div class="empty">No entries yet — tap Record to start</div>'; return; }
-  el.innerHTML = [...allScans].reverse().map(s => {
+  const newestFirst = [...allScans].reverse();
+  // Guard the limit — entries can be deleted while the list is expanded.
+  if (_scanListLimit > newestFirst.length) {
+    _scanListLimit = Math.max(SCAN_PAGE_SIZE, Math.ceil(newestFirst.length / SCAN_PAGE_SIZE) * SCAN_PAGE_SIZE);
+  }
+  const visible = newestFirst.slice(0, _scanListLimit);
+  const remaining = newestFirst.length - visible.length;
+
+  const rows = visible.map(s => {
     const parts = [];
     if (s.weight) parts.push(`<span onclick="editScan('${s.id}','${s.date}',${s.weight},null,null)" style="cursor:pointer;font-weight:600;color:#CFA13C">${s.weight} lbs <i class="fa-solid fa-pen" style="font-size:0.7em"></i></span>`);
     if (s.body_fat) parts.push(`<span onclick="editScan('${s.id}','${s.date}',null,${s.body_fat},null)" style="cursor:pointer;font-weight:600;color:#CFA13C">${s.body_fat}% BF <i class="fa-solid fa-pen" style="font-size:0.7em"></i></span>`);
@@ -12336,6 +12479,14 @@ function renderScans() {
       </div>
     </div>`;
   }).join('');
+
+  // Arrow only exists while there's something left to load.
+  const moreBtn = remaining > 0 ? `
+    <button type="button" onclick="showMoreScans()" style="width:100%;margin-top:10px;background:none;border:none;color:#CFA13C;font-size:12px;font-weight:700;cursor:pointer;padding:8px;display:flex;align-items:center;justify-content:center;gap:6px">
+      Show ${Math.min(SCAN_PAGE_SIZE, remaining)} More <i class="fa-solid fa-chevron-down" style="font-size:0.85em"></i>
+    </button>` : '';
+
+  el.innerHTML = rows + moreBtn;
 }
 
 async function deleteScan(id) {
@@ -12347,8 +12498,8 @@ async function deleteScan(id) {
 
 async function editScan(id, date, weight, bodyFat, muscle) {
   const current = weight !== null ? weight : bodyFat !== null ? bodyFat : muscle;
-  const type = weight !== null ? 'weight (lbs)' : bodyFat !== null ? 'body fat (%)' : 'muscle mass (lbs)';
-  const newVal = prompt(`Edit ${type} for ${date}:`, current);
+  const type = weight !== null ? 'Weight (lbs)' : bodyFat !== null ? 'Body Fat (%)' : 'Muscle Mass (lbs)';
+  const newVal = await appPrompt(fmtLongDate(date), { title: `Edit ${type}`, value: current });
   if (newVal === null) return;
   const val = parseFloat(newVal);
   if (isNaN(val) || val <= 0) { toast('Invalid value'); return; }
