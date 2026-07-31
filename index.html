@@ -11765,9 +11765,11 @@ function goToCalorieTargetFromSuggestion() {
 }
 
 // ===== GOAL CELEBRATION — confetti + congratulations =====
-// Fires when a new scan entry meets or beats a set goal. Each goal type can only
-// trigger once per session to prevent repeated celebrations on the same data.
-const _celebratedGoals = {};
+// Fires when a scan entry meets or beats a set goal. Repeat celebrations are
+// prevented by userGoals.celebrated[type], which records the exact goal VALUE
+// that was celebrated. There is deliberately no per-session flag: one existed
+// and was keyed only to the goal type, so after celebrating a 170 lb goal,
+// hitting a newly-set 165 lb goal in the same session was silently swallowed.
 let _whatsNextSuggestedCals = null;
 // Goal change staged by the What's Next preview, committed only by whatsNextApply().
 let _whatsNextPendingGoal = null;
@@ -11804,7 +11806,6 @@ function _clearCelebrated(type) {
   const next = { ...rec };
   delete next[type];
   userGoals.celebrated = next;
-  delete _celebratedGoals[type];
   saveSetting('goals', userGoals);
 }
 
@@ -11835,15 +11836,14 @@ function checkGoalAchievement(type, value) {
   // it, no matter how far you drift and climb back.
   if (!met) { _clearCelebrated(type); return false; }
 
-  // Already celebrated THIS goal value and haven't been away since. Don't repeat
-  // it (that would re-fire on every weigh-in and on every app launch), but still
-  // return true so the calorie-shift suggestion stays suppressed — this weigh-in
-  // isn't news either way.
-  if ((userGoals.celebrated || {})[type] === goalVal) { _celebratedGoals[type] = true; return true; }
-  if (_celebratedGoals[type]) return true; // already celebrated this session
+  // Already celebrated THIS EXACT goal value and haven't been away since. Don't
+  // repeat it (that would re-fire on every weigh-in and every app launch), but
+  // still return true so the calorie-shift suggestion stays suppressed — this
+  // weigh-in isn't news either way. Comparing the value, not just the type, is
+  // what lets a brand-new goal celebrate immediately after the previous one.
+  if ((userGoals.celebrated || {})[type] === goalVal) return true;
 
   if (type === 'weight') _celebratedGoalValue = value;
-  _celebratedGoals[type] = true;
   userGoals.celebrated = { ...(userGoals.celebrated || {}), [type]: goalVal };
   saveSetting('goals', userGoals);
   showCelebration(message, type);
