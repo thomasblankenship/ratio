@@ -6944,7 +6944,14 @@ async function showHistoryDetail(date) {
   const wkEl = document.getElementById('detail-workouts');
   wkEl.style.display = 'block';
   window._historyWorkouts = workouts;
-  wkEl.innerHTML = `<div class="card-title" style="color:#CFA13C">Workouts</div>` + (workouts.length ? workouts.map((w, wi) => {
+  // Match the same Today's/Yesterday's/[Day] Workouts labeling used on the Progress tab's workout card
+  const wkD = new Date(date + 'T12:00:00');
+  const wkTodayLocal = new Date(); wkTodayLocal.setHours(12,0,0,0);
+  const wkTodayStr = `${wkTodayLocal.getFullYear()}-${String(wkTodayLocal.getMonth()+1).padStart(2,'0')}-${String(wkTodayLocal.getDate()).padStart(2,'0')}`;
+  const wkYesterday = new Date(wkTodayLocal); wkYesterday.setDate(wkYesterday.getDate() - 1);
+  const wkYStr = `${wkYesterday.getFullYear()}-${String(wkYesterday.getMonth()+1).padStart(2,'0')}-${String(wkYesterday.getDate()).padStart(2,'0')}`;
+  const wkLabel = date === wkTodayStr ? "Today's Workouts" : date === wkYStr ? "Yesterday's Workouts" : wkD.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) + ' Workouts';
+  wkEl.innerHTML = `<div class="card-title" style="color:#CFA13C">${wkLabel}</div>` + (workouts.length ? workouts.map((w, wi) => {
     const hasDetail = !!w.healthkit_id;
     return `<div class="workout-row" ${hasDetail ? `data-hwdetail="${wi}" style="cursor:pointer"` : ''}><div><div style="font-size:14px;font-weight:500;display:flex;align-items:center;gap:4px">${w.name}${hasDetail ? ' <i class="fa-solid fa-chevron-right" style="font-size:0.7em;color:#CFA13C"></i>' : ''}</div><div style="font-size:11px;color:var(--gray-400);margin-top:2px">${w.duration} min</div></div><div class="workout-cals">−${w.calories} cal</div></div>`;
   }).join('') : '<div class="empty">No workouts logged</div>');
@@ -11584,13 +11591,18 @@ async function saveLogEntry() {
     closeLogModal();
     await loadScans();
     toast('Saved ✓');
-    if (_logModalType === 'weight') {
-      const goalMet = checkGoalAchievement('weight', val);
-      if (!goalMet) maybeSuggestCalorieUpdate();
-    } else if (_logModalType === 'bf') {
-      checkGoalAchievement('bf', val);
-    } else if (_logModalType === 'muscle') {
-      checkGoalAchievement('muscle', val);
+    // Goal celebration + calorie-shift suggestion only make sense for a genuinely
+    // NEW day's entry — correcting/updating an existing same-day entry isn't a real
+    // new data point, so skip both to avoid re-triggering them on every edit.
+    if (!existing) {
+      if (_logModalType === 'weight') {
+        const goalMet = checkGoalAchievement('weight', val);
+        if (!goalMet) maybeSuggestCalorieUpdate();
+      } else if (_logModalType === 'bf') {
+        checkGoalAchievement('bf', val);
+      } else if (_logModalType === 'muscle') {
+        checkGoalAchievement('muscle', val);
+      }
     }
   } catch(e) {
     console.error('saveLogEntry error:', e);
