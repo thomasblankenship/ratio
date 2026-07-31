@@ -3202,6 +3202,7 @@ async function syncHealthKitWorkouts(showToast) {
     if (statusEl) statusEl.textContent = `Last synced ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
     if (showToast) toast(`Synced ${importedCount} workout${importedCount === 1 ? '' : 's'} from Apple Health`);
     if (typeof loadTodayWorkouts === 'function') loadTodayWorkouts();
+    if (typeof loadProgressWorkouts === 'function') loadProgressWorkouts();
   } catch (e) {
     console.error('HealthKit sync error', e);
     if (statusEl) statusEl.textContent = 'Sync failed';
@@ -3913,6 +3914,7 @@ async function vlConfirmSave() {
         calories: Math.round(w.caloriesBurned||0), time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       });
       await loadTodayWorkouts();
+      await loadProgressWorkouts();
       toast('Workout logged ✓');
     } else if (data.action === 'add_to_shopping_list') {
       const items = data.shoppingItems || [];
@@ -4059,7 +4061,7 @@ function switchTab(tab) {
     if (detailEl) detailEl.style.display = 'none';
   }
   if (tab === 'meals') loadMealsTab();
-  if (tab === 'progress') { resetWorkoutDateToToday(); loadTodayWorkouts(); loadGoals().then(() => { loadScans(); updateGoalsDisplay(); }); loadDayTotals(); }
+  if (tab === 'progress') { resetWorkoutDateToToday(); loadProgressWorkouts(); loadGoals().then(() => { loadScans(); updateGoalsDisplay(); }); loadDayTotals(); }
   if (tab === 'profile') loadCurrentUsername();
   if (tab === 'profile-myprofile') loadMyProfilePage();
   if (tab === 'profile-allergies') loadFoodAllergiesPage();
@@ -4145,9 +4147,12 @@ function changeMonth(dir) {
 function updateLogDateDisplay() {
   const d = new Date(logDate + 'T12:00:00');
   const isToday = logDate === today;
-  const yesterday = new Date(todayLocal);
+  // Derive from `today` (which tracks midnight rollover), not the load-time
+  // todayLocal snapshot — otherwise "Yesterday" labels the wrong day once a
+  // long-running session crosses midnight.
+  const yesterday = new Date(today + 'T12:00:00');
   yesterday.setDate(yesterday.getDate() - 1);
-  const yStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth()+1).padStart(2,'0')}-${String(yesterday.getDate()).padStart(2,'0')}`;
+  const yStr = currentDateStr(yesterday);
   const isYesterday = logDate === yStr;
   const headerLabel = isToday ? 'Today' : isYesterday ? 'Yesterday' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   const todayHeaderEl = document.getElementById('today-header-label');
@@ -4569,7 +4574,8 @@ async function setWorkoutEffort(n) {
   try {
     await dbPatch('workouts', w.id, { effort: n });
     // Keep the in-memory list in step so reopening shows the new value.
-    const inList = (currentWorkouts || []).find(x => x.id === w.id);
+    // The detail modal is only ever opened from the Progress list.
+    const inList = (progressWorkouts || []).find(x => x.id === w.id);
     if (inList) inList.effort = n;
     if (typeof renderWorkouts === 'function') renderWorkouts();
   } catch(e) {
@@ -4639,15 +4645,45 @@ function closeWorkoutDetail() {
 }
 
 
+// Local calendar date as 'YYYY-MM-DD'. Never use toISOString() for this — that
+// returns UTC and is a day off for anyone west of Greenwich after ~5pm.
+function currentDateStr(d) {
+  const x = d || new Date();
+  return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`;
+}
+
 const todayLocal = new Date();
-const today = `${todayLocal.getFullYear()}-${String(todayLocal.getMonth()+1).padStart(2,'0')}-${String(todayLocal.getDate()).padStart(2,'0')}`;
+// `today` is DELIBERATELY `let`, not `const`. The app is built to survive
+// backgrounding rather than reload, so a session left open past midnight would
+// otherwise insist it's still yesterday — every "is this today?" check, the
+// calendar's today ring, and future-date blocking all silently shift by a day.
+// refreshDateIfRolledOver() below reassigns this when the clock crosses over.
+let today = currentDateStr(todayLocal);
 let logDate = today;
 let calendarMonth = todayLocal.getMonth();
 let calendarYear = todayLocal.getFullYear();
 let recentWorkoutsCache = null;
 
+// Midnight rollover. Cheap enough to poll, and also called on every resume.
+// Only touches logDate when it was tracking the old today — someone parked on a
+// past date on purpose stays there.
+function refreshDateIfRolledOver() {
+  const real = currentDateStr();
+  if (real === today) return false;
+  const prev = today;
+  today = real;
+  if (logDate === prev) logDate = real;
+  if (workoutViewDate === prev) workoutViewDate = null;
+  return true;
+}
+
 let currentMeals = [];
+// Workouts for logDate — drives the Today tab's "burned" figure only.
 let currentWorkouts = [];
+// Workouts for the Progress tab's own date. Kept separate so browsing back
+// through workout history doesn't move the day you're logging meals to, and
+// vice versa.
+let progressWorkouts = [];
 let allScans = [];
 let allPhotos = [];
 let selectedAngle = 'front';
@@ -6479,6 +6515,7 @@ async function appInit() {
   document.getElementById('photo-date').value = today;
   await loadTodayMeals();
   await loadTodayWorkouts();
+  await loadProgressWorkouts();
   loadDayTotals();
   loadScans();
   loadPhotos();
@@ -6549,24 +6586,28 @@ async function loadTodayMeals() {
   console.log('Meals loaded:', currentMeals.length, currentMeals);
   renderMeals();
 }
-// Loads TODAY (well, logDate) — so it must also clear any past date the user
-// had navigated to, or the heading keeps saying "Wed, Jul 29 Workouts" while
-// showing today's rows.
+// The date the Progress tab's workout list is showing. Independent of logDate:
+// null means "the real today", never "whatever day the Today tab is on".
+function progressWorkoutDate() { return workoutViewDate || today; }
+
+// Workouts for logDate. Feeds the Today tab's burned-calories figure ONLY —
+// it must not touch the Progress list, which has its own date.
 async function loadTodayWorkouts() {
-  workoutViewDate = null;
   currentWorkouts = await dbGet('workouts', `date=eq.${logDate}`);
+  renderWorkoutBurned();
+}
+
+// Workouts for the Progress tab's own date.
+async function loadProgressWorkouts() {
+  progressWorkouts = await dbGet('workouts', `date=eq.${progressWorkoutDate()}`);
   renderWorkouts();
 }
 
-// Reloads whichever date is currently being viewed. Use after edits/deletes so
-// the user isn't yanked back to today mid-task.
-async function reloadViewedWorkouts() {
-  const d = workoutViewDate || logDate;
-  currentWorkouts = await dbGet('workouts', `date=eq.${d}`);
-  renderWorkouts();
-}
+// Reload whatever the Progress tab is showing — after an edit or delete, so the
+// user isn't yanked to another day mid-task.
+async function reloadViewedWorkouts() { await loadProgressWorkouts(); }
 
-// Back to Today, calendar closed. Called on entering the Progress tab so the
+// Back to today, calendar closed. Called on entering the Progress tab so the
 // section always opens in its default state rather than on whatever past date
 // was last browsed.
 function resetWorkoutDateToToday() {
@@ -6575,6 +6616,13 @@ function resetWorkoutDateToToday() {
   const chev = document.getElementById('workout-cal-chevron');
   if (dd) dd.style.display = 'none';
   if (chev) chev.style.transform = 'rotate(0deg)';
+}
+
+// Today tab's burned figure. Split out of renderWorkouts() because that now
+// renders the Progress list from a different date entirely.
+function renderWorkoutBurned() {
+  const el = document.getElementById('workout-burned');
+  if (el) el.textContent = (currentWorkouts || []).reduce((a, w) => a + (+w.calories||0), 0) + ' cal';
 }
 
 function renderMealSection(meals, indices, showEmpty) {
@@ -6669,7 +6717,7 @@ function toggleWorkoutCalendar() {
   dd.style.display = opening ? 'block' : 'none';
   if (chev) chev.style.transform = opening ? 'rotate(180deg)' : 'rotate(0deg)';
   if (opening) {
-    const base = new Date((workoutViewDate || logDate) + 'T12:00:00');
+    const base = new Date(progressWorkoutDate() + 'T12:00:00');
     _wkCalMonth = base.getMonth();
     _wkCalYear = base.getFullYear();
     renderWorkoutCalendar();
@@ -6709,7 +6757,7 @@ function renderWorkoutCalendar() {
 
   const firstDay = new Date(_wkCalYear, _wkCalMonth, 1).getDay();
   const daysInMonth = new Date(_wkCalYear, _wkCalMonth + 1, 0).getDate();
-  const selected = workoutViewDate || logDate;
+  const selected = progressWorkoutDate();
 
   let html = '';
   for (let i = 0; i < firstDay; i++) html += '<div></div>';
@@ -6741,12 +6789,11 @@ async function jumpToWorkoutDate(dateStr) {
   if (dd) dd.style.display = 'none';
   if (chev) chev.style.transform = 'rotate(0deg)';
   workoutViewDate = dateStr;
-  currentWorkouts = await dbGet('workouts', `date=eq.${dateStr}`);
-  renderWorkouts();
+  await loadProgressWorkouts();
 }
 
 function updateWorkoutDateLabel() {
-  const dateStr = workoutViewDate || logDate;
+  const dateStr = progressWorkoutDate();
   const d = new Date(dateStr + 'T12:00:00');
   const todayLocal = new Date(); todayLocal.setHours(12,0,0,0);
   const todayStr = `${todayLocal.getFullYear()}-${String(todayLocal.getMonth()+1).padStart(2,'0')}-${String(todayLocal.getDate()).padStart(2,'0')}`;
@@ -6762,15 +6809,14 @@ function updateWorkoutDateLabel() {
   if (subEl) subEl.textContent = sub;
 }
 
+// Renders the Progress tab's workout list from progressWorkouts / its own date.
+// The Today tab's burned figure is renderWorkoutBurned() and is NOT touched here.
 function renderWorkouts() {
   updateWorkoutDateLabel();
   const el = document.getElementById('workouts-list');
-  // Always update burned calories display, even with zero workouts
-  const burnedTotal = currentWorkouts.reduce((a, w) => a + (+w.calories||0), 0);
-  const burnedEl = document.getElementById('workout-burned');
-  if (burnedEl) burnedEl.textContent = burnedTotal + ' cal';
-  if (!currentWorkouts.length) { el.innerHTML = '<div class="empty">No workouts logged yet</div>'; return; }
-  el.innerHTML = currentWorkouts.map((w, i) => {
+  if (!el) return;
+  if (!progressWorkouts.length) { el.innerHTML = '<div class="empty">No workouts logged yet</div>'; return; }
+  el.innerHTML = progressWorkouts.map((w, i) => {
     const hasDetail = !!w.healthkit_id;
     return `
     <div class="workout-row" ${hasDetail ? `data-wdetail="${i}" style="cursor:pointer"` : ''}>
@@ -6790,50 +6836,30 @@ function renderWorkouts() {
   }).join('');
   // Tapping a HealthKit-synced workout opens its full detail view; manual entries do nothing extra.
   el.querySelectorAll('[data-wdetail]').forEach(row => {
-    row.addEventListener('click', () => openWorkoutDetailObj(currentWorkouts[+row.dataset.wdetail]));
+    row.addEventListener('click', () => openWorkoutDetailObj(progressWorkouts[+row.dataset.wdetail]));
   });
   // Attach listeners
   el.querySelectorAll('[data-wedit]').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
-      const w = currentWorkouts[+btn.dataset.wedit];
+      const w = progressWorkouts[+btn.dataset.wedit];
       openEditWorkoutModal(w.id, w.name, w.duration, w.calories);
     });
   });
   el.querySelectorAll('[data-wdelete]').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       e.stopPropagation();
-      const w = currentWorkouts[+btn.dataset.wdelete];
+      const w = progressWorkouts[+btn.dataset.wdelete];
       if (!await appConfirm(`Delete "${w.name}"? This cannot be undone.`, { title: 'Delete Workout', yesLabel: 'Yes, Delete' })) return;
       await dbDelete('workouts', w.id);
-      await reloadViewedWorkouts(); // stay on the date being viewed
+      await reloadViewedWorkouts();  // stay on the date being viewed
+      await loadTodayWorkouts();     // …and keep the Today tab's burn figure honest
       toast('Workout removed');
     });
   });
-  // Update smart calorie adjustment banner based on burned calories
-  let adjustBanner = document.getElementById('cal-adjust-banner');
-  if (!adjustBanner) {
-    adjustBanner = document.createElement('div');
-    adjustBanner.id = 'cal-adjust-banner';
-    adjustBanner.style.cssText = 'margin-top:10px;border-radius:10px;padding:10px 14px;font-size:12px;display:none';
-    const heroCard = document.getElementById('today-goal-card');
-    if (heroCard) heroCard.appendChild(adjustBanner);
-  }
-  let adjustment = 0;
-  let adjustMsg = '';
-  if (burnedTotal >= 800) { adjustment = 450; adjustMsg = `🔥 Huge burn day! Consider eating +${adjustment} extra cals to protect muscle.`; }
-  else if (burnedTotal >= 600) { adjustment = 300; adjustMsg = `💪 High burn day! Consider eating +${adjustment} extra cals to protect muscle.`; }
-  else if (burnedTotal >= 400) { adjustment = 200; adjustMsg = `⚡ Active day! Consider eating +${adjustment} extra cals today.`; }
-  if (adjustBanner) {
-    if (adjustment > 0) {
-      adjustBanner.style.display = 'block';
-      adjustBanner.style.background = 'var(--gold-tint)';
-      adjustBanner.style.color = '#A67C2E';
-      adjustBanner.innerHTML = `${adjustMsg} <strong>Suggested: ${(TARGETS.calories + adjustment).toLocaleString()} kcal today.</strong>`;
-    } else {
-      adjustBanner.style.display = 'none';
-    }
-  }
+  // NOTE: the calorie-adjustment banner used to be recomputed here too. It's a
+  // Today-tab element driven by logDate's burn, so it has no business in a
+  // render of the Progress list — and updateMacroBars() already owns it.
 }
 
 
@@ -7042,10 +7068,14 @@ async function confirmDeleteMeal(index) {
 async function addWorkout() {
   const name = document.getElementById('workout-name').value.trim();
   if (!name) { toast('Enter workout name'); return; }
-  const w = { date: logDate, name, duration: +document.getElementById('workout-duration').value||0, calories: +document.getElementById('workout-cals').value||0, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) };
+  // Saves to the date the Progress tab is showing — the form lives on that
+  // card, so logging to logDate instead would silently file it under a
+  // different day than the one on screen.
+  const w = { date: progressWorkoutDate(), name, duration: +document.getElementById('workout-duration').value||0, calories: +document.getElementById('workout-cals').value||0, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) };
   await dbPost('workouts', w);
   ['workout-name','workout-duration','workout-cals'].forEach(id => document.getElementById(id).value = ''); document.getElementById('workout-form').style.display='none'; document.getElementById('add-workout-btn').style.display='block';
-  await loadTodayWorkouts();
+  await loadProgressWorkouts();
+  await loadTodayWorkouts(); // keep the Today tab's burned figure in step
   const _wm = ["💪 Beast mode! Keep crushing it!","🔥 That's what I'm talking about!","⚡ You just earned those macros!","🏆 Another one in the books!","💥 Stronger than yesterday!","🎯 Consistency is the game — you're winning!","🚀 That's how it's done!","😤 No days off. Let's go!","🏋️ The work is done. Now recover!","⚡ Every rep counts!"];
   toast(_wm[Math.floor(Math.random() * _wm.length)]);
 }
@@ -10912,6 +10942,10 @@ let userProfile = { heightIn: 69, age: 43, gender: 'male', activity: 'active' };
 function resetAppState() {
   currentMeals = [];
   currentWorkouts = [];
+  progressWorkouts = [];
+  workoutViewDate = null;
+  recentWorkoutsCache = null;
+  _wkCalDates = null;
   allScans = [];
   allPhotos = [];
   dayTotalsCache = {};
@@ -13705,6 +13739,7 @@ async function saveEditedWorkout() {
   });
   closeEditWorkoutModal();
   toast('Workout updated ✓');
+  await loadProgressWorkouts(); // the row being edited lives in this list
   await loadTodayWorkouts();
 }
 
@@ -14461,6 +14496,87 @@ document.addEventListener('DOMContentLoaded', () => {
   tabsEl.addEventListener('scroll', updateHint);
   updateHint();
 });
+
+// ===== RESUME RESET =====
+// Coming back to a backgrounded app on a page you'd forgotten you were on is a
+// data-integrity problem, not just a navigation annoyance: the app keeps showing
+// a past date, and the next meal you log lands on that day. It looks like it
+// worked, so nothing prompts you to check. After a real break we return to
+// Today — same 5-minute threshold the resume-last-view feature already uses.
+const RESUME_RESET_MS = LAST_VIEW_MAX_AGE_MS;
+let _appHiddenAt = null;
+
+function resetToTodayHome() {
+  // Never yank someone out of onboarding or the auth screen.
+  if (_obCurrentStep && _obCurrentStep > 0) return;
+  if (!_currentUser) return;
+
+  // Capture the rollover BEFORE comparing: refreshDateIfRolledOver() already
+  // moves logDate onto the new day, which would make dateWasStale false in
+  // exactly the case that most needs a reload (resuming after midnight).
+  const rolled = refreshDateIfRolledOver();
+  const realToday = today;
+  const dateWasStale = rolled || logDate !== realToday;
+  logDate = realToday;
+  workoutViewDate = null;
+  recentWorkoutsCache = null;
+
+  // Close anything transient that shouldn't survive a return to the home tab.
+  ['today-calendar-dropdown','workout-calendar-dropdown'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.style.display = 'none';
+  });
+  ['today-calendar-chevron','workout-cal-chevron'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.style.transform = 'rotate(0deg)';
+  });
+
+  switchTab('today');
+  if (typeof updateLogDateDisplay === 'function') updateLogDateDisplay();
+  loadProgressWorkouts();
+  if (dateWasStale) { loadTodayMeals(); loadTodayWorkouts(); }
+  const content = document.querySelector('.content');
+  if (content) content.scrollTop = 0;
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') {
+    _appHiddenAt = Date.now();
+  } else if (document.visibilityState === 'visible') {
+    const away = _appHiddenAt ? Date.now() - _appHiddenAt : 0;
+    _appHiddenAt = null;
+    if (away >= RESUME_RESET_MS) { resetToTodayHome(); return; }
+    // Back quickly, but the clock may still have crossed midnight while away.
+    if (refreshDateIfRolledOver()) applyDateRollover();
+  }
+});
+
+// Repaints everything that was rendered against the previous calendar day.
+function applyDateRollover() {
+  if (!_currentUser) return;
+  // calendarMonth/Year were seeded from the load-time snapshot, so a rollover
+  // into a new month would otherwise leave the grid on the old one with no
+  // today cell at all.
+  const now = new Date();
+  calendarMonth = now.getMonth();
+  calendarYear = now.getFullYear();
+  // Stamped once at boot; without this a photo added after midnight files
+  // under yesterday.
+  const photoDateEl = document.getElementById('photo-date');
+  if (photoDateEl) photoDateEl.value = today;
+  const todayDateEl = document.getElementById('today-date');
+  if (todayDateEl) todayDateEl.textContent = now.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+
+  if (typeof updateLogDateDisplay === 'function') updateLogDateDisplay();
+  if (typeof loadTodayMeals === 'function') loadTodayMeals();
+  if (typeof loadTodayWorkouts === 'function') loadTodayWorkouts();
+  if (typeof loadProgressWorkouts === 'function') loadProgressWorkouts();
+  // loadDayTotals() ends by calling renderCalendar(), so don't call it twice.
+  if (typeof loadDayTotals === 'function') loadDayTotals();
+  else if (typeof renderCalendar === 'function') renderCalendar();
+}
+
+// Catches midnight while the app is sitting open and in the foreground. A minute
+// of lag on a once-a-day event is fine; the resume handler covers the rest.
+setInterval(() => { if (refreshDateIfRolledOver()) applyDateRollover(); }, 60 * 1000);
 
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden' && _obCurrentStep && _obCurrentStep > 0) {
