@@ -2187,40 +2187,6 @@
   </div>
 </div>
 
-<!-- WHAT'S NEXT — shown after a goal celebration; choose new goal or maintain -->
-<div id="whats-next-modal" style="display:none;position:fixed;inset:0;z-index:920;align-items:center;justify-content:center;background:rgba(0,0,0,0.6)">
-  <div style="background:var(--surface);border-radius:20px;padding:28px 24px;max-width:360px;width:90%" onclick="event.stopPropagation()">
-    <div style="font-size:18px;font-weight:800;color:var(--ink);margin-bottom:6px;text-align:center">What's Next?</div>
-    <div id="whats-next-subtitle" style="font-size:13px;color:var(--muted);line-height:1.4;margin-bottom:18px;text-align:center">You crushed your goal. Would you like to set a new target or maintain where you are?</div>
-
-    <!-- Choice buttons (initial state) -->
-    <div id="whats-next-choices" style="display:flex;flex-direction:column;gap:10px">
-      <button class="btn" onclick="whatsNextNewGoal()" style="width:100%">🎯 Set a New Goal</button>
-      <button class="btn" onclick="whatsNextMaintain()" style="width:100%;background:var(--surface-2);color:var(--ink)">⚖️ Maintain Current Weight</button>
-      <button onclick="closeWhatsNextModal()" style="background:none;border:none;color:var(--muted);font-size:13px;margin-top:4px;padding:8px;cursor:pointer;width:100%">Decide Later</button>
-    </div>
-
-    <!-- New goal input (hidden until they tap "Set a New Goal") -->
-    <div id="whats-next-new-goal" style="display:none">
-      <div id="whats-next-goal-label" style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">New Goal Weight (lbs)</div>
-      <input type="number" id="whats-next-goal-input" placeholder="e.g. 170" style="width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;font-size:18px;font-weight:700;text-align:center;outline:none;margin-bottom:12px;box-sizing:border-box" />
-      <button class="btn" onclick="whatsNextCalculateNewGoal()" style="width:100%;margin-bottom:8px">Calculate Suggested Calories</button>
-      <button onclick="whatsNextBackToChoices()" style="background:none;border:none;color:var(--muted);font-size:13px;padding:8px;cursor:pointer;width:100%">← Back</button>
-    </div>
-
-    <!-- Suggestion result (hidden until calculated) -->
-    <div id="whats-next-result" style="display:none">
-      <div style="background:var(--surface-2);border-radius:12px;padding:16px;margin-bottom:14px">
-        <div id="whats-next-result-text" style="font-size:14px;color:var(--ink);line-height:1.5"></div>
-        <div id="whats-next-result-number" style="font-size:32px;font-weight:800;color:#CFA13C;margin-top:8px;text-align:center"></div>
-        <div style="font-size:11px;color:var(--muted);text-align:center">calories / day</div>
-      </div>
-      <button class="btn" onclick="whatsNextApply()" style="width:100%;margin-bottom:8px">Update My Targets</button>
-      <button onclick="closeWhatsNextModal()" style="background:none;border:none;color:var(--muted);font-size:13px;padding:8px;cursor:pointer;width:100%">Not Now</button>
-    </div>
-  </div>
-</div>
-
 <!-- EDIT MEAL MODAL -->
 <div id="edit-meal-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:600;align-items:flex-end;justify-content:center">
   <div style="background:var(--surface);border-radius:20px 20px 0 0;padding:24px;width:100%;max-width:520px">
@@ -10741,10 +10707,15 @@ async function loadGoals() {
       bfGoal: g.bfGoal || null,
       bfTrackingOn: g.bfTrackingOn !== false,
       muscleCurrent: g.muscleCurrent || g.muscle || null,
-      muscleMethod: g.muscleMethod || null,
       muscleGoal: g.muscleGoal || null,
       muscleTrackingOn: g.muscleTrackingOn !== false,
-      muscleMethod: g.muscleMethod || null
+      muscleMethod: g.muscleMethod || null,
+      // Carried through explicitly: this normalizer rebuilds the object from
+      // scratch, so anything not listed here is silently dropped on every load.
+      // primaryGoal is written by onboarding and decides loss-vs-gain direction;
+      // celebrated records which goal values already got their confetti.
+      primaryGoal: g.primaryGoal || null,
+      celebrated: g.celebrated || {}
     };
   }
   if (profileData) userProfile = profileData;
@@ -11778,18 +11749,48 @@ function goToCalorieTargetFromSuggestion() {
 // trigger once per session to prevent repeated celebrations on the same data.
 const _celebratedGoals = {};
 let _whatsNextSuggestedCals = null;
+// Goal change staged by the What's Next preview, committed only by whatsNextApply().
+let _whatsNextPendingGoal = null;
+// The value that triggered the celebration. Previously referenced but never
+// declared — reading it threw a ReferenceError whenever a user with no logged
+// weights reached the What's Next flow, silently killing the whole handler.
+let _celebratedGoalValue = null;
+
+// Is this weight goal a "lose" goal or a "gain" goal? Getting this backwards is
+// not cosmetic: an inverted loss goal is satisfied by every weigh-in at or above
+// the target, so it re-fires the celebration (and the goal-rewriting What's Next
+// flow) forever. weightStart alone is not trustworthy as the signal — it is
+// user-editable and a shipped bug used to overwrite it silently — so consult the
+// stated goal type first, then real logged history, and only then weightStart.
+function _weightGoalIsLoss(goalVal) {
+  const stated = userGoals.primaryGoal || userProfile?.primaryGoal;
+  if (stated === 'fat_loss') return true;
+  if (stated === 'muscle_gain') return false;
+
+  const firstW = (allScans || []).filter(s => s.weight != null)
+    .sort((a, b) => new Date(a.date) - new Date(b.date))[0];
+  if (firstW && firstW.weight !== goalVal) return firstW.weight > goalVal;
+
+  const start = userGoals.weightStart;
+  if (start && start !== goalVal) return start > goalVal;
+
+  return null; // genuinely unknowable — caller must not guess
+}
 
 function checkGoalAchievement(type, value) {
   if (_celebratedGoals[type]) return false; // already celebrated this session
+  // Persisted across sessions: without this, a met-but-unchanged goal re-fires
+  // confetti on the first weigh-in after every single app launch.
+  const alreadyCelebrated = (userGoals.celebrated || {})[type];
   let goalVal, message;
 
   if (type === 'weight' && userGoals.weightGoal) {
     goalVal = userGoals.weightGoal;
-    // Weight goals are typically loss-oriented: goal is lower than start.
-    // But if someone's gaining, the goal would be higher.
-    const isLossGoal = (userGoals.weightStart || 999) > goalVal;
+    const isLossGoal = _weightGoalIsLoss(goalVal);
+    if (isLossGoal === null) return false;
     const met = isLossGoal ? (value <= goalVal) : (value >= goalVal);
     if (!met) return false;
+    _celebratedGoalValue = value;
     message = `You hit your weight goal of ${goalVal} lbs! All that hard work paid off.`;
   } else if (type === 'bf' && userGoals.bfGoal) {
     goalVal = userGoals.bfGoal;
@@ -11803,7 +11804,14 @@ function checkGoalAchievement(type, value) {
     return false;
   }
 
+  // Same goal value already celebrated in a past session — don't do it again.
+  // Returning true still suppresses the calorie-shift suggestion, which is
+  // correct: this weigh-in isn't news.
+  if (alreadyCelebrated === goalVal) { _celebratedGoals[type] = true; return true; }
+
   _celebratedGoals[type] = true;
+  userGoals.celebrated = { ...(userGoals.celebrated || {}), [type]: goalVal };
+  saveSetting('goals', userGoals);
   showCelebration(message, type);
   return true;
 }
@@ -11906,6 +11914,8 @@ function launchConfetti() {
 
 // ===== WHAT'S NEXT — post-goal-achievement flow =====
 function openWhatsNextModal() {
+  _whatsNextPendingGoal = null;
+  _whatsNextSuggestedCals = null;
   document.getElementById('whats-next-choices').style.display = 'flex';
   document.getElementById('whats-next-new-goal').style.display = 'none';
   document.getElementById('whats-next-result').style.display = 'none';
@@ -11924,6 +11934,8 @@ function openWhatsNextModal() {
 }
 
 function closeWhatsNextModal() {
+  _whatsNextPendingGoal = null; // nothing staged may survive the modal closing
+  _whatsNextSuggestedCals = null;
   document.getElementById('whats-next-modal').style.display = 'none';
 }
 
@@ -11936,15 +11948,26 @@ function whatsNextNewGoal() {
 }
 
 function whatsNextBackToChoices() {
+  _whatsNextPendingGoal = null; // abandoning the preview must not leave a staged change
+  _whatsNextSuggestedCals = null;
   document.getElementById('whats-next-new-goal').style.display = 'none';
   document.getElementById('whats-next-result').style.display = 'none';
   document.getElementById('whats-next-choices').style.display = 'flex';
 }
 
 function whatsNextMaintain() {
+  _whatsNextPendingGoal = null; // maintaining changes calories only, never the goal
   if (typeof calcTDEE !== 'function') { toast('Could not calculate — try again later'); return; }
   const weightScans = (allScans || []).filter(s => s.weight != null).sort((a, b) => new Date(a.date) - new Date(b.date));
-  const currentWeight = weightScans.length ? weightScans[weightScans.length - 1].weight : (_celebratedGoalValue || 170);
+  // No weight on file — every calorie number here is derived from body weight,
+  // so inventing one (this used to default to a hardcoded 170 lbs) would hand
+  // the user a target computed from data they never entered.
+  if (!weightScans.length) {
+    toast('Log your weight first so we can estimate your calories');
+    closeWhatsNextModal();
+    return;
+  }
+  const currentWeight = weightScans[weightScans.length - 1].weight;
   const tdee = Math.round(calcTDEE(currentWeight));
   _whatsNextSuggestedCals = tdee;
 
@@ -11955,6 +11978,12 @@ function whatsNextMaintain() {
   document.getElementById('whats-next-result').style.display = 'block';
 }
 
+// PREVIEW ONLY — this must never write to userGoals or the database. It used to
+// save the new goal (and overwrite weightStart with the current weight) the moment
+// "Calculate" was tapped, so merely looking at a suggested number permanently
+// destroyed the user's original starting weight. Everything now lands in
+// _whatsNextPendingGoal and is committed only by whatsNextApply(), after a
+// confirmation that spells out exactly what will change.
 function whatsNextCalculateNewGoal() {
   const input = document.getElementById('whats-next-goal-input');
   const newGoal = parseFloat(input.value);
@@ -11962,7 +11991,12 @@ function whatsNextCalculateNewGoal() {
   if (typeof calcTDEE !== 'function') { toast('Could not calculate — try again later'); return; }
 
   const weightScans = (allScans || []).filter(s => s.weight != null).sort((a, b) => new Date(a.date) - new Date(b.date));
-  const currentWeight = weightScans.length ? weightScans[weightScans.length - 1].weight : (_celebratedGoalValue || 170);
+  // Same rule as Maintain — no logged weight means no honest calorie estimate.
+  if (!weightScans.length) {
+    toast('Log your weight first so we can estimate your calories');
+    return;
+  }
+  const currentWeight = weightScans[weightScans.length - 1].weight;
   const tdee = Math.round(calcTDEE(currentWeight));
 
   let suggestedCals, description;
@@ -11973,22 +12007,19 @@ function whatsNextCalculateNewGoal() {
     description = isLoss
       ? `To work toward ${newGoal} lbs from your current ${currentWeight} lbs (moderate deficit), your suggested daily intake is:`
       : `To build toward ${newGoal} lbs from your current ${currentWeight} lbs (lean surplus), your suggested daily intake is:`;
-    userGoals.weightGoal = newGoal;
-    userGoals.weightStart = currentWeight;
-    saveSetting('goals', userGoals);
+    _whatsNextPendingGoal = { type: 'weight', newGoal, newStart: currentWeight };
   } else if (_celebratedGoalType === 'bf') {
     suggestedCals = Math.max(1200, tdee - 400);
     description = `To work toward ${newGoal}% body fat, your suggested daily intake is:`;
-    userGoals.bfGoal = newGoal;
-    saveSetting('goals', userGoals);
+    _whatsNextPendingGoal = { type: 'bf', newGoal };
   } else if (_celebratedGoalType === 'muscle') {
     suggestedCals = tdee + 300;
     description = `To build toward ${newGoal} lbs of muscle mass (lean surplus), your suggested daily intake is:`;
-    userGoals.muscleGoal = newGoal;
-    saveSetting('goals', userGoals);
+    _whatsNextPendingGoal = { type: 'muscle', newGoal };
   } else {
     suggestedCals = tdee;
     description = 'Your estimated maintenance calories:';
+    _whatsNextPendingGoal = null;
   }
 
   _whatsNextSuggestedCals = suggestedCals;
@@ -11999,16 +12030,52 @@ function whatsNextCalculateNewGoal() {
   document.getElementById('whats-next-result').style.display = 'block';
 }
 
-function whatsNextApply() {
-  if (_whatsNextSuggestedCals && _whatsNextSuggestedCals > 0) {
-    userTargets.calories = _whatsNextSuggestedCals;
-    saveSetting('targets', userTargets);
-    TARGETS.calories = userTargets.calories;
-    toast(`Daily calorie target updated to ${_whatsNextSuggestedCals.toLocaleString()} cal ✓`);
+// The ONLY place the What's Next flow is allowed to persist anything. Shows the
+// user every value that is about to change — goal, starting weight, and calorie
+// target — because silently rewriting a starting weight they set months ago is
+// not recoverable from inside the app.
+async function whatsNextApply() {
+  const changes = [];
+  const p = _whatsNextPendingGoal;
+
+  if (p && p.type === 'weight') {
+    if (userGoals.weightGoal !== p.newGoal) changes.push(`Goal weight: ${userGoals.weightGoal ?? '—'} → ${p.newGoal} lbs`);
+    if (userGoals.weightStart !== p.newStart) changes.push(`Starting weight: ${userGoals.weightStart ?? '—'} → ${p.newStart} lbs`);
+  } else if (p && p.type === 'bf') {
+    if (userGoals.bfGoal !== p.newGoal) changes.push(`Body fat goal: ${userGoals.bfGoal ?? '—'}% → ${p.newGoal}%`);
+  } else if (p && p.type === 'muscle') {
+    if (userGoals.muscleGoal !== p.newGoal) changes.push(`Muscle goal: ${userGoals.muscleGoal ?? '—'} → ${p.newGoal} lbs`);
   }
+
+  const calsChanging = _whatsNextSuggestedCals > 0 && _whatsNextSuggestedCals !== userTargets.calories;
+  if (calsChanging) changes.push(`Daily calories: ${(userTargets.calories || 0).toLocaleString()} → ${_whatsNextSuggestedCals.toLocaleString()}`);
+
+  if (!changes.length) { closeWhatsNextModal(); return; }
+
+  const ok = await appConfirm(`This will update:\n\n${changes.join('\n')}`, { title: 'Confirm Changes', yesLabel: 'Yes, Update' });
+  if (!ok) return;
+
+  if (p && p.type === 'weight') { userGoals.weightGoal = p.newGoal; userGoals.weightStart = p.newStart; }
+  else if (p && p.type === 'bf') { userGoals.bfGoal = p.newGoal; }
+  else if (p && p.type === 'muscle') { userGoals.muscleGoal = p.newGoal; }
+  if (p) await saveSetting('goals', userGoals);
+
+  if (calsChanging) {
+    userTargets.calories = _whatsNextSuggestedCals;
+    TARGETS.calories = userTargets.calories;
+    // Keep the Daily Targets edit buffer in step, or refreshDailyTargetsDisplay()
+    // below repaints the page from the pre-change value.
+    if (typeof _dtPending === 'object' && _dtPending) _dtPending.calories = userTargets.calories;
+    await saveSetting('targets', userTargets);
+  }
+
+  _whatsNextPendingGoal = null;
+  _whatsNextSuggestedCals = null;
+  toast('Updated ✓');
   closeWhatsNextModal();
   if (typeof refreshDailyTargetsDisplay === 'function') refreshDailyTargetsDisplay();
   if (typeof updateGoalsDisplay === 'function') updateGoalsDisplay();
+  if (typeof renderWeightChart === 'function') renderWeightChart();
 }
 
 async function loadScans() {
@@ -12490,7 +12557,9 @@ function renderScans() {
 }
 
 async function deleteScan(id) {
-  if (!confirm('Delete this entry?')) return;
+  const s = (allScans || []).find(x => x.id === id);
+  const when = s ? ` from ${fmtLongDate(s.date)}` : '';
+  if (!await appConfirm(`Delete this entry${when}? This cannot be undone.`, { title: 'Delete Entry', yesLabel: 'Yes, Delete' })) return;
   await dbDelete('scans', id);
   await loadScans();
   toast('Deleted');
@@ -12519,36 +12588,12 @@ async function editScan(id, date, weight, bodyFat, muscle) {
   } catch(e) { toast('Error: ' + (e.message || 'Update failed')); }
 }
 
-function toggleEditTargets() {
-  const form = document.getElementById('targets-edit-form');
-  const display = document.getElementById('targets-display');
-  const btn = document.getElementById('edit-targets-btn');
-  const isEditing = form.style.display !== 'none';
-  form.style.display = isEditing ? 'none' : 'block';
-  display.style.display = isEditing ? 'grid' : 'none';
-  btn.textContent = isEditing ? 'Edit' : 'Cancel';
-  if (!isEditing) {
-    document.getElementById('edit-calories').value = userTargets.calories;
-    document.getElementById('edit-protein').value = userTargets.protein;
-    document.getElementById('edit-carbs').value = userTargets.carbs;
-    document.getElementById('edit-fat').value = userTargets.fat;
-  }
-}
-
-async function saveTargets() {
-  const cals = +document.getElementById('edit-calories').value;
-  const protein = +document.getElementById('edit-protein').value;
-  const carbs = +document.getElementById('edit-carbs').value;
-  const fat = +document.getElementById('edit-fat').value;
-  if (!cals || !protein) { toast('Enter at least calories and protein'); return; }
-  userTargets = { calories: cals, protein, carbs: carbs || 150, fat: fat || 65 };
-  TARGETS.calories = cals; TARGETS.protein = protein; TARGETS.carbs = carbs || 150; TARGETS.fat = fat || 65;
-  await saveSetting('targets', userTargets);
-  toggleEditTargets();
-  updateGoalsDisplay();
-  renderMeals();
-  toast('Targets updated ✓');
-}
+// (Removed toggleEditTargets/saveTargets — dead code. They referenced
+// #targets-edit-form / #targets-display / #edit-targets-btn / #edit-calories,
+// none of which exist in the HTML, and nothing called them but each other.
+// saveTargets() also rebuilt userTargets without `steps`, so wiring them up
+// later would have silently wiped the step goal. Daily Targets is edited via
+// loadDailyTargetsPage / saveDailyTargetsPage.)
 
 function toggleEditProfile() {
   const form = document.getElementById('profile-edit-form');
