@@ -991,11 +991,36 @@
       <!-- WORKOUTS -->
       <div id="progress-section-workouts"></div>
       <div class="card">
-        <div style="display:flex;align-items:center;gap:8px;cursor:pointer" onclick="toggleWorkoutDatePicker()">
+        <div style="display:flex;align-items:center;gap:8px;cursor:pointer" onclick="toggleWorkoutCalendar()">
           <span class="card-title" style="color:#CFA13C;margin:0" id="workout-date-label">Today's Workouts</span>
+          <i class="fa-solid fa-chevron-down" id="workout-cal-chevron" style="color:#CFA13C;font-size:12px;transition:transform 0.2s"></i>
           <span style="font-size:11px;color:var(--muted)" id="workout-date-sub"></span>
         </div>
-        <input type="date" id="workout-date-picker" style="display:none;position:absolute;opacity:0;pointer-events:none" onchange="jumpToWorkoutDate(this.value)" />
+
+        <!-- Workout date calendar. Replaces a hidden <input type="date"> that used
+             showPicker(), which WKWebView does not support — the label looked
+             tappable but nothing opened. No day-quality legend here; this is
+             purely for picking a date. -->
+        <div id="workout-calendar-dropdown" style="display:none;margin:12px 0">
+          <div style="background:linear-gradient(160deg,var(--gold-tint),var(--gold-tint-2));border:1px solid var(--gold-line);border-radius:14px;padding:14px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+              <button onclick="changeWorkoutCalMonth(-1)" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);padding:4px 10px">‹</button>
+              <div style="font-size:14px;font-weight:700;color:var(--ink)" id="workout-cal-month-label"></div>
+              <button onclick="changeWorkoutCalMonth(1)" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);padding:4px 10px">›</button>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:4px">
+              <div style="text-align:center;font-size:10px;font-weight:700;color:var(--muted);padding:3px 0">S</div>
+              <div style="text-align:center;font-size:10px;font-weight:700;color:var(--muted);padding:3px 0">M</div>
+              <div style="text-align:center;font-size:10px;font-weight:700;color:var(--muted);padding:3px 0">T</div>
+              <div style="text-align:center;font-size:10px;font-weight:700;color:var(--muted);padding:3px 0">W</div>
+              <div style="text-align:center;font-size:10px;font-weight:700;color:var(--muted);padding:3px 0">T</div>
+              <div style="text-align:center;font-size:10px;font-weight:700;color:var(--muted);padding:3px 0">F</div>
+              <div style="text-align:center;font-size:10px;font-weight:700;color:var(--muted);padding:3px 0">S</div>
+            </div>
+            <div id="workout-calendar-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px"></div>
+          </div>
+        </div>
+
         <div id="workouts-list"><div class="empty">No workouts logged yet</div></div>
 
         <div style="margin-top:12px">
@@ -1834,7 +1859,20 @@
     </div>
     <div style="padding:16px 20px">
       <div style="font-size:11px;font-weight:700;color:#CFA13C;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">Workout Details</div>
-      <div id="wd-stats" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px"></div>
+      <div id="wd-stats" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px"></div>
+
+      <!-- EFFORT — mirrors the Apple Fitness effort row. Tap to set or change. -->
+      <div id="wd-effort-row" onclick="openEffortPicker()" style="background:var(--bg-deep);border-radius:10px;padding:12px 14px;margin-bottom:20px;display:flex;align-items:center;gap:12px;cursor:pointer">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:11px;color:var(--muted);font-weight:600;margin-bottom:4px">Effort</div>
+          <div style="display:flex;align-items:center;gap:9px">
+            <div id="wd-effort-badge" style="width:26px;height:26px;border-radius:50%;background:var(--surface-2);color:var(--muted);font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">–</div>
+            <div id="wd-effort-label" style="font-size:19px;font-weight:600;color:var(--muted)">Add Effort</div>
+          </div>
+        </div>
+        <div id="wd-effort-bars" style="display:flex;align-items:flex-end;gap:3px;height:22px;flex-shrink:0"></div>
+      </div>
+
       <div id="wd-hr-section" style="display:none">
         <div style="font-size:11px;font-weight:700;color:#CFA13C;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Heart Rate</div>
         <div id="wd-hr-avg" style="font-size:12px;color:var(--muted);margin-bottom:8px"></div>
@@ -1843,6 +1881,17 @@
     </div>
   </div>
 </div>
+<!-- EFFORT PICKER — 1-10 rating using the same bands Apple Fitness uses. -->
+<div id="effort-picker-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);z-index:1200;align-items:center;justify-content:center;padding:24px;box-sizing:border-box" onclick="if(event.target===this)closeEffortPicker()">
+  <div style="background:var(--surface);border-radius:18px;padding:22px;width:100%;max-width:380px">
+    <div style="font-size:16px;font-weight:700;color:var(--ink);margin-bottom:4px;text-align:center">How hard was it?</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:16px;text-align:center">Rate the overall effort of this workout</div>
+    <div id="effort-picker-grid" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px"></div>
+    <button class="btn" id="effort-clear-btn" onclick="setWorkoutEffort(null)" style="width:100%;background:var(--surface-2);color:var(--ink);margin-bottom:8px">Clear Effort</button>
+    <button onclick="closeEffortPicker()" style="background:none;border:none;color:var(--muted);font-size:13px;padding:8px;cursor:pointer;width:100%">Cancel</button>
+  </div>
+</div>
+
 <!-- BODY FAT CALCULATOR MODAL -->
 <div id="bf-calc-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:600;align-items:flex-end;justify-content:center">
   <div style="background:var(--surface);border-radius:20px 20px 0 0;padding:24px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto">
@@ -3138,6 +3187,11 @@ async function syncHealthKitWorkouts(showToast) {
           elevation_feet: w.elevationFeet ?? null,
           avg_heart_rate: w.avgHeartRate ?? null,
           heart_rate_series: w.heartRateSeries ?? null,
+          // Apple's Workout Effort Score (1-10, iOS 18+). Requires the native
+          // plugin to read HKQuantityTypeIdentifierWorkoutEffortScore — until
+          // that ships this is simply undefined and the field is left alone,
+          // so a re-sync can never wipe an effort the user set by hand.
+          ...(w.effort != null ? { effort: w.effort } : {}),
           time: new Date(w.startDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           healthkit_id: w.id
         }, 'healthkit_id');
@@ -4448,8 +4502,89 @@ function _wdStatTile(label, value, unit, valueColor) {
     <div style="font-size:22px;font-weight:700;color:${valueColor || 'var(--ink)'};letter-spacing:-0.5px;margin-top:2px">${value}<span style="font-size:12px;font-weight:600;color:var(--muted);margin-left:2px">${unit || ''}</span></div>
   </div>`;
 }
+// ---- Workout effort (1-10), matching the bands Apple Fitness uses ----
+const EFFORT_BANDS = [
+  { min: 1, max: 3,  label: 'Easy',     color: '#4ADE80' },
+  { min: 4, max: 6,  label: 'Moderate', color: '#60A5FA' },
+  { min: 7, max: 8,  label: 'Hard',     color: '#FBBF24' },
+  { min: 9, max: 10, label: 'All Out',  color: '#EF4444' }
+];
+function effortBand(n) { return EFFORT_BANDS.find(b => n >= b.min && n <= b.max) || null; }
+
+let _effortWorkout = null; // the workout currently open in the detail modal
+
+// Paints the effort row from a workout object. Called on open and after a change.
+function _renderEffortRow(w) {
+  const raw = w && w.effort != null && w.effort !== '' ? +w.effort : null;
+  const n = (raw && raw >= 1 && raw <= 10) ? Math.round(raw) : null;
+  const band = n ? effortBand(n) : null;
+  const badge = document.getElementById('wd-effort-badge');
+  const label = document.getElementById('wd-effort-label');
+  const bars = document.getElementById('wd-effort-bars');
+  if (!badge || !label || !bars) return;
+
+  badge.textContent = n ? n : '–';
+  badge.style.background = band ? band.color : 'var(--surface-2)';
+  badge.style.color = band ? '#101512' : 'var(--muted)';
+  label.textContent = band ? band.label : 'Add Effort';
+  label.style.color = band ? 'var(--ink)' : 'var(--muted)';
+
+  // Five bars rising left to right, filled in proportion to the score.
+  const filled = n ? Math.ceil(n / 2) : 0;
+  bars.innerHTML = [1,2,3,4,5].map(i =>
+    `<div style="width:5px;height:${6 + i * 3.5}px;border-radius:2px;background:${i <= filled && band ? band.color : 'var(--surface-2)'}"></div>`
+  ).join('');
+}
+
+function openEffortPicker() {
+  if (!_effortWorkout) return;
+  const current = _effortWorkout.effort != null && _effortWorkout.effort !== '' ? +_effortWorkout.effort : null;
+  const grid = document.getElementById('effort-picker-grid');
+  grid.innerHTML = EFFORT_BANDS.map(b => {
+    const nums = [];
+    for (let n = b.min; n <= b.max; n++) {
+      const on = current === n;
+      nums.push(`<button onclick="setWorkoutEffort(${n})" style="flex:1;padding:9px 0;border-radius:9px;border:1.5px solid ${on ? b.color : 'var(--line)'};background:${on ? b.color : 'var(--surface-2)'};color:${on ? '#101512' : 'var(--ink)'};font-size:14px;font-weight:700;cursor:pointer">${n}</button>`);
+    }
+    return `<div>
+      <div style="font-size:11px;font-weight:700;color:${b.color};text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px">${b.label}</div>
+      <div style="display:flex;gap:6px">${nums.join('')}</div>
+    </div>`;
+  }).join('');
+  const clearBtn = document.getElementById('effort-clear-btn');
+  if (clearBtn) clearBtn.style.display = current ? '' : 'none';
+  document.getElementById('effort-picker-modal').style.display = 'flex';
+}
+
+function closeEffortPicker() {
+  document.getElementById('effort-picker-modal').style.display = 'none';
+}
+
+async function setWorkoutEffort(n) {
+  const w = _effortWorkout;
+  if (!w) return;
+  closeEffortPicker();
+  const prev = w.effort ?? null;
+  w.effort = n;               // optimistic — the row repaints immediately
+  _renderEffortRow(w);
+  try {
+    await dbPatch('workouts', w.id, { effort: n });
+    // Keep the in-memory list in step so reopening shows the new value.
+    const inList = (currentWorkouts || []).find(x => x.id === w.id);
+    if (inList) inList.effort = n;
+    if (typeof renderWorkouts === 'function') renderWorkouts();
+  } catch(e) {
+    console.error('setWorkoutEffort failed', e);
+    w.effort = prev;          // roll back so the UI never lies about what's saved
+    _renderEffortRow(w);
+    toast('Could not save effort — try again');
+  }
+}
+
 function openWorkoutDetailObj(w) {
   if (!w) return;
+  _effortWorkout = w;
+  _renderEffortRow(w);
   document.getElementById('wd-title').textContent = w.name || 'Workout';
   const dateObj = w.date ? new Date(w.date + 'T12:00:00') : null;
   const dateStr = dateObj ? dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }) : '';
@@ -6500,21 +6635,91 @@ function renderMeals() {
 // ===== WORKOUT DATE PICKER =====
 let workoutViewDate = null;
 
-function toggleWorkoutDatePicker() {
-  const picker = document.getElementById('workout-date-picker');
-  if (!picker) return;
-  picker.value = workoutViewDate || logDate;
-  picker.style.display = 'block';
-  picker.style.opacity = '0';
-  picker.style.position = 'absolute';
-  picker.style.pointerEvents = 'auto';
-  picker.showPicker ? picker.showPicker() : picker.focus();
+// ---- Workout date calendar (Progress tab) ----
+// Mirrors the Today tab's calendar dropdown. Days with a logged workout get a
+// gold dot so you can see at a glance where your workouts are.
+let _wkCalMonth = null, _wkCalYear = null;
+let _wkCalDates = null; // Set of 'YYYY-MM-DD' that have at least one workout
+
+function toggleWorkoutCalendar() {
+  const dd = document.getElementById('workout-calendar-dropdown');
+  const chev = document.getElementById('workout-cal-chevron');
+  if (!dd) return;
+  const opening = dd.style.display === 'none';
+  dd.style.display = opening ? 'block' : 'none';
+  if (chev) chev.style.transform = opening ? 'rotate(180deg)' : 'rotate(0deg)';
+  if (opening) {
+    const base = new Date((workoutViewDate || logDate) + 'T12:00:00');
+    _wkCalMonth = base.getMonth();
+    _wkCalYear = base.getFullYear();
+    renderWorkoutCalendar();
+    _loadWorkoutCalendarDots();
+  }
+}
+
+function changeWorkoutCalMonth(dir) {
+  _wkCalMonth += dir;
+  if (_wkCalMonth < 0) { _wkCalMonth = 11; _wkCalYear--; }
+  else if (_wkCalMonth > 11) { _wkCalMonth = 0; _wkCalYear++; }
+  renderWorkoutCalendar();
+  _loadWorkoutCalendarDots();
+}
+
+// Which days in the visible month have workouts. Fetches dates only, and
+// re-renders when it lands so the grid never blocks on the network.
+async function _loadWorkoutCalendarDots() {
+  const y = _wkCalYear, m = _wkCalMonth;
+  const start = `${y}-${String(m+1).padStart(2,'0')}-01`;
+  const end = `${y}-${String(m+1).padStart(2,'0')}-${String(new Date(y, m+1, 0).getDate()).padStart(2,'0')}`;
+  try {
+    const rows = await dbGet('workouts', `date=gte.${start}&date=lte.${end}&select=date`);
+    // Month may have changed while this was in flight — discard if so.
+    if (y !== _wkCalYear || m !== _wkCalMonth) return;
+    _wkCalDates = new Set((rows || []).map(r => r.date));
+    renderWorkoutCalendar();
+  } catch(e) { /* dots are decoration — a failure here must not break the picker */ }
+}
+
+function renderWorkoutCalendar() {
+  const grid = document.getElementById('workout-calendar-grid');
+  const label = document.getElementById('workout-cal-month-label');
+  if (!grid) return;
+  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  if (label) label.textContent = `${monthNames[_wkCalMonth]} ${_wkCalYear}`;
+
+  const firstDay = new Date(_wkCalYear, _wkCalMonth, 1).getDay();
+  const daysInMonth = new Date(_wkCalYear, _wkCalMonth + 1, 0).getDate();
+  const selected = workoutViewDate || logDate;
+
+  let html = '';
+  for (let i = 0; i < firstDay; i++) html += '<div></div>';
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${_wkCalYear}-${String(_wkCalMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const isToday = dateStr === today;
+    const isFuture = dateStr > today;
+    const isSelected = dateStr === selected;
+    const hasWorkout = _wkCalDates ? _wkCalDates.has(dateStr) : false;
+
+    const bg = isSelected ? '#CFA13C' : (hasWorkout ? 'var(--gold-tint)' : 'transparent');
+    const fg = isSelected ? '#101512' : (isFuture ? 'var(--line)' : (isToday ? '#CFA13C' : 'var(--ink)'));
+    const ring = (isToday && !isSelected) ? 'border:2px solid #CFA13C;' : 'border:2px solid transparent;';
+
+    html += `<div onclick="${!isFuture ? `jumpToWorkoutDate('${dateStr}')` : ''}"
+      style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4px 2px;border-radius:10px;background:${bg};${ring}cursor:${!isFuture ? 'pointer' : 'default'};min-height:38px">
+      <div style="font-size:12px;font-weight:${isToday||isSelected?'700':'400'};color:${fg};line-height:1">${d}</div>
+      <div style="width:4px;height:4px;border-radius:50%;margin-top:3px;background:${hasWorkout ? (isSelected ? '#101512' : '#CFA13C') : 'transparent'}"></div>
+    </div>`;
+  }
+  grid.innerHTML = html;
 }
 
 async function jumpToWorkoutDate(dateStr) {
   if (!dateStr) return;
-  const picker = document.getElementById('workout-date-picker');
-  if (picker) { picker.style.display = 'none'; picker.style.pointerEvents = 'none'; }
+  const dd = document.getElementById('workout-calendar-dropdown');
+  const chev = document.getElementById('workout-cal-chevron');
+  if (dd) dd.style.display = 'none';
+  if (chev) chev.style.transform = 'rotate(0deg)';
   workoutViewDate = dateStr;
   currentWorkouts = await dbGet('workouts', `date=eq.${dateStr}`);
   renderWorkouts();
