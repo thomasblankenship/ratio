@@ -4060,7 +4060,7 @@ function switchTab(tab) {
     if (detailEl) detailEl.style.display = 'none';
   }
   if (tab === 'meals') loadMealsTab();
-  if (tab === 'progress') { loadGoals().then(() => { loadScans(); updateGoalsDisplay(); }); loadDayTotals(); }
+  if (tab === 'progress') { resetWorkoutDateToToday(); loadTodayWorkouts(); loadGoals().then(() => { loadScans(); updateGoalsDisplay(); }); loadDayTotals(); }
   if (tab === 'profile') loadCurrentUsername();
   if (tab === 'profile-myprofile') loadMyProfilePage();
   if (tab === 'profile-allergies') loadFoodAllergiesPage();
@@ -6550,11 +6550,32 @@ async function loadTodayMeals() {
   console.log('Meals loaded:', currentMeals.length, currentMeals);
   renderMeals();
 }
+// Loads TODAY (well, logDate) — so it must also clear any past date the user
+// had navigated to, or the heading keeps saying "Wed, Jul 29 Workouts" while
+// showing today's rows.
 async function loadTodayWorkouts() {
-  console.log('Loading workouts for date:', logDate);
+  workoutViewDate = null;
   currentWorkouts = await dbGet('workouts', `date=eq.${logDate}`);
-  console.log('Workouts loaded:', currentWorkouts.length);
   renderWorkouts();
+}
+
+// Reloads whichever date is currently being viewed. Use after edits/deletes so
+// the user isn't yanked back to today mid-task.
+async function reloadViewedWorkouts() {
+  const d = workoutViewDate || logDate;
+  currentWorkouts = await dbGet('workouts', `date=eq.${d}`);
+  renderWorkouts();
+}
+
+// Back to Today, calendar closed. Called on entering the Progress tab so the
+// section always opens in its default state rather than on whatever past date
+// was last browsed.
+function resetWorkoutDateToToday() {
+  workoutViewDate = null;
+  const dd = document.getElementById('workout-calendar-dropdown');
+  const chev = document.getElementById('workout-cal-chevron');
+  if (dd) dd.style.display = 'none';
+  if (chev) chev.style.transform = 'rotate(0deg)';
 }
 
 function renderMealSection(meals, indices, showEmpty) {
@@ -6784,9 +6805,9 @@ function renderWorkouts() {
     btn.addEventListener('click', async (e) => {
       e.stopPropagation();
       const w = currentWorkouts[+btn.dataset.wdelete];
-      if (!confirm(`Delete "${w.name}"?`)) return;
+      if (!await appConfirm(`Delete "${w.name}"? This cannot be undone.`, { title: 'Delete Workout', yesLabel: 'Yes, Delete' })) return;
       await dbDelete('workouts', w.id);
-      await loadTodayWorkouts();
+      await reloadViewedWorkouts(); // stay on the date being viewed
       toast('Workout removed');
     });
   });
