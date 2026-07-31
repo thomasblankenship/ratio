@@ -89,6 +89,15 @@
     .range-pill { padding:4px 12px; font-size:12px; font-weight:600; border:none; border-radius:20px; background:var(--surface-2); color:var(--muted); cursor:pointer; white-space:nowrap; transition:all 0.15s; }
     .range-pill.active-pill { background:#CFA13C; color:#101512; }
 
+    /* Edit Goal sheets. These used to expand inline at the bottom of their card,
+       so tapping "Edit Goal" looked like nothing happened until you scrolled.
+       They stay in the DOM (never injected) and just become a centered overlay
+       when shown — toggleGoalEdit sets display:flex. The goal numpad sits above
+       at z-index 1150, and appConfirm/appPrompt above that at 1200. */
+    .goal-edit-overlay { position:fixed; inset:0; z-index:1100; align-items:center; justify-content:center; background:rgba(0,0,0,0.6); backdrop-filter:blur(4px); padding:24px; box-sizing:border-box; }
+    .goal-edit-card { background:var(--surface); border-radius:18px; padding:22px; width:100%; max-width:400px; max-height:85vh; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+    .goal-edit-title { font-size:16px; font-weight:700; color:var(--ink); margin-bottom:16px; text-align:center; }
+
     /* LAYOUT */
     .app { display: flex; flex-direction: column; height: 100dvh; max-width: 520px; margin: 0 auto; }
     
@@ -752,18 +761,21 @@
         </div>
         <div id="weight-fun-fact" style="font-size:12px;color:#4ADE80;font-weight:600;margin-top:8px;display:none"></div>
         <!-- Goal edit inline -->
-        <div id="weight-goal-edit" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid var(--surface-2)">
-          <div class="form-row form-group">
-            <div><div style="font-size:11px;color:var(--muted);margin-bottom:4px;font-weight:600">Starting Weight (lbs)</div>
-              <button onclick="openGoalNumpad('weight-start','lbs')" id="edit-weight-start-btn" style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:14px;text-align:left;background:var(--surface);cursor:pointer;color:var(--ink)">Tap to set</button>
-              <input type="hidden" id="edit-weight-start" /></div>
-            <div><div style="font-size:11px;color:var(--muted);margin-bottom:4px;font-weight:600">Goal Weight (lbs)</div>
-              <button onclick="openGoalNumpad('weight-goal','lbs')" id="edit-weight-goal-btn" style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:14px;text-align:left;background:var(--surface);cursor:pointer;color:var(--ink)">Tap to set</button>
-              <input type="hidden" id="edit-weight-goal" /></div>
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-            <button class="btn" onclick="toggleGoalEdit('weight')" style="background:var(--surface-2);color:var(--ink)">Cancel</button>
-            <button class="btn" onclick="saveWeightGoal()">Save</button>
+        <div id="weight-goal-edit" class="goal-edit-overlay" style="display:none" onclick="if(event.target===this)toggleGoalEdit('weight')">
+          <div class="goal-edit-card">
+            <div class="goal-edit-title">Edit Weight Goal</div>
+            <div class="form-row form-group">
+              <div><div style="font-size:11px;color:var(--muted);margin-bottom:4px;font-weight:600">Starting Weight (lbs)</div>
+                <button onclick="openGoalNumpad('weight-start','lbs')" id="edit-weight-start-btn" style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:14px;text-align:left;background:var(--surface);cursor:pointer;color:var(--ink)">Tap to set</button>
+                <input type="hidden" id="edit-weight-start" /></div>
+              <div><div style="font-size:11px;color:var(--muted);margin-bottom:4px;font-weight:600">Goal Weight (lbs)</div>
+                <button onclick="openGoalNumpad('weight-goal','lbs')" id="edit-weight-goal-btn" style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:14px;text-align:left;background:var(--surface);cursor:pointer;color:var(--ink)">Tap to set</button>
+                <input type="hidden" id="edit-weight-goal" /></div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+              <button class="btn" onclick="toggleGoalEdit('weight')" style="background:var(--surface-2);color:var(--ink)">Cancel</button>
+              <button class="btn" onclick="saveWeightGoal()">Save</button>
+            </div>
           </div>
         </div>
       </div>
@@ -855,19 +867,21 @@
             </div>
             <button onclick="openLogModal('bf')" style="background:var(--accent);color:#101512;border:none;border-radius:18px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0">Record Body Fat</button>
           </div>
-          <!-- Goal edit inline -->
-          <div id="bf-goal-edit" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid var(--surface-2)">
-            <div class="form-row form-group">
-              <div><div style="font-size:11px;color:var(--muted);margin-bottom:4px;font-weight:600">Starting Body Fat %</div>
-                <button onclick="openGoalNumpad('bf-current','%')" id="edit-bf-current-btn" style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:14px;text-align:left;background:var(--surface);cursor:pointer;color:var(--ink)">Tap to set</button>
-                <input type="hidden" id="edit-bf-current" /></div>
-              <div><div style="font-size:11px;color:var(--muted);margin-bottom:4px;font-weight:600">Goal Body Fat %</div>
-                <button onclick="openGoalNumpad('bf-goal','%')" id="edit-bf-goal-btn" style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:14px;text-align:left;background:var(--surface);cursor:pointer;color:var(--ink)">Tap to set</button>
-                <input type="hidden" id="edit-bf-goal" /></div>
-            </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-              <button class="btn" onclick="toggleGoalEdit('bf')" style="background:var(--surface-2);color:var(--ink)">Cancel</button>
-              <button class="btn" onclick="saveBfGoal()">Save</button>
+          <div id="bf-goal-edit" class="goal-edit-overlay" style="display:none" onclick="if(event.target===this)toggleGoalEdit('bf')">
+            <div class="goal-edit-card">
+              <div class="goal-edit-title">Edit Body Fat Goal</div>
+              <div class="form-row form-group">
+                <div><div style="font-size:11px;color:var(--muted);margin-bottom:4px;font-weight:600">Starting Body Fat %</div>
+                  <button onclick="openGoalNumpad('bf-current','%')" id="edit-bf-current-btn" style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:14px;text-align:left;background:var(--surface);cursor:pointer;color:var(--ink)">Tap to set</button>
+                  <input type="hidden" id="edit-bf-current" /></div>
+                <div><div style="font-size:11px;color:var(--muted);margin-bottom:4px;font-weight:600">Goal Body Fat %</div>
+                  <button onclick="openGoalNumpad('bf-goal','%')" id="edit-bf-goal-btn" style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:14px;text-align:left;background:var(--surface);cursor:pointer;color:var(--ink)">Tap to set</button>
+                  <input type="hidden" id="edit-bf-goal" /></div>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                <button class="btn" onclick="toggleGoalEdit('bf')" style="background:var(--surface-2);color:var(--ink)">Cancel</button>
+                <button class="btn" onclick="saveBfGoal()">Save</button>
+              </div>
             </div>
           </div>
         </div>
@@ -946,19 +960,21 @@
             </div>
             <button id="muscle-record-btn" onclick="openLogModal('muscle')" style="background:var(--accent);color:#101512;border:none;border-radius:18px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0">Record Muscle</button>
           </div>
-          <!-- Goal edit inline -->
-          <div id="muscle-goal-edit" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid var(--surface-2)">
-            <div class="form-row form-group">
-              <div><div style="font-size:11px;color:var(--muted);margin-bottom:4px;font-weight:600">Current Muscle (lbs)</div>
-                <button onclick="openGoalNumpad('muscle-current','lbs')" id="edit-muscle-current-btn" style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:14px;text-align:left;background:var(--surface);cursor:pointer;color:var(--ink)">Tap to set</button>
-                <input type="hidden" id="edit-muscle-current" /></div>
-              <div><div style="font-size:11px;color:var(--muted);margin-bottom:4px;font-weight:600">Goal Muscle (lbs)</div>
-                <button onclick="openGoalNumpad('muscle-goal','lbs')" id="edit-muscle-goal-btn" style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:14px;text-align:left;background:var(--surface);cursor:pointer;color:var(--ink)">Tap to set</button>
-                <input type="hidden" id="edit-muscle-goal" /></div>
-            </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-              <button class="btn" onclick="toggleGoalEdit('muscle')" style="background:var(--surface-2);color:var(--ink)">Cancel</button>
-              <button class="btn" onclick="saveMuscleGoal()" style="background:#4ADE80">Save</button>
+          <div id="muscle-goal-edit" class="goal-edit-overlay" style="display:none" onclick="if(event.target===this)toggleGoalEdit('muscle')">
+            <div class="goal-edit-card">
+              <div class="goal-edit-title">Edit Muscle Mass Goal</div>
+              <div class="form-row form-group">
+                <div><div style="font-size:11px;color:var(--muted);margin-bottom:4px;font-weight:600">Current Muscle (lbs)</div>
+                  <button onclick="openGoalNumpad('muscle-current','lbs')" id="edit-muscle-current-btn" style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:14px;text-align:left;background:var(--surface);cursor:pointer;color:var(--ink)">Tap to set</button>
+                  <input type="hidden" id="edit-muscle-current" /></div>
+                <div><div style="font-size:11px;color:var(--muted);margin-bottom:4px;font-weight:600">Goal Muscle (lbs)</div>
+                  <button onclick="openGoalNumpad('muscle-goal','lbs')" id="edit-muscle-goal-btn" style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:14px;text-align:left;background:var(--surface);cursor:pointer;color:var(--ink)">Tap to set</button>
+                  <input type="hidden" id="edit-muscle-goal" /></div>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                <button class="btn" onclick="toggleGoalEdit('muscle')" style="background:var(--surface-2);color:var(--ink)">Cancel</button>
+                <button class="btn" onclick="saveMuscleGoal()" style="background:#4ADE80">Save</button>
+              </div>
             </div>
           </div>
         </div>
@@ -2028,7 +2044,9 @@
   </div>
 </div>
 
-<div id="goal-numpad-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:700;align-items:flex-end;justify-content:center">
+<!-- z-index 1150: must sit ABOVE the goal-edit overlays (1100) that launch it,
+     and below appConfirm/appPrompt (1200). -->
+<div id="goal-numpad-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1150;align-items:flex-end;justify-content:center">
   <div style="background:var(--surface);border-radius:20px 20px 0 0;padding:24px 20px 40px;width:100%;max-width:480px">
     <div style="text-align:center;margin-bottom:16px">
       <div id="goal-numpad-title" style="font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Value</div>
@@ -2174,15 +2192,16 @@
       </div>
     </div>
 
-    <!-- Step 3: result — show suggested calories with Apply button -->
+    <!-- Step 3: result — suggested calories. Three distinct outcomes, because
+         "set my new goal but leave my calories alone" is a real choice and the
+         old two-button layout forced an all-or-nothing decision. -->
     <div id="whats-next-result" style="display:none">
       <div id="whats-next-result-text" style="font-size:14px;color:var(--muted);line-height:1.5;margin-bottom:12px"></div>
       <div id="whats-next-result-number" style="font-size:42px;font-weight:800;color:var(--accent);margin-bottom:4px">—</div>
       <div style="font-size:12px;color:var(--muted);margin-bottom:16px">calories / day</div>
-      <div style="display:flex;gap:8px">
-        <button class="btn" onclick="whatsNextBackToChoices()" style="flex:1;background:var(--surface-2);color:var(--ink)">Back</button>
-        <button class="btn" onclick="whatsNextApply()" style="flex:1">Update My Target</button>
-      </div>
+      <button class="btn" onclick="whatsNextApply(true)" style="width:100%;margin-bottom:8px">Update Goal + Calories</button>
+      <button class="btn" id="whats-next-keep-cals-btn" onclick="whatsNextApply(false)" style="width:100%;background:var(--surface-2);color:var(--ink)">Keep My Calories</button>
+      <button onclick="closeWhatsNextModal()" style="background:none;border:none;color:var(--muted);font-size:13px;padding:10px 8px 2px;cursor:pointer;width:100%">Decide Later</button>
     </div>
   </div>
 </div>
@@ -10816,7 +10835,7 @@ function toggleGoalEdit(type) {
   const idMap = { weight: 'weight-goal-edit', bf: 'bf-goal-edit', muscle: 'muscle-goal-edit' };
   const el = document.getElementById(idMap[type]);
   const isOpen = el.style.display !== 'none';
-  el.style.display = isOpen ? 'none' : 'block';
+  el.style.display = isOpen ? 'none' : 'flex'; // flex — these are centered overlays now
   if (!isOpen) {
     if (type === 'weight') {
       const latestW = allScans.filter(s => s.weight).slice(-1)[0]?.weight;
@@ -11687,18 +11706,19 @@ async function saveLogEntry() {
     closeLogModal();
     await loadScans();
     toast('Saved ✓');
-    // Goal celebration + calorie-shift suggestion only make sense for a genuinely
-    // NEW day's entry — overwriting an existing same-day value isn't a new data
-    // point, so skip both to avoid re-triggering them on every correction.
-    if (!existing) {
-      if (_logModalType === 'weight') {
-        const goalMet = checkGoalAchievement('weight', val);
-        if (!goalMet) maybeSuggestCalorieUpdate();
-      } else if (_logModalType === 'bf') {
-        checkGoalAchievement('bf', val);
-      } else if (_logModalType === 'muscle') {
-        checkGoalAchievement('muscle', val);
-      }
+    // Celebration fires on corrections too — hitting your goal is hitting your
+    // goal however the number got there, and correcting today's entry down to
+    // the target used to be silently ignored. Repeat confetti is prevented by
+    // the persisted userGoals.celebrated record, not by skipping updates.
+    // The calorie-shift suggestion still only runs for a genuinely new entry,
+    // since it compares this weigh-in against the previous one.
+    if (_logModalType === 'weight') {
+      const goalMet = checkGoalAchievement('weight', val);
+      if (!goalMet && !existing) maybeSuggestCalorieUpdate();
+    } else if (_logModalType === 'bf') {
+      checkGoalAchievement('bf', val);
+    } else if (_logModalType === 'muscle') {
+      checkGoalAchievement('muscle', val);
     }
   } catch(e) {
     console.error('saveLogEntry error:', e);
@@ -11939,6 +11959,21 @@ function closeWhatsNextModal() {
   document.getElementById('whats-next-modal').style.display = 'none';
 }
 
+// Shows the result step. "Keep My Calories" only makes sense when there's a new
+// goal to save instead — on the Maintain path the calorie change IS the whole
+// action, so offering to skip it would leave the button doing nothing.
+function _whatsNextShowResult(description, cals) {
+  document.getElementById('whats-next-new-goal').style.display = 'none';
+  document.getElementById('whats-next-result-text').textContent = description;
+  document.getElementById('whats-next-result-number').textContent = cals.toLocaleString();
+  const keepBtn = document.getElementById('whats-next-keep-cals-btn');
+  if (keepBtn) {
+    keepBtn.style.display = _whatsNextPendingGoal ? '' : 'none';
+    keepBtn.textContent = `Keep My ${(userTargets.calories || 0).toLocaleString()} cal Target`;
+  }
+  document.getElementById('whats-next-result').style.display = 'block';
+}
+
 function whatsNextNewGoal() {
   document.getElementById('whats-next-choices').style.display = 'none';
   document.getElementById('whats-next-result').style.display = 'none';
@@ -11972,10 +12007,7 @@ function whatsNextMaintain() {
   _whatsNextSuggestedCals = tdee;
 
   document.getElementById('whats-next-choices').style.display = 'none';
-  document.getElementById('whats-next-new-goal').style.display = 'none';
-  document.getElementById('whats-next-result-text').textContent = `To maintain your current weight of ${currentWeight} lbs, your estimated daily calorie need is:`;
-  document.getElementById('whats-next-result-number').textContent = tdee.toLocaleString();
-  document.getElementById('whats-next-result').style.display = 'block';
+  _whatsNextShowResult(`To maintain your current weight of ${currentWeight} lbs, your estimated daily calorie need is:`, tdee);
 }
 
 // PREVIEW ONLY — this must never write to userGoals or the database. It used to
@@ -12023,18 +12055,17 @@ function whatsNextCalculateNewGoal() {
   }
 
   _whatsNextSuggestedCals = suggestedCals;
-
-  document.getElementById('whats-next-new-goal').style.display = 'none';
-  document.getElementById('whats-next-result-text').textContent = description;
-  document.getElementById('whats-next-result-number').textContent = suggestedCals.toLocaleString();
-  document.getElementById('whats-next-result').style.display = 'block';
+  _whatsNextShowResult(description, suggestedCals);
 }
 
 // The ONLY place the What's Next flow is allowed to persist anything. Shows the
 // user every value that is about to change — goal, starting weight, and calorie
 // target — because silently rewriting a starting weight they set months ago is
 // not recoverable from inside the app.
-async function whatsNextApply() {
+// applyCalories=false means "set the new goal, leave my calorie target alone".
+// On the Maintain path there is no goal to set, so that combination is a no-op
+// and simply closes.
+async function whatsNextApply(applyCalories = true) {
   const changes = [];
   const p = _whatsNextPendingGoal;
 
@@ -12047,10 +12078,13 @@ async function whatsNextApply() {
     if (userGoals.muscleGoal !== p.newGoal) changes.push(`Muscle goal: ${userGoals.muscleGoal ?? '—'} → ${p.newGoal} lbs`);
   }
 
-  const calsChanging = _whatsNextSuggestedCals > 0 && _whatsNextSuggestedCals !== userTargets.calories;
+  const calsChanging = applyCalories && _whatsNextSuggestedCals > 0 && _whatsNextSuggestedCals !== userTargets.calories;
   if (calsChanging) changes.push(`Daily calories: ${(userTargets.calories || 0).toLocaleString()} → ${_whatsNextSuggestedCals.toLocaleString()}`);
+  else if (!applyCalories) changes.push(`Daily calories: unchanged at ${(userTargets.calories || 0).toLocaleString()}`);
 
-  if (!changes.length) { closeWhatsNextModal(); return; }
+  // Nothing would actually change (e.g. "Keep My Calories" on the Maintain path,
+  // where there is no goal to set) — just close rather than show an empty dialog.
+  if (!changes.length || (!p && !calsChanging)) { closeWhatsNextModal(); return; }
 
   const ok = await appConfirm(`This will update:\n\n${changes.join('\n')}`, { title: 'Confirm Changes', yesLabel: 'Yes, Update' });
   if (!ok) return;
@@ -13169,7 +13203,10 @@ async function useBfEstimate() {
   document.getElementById('edit-bf-current').value = _bfCalcResult;
   // Open the edit goal section
   const el = document.getElementById('bf-goal-edit');
-  el.style.display = 'block';
+  el.style.display = 'flex'; // centered overlay
+  // Keep the button label in step with the value we just wrote into the hidden input.
+  const bfBtn = document.getElementById('edit-bf-current-btn');
+  if (bfBtn) bfBtn.textContent = _bfCalcResult + ' %';
   // Also update userGoals.bfCurrent
   userGoals.bfCurrent = _bfCalcResult;
   await saveSetting('goals', userGoals);
