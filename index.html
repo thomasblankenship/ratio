@@ -11050,7 +11050,7 @@ function renderWeightChart() {
     const funFactEl = document.getElementById('weight-fun-fact');
     if (userGoals.weightStart && latestScan.weight < userGoals.weightStart) {
       const lost = Math.round((userGoals.weightStart - latestScan.weight) * 10) / 10;
-      const facts = [[1,'🍞 a loaf of bread'],[2,'🔨 a hammer'],[3,'🍷 a box of wine'],[4,'🍉 a medium-sized watermelon'],[5,'<i class="fa-solid fa-egg"></i> a cast iron skillet'],[6,'🐈 a house cat'],[7,'👶 a newborn baby'],[8,'🔥 a bag of charcoal'],[9,'🥛 a gallon of milk'],[10,'🎳 a bowling ball'],[12,'🦃 a Thanksgiving turkey'],[15,'🎒 a fully loaded backpack'],[20,'🍉 a large watermelon'],[22,'🛞 a car tire'],[25,'🐕 a large dog'],[30,'🛒 a metal hand cart'],[36,'🧒 a 4-year-old child'],[47,'💧 a water cooler jug'],[50,'🐾 a bag of dog food']];
+      const facts = [[1,'🍞 a loaf of bread'],[2,'🔨 a hammer'],[3,'🍷 a box of wine'],[4,'🍉 a medium-sized watermelon'],[5,'🍳 a cast iron skillet'],[6,'🐈 a house cat'],[7,'👶 a newborn baby'],[8,'🔥 a bag of charcoal'],[9,'🥛 a gallon of milk'],[10,'🎳 a bowling ball'],[12,'🦃 a Thanksgiving turkey'],[15,'🎒 a fully loaded backpack'],[20,'🍉 a large watermelon'],[22,'🛞 a car tire'],[25,'🐕 a large dog'],[30,'🛒 a metal hand cart'],[36,'🧒 a 4-year-old child'],[47,'💧 a water cooler jug'],[50,'🐾 a bag of dog food']];
       let match = facts[0];
       for (const f of facts) { if (lost >= f[0]) match = f; else break; }
       funFactEl.textContent = `🎉 Down ${lost} lbs — that's the weight of ${match[1]}!`;
@@ -11797,38 +11797,52 @@ function _weightGoalIsLoss(goalVal) {
   return null; // genuinely unknowable — caller must not guess
 }
 
+// Forgets that a goal was celebrated, so reaching it again later celebrates again.
+function _clearCelebrated(type) {
+  const rec = userGoals.celebrated || {};
+  if (rec[type] === undefined) return;
+  const next = { ...rec };
+  delete next[type];
+  userGoals.celebrated = next;
+  delete _celebratedGoals[type];
+  saveSetting('goals', userGoals);
+}
+
 function checkGoalAchievement(type, value) {
-  if (_celebratedGoals[type]) return false; // already celebrated this session
-  // Persisted across sessions: without this, a met-but-unchanged goal re-fires
-  // confetti on the first weigh-in after every single app launch.
-  const alreadyCelebrated = (userGoals.celebrated || {})[type];
-  let goalVal, message;
+  let goalVal, message, met;
 
   if (type === 'weight' && userGoals.weightGoal) {
     goalVal = userGoals.weightGoal;
     const isLossGoal = _weightGoalIsLoss(goalVal);
     if (isLossGoal === null) return false;
-    const met = isLossGoal ? (value <= goalVal) : (value >= goalVal);
-    if (!met) return false;
-    _celebratedGoalValue = value;
+    met = isLossGoal ? (value <= goalVal) : (value >= goalVal);
     message = `You hit your weight goal of ${goalVal} lbs! All that hard work paid off.`;
   } else if (type === 'bf' && userGoals.bfGoal) {
     goalVal = userGoals.bfGoal;
-    if (value > goalVal) return false; // body fat goals are always "get lower"
+    met = value <= goalVal; // body fat goals are always "get lower"
     message = `You reached your body fat goal of ${goalVal}%! Incredible dedication.`;
   } else if (type === 'muscle' && userGoals.muscleGoal) {
     goalVal = userGoals.muscleGoal;
-    if (value < goalVal) return false; // muscle goals are always "get higher"
+    met = value >= goalVal; // muscle goals are always "get higher"
     message = `You hit your muscle mass goal of ${goalVal} lbs! The gains are real.`;
   } else {
     return false;
   }
 
-  // Same goal value already celebrated in a past session — don't do it again.
-  // Returning true still suppresses the calorie-shift suggestion, which is
-  // correct: this weigh-in isn't news.
-  if (alreadyCelebrated === goalVal) { _celebratedGoals[type] = true; return true; }
+  // Moved back away from the goal — forget the previous celebration so that
+  // reaching it again is treated as a fresh achievement. Without this, the
+  // first time you ever hit a goal is the ONLY time you ever get confetti for
+  // it, no matter how far you drift and climb back.
+  if (!met) { _clearCelebrated(type); return false; }
 
+  // Already celebrated THIS goal value and haven't been away since. Don't repeat
+  // it (that would re-fire on every weigh-in and on every app launch), but still
+  // return true so the calorie-shift suggestion stays suppressed — this weigh-in
+  // isn't news either way.
+  if ((userGoals.celebrated || {})[type] === goalVal) { _celebratedGoals[type] = true; return true; }
+  if (_celebratedGoals[type]) return true; // already celebrated this session
+
+  if (type === 'weight') _celebratedGoalValue = value;
   _celebratedGoals[type] = true;
   userGoals.celebrated = { ...(userGoals.celebrated || {}), [type]: goalVal };
   saveSetting('goals', userGoals);
@@ -13072,7 +13086,11 @@ async function saveProfile() {
   if (!heightIn || !age) { toast('Fill in height and age'); return; }
   const dispFt = Math.floor(heightIn / 12);
   const dispIn = heightIn % 12;
-  userProfile = { heightIn, age, gender, activity, name };
+  // Spread, don't replace: a bare object literal here silently wiped primaryGoal,
+  // weeklyPace, location, timezone, dob and avatarUrl every time the profile was
+  // saved — and primaryGoal is what tells the app whether a weight goal is a
+  // lose-goal or a gain-goal.
+  userProfile = { ...userProfile, heightIn, age, gender, activity, name };
   await saveSetting('profile', userProfile);
   await saveSetting('targets', userTargets);
   // Also update Supabase auth display_name
