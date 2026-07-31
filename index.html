@@ -975,7 +975,11 @@
       <!-- WORKOUTS -->
       <div id="progress-section-workouts"></div>
       <div class="card">
-        <div class="card-title" style="color:#CFA13C">Workouts</div>
+        <div style="display:flex;align-items:center;gap:8px;cursor:pointer" onclick="toggleWorkoutDatePicker()">
+          <span class="card-title" style="color:#CFA13C;margin:0" id="workout-date-label">Today's Workouts</span>
+          <span style="font-size:11px;color:var(--muted)" id="workout-date-sub"></span>
+        </div>
+        <input type="date" id="workout-date-picker" style="display:none;position:absolute;opacity:0;pointer-events:none" onchange="jumpToWorkoutDate(this.value)" />
         <div id="workouts-list"><div class="empty">No workouts logged yet</div></div>
 
         <div style="margin-top:12px">
@@ -1012,7 +1016,7 @@
           <span onclick="editStepGoalDirect()" style="cursor:pointer;font-weight:600;color:#CFA13C;font-size:12px" id="steps-goal-display">— Goal <i class="fa-solid fa-pen" style="font-size:0.7em"></i></span>
         </div>
         <div id="steps-chart-disabled" style="display:none;text-align:center;padding:24px 12px;color:var(--muted);font-size:13px">
-          Connect Apple Health in <b onclick="switchTab('profile-devices')" style="color:#CFA13C;cursor:pointer">App and Devices</b> to see your steps here.
+          Connect Apple Health in <b onclick="switchTab('profile-devices')" style="color:#CFA13C;cursor:pointer">Apps and Devices</b> to see your steps here.
         </div>
         <div id="steps-chart-content" style="display:none">
           <div style="display:flex;justify-content:center;margin-bottom:16px">
@@ -1193,7 +1197,7 @@
         <button onclick="switchTab('profile-myprofile'); loadMyProfilePage();" class="profile-row"><span><i class="fa-solid fa-user profile-row-icon"></i>My Profile</span><i class="fa-solid fa-chevron-right"></i></button>
         <button onclick="switchTab('profile-settings')" class="profile-row"><span><i class="fa-solid fa-gear profile-row-icon"></i>Settings</span><i class="fa-solid fa-chevron-right"></i></button>
         <button onclick="switchTab('profile-allergies')" class="profile-row"><span><i class="fa-solid fa-wheat-awn-circle-exclamation profile-row-icon"></i>Food Allergies</span><i class="fa-solid fa-chevron-right"></i></button>
-        <button onclick="switchTab('profile-devices')" class="profile-row"><span><i class="fa-solid fa-mobile-screen profile-row-icon"></i>App and Devices</span><i class="fa-solid fa-chevron-right"></i></button>
+        <button onclick="switchTab('profile-devices')" class="profile-row"><span><i class="fa-solid fa-mobile-screen profile-row-icon"></i>Apps and Devices</span><i class="fa-solid fa-chevron-right"></i></button>
         <button onclick="switchTab('profile-targets')" class="profile-row"><span><i class="fa-solid fa-bullseye profile-row-icon"></i>Daily Targets</span><i class="fa-solid fa-chevron-right"></i></button>
         <button onclick="switchTab('profile-report')" class="profile-row"><span><i class="fa-solid fa-chart-simple profile-row-icon"></i>My Weekly Report</span><i class="fa-solid fa-chevron-right"></i></button>
         <button onclick="switchTab('profile-privacy')" class="profile-row"><span><i class="fa-solid fa-lock profile-row-icon"></i>Privacy</span><i class="fa-solid fa-chevron-right"></i></button>
@@ -1403,7 +1407,7 @@
     <div id="tab-profile-devices" style="display:none">
       <div class="profile-subpage-header">
         <button onclick="switchTab('profile')" class="profile-back-btn"><i class="fa-solid fa-arrow-left"></i></button>
-        <div class="profile-subpage-title">App and Devices</div>
+        <div class="profile-subpage-title">Apps and Devices</div>
         <button onclick="switchTab('profile')" class="profile-save-btn">Save</button>
       </div>
       <div style="padding:20px">
@@ -6469,7 +6473,48 @@ function renderMeals() {
   });
 }
 
+// ===== WORKOUT DATE PICKER =====
+let workoutViewDate = null;
+
+function toggleWorkoutDatePicker() {
+  const picker = document.getElementById('workout-date-picker');
+  if (!picker) return;
+  picker.value = workoutViewDate || logDate;
+  picker.style.display = 'block';
+  picker.style.opacity = '0';
+  picker.style.position = 'absolute';
+  picker.style.pointerEvents = 'auto';
+  picker.showPicker ? picker.showPicker() : picker.focus();
+}
+
+async function jumpToWorkoutDate(dateStr) {
+  if (!dateStr) return;
+  const picker = document.getElementById('workout-date-picker');
+  if (picker) { picker.style.display = 'none'; picker.style.pointerEvents = 'none'; }
+  workoutViewDate = dateStr;
+  currentWorkouts = await dbGet('workouts', `date=eq.${dateStr}`);
+  renderWorkouts();
+}
+
+function updateWorkoutDateLabel() {
+  const dateStr = workoutViewDate || logDate;
+  const d = new Date(dateStr + 'T12:00:00');
+  const todayLocal = new Date(); todayLocal.setHours(12,0,0,0);
+  const todayStr = `${todayLocal.getFullYear()}-${String(todayLocal.getMonth()+1).padStart(2,'0')}-${String(todayLocal.getDate()).padStart(2,'0')}`;
+  const yesterday = new Date(todayLocal); yesterday.setDate(yesterday.getDate() - 1);
+  const yStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth()+1).padStart(2,'0')}-${String(yesterday.getDate()).padStart(2,'0')}`;
+  const isToday = dateStr === todayStr;
+  const isYesterday = dateStr === yStr;
+  const label = isToday ? "Today's Workouts" : isYesterday ? "Yesterday's Workouts" : d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) + ' Workouts';
+  const sub = isToday ? '' : d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  const labelEl = document.getElementById('workout-date-label');
+  const subEl = document.getElementById('workout-date-sub');
+  if (labelEl) labelEl.textContent = label;
+  if (subEl) subEl.textContent = sub;
+}
+
 function renderWorkouts() {
+  updateWorkoutDateLabel();
   const el = document.getElementById('workouts-list');
   // Always update burned calories display, even with zero workouts
   const burnedTotal = currentWorkouts.reduce((a, w) => a + (+w.calories||0), 0);
@@ -14430,7 +14475,7 @@ if (document.readyState === 'loading') {
           <div><div style="font-size:14px;font-weight:700;color:var(--ink)">Weight & body fat auto-import</div><div style="font-size:12px;color:var(--muted)">From a smart scale via Apple Health</div></div>
         </div>
       </div>
-      <div style="font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:8px">You can change this anytime in Profile → App and Devices. If you're signing up on the web, this activates the first time you open the iOS app.</div>
+      <div style="font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:8px">You can change this anytime in Profile → Apps and Devices. If you're signing up on the web, this activates the first time you open the iOS app.</div>
       <div id="ob-step10-error" style="font-size:13px;color:#F87171;margin-top:4px;display:none"></div>
     </div>
     <div style="padding:20px 24px 40px;display:flex;flex-direction:column;gap:10px">
