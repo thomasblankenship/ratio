@@ -1382,6 +1382,10 @@
             <div id="todo-notif-toggle-knob" style="position:absolute;top:3px;right:3px;width:16px;height:16px;border-radius:50%;background:var(--surface);transition:all 0.2s"></div>
           </div>
         </div>
+        <div class="mp-row" onclick="sendTestTodoNotification()">
+          <div class="mp-row-label">Test Reminder</div>
+          <div class="mp-row-value" style="color:#CFA13C">Send in 10s</div>
+        </div>
         <div class="mp-row" style="cursor:default">
           <div class="mp-row-label">Email Settings</div>
           <div class="mp-row-value" style="color:var(--muted)">Coming Soon</div>
@@ -3144,6 +3148,43 @@ function shareTodoList() {
 // One local notification per dated, not-completed, still-future task. Rescheduled
 // wholesale on any change (add/complete/remove/clear) so it always matches the list.
 const TODO_NOTIF_ID_BASE = 9301; // separate range from the 9101 re-engagement nudges
+
+// End-to-end delivery test: schedules a notification 10 seconds out and tells
+// the user to background the app. Splits "permission was never granted" from
+// "scheduling works but delivery is the problem" — indistinguishable otherwise,
+// because an unauthorized schedule succeeds silently.
+async function sendTestTodoNotification() {
+  const LN = window.Capacitor?.Plugins?.LocalNotifications;
+  if (!LN) { toast('Notifications need the iOS app'); return; }
+  try {
+    let perm = await LN.checkPermissions();
+    if (perm.display === 'prompt' || perm.display === 'prompt-with-rationale') perm = await LN.requestPermissions();
+    if (perm.display !== 'granted') {
+      await appAlert('Notifications are turned OFF for Ratio in iOS Settings. Open Settings → Ratio → Notifications and allow them, then test again.', { title: 'Permission Needed' });
+      return;
+    }
+    await LN.schedule({ notifications: [{
+      id: 9999,
+      title: 'Ratio Test Reminder',
+      body: 'Reminders are working ✓',
+      schedule: { at: new Date(Date.now() + 10 * 1000) }
+    }] });
+    toast('Scheduled — leave the app now, it should arrive in ~10s');
+  } catch (e) {
+    console.error('test notification failed', e);
+    toast('Could not schedule — ' + (e?.message || 'unknown error'));
+  }
+}
+
+// iOS swallows notification banners while the app is FOREGROUND unless the
+// native config opts in. This listener makes foreground arrivals visible as an
+// in-app toast, so a reminder firing while the user happens to be in the app
+// no longer vanishes without a trace.
+try {
+  window.Capacitor?.Plugins?.LocalNotifications?.addListener('localNotificationReceived', (n) => {
+    try { toast('🔔 ' + [n?.title, n?.body].filter(Boolean).join(' — ')); } catch (e) {}
+  });
+} catch (e) {}
 async function _cancelPendingTodoNotifs(LN) {
   const pending = await LN.getPending();
   const ours = (pending?.notifications || []).filter(n => +n.id >= TODO_NOTIF_ID_BASE && +n.id < TODO_NOTIF_ID_BASE + 200);
