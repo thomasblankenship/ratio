@@ -3007,7 +3007,10 @@ function renderTodoList() {
       <div id="todo-list-rows">
         ${items.map((item, i) => renderTodoListRow(item, i)).join('')}
       </div>
-      ${items.length ? `<button type="button" onclick="clearTodoList()" style="width:100%;margin-top:14px;background:none;border:1px solid #3A2020;border-radius:10px;padding:10px;font-size:13px;font-weight:600;color:#EF4444;cursor:pointer">Clear All</button>` : ''}
+      ${items.length ? (() => {
+        const n = items.filter(i => i.completed).length;
+        return `<button type="button" onclick="clearTodoList()" style="width:100%;margin-top:14px;background:none;border:1px solid #3A2020;border-radius:10px;padding:10px;font-size:13px;font-weight:600;color:#EF4444;cursor:pointer">${n ? `Clear Completed (${n})` : 'Clear All'}</button>`;
+      })() : ''}
     </div>`;
 }
 
@@ -3060,13 +3063,28 @@ function removeTodoItem(id) {
   renderTodoList();
 }
 
-function clearTodoList() {
-  if (!confirm('Clear your entire to-do list?')) return;
+// Same two-mode button as the shopping list: clear the completed tasks if any
+// are ticked, otherwise clear the whole list.
+async function clearTodoList() {
   if (!todoList) return;
-  todoList.items = [];
+  const items = todoList.items || [];
+  if (!items.length) return;
+  const done = items.filter(i => i.completed);
+  const clearingSelected = done.length > 0;
+
+  const msg = clearingSelected
+    ? `Remove ${done.length} completed task${done.length === 1 ? '' : 's'} from your to-do list?`
+    : `Clear your entire to-do list (${items.length} task${items.length === 1 ? '' : 's'})?`;
+  if (!await appConfirm(msg, {
+    title: clearingSelected ? 'Clear Completed' : 'Clear All',
+    yesLabel: clearingSelected ? 'Yes, Clear Completed' : 'Yes, Clear All'
+  })) return;
+
+  todoList.items = clearingSelected ? items.filter(i => !i.completed) : [];
   saveSetting('todo_list', todoList);
   scheduleTodoNotifications();
   renderTodoList();
+  toast(clearingSelected ? `${done.length} task${done.length === 1 ? '' : 's'} cleared` : 'To-do list cleared');
 }
 
 // Plain text only — pastes cleanly into Messages / Notes.
@@ -8421,17 +8439,45 @@ function removeShoppingExtra(id) {
   renderShoppingList();
 }
 
-function clearShoppingList() {
-  if (!confirm('Clear your entire shopping list?')) return;
+// How many visible items are ticked. Checked keys can outlive the items they
+// referred to (a dish leaves the prep plan, an extra is deleted), so count
+// against what's actually on screen rather than the raw checked array.
+function shoppingCheckedCount() {
   const { items } = getShoppingListData();
+  const checked = mealPrepPlan?.shoppingChecked || [];
+  return items.filter(i => checked.includes(i.key)).length;
+}
+
+// One button, two jobs: with items ticked it clears just those (the normal
+// "I bought these" case); with nothing ticked it falls back to clearing all.
+async function clearShoppingList() {
+  const { items } = getShoppingListData();
+  if (!items.length) return;
+  const checked = mealPrepPlan.shoppingChecked || [];
+  const selected = items.filter(i => checked.includes(i.key));
+  const clearingSelected = selected.length > 0;
+  const targets = clearingSelected ? selected : items;
+
+  const msg = clearingSelected
+    ? `Remove ${selected.length} checked item${selected.length === 1 ? '' : 's'} from your shopping list?`
+    : `Clear your entire shopping list (${items.length} item${items.length === 1 ? '' : 's'})?`;
+  if (!await appConfirm(msg, {
+    title: clearingSelected ? 'Clear Checked' : 'Clear All',
+    yesLabel: clearingSelected ? 'Yes, Clear Checked' : 'Yes, Clear All'
+  })) return;
+
+  // Recipe-derived items are hidden by key; extras are deleted outright,
+  // otherwise re-adding the same item later would come back pre-hidden.
   mealPrepPlan.shoppingRemoved = mealPrepPlan.shoppingRemoved || [];
-  items.forEach(item => {
+  const targetKeys = new Set(targets.map(t => t.key));
+  targets.forEach(item => {
     if (!mealPrepPlan.shoppingRemoved.includes(item.key)) mealPrepPlan.shoppingRemoved.push(item.key);
   });
-  mealPrepPlan.shoppingExtras = [];
-  mealPrepPlan.shoppingChecked = [];
+  mealPrepPlan.shoppingExtras = (mealPrepPlan.shoppingExtras || []).filter(e => !targetKeys.has(`extra:${e.id}`));
+  mealPrepPlan.shoppingChecked = (mealPrepPlan.shoppingChecked || []).filter(k => !targetKeys.has(k));
   saveSetting('meal_prep_plan', mealPrepPlan);
   renderShoppingList();
+  toast(clearingSelected ? `${targets.length} item${targets.length === 1 ? '' : 's'} cleared` : 'Shopping list cleared');
 }
 
 function addShoppingExtra() {
@@ -8521,7 +8567,10 @@ function renderShoppingList() {
       <div id="shopping-list-rows">
         ${items.map(item => renderShoppingListRow(item)).join('')}
       </div>
-      ${items.length ? `<button type="button" onclick="clearShoppingList()" style="width:100%;margin-top:14px;background:none;border:1px solid #3A2020;border-radius:10px;padding:10px;font-size:13px;font-weight:600;color:#EF4444;cursor:pointer">Clear All</button>` : ''}
+      ${items.length ? (() => {
+        const n = shoppingCheckedCount();
+        return `<button type="button" onclick="clearShoppingList()" style="width:100%;margin-top:14px;background:none;border:1px solid #3A2020;border-radius:10px;padding:10px;font-size:13px;font-weight:600;color:#EF4444;cursor:pointer">${n ? `Clear Checked (${n})` : 'Clear All'}</button>`;
+      })() : ''}
     </div>`;
 
   initShoppingListSortable();
