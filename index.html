@@ -2892,11 +2892,10 @@ function openShoppingListPage() {
     if (el && el.style.display !== 'none') _tabBeforeShopping = t;
   });
   switchTab('shopping');
-  if (!mealPrepPlanLoaded) {
-    loadMealPrepPlan().then(() => renderShoppingList());
-  } else {
-    renderShoppingList();
-  }
+  // Same as the to-do page: show the cached list instantly, then re-fetch —
+  // the watch writes to this setting too.
+  if (mealPrepPlanLoaded) renderShoppingList();
+  loadMealPrepPlan().then(() => renderShoppingList());
 }
 
 function closeShoppingListPage() {
@@ -2949,11 +2948,10 @@ function openTodoListPage() {
     if (el && el.style.display !== 'none') _tabBeforeTodo = t;
   });
   switchTab('todo');
-  if (!todoListLoaded) {
-    loadTodoList().then(() => renderTodoList());
-  } else {
-    renderTodoList();
-  }
+  // Render whatever we have immediately, but ALWAYS re-fetch: items can be
+  // added from the watch, so a session-long cache shows a stale list.
+  if (todoListLoaded) renderTodoList();
+  loadTodoList().then(() => renderTodoList());
 }
 
 function closeTodoListPage() {
@@ -14892,7 +14890,11 @@ document.addEventListener('visibilitychange', () => {
     _appHiddenAt = null;
     if (away >= RESUME_RESET_MS) { resetToTodayHome(); return; }
     // Back quickly, but the clock may still have crossed midnight while away.
-    if (refreshDateIfRolledOver()) applyDateRollover();
+    if (refreshDateIfRolledOver()) { applyDateRollover(); return; }
+    // Data can change while backgrounded — a meal voice-logged from the watch,
+    // a workout synced from Health. Quietly re-pull today's rows so the user
+    // doesn't have to force-quit to see their own entry.
+    if (_currentUser && away > 3000) { loadTodayMeals(); loadTodayWorkouts(); }
   }
 });
 
