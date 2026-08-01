@@ -14993,6 +14993,30 @@ function applyDateRollover() {
 // of lag on a once-a-day event is fine; the resume handler covers the rest.
 setInterval(() => { if (refreshDateIfRolledOver()) applyDateRollover(); }, 60 * 1000);
 
+// ===== FOREGROUND SYNC =====
+// Entries can arrive from OUTSIDE this app while it's sitting open — the watch
+// voice log writes straight to Supabase. The resume handler only fires on
+// background→foreground, so a phone left open never saw them. Poll quietly and
+// repaint ONLY when the data actually differs, so the UI never flickers for
+// nothing (and never yanks a row out from under an in-progress drag).
+setInterval(async () => {
+  if (document.visibilityState !== 'visible' || !_currentUser) return;
+  if (document.querySelector('.sortable-chosen')) return; // mid-drag — try next tick
+  try {
+    const fresh = await dbGet('meals', `date=eq.${logDate}&select=id,date,name,meal_type,calories,protein,carbs,fat,fiber,cholesterol,time`);
+    if (fresh && JSON.stringify(fresh) !== JSON.stringify(currentMeals)) {
+      currentMeals = fresh;
+      renderMeals();
+    }
+    const freshW = await dbGet('workouts', `date=eq.${logDate}`);
+    if (freshW && JSON.stringify(freshW) !== JSON.stringify(currentWorkouts)) {
+      currentWorkouts = freshW;
+      renderWorkoutBurned();
+      if (typeof updateMacroBars === 'function') updateMacroBars(calcTotals(currentMeals));
+    }
+  } catch (e) { /* transient network noise — next tick will retry */ }
+}, 45 * 1000);
+
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden' && _obCurrentStep && _obCurrentStep > 0) {
     // visibilitychange fires not only when the user switches tabs, but also
