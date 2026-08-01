@@ -89,6 +89,12 @@
     .range-pill { padding:4px 12px; font-size:12px; font-weight:600; border:none; border-radius:20px; background:var(--surface-2); color:var(--muted); cursor:pointer; white-space:nowrap; transition:all 0.15s; }
     .range-pill.active-pill { background:#CFA13C; color:#101512; }
 
+    /* Meal drag-between-sections (press & hold a row on the Today tab) */
+    .meal-drop-zone { min-height: 6px; }
+    #meals-list .meal-row { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+    #meals-list .sortable-ghost { opacity: 0.45; background: var(--gold-tint); border-radius: 10px; outline: 1.5px dashed #CFA13C; }
+    #meals-list .sortable-chosen { background: var(--gold-tint); border-radius: 10px; }
+
     /* Edit Goal sheets. These used to expand inline at the bottom of their card,
        so tapping "Edit Goal" looked like nothing happened until you scrolled.
        They stay in the DOM (never injected) and just become a centered overlay
@@ -6686,7 +6692,7 @@ function renderMealSection(meals, indices, showEmpty) {
     const rest = idx === -1 ? '' : m.name.slice(0, idx);
     const lastWord = idx === -1 ? m.name : m.name.slice(idx + 1);
     const nameHtml = `${rest ? `<button data-edit="${m.id}" style="background:none;border:none;cursor:pointer;font-size:inherit;font-weight:inherit;color:inherit;text-align:left;padding:0;font-family:inherit">${rest}</button> ` : ''}<span style="white-space:nowrap"><button data-edit="${m.id}" style="background:none;border:none;cursor:pointer;font-size:inherit;font-weight:inherit;color:inherit;text-align:left;padding:0;font-family:inherit">${lastWord}</button><button data-edit="${m.id}" style="background:none;border:none;cursor:pointer;font-size:11px;color:var(--muted);padding:0 2px"><i class="fa-solid fa-pen" style="font-size:0.85em"></i></button></span>`;
-    return `<div class="meal-row">
+    return `<div class="meal-row" data-mid="${m.id}">
       <div class="meal-info" style="min-width:0;flex:1">
         <div class="meal-name" style="word-break:break-word">${nameHtml}</div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px;gap:8px">
@@ -6723,15 +6729,19 @@ function renderMeals() {
         <div style="font-size:12px;font-weight:700;color:#CFA13C;text-transform:uppercase;letter-spacing:0.5px">${label}</div>
         ${sectionCals > 0 ? `<div style="font-size:12px;color:var(--muted)">${sectionCals} kcal | ${sectionProtein}g protein</div>` : ''}
       </div>
-      ${renderMealSection(items, [], false)}
-      ${items.length === 0 ? '<div style="font-size:12px;color:var(--line);padding:4px 0">Nothing logged yet</div>' : ''}
+      <div class="meal-drop-zone" data-mealtype="${type}">
+        ${renderMealSection(items, [], false)}
+        ${items.length === 0 ? '<div class="meal-zone-hint" style="font-size:12px;color:var(--line);padding:4px 0">Nothing logged yet</div>' : ''}
+      </div>
     </div>`;
   });
 
   if (ungrouped.length) {
     html = `<div style="margin-bottom:14px">
       <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Other</div>
-      ${renderMealSection(ungrouped, [], false)}
+      <div class="meal-drop-zone" data-mealtype="">
+        ${renderMealSection(ungrouped, [], false)}
+      </div>
     </div>` + html;
   }
 
@@ -6751,6 +6761,54 @@ function renderMeals() {
       if (!confirm(`Delete "${m.name}"?`)) return;
       dbDelete('meals', m.id).then(() => loadTodayMeals()).then(() => toast('Meal removed'));
     });
+  });
+
+  initMealDragZones();
+}
+
+// ===== DRAG A MEAL TO ANOTHER SECTION =====
+// Press-and-hold a meal row, then drag it into Breakfast/Lunch/Dinner/Snacks —
+// for when something got logged under the wrong meal. Uses the same SortableJS
+// the shopping list already uses; the 250ms delay keeps normal taps and
+// scrolling working. "Other" (untyped legacy rows) can be dragged OUT of but
+// not into, since dropping there would strip a meal's type.
+let _mealZoneSortables = [];
+
+function initMealDragZones() {
+  if (typeof Sortable === 'undefined') return;
+  _mealZoneSortables.forEach(inst => { try { inst.destroy(); } catch(e) {} });
+  _mealZoneSortables = [];
+  document.querySelectorAll('#meals-list .meal-drop-zone').forEach(zone => {
+    _mealZoneSortables.push(Sortable.create(zone, {
+      group: zone.dataset.mealtype ? 'today-meals' : { name: 'today-meals', put: false },
+      draggable: '.meal-row',
+      animation: 150,
+      delay: 250,
+      delayOnTouchOnly: true,
+      touchStartThreshold: 6,
+      onEnd: (evt) => {
+        const id = evt.item?.dataset?.mid;
+        const newType = evt.to?.dataset?.mealtype || null;
+        const oldType = evt.from?.dataset?.mealtype || null;
+        // Re-render OUTSIDE the drag callback — destroying the active Sortable
+        // instance from inside its own onEnd can throw mid-cleanup.
+        if (!id || evt.to === evt.from || newType === oldType || !newType) {
+          setTimeout(() => renderMeals(), 0); // snap back / refresh hints
+          return;
+        }
+        const meal = currentMeals.find(m => m.id === id);
+        if (meal) meal.meal_type = newType; // optimistic — totals update instantly
+        setTimeout(() => renderMeals(), 0);
+        const labels = { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner', snack: 'Snacks' };
+        dbPatch('meals', id, { meal_type: newType })
+          .then(() => toast(`Moved to ${labels[newType] || newType} ✓`))
+          .catch(async (e) => {
+            console.error('meal move failed', e);
+            await loadTodayMeals(); // reload truth — the optimistic move didn't stick
+            toast('Could not move — try again');
+          });
+      }
+    }));
   });
 }
 
