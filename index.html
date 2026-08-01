@@ -1752,8 +1752,9 @@
               <div class="card-title" style="margin-bottom:0;color:#CFA13C">Weekly Meal Prep</div>
               <button type="button" onclick="generateMealPrepPlan()" id="meal-prep-generate-btn" style="flex-shrink:0;background:var(--surface);color:#CFA13C;border:1px solid var(--gold-line);border-radius:20px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">✨ Generate My Prep</button>
             </div>
-            <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Tap a day to mark which meals you want covered by prepped food — could be just lunches, could be the whole day.</div>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Tap a day to mark which meals you want covered by prepped food — could be just lunches, could be the whole day. Resets automatically each Sunday.</div>
             <div id="meal-prep-day-list" style="background:var(--surface);border-radius:14px;overflow:hidden"></div>
+            <div id="meal-prep-clear-wrap" style="display:none"><button type="button" onclick="clearMealPrepPlan()" style="width:100%;margin-top:12px;background:none;border:1px solid #3A2020;border-radius:10px;padding:10px;font-size:13px;font-weight:600;color:#EF4444;cursor:pointer">Clear Meal Prep</button></div>
           </div>
           <div id="meal-prep-results"></div>
         </div>
@@ -1881,6 +1882,35 @@
     </div>
   </div>
 </div>
+<!-- INGREDIENT PICKER — choose which of a recipe's ingredients go to the shopping
+     list, plus whether to save the dish to My Meals. Always in the DOM. -->
+<div id="ing-picker-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);z-index:1200;align-items:center;justify-content:center;padding:20px;box-sizing:border-box">
+  <div style="background:var(--surface);border-radius:18px;width:100%;max-width:440px;max-height:86vh;display:flex;flex-direction:column;overflow:hidden">
+    <div style="padding:18px 20px 12px;border-bottom:1px solid var(--line)">
+      <div style="font-size:16px;font-weight:700;color:var(--ink)" id="ing-picker-title">Add to Shopping List</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:3px" id="ing-picker-sub">Pick what you need to buy — staples you likely already have are unchecked.</div>
+    </div>
+    <div style="padding:10px 20px 0;display:flex;align-items:center;justify-content:space-between;gap:10px">
+      <button type="button" onclick="ingPickerToggleAll()" id="ing-picker-toggle-all" style="background:none;border:none;color:#CFA13C;font-size:12px;font-weight:700;cursor:pointer;padding:4px 0">Select All</button>
+      <div style="font-size:11px;color:var(--muted)" id="ing-picker-count"></div>
+    </div>
+    <div id="ing-picker-list" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:6px 20px 12px;min-height:0"></div>
+    <div style="padding:12px 20px 18px;border-top:1px solid var(--line)">
+      <label id="ing-picker-savemeal-wrap" style="display:flex;align-items:center;gap:10px;cursor:pointer;margin-bottom:12px">
+        <span style="position:relative;width:20px;height:20px;flex-shrink:0;display:inline-block">
+          <input type="checkbox" id="ing-picker-savemeal" checked onchange="ingPickerSyncSaveMeal()" style="position:absolute;inset:0;width:20px;height:20px;margin:0;opacity:0;cursor:pointer;z-index:1" />
+          <span id="ing-picker-savemeal-box" style="position:absolute;inset:0;border:1.5px solid #CFA13C;border-radius:5px;background:#CFA13C;display:flex;align-items:center;justify-content:center;pointer-events:none">
+            <i class="fa-solid fa-check" style="font-size:12px;color:#101512"></i>
+          </span>
+        </span>
+        <span style="font-size:13px;color:var(--ink);font-weight:600">Also save to My Meals</span>
+      </label>
+      <button class="btn" onclick="ingPickerConfirm()" style="width:100%;margin-bottom:8px" id="ing-picker-confirm">Add</button>
+      <button onclick="closeIngPicker()" style="background:none;border:none;color:var(--muted);font-size:13px;padding:8px;cursor:pointer;width:100%">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <!-- EFFORT PICKER — 1-10 rating using the same bands Apple Fitness uses. -->
 <div id="effort-picker-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);z-index:1200;align-items:center;justify-content:center;padding:24px;box-sizing:border-box" onclick="if(event.target===this)closeEffortPicker()">
   <div style="background:var(--surface);border-radius:18px;padding:22px;width:100%;max-width:380px">
@@ -7863,7 +7893,7 @@ function renderAiMealIdeas(suggestions) {
       ` : ''}
       <div style="display:grid;grid-template-columns:${s.type === 'new' || s.type === 'curated_meal' ? '1fr 1fr' : '1fr'};gap:8px">
         <button onclick='logAiMealSuggestion(${JSON.stringify(s).replace(/'/g, "&#39;")})' style="width:100%;background:var(--accent);color:#101512;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer">+ Log This</button>
-        ${s.type === 'new' || s.type === 'curated_meal' ? `<button onclick='saveAiSuggestionToMyMeals(${JSON.stringify(s).replace(/'/g, "&#39;")})' style="width:100%;background:var(--surface);color:#CFA13C;border:1px solid var(--gold-line);border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer">Save to My Meals</button>` : ''}
+        ${s.type === 'new' || s.type === 'curated_meal' ? `<button onclick='saveMealIdeaWithPicker(${JSON.stringify(s).replace(/'/g, "&#39;")})' style="width:100%;background:var(--surface);color:#CFA13C;border:1px solid var(--gold-line);border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer">Save to My Meals</button>` : ''}
       </div>
       </div>
     </div>`).join('') + `
@@ -7977,6 +8007,7 @@ async function checkMealPrepWeekRollover() {
     mealPrepPlan.summary = '';
     mealPrepPlan.resultsCollapsed = false;
     mealPrepPlan.days.forEach(d => { d.assigned = []; });
+    mealPrepPlan.shoppingExcluded = []; // keyed to dishes that no longer exist
     await saveSetting('meal_prep_plan', mealPrepPlan);
     await saveSetting('meal_prep_week', curWk);
     // Clear rendered results
@@ -7984,6 +8015,42 @@ async function checkMealPrepWeekRollover() {
     if (resultsEl) resultsEl.innerHTML = '';
     toast('New week — meal prep reset. Tap Generate to plan this week!');
   } catch(e) { console.error('meal prep rollover check failed', e); }
+}
+
+// Manual equivalent of the Sunday rollover: clears generated dishes and day
+// assignments but keeps the day template (which meals each day needs), so you
+// can regenerate without re-picking all that.
+async function clearMealPrepPlan() {
+  if (!mealPrepPlan) return;
+  const dishCount = (mealPrepPlan.dishes || []).length;
+  const assignedCount = (mealPrepPlan.days || []).reduce((a, d) => a + (d.assigned || []).length, 0);
+  if (!dishCount && !assignedCount) { toast('Nothing to clear'); return; }
+
+  if (!await appConfirm(
+    `Clear this week's meal prep? This removes ${dishCount} generated dish${dishCount === 1 ? '' : 'es'} and their day assignments. The meals you've marked for each day stay, and your shopping list is not touched.`,
+    { title: 'Clear Meal Prep', yesLabel: 'Yes, Clear' }
+  )) return;
+
+  mealPrepPlan.dishes = [];
+  mealPrepPlan.summary = '';
+  mealPrepPlan.resultsCollapsed = false;
+  (mealPrepPlan.days || []).forEach(d => { d.assigned = []; });
+  mealPrepPlan.shoppingExcluded = []; // choices belonged to dishes that no longer exist
+  await saveSetting('meal_prep_plan', mealPrepPlan);
+  const resultsEl = document.getElementById('meal-prep-results');
+  if (resultsEl) resultsEl.innerHTML = '';
+  renderMealPrepDayList();
+  if (typeof renderShoppingList === 'function') renderShoppingList();
+  toast('Meal prep cleared');
+}
+
+// Hide the Clear button when there's nothing to clear.
+function updateMealPrepClearVisibility() {
+  const wrap = document.getElementById('meal-prep-clear-wrap');
+  if (!wrap || !mealPrepPlan) return;
+  const has = (mealPrepPlan.dishes || []).length > 0
+    || (mealPrepPlan.days || []).some(d => (d.assigned || []).length > 0);
+  wrap.style.display = has ? 'block' : 'none';
 }
 
 function toggleMealPrepDayExpand(i) {
@@ -8017,6 +8084,7 @@ function renderMealPrepDayList() {
       ${expanded ? renderMealPrepDayEditorInner(i, day) : ''}
     </div>`;
   }).join('');
+  updateMealPrepClearVisibility();
 }
 
 function renderMealPrepDayEditorInner(i, day) {
@@ -8208,6 +8276,168 @@ function toggleMealPrepDishDay(dishIdx, dayOfWeek) {
   renderMealPrepDishes();
 }
 
+// ===== PANTRY STAPLES =====
+// Things most kitchens already have. These start UNCHECKED in the ingredient
+// picker so a week's shopping list isn't padded with salt and water. Matching is
+// on the ingredient NAME with amounts/prep stripped, and requires a whole-word
+// hit so "garlic powder" doesn't match a recipe calling for fresh garlic cloves.
+const PANTRY_STAPLES = [
+  'salt','sea salt','kosher salt','table salt','pepper','black pepper','white pepper',
+  'water','ice','olive oil','vegetable oil','canola oil','cooking spray','nonstick spray',
+  'butter','sugar','white sugar','brown sugar','flour','all purpose flour','baking soda',
+  'baking powder','cornstarch','vanilla','vanilla extract','honey','vinegar','white vinegar',
+  'apple cider vinegar','soy sauce','hot sauce','ketchup','mustard','mayonnaise','mayo',
+  'garlic powder','onion powder','paprika','smoked paprika','cumin','ground cumin','oregano',
+  'basil','thyme','rosemary','parsley flakes','chili powder','cayenne','red pepper flakes',
+  'cinnamon','ground cinnamon','nutmeg','bay leaf','bay leaves','italian seasoning',
+  'salt and pepper','seasoning','spray oil'
+];
+const _pantryStapleSet = new Set(PANTRY_STAPLES);
+
+// "1.5 tsp smoked paprika" -> "smoked paprika"
+function _ingredientCoreName(raw) {
+  let s = String(raw == null ? '' : raw).toLowerCase();
+  s = s.split(',')[0];                                  // drop ", chopped" / ", drained"
+  s = s.replace(/\([^)]*\)/g, ' ');                      // drop parentheticals
+  // leading quantity + unit
+  s = s.replace(/^[\s\d.,/¼½¾⅓⅔⅛-]+/, ' ');
+  s = s.replace(/^\s*(tsp|teaspoons?|tbsp|tablespoons?|cups?|ounces?|oz|pounds?|lbs?|lb|grams?|g|kg|ml|l|cloves?|cans?|packages?|pkgs?|slices?|pinch(es)?|dash(es)?|sprigs?|bunch(es)?|heads?|large|medium|small)\b/g, ' ');
+  s = s.replace(/\b(of|fresh|freshly|ground|dried|chopped|minced|diced|sliced|grated|shredded|to taste|optional)\b/g, ' ');
+  return s.replace(/[^a-z\s]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function isPantryStaple(raw) {
+  const core = _ingredientCoreName(raw);
+  if (!core) return false;
+  if (_pantryStapleSet.has(core)) return true;
+  // Whole-phrase containment only — guards against "garlic powder" matching a
+  // recipe's "garlic cloves", which is a different shopping item entirely.
+  for (const s of _pantryStapleSet) {
+    if (core === s) return true;
+    if (core.endsWith(' ' + s) || core.startsWith(s + ' ')) return true;
+  }
+  return false;
+}
+
+// ===== INGREDIENT PICKER =====
+let _ingPicker = null; // { items:[{label,checked}], showSaveMeal, saveMeal, onConfirm }
+
+function _ingLabel(ing) {
+  if (ing && typeof ing === 'object') return [ing.amount, ing.name].filter(Boolean).join(' ') || ing.name || '';
+  return String(ing == null ? '' : ing);
+}
+
+// opts: { title, subtitle, confirmLabel, showSaveMeal, saveMealDefault }
+// onConfirm({ selected: [labels], saveMeal: bool })
+function openIngPicker(ingredients, opts, onConfirm) {
+  const o = opts || {};
+  const items = (ingredients || [])
+    .map(ing => ({ src: ing, label: _ingLabel(ing) }))
+    .filter(x => x.label && x.label.trim())
+    .map(x => ({ ...x, checked: !isPantryStaple(x.label) }));
+
+  // Nothing to choose from — skip straight through rather than showing an
+  // empty dialog.
+  if (!items.length) { onConfirm({ selected: [], accepted: [], declined: [], saveMeal: o.saveMealDefault !== false }); return; }
+
+  _ingPicker = { items, showSaveMeal: !!o.showSaveMeal, saveMeal: o.saveMealDefault !== false, onConfirm };
+  document.getElementById('ing-picker-title').textContent = o.title || 'Add to Shopping List';
+  document.getElementById('ing-picker-sub').textContent = o.subtitle || 'Pick what you need to buy — staples you likely already have are unchecked.';
+  document.getElementById('ing-picker-confirm').textContent = o.confirmLabel || 'Add';
+  document.getElementById('ing-picker-savemeal-wrap').style.display = _ingPicker.showSaveMeal ? 'flex' : 'none';
+  document.getElementById('ing-picker-savemeal').checked = _ingPicker.saveMeal;
+  ingPickerSyncSaveMeal();
+  _renderIngPicker();
+  document.getElementById('ing-picker-modal').style.display = 'flex';
+}
+
+function closeIngPicker() {
+  document.getElementById('ing-picker-modal').style.display = 'none';
+  _ingPicker = null;
+}
+
+function _renderIngPicker() {
+  if (!_ingPicker) return;
+  const el = document.getElementById('ing-picker-list');
+  el.innerHTML = _ingPicker.items.map((it, i) => `
+    <label style="display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid var(--surface-2);cursor:pointer">
+      <span style="position:relative;width:20px;height:20px;flex-shrink:0;display:inline-block;margin-top:1px">
+        <input type="checkbox" ${it.checked ? 'checked' : ''} onchange="ingPickerToggle(${i})" style="position:absolute;inset:0;width:20px;height:20px;margin:0;opacity:0;cursor:pointer;z-index:1" />
+        <span style="position:absolute;inset:0;border:1.5px solid #CFA13C;border-radius:5px;background:${it.checked ? '#CFA13C' : 'transparent'};display:flex;align-items:center;justify-content:center;pointer-events:none">
+          <i class="fa-solid fa-check" style="font-size:12px;color:#101512;${it.checked ? '' : 'display:none'}"></i>
+        </span>
+      </span>
+      <span style="font-size:13.5px;color:${it.checked ? 'var(--ink)' : 'var(--muted)'};line-height:1.4">${escapeHtmlTodo(it.label)}</span>
+    </label>`).join('');
+  const n = _ingPicker.items.filter(i => i.checked).length;
+  document.getElementById('ing-picker-count').textContent = `${n} of ${_ingPicker.items.length} selected`;
+  document.getElementById('ing-picker-toggle-all').textContent = n === _ingPicker.items.length ? 'Deselect All' : 'Select All';
+  const btn = document.getElementById('ing-picker-confirm');
+  const saving = _ingPicker.showSaveMeal && _ingPicker.saveMeal;
+  // Be explicit that confirming with zero ingredients still does the rest.
+  btn.textContent = n ? `Add ${n} Item${n === 1 ? '' : 's'}` : (saving ? 'Save Without Shopping Items' : 'Add Nothing');
+}
+
+function ingPickerToggle(i) {
+  if (!_ingPicker) return;
+  _ingPicker.items[i].checked = !_ingPicker.items[i].checked;
+  _renderIngPicker();
+}
+
+function ingPickerToggleAll() {
+  if (!_ingPicker) return;
+  const allOn = _ingPicker.items.every(i => i.checked);
+  _ingPicker.items.forEach(i => { i.checked = !allOn; });
+  _renderIngPicker();
+}
+
+function ingPickerSyncSaveMeal() {
+  if (!_ingPicker) return;
+  const on = document.getElementById('ing-picker-savemeal').checked;
+  _ingPicker.saveMeal = on;
+  const box = document.getElementById('ing-picker-savemeal-box');
+  if (box) {
+    box.style.background = on ? '#CFA13C' : 'transparent';
+    const tick = box.querySelector('i');
+    if (tick) tick.style.display = on ? '' : 'none';
+  }
+  _renderIngPicker();
+}
+
+function ingPickerConfirm() {
+  if (!_ingPicker) return;
+  const { items, showSaveMeal, saveMeal, onConfirm } = _ingPicker;
+  const selected = items.filter(i => i.checked).map(i => i.label);
+  const accepted = items.filter(i => i.checked).map(i => i.src);
+  const declined = items.filter(i => !i.checked).map(i => i.src);
+  closeIngPicker();
+  onConfirm({ selected, accepted, declined, saveMeal: showSaveMeal ? saveMeal : false });
+}
+
+// Adds plain-text lines to the shopping list as manual extras. Used by every
+// recipe flow, so ingredients the user declined simply never get created —
+// nothing to filter out on later renders.
+async function addLinesToShoppingList(lines) {
+  if (!lines || !lines.length) return 0;
+  if (!mealPrepPlan) {
+    const saved = await loadSetting('meal_prep_plan');
+    mealPrepPlan = (saved && saved.days) ? saved : defaultMealPrepPlan();
+  }
+  mealPrepPlan.shoppingExtras = mealPrepPlan.shoppingExtras || [];
+  const existing = new Set(mealPrepPlan.shoppingExtras.map(e => (e.name || '').toLowerCase().trim()));
+  let added = 0;
+  lines.forEach(name => {
+    const key = name.toLowerCase().trim();
+    if (!key || existing.has(key)) return;  // don't stack duplicates
+    existing.add(key);
+    mealPrepPlan.shoppingExtras.push({ id: 'x' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name });
+    added++;
+  });
+  await saveSetting('meal_prep_plan', mealPrepPlan);
+  if (typeof renderShoppingList === 'function') renderShoppingList();
+  return added;
+}
+
 async function confirmMealPrepDish(idx) {
   const d = mealPrepPlan.dishes[idx];
   const chosenDays = d.chosen_days || [];
@@ -8216,8 +8446,70 @@ async function confirmMealPrepDish(idx) {
   const factor = chosenDays.length / (d.base_servings || 1);
   const scaledIngredients = (d.ingredients || []).map(ing => ({ ...ing, amount: scaleIngredientAmount(ing.amount, factor) }));
 
-  await saveAiSuggestionToMyMeals({ ...d, servings: chosenDays.length, ingredients: scaledIngredients });
+  // Ask before doing anything irreversible: which ingredients to buy, and
+  // whether this belongs in My Meals. Both used to happen silently.
+  openIngPicker(scaledIngredients, {
+    title: `Add "${d.name}"`,
+    subtitle: `Scaled for ${chosenDays.length} day${chosenDays.length === 1 ? '' : 's'}. Staples you likely already have start unchecked.`,
+    confirmLabel: 'Add to My Week',
+    showSaveMeal: true,
+    saveMealDefault: false
+  }, async ({ accepted, declined, saveMeal }) => {
+    if (saveMeal) await saveAiSuggestionToMyMeals({ ...d, servings: chosenDays.length, ingredients: scaledIngredients });
 
+    // Record what was DECLINED rather than pushing what was accepted. The
+    // shopping list derives ingredients live from assigned dishes, so staying
+    // inside that derivation preserves two behaviours we'd otherwise lose:
+    // amounts rescale when the day count changes, and unassigning the dish
+    // takes its ingredients with it instead of leaving orphans.
+    const prefix = _dishExcludePrefix(d);
+    mealPrepPlan.shoppingExcluded = (mealPrepPlan.shoppingExcluded || [])
+      .filter(k => !k.startsWith(prefix));   // re-confirming replaces earlier choices
+    declined.forEach(ing => {
+      const key = _ingKey(ing);
+      if (key) mealPrepPlan.shoppingExcluded.push(prefix + key);
+    });
+
+    await _assignMealPrepDishToDays(d, chosenDays);
+    const bits = [`Added to ${chosenDays.length} day${chosenDays.length === 1 ? '' : 's'}`];
+    if (accepted.length) bits.push(`${accepted.length} ingredient${accepted.length === 1 ? '' : 's'} on shopping list`);
+    if (saveMeal) bits.push('saved to My Meals');
+    toast(bits.join(' · ') + ' ✓');
+  });
+}
+
+// Ingredient identity, matching how getShoppingListData() groups them.
+function _ingKey(ing) {
+  const n = (ing && typeof ing === 'object') ? ing.name : ing;
+  return String(n == null ? '' : n).toLowerCase().trim();
+}
+function _dishExcludePrefix(d) { return `${d.name}|${d.meal_type}|`; }
+
+// AI Meal Ideas: saving already asked first, but there was no way to get the
+// ingredients onto the shopping list. These suggestions aren't tied to a meal
+// prep day, so there's no derivation to hook into — chosen lines are added as
+// ordinary manual items.
+function saveMealIdeaWithPicker(s) {
+  openIngPicker(s.ingredients, {
+    title: `Save "${s.name}"`,
+    subtitle: 'Pick any ingredients to add to your shopping list. Staples you likely already have start unchecked.',
+    confirmLabel: 'Save',
+    showSaveMeal: true,
+    saveMealDefault: true
+  }, async ({ selected, saveMeal }) => {
+    if (saveMeal) await saveAiSuggestionToMyMeals(s);
+    const added = await addLinesToShoppingList(selected);
+    if (!saveMeal && !added) { toast('Nothing added'); return; }
+    const bits = [];
+    if (saveMeal) bits.push('Saved to My Meals');
+    if (added) bits.push(`${added} item${added === 1 ? '' : 's'} to shopping list`);
+    toast(bits.join(' · ') + ' ✓');
+  });
+}
+
+// Day-assignment half of confirmMealPrepDish, split out so the picker callback
+// can run it after the user has actually confirmed.
+async function _assignMealPrepDishToDays(d, chosenDays) {
   // Clear any prior assignment of this dish (e.g. from a previous day
   // selection) before writing the current one, so unchecked days don't
   // keep a stale reference.
@@ -8370,12 +8662,18 @@ function getShoppingListData() {
   (mealPrepPlan.days || []).forEach(day => (day.assigned || []).forEach(a => assignedKeys.add(`${a.dish_name}|${a.meal_type}`)));
   const activeDishes = (mealPrepPlan.dishes || []).filter(d => assignedKeys.has(`${d.name}|${d.meal_type}`));
 
+  // Ingredients the user unticked in the picker when adding each dish (pantry
+  // staples, things already in the cupboard). Scoped per dish, so declining
+  // salt for one recipe doesn't silently drop it from another.
+  const excluded = new Set(mealPrepPlan.shoppingExcluded || []);
+
   const grouped = {};
   activeDishes.forEach(d => {
     const factor = (d.chosen_days?.length || 1) / (d.base_servings || 1);
     (d.ingredients || []).forEach(ing => {
       const key = (ing.name || '').toLowerCase().trim();
       if (!key) return;
+      if (excluded.has(`${d.name}|${d.meal_type}|${key}`)) return;
       if (!grouped[key]) grouped[key] = { key, name: ing.name, lines: [] };
       grouped[key].lines.push({ amount: scaleIngredientAmount(ing.amount, factor), dish: d.name });
     });
