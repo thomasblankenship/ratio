@@ -3922,7 +3922,10 @@ async function vlConfirmSave() {
       if (!groups.length) { toast('Nothing to log — try again'); return; }
       for (const g of groups) {
         const totals = g.items.reduce((a,i) => ({ calories: a.calories+(+i.calories||0), protein: a.protein+(+i.protein||0), carbs: a.carbs+(+i.carbs||0), fat: a.fat+(+i.fat||0), fiber: a.fiber+(+i.fiber||0), cholesterol: a.cholesterol+(+i.cholesterol||0) }), {calories:0,protein:0,carbs:0,fat:0,fiber:0,cholesterol:0});
-        const name = g.items.map(i => i.name).join(', ') || 'Voice-logged meal';
+        // Keep the spoken amount in the row name ("Feta Cheese (50g)"), same
+        // style as barcode/search entries — otherwise the quantity you said is
+        // invisible in the log and the edit sheet shows a meaningless "1 serving".
+        const name = g.items.map(i => i.quantity ? `${i.name} (${i.quantity})` : i.name).join(', ') || 'Voice-logged meal';
         await dbPost('meals', {
           date: logDate, name, meal_type: g.type,
           calories: Math.round(totals.calories), protein: Math.round(totals.protein*10)/10,
@@ -6269,6 +6272,11 @@ function obClearProgress() {
 }
 
 async function init() {
+  // Hide iOS's keyboard accessory bar (the grey ˄ ˅ ✓ strip WKWebView adds
+  // above every keyboard) — it covers the bottom action button in sheets.
+  // Requires @capacitor/keyboard in the native build; harmless no-op until
+  // that plugin is installed.
+  try { window.Capacitor?.Plugins?.Keyboard?.setAccessoryBarVisible({ isVisible: false }); } catch(e) {}
   updateDailyQuote();
   // Parse URL hash for Supabase auth redirects
   const hash = window.location.hash;
