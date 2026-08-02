@@ -4326,6 +4326,26 @@ function updateLogDateDisplay() {
 }
 const SUPABASE_URL = 'https://azcopsldgmqutqvaajhu.supabase.co';
 const WORKER_URL = 'https://ratio-api.sb-983.workers.dev';
+
+// The Worker now requires a Supabase session JWT on its AI endpoints (they all
+// spend Anthropic credits and used to be open to the internet). Rather than
+// touch 20 call sites — and risk a new one silently 401ing later — wrap fetch
+// once and attach the token to every WORKER_URL request automatically.
+(function attachWorkerAuth() {
+  const nativeFetch = window.fetch.bind(window);
+  window.fetch = function(input, init) {
+    try {
+      const url = typeof input === 'string' ? input : (input && input.url) || '';
+      if (url.startsWith(WORKER_URL) && typeof _authToken === 'string' && _authToken) {
+        init = { ...(init || {}) };
+        const h = new Headers(init.headers || (typeof input === 'object' && input.headers) || {});
+        if (!h.has('Authorization')) h.set('Authorization', 'Bearer ' + _authToken);
+        init.headers = h;
+      }
+    } catch (e) { /* never let this break a request */ }
+    return nativeFetch(input, init);
+  };
+})();
 let _authToken = null; // set after login
 let _currentUser = null;
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF6Y29wc2xkZ21xdXRxdmFhamh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4MTYwMTEsImV4cCI6MjA5NzM5MjAxMX0.1cS2YNlIV0jeZPN9nZwpzBLcIiGeQVG0UtZO0bsbqaI';
@@ -6382,7 +6402,7 @@ function obClearProgress() {
   localStorage.removeItem('ob_progress');
 }
 
-const RATIO_BUILD = '2026-08-02-c';
+const RATIO_BUILD = '2026-08-02-d';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
