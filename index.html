@@ -15356,26 +15356,47 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
-// ===== SUSPENSION HEARTBEAT =====
-// The visibilitychange path above only works if WKWebView actually fires the
-// events — in practice backgrounding a Capacitor app sometimes doesn't. This
-// needs no events at all: a timer stamps the clock every 15s, and iOS freezes
-// ALL JS while the app is backgrounded, so a gap in the stamps IS the time
-// spent away. First tick after any 5-minute-plus suspension resets to Today —
-// the July-7th-still-selected-after-20-minutes case the event path missed.
+// ===== SUSPENSION DETECTION — every wake signal feeds ONE check =====
+// History of this bug: visibilitychange alone missed (iOS doesn't reliably
+// deliver it to WKWebView on background/foreground), and a heartbeat alone is
+// too SLOW — it fires up to 15s after resume, so the user reopens, sees the
+// stale July 22 view first, and the reset arrives after they've already been
+// misled. The fix is both: a 15s tick stamps _lastActiveTick (iOS freezes all
+// JS in the background, so the stamp gap IS the time away — no events needed),
+// and every wake-up signal the platform offers triggers an IMMEDIATE gap
+// check: WKWebView's visibilitychange/focus/pageshow, Capacitor's native
+// 'resume' document event, and the App plugin's appStateChange when present.
+// Whichever fires first wins; the heartbeat is the backstop if none do.
 let _lastActiveTick = Date.now();
-setInterval(() => {
+
+function checkAwayGap() {
   const gap = Date.now() - _lastActiveTick;
   _lastActiveTick = Date.now();
   if (gap >= RESUME_RESET_MS) {
     resetToTodayHome();
-  } else if (gap >= 20 * 1000) {
-    // Shorter suspension — don't yank the view, but do catch midnight and
-    // refresh data that may have changed while frozen.
+    return true;
+  }
+  if (gap >= 20 * 1000) {
+    // Shorter absence — keep the view, but catch midnight and refresh data
+    // that may have changed while frozen.
     if (refreshDateIfRolledOver()) applyDateRollover();
     else if (_currentUser) { loadTodayMeals(); loadTodayWorkouts(); }
   }
-}, 15 * 1000);
+  return false;
+}
+
+setInterval(checkAwayGap, 15 * 1000);
+window.addEventListener('focus', checkAwayGap);
+window.addEventListener('pageshow', checkAwayGap);
+document.addEventListener('resume', checkAwayGap);        // Capacitor native lifecycle
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') checkAwayGap();
+});
+try { // Native app-state events, most reliable of all when the plugin exists
+  window.Capacitor?.Plugins?.App?.addListener('appStateChange', (st) => {
+    if (st && st.isActive) checkAwayGap();
+  });
+} catch (e) {}
 
 // Repaints everything that was rendered against the previous calendar day.
 function applyDateRollover() {
