@@ -6382,7 +6382,7 @@ function obClearProgress() {
   localStorage.removeItem('ob_progress');
 }
 
-const RATIO_BUILD = '2026-08-02-a';
+const RATIO_BUILD = '2026-08-02-b';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -15350,10 +15350,26 @@ document.addEventListener('DOMContentLoaded', () => {
 const RESUME_RESET_MS = LAST_VIEW_MAX_AGE_MS;
 let _appHiddenAt = null;
 
+// Is an onboarding screen or the auth screen actually on screen right now?
+// This replaces a check on _obCurrentStep, which was THE bug behind "the date
+// never resets": that variable is initialised to 1 (not 0), so for every
+// normal signed-in user `_obCurrentStep > 0` was true and resetToTodayHome()
+// returned immediately — silently, every time. Every wake-detection mechanism
+// I built was calling a function that always bailed on its first line.
+// Checking real visibility can't drift from reality the way a step counter can.
+function _blockingScreenVisible() {
+  try {
+    const auth = document.getElementById('auth-screen');
+    if (auth && auth.style.display !== 'none' && auth.offsetParent !== null) return true;
+    return Array.from(document.querySelectorAll('.ob-screen')).some(el => el.offsetParent !== null);
+  } catch (e) { return false; }
+}
+
 function resetToTodayHome() {
   // Never yank someone out of onboarding or the auth screen.
-  if (_obCurrentStep && _obCurrentStep > 0) return;
-  if (!_currentUser) return;
+  if (_blockingScreenVisible()) { console.log('[Ratio] reset skipped — onboarding/auth on screen'); return; }
+  if (!_currentUser) { console.log('[Ratio] reset skipped — no user'); return; }
+  console.log('[Ratio] resetting to Today (was ' + logDate + ')');
 
   // Capture the rollover BEFORE comparing: refreshDateIfRolledOver() already
   // moves logDate onto the new day, which would make dateWasStale false in
@@ -15413,6 +15429,7 @@ let _lastActiveTick = Date.now();
 function checkAwayGap() {
   const gap = Date.now() - _lastActiveTick;
   _lastActiveTick = Date.now();
+  if (gap >= 20 * 1000) console.log('[Ratio] away ' + Math.round(gap / 1000) + 's');
   if (gap >= RESUME_RESET_MS) {
     resetToTodayHome();
     return true;
@@ -15438,6 +15455,10 @@ try { // Native app-state events, most reliable of all when the plugin exists
     if (st && st.isActive) checkAwayGap();
   });
 } catch (e) {}
+// Last resort that cannot be missed: the first touch after returning. If every
+// platform wake signal fails, the user's own tap still triggers the check
+// before they can act on a stale screen.
+document.addEventListener('touchstart', checkAwayGap, { passive: true, capture: true });
 
 // Repaints everything that was rendered against the previous calendar day.
 function applyDateRollover() {
