@@ -1402,9 +1402,13 @@
           <div class="mp-row-label">Email Settings</div>
           <div class="mp-row-value" style="color:var(--muted)">Coming Soon</div>
         </div>
-        <div class="mp-row" onclick="switchTab('profile-appearance')" style="border-bottom:none">
+        <div class="mp-row" onclick="switchTab('profile-appearance')">
           <div class="mp-row-label">App Appearance</div>
           <div class="mp-row-value" id="settings-appearance-value">Dark</div>
+        </div>
+        <div class="mp-row" style="cursor:default;border-bottom:none">
+          <div class="mp-row-label">App Version</div>
+          <div class="mp-row-value" style="color:var(--muted)" id="settings-build-version">—</div>
         </div>
       </div>
     </div>
@@ -6378,7 +6382,18 @@ function obClearProgress() {
   localStorage.removeItem('ob_progress');
 }
 
+const RATIO_BUILD = '2026-08-02-a';
+window.RATIO_BUILD = RATIO_BUILD;
+
 async function init() {
+  // Build marker. When a fix "isn't working", the first question is always
+  // whether the device is even running it — WKWebView and the Pages CDN both
+  // cache aggressively. Check with `RATIO_BUILD` in the console, or read it at
+  // the bottom of Profile → Settings.
+  console.log('[Ratio] build', RATIO_BUILD);
+  const bv = document.getElementById('settings-build-version');
+  if (bv) bv.textContent = RATIO_BUILD;
+
   // Hide iOS's keyboard accessory bar (the grey ˄ ˅ ✓ strip WKWebView adds
   // above every keyboard) — it covers the bottom action button in sheets.
   // Requires @capacitor/keyboard in the native build; harmless no-op until
@@ -12182,7 +12197,29 @@ function getStepsWeekDates(offset) {
   return days;
 }
 
+// Re-entrancy guard. This function is async and has TWO awaits between the
+// "destroy the old chart" check and the "new Chart(...)" call, so two calls
+// landing close together (loadScans + a HealthKit sync + a tab switch all
+// trigger it) can both pass the destroy check while the variable is still
+// null, then both build a chart on the same canvas — that's the flood of
+// "Canvas is already in use. Chart with ID 'nn' must be destroyed" errors.
+// One render at a time; a request arriving mid-render is coalesced into a
+// single re-run afterwards instead of racing.
+let _stepsChartRendering = false;
+let _stepsChartQueued = false;
+
 async function renderStepsChart() {
+  if (_stepsChartRendering) { _stepsChartQueued = true; return; }
+  _stepsChartRendering = true;
+  try {
+    await _renderStepsChartInner();
+  } finally {
+    _stepsChartRendering = false;
+    if (_stepsChartQueued) { _stepsChartQueued = false; renderStepsChart(); }
+  }
+}
+
+async function _renderStepsChartInner() {
   const disabledEl = document.getElementById('steps-chart-disabled');
   const contentEl = document.getElementById('steps-chart-content');
   const enabled = window.Capacitor?.Plugins?.HealthKit && await loadSetting('healthkit_enabled');
@@ -12256,6 +12293,10 @@ async function renderStepsChart() {
     }
   ];
 
+  // Belt-and-braces: destroy whatever chart Chart.js currently has bound to
+  // this canvas, not just the one our variable knows about. Covers charts
+  // orphaned by an earlier race or a failed render.
+  try { if (window.Chart?.getChart) { const bound = Chart.getChart(canvas); if (bound) bound.destroy(); } } catch(e) {}
   stepsChartObj = new Chart(canvas, {
     type: 'bar',
     data: { labels, datasets },
