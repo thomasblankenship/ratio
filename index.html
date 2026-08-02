@@ -3037,8 +3037,17 @@ function renderTodoList() {
         <button type="button" onclick="addTodoItemFromInput()" style="background:var(--accent);color:#101512;border:none;border-radius:10px;padding:0 16px;font-size:13px;font-weight:700;cursor:pointer">+ Add</button>
       </div>
       <div style="display:flex;gap:8px;margin-bottom:14px;align-items:center">
-        <input type="datetime-local" id="todo-add-due" style="flex:1;padding:9px 12px;border:1px solid var(--line);border-radius:10px;font-size:14px;outline:none;color:var(--muted)" />
-        <span style="font-size:11px;color:var(--muted-2);white-space:nowrap">Due date (optional)</span>
+        <!-- Compact due-date chip. The real datetime-local input sits invisibly
+             on top so tapping the chip opens iOS's native picker directly —
+             a user-gesture on the actual input, which WKWebView honors. -->
+        <div style="position:relative;flex-shrink:0">
+          <div id="todo-due-chip" style="display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:20px;padding:8px 14px;font-size:12px;font-weight:600;color:var(--muted);background:var(--surface)">
+            <i class="fa-regular fa-calendar" style="font-size:12px"></i><span id="todo-due-chip-label">Add due date</span>
+          </div>
+          <input type="datetime-local" id="todo-add-due" onchange="updateTodoDueChip()" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;border:0;padding:0" />
+        </div>
+        <button type="button" id="todo-due-clear" onclick="clearTodoDue()" style="display:${_todoDueSet ? 'inline-block' : 'none'};background:none;border:none;color:var(--muted-2);font-size:16px;cursor:pointer;padding:2px 6px;line-height:1">×</button>
+        <span style="font-size:11px;color:var(--muted-2);white-space:nowrap">Optional</span>
       </div>
 
       ${!items.length ? `<div style="text-align:center;padding:16px;color:var(--muted);font-size:13px">Nothing on your list yet.</div>` : ''}
@@ -3050,6 +3059,33 @@ function renderTodoList() {
         return `<button type="button" onclick="clearTodoList()" style="width:100%;margin-top:14px;background:none;border:1px solid #3A2020;border-radius:10px;padding:10px;font-size:13px;font-weight:600;color:#EF4444;cursor:pointer">${n ? `Clear Completed (${n})` : 'Clear All'}</button>`;
       })() : ''}
     </div>`;
+}
+
+// Due-date chip state. _todoDueSet survives re-renders only long enough to
+// restore the × button; the input value itself resets with each render, which
+// is correct — a queued due date belongs to the add-in-progress, not the page.
+let _todoDueSet = false;
+
+function updateTodoDueChip() {
+  const inp = document.getElementById('todo-add-due');
+  const label = document.getElementById('todo-due-chip-label');
+  const chip = document.getElementById('todo-due-chip');
+  const clear = document.getElementById('todo-due-clear');
+  const v = inp?.value || '';
+  _todoDueSet = !!v;
+  if (label) label.textContent = v ? formatTodoDue(v).replace(' · overdue', '') : 'Add due date';
+  if (chip) {
+    chip.style.borderColor = v ? '#CFA13C' : 'var(--line)';
+    chip.style.color = v ? '#CFA13C' : 'var(--muted)';
+    chip.style.background = v ? 'var(--gold-tint)' : 'var(--surface)';
+  }
+  if (clear) clear.style.display = v ? 'inline-block' : 'none';
+}
+
+function clearTodoDue() {
+  const inp = document.getElementById('todo-add-due');
+  if (inp) inp.value = '';
+  updateTodoDueChip();
 }
 
 function addTodoItem(name, dueDate) {
@@ -3080,6 +3116,7 @@ function addTodoItemFromInput() {
   addTodoItem(val, due);
   input.value = '';
   if (dueEl) dueEl.value = '';
+  _todoDueSet = false; // chip returns to its empty state on the re-render
   renderTodoList();
 }
 
@@ -15004,6 +15041,27 @@ document.addEventListener('visibilitychange', () => {
     if (_currentUser && away > 3000) { loadTodayMeals(); loadTodayWorkouts(); }
   }
 });
+
+// ===== SUSPENSION HEARTBEAT =====
+// The visibilitychange path above only works if WKWebView actually fires the
+// events — in practice backgrounding a Capacitor app sometimes doesn't. This
+// needs no events at all: a timer stamps the clock every 15s, and iOS freezes
+// ALL JS while the app is backgrounded, so a gap in the stamps IS the time
+// spent away. First tick after any 5-minute-plus suspension resets to Today —
+// the July-7th-still-selected-after-20-minutes case the event path missed.
+let _lastActiveTick = Date.now();
+setInterval(() => {
+  const gap = Date.now() - _lastActiveTick;
+  _lastActiveTick = Date.now();
+  if (gap >= RESUME_RESET_MS) {
+    resetToTodayHome();
+  } else if (gap >= 20 * 1000) {
+    // Shorter suspension — don't yank the view, but do catch midnight and
+    // refresh data that may have changed while frozen.
+    if (refreshDateIfRolledOver()) applyDateRollover();
+    else if (_currentUser) { loadTodayMeals(); loadTodayWorkouts(); }
+  }
+}, 15 * 1000);
 
 // Repaints everything that was rendered against the previous calendar day.
 function applyDateRollover() {
