@@ -6382,7 +6382,7 @@ function obClearProgress() {
   localStorage.removeItem('ob_progress');
 }
 
-const RATIO_BUILD = '2026-08-02-b';
+const RATIO_BUILD = '2026-08-02-c';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -6756,10 +6756,14 @@ function updateDailyQuote() {
 }
 
 // TODAY
+// Every loader below snapshots logDate and drops its response if the date
+// changed mid-flight — otherwise a slow request for a date the user has
+// already left can clobber the newer one's data.
 async function loadTodayMeals() {
-  console.log('Loading meals for date:', logDate);
-  currentMeals = await dbGet('meals', `date=eq.${logDate}&select=id,date,name,meal_type,calories,protein,carbs,fat,fiber,cholesterol,time`);
-  console.log('Meals loaded:', currentMeals.length, currentMeals);
+  const forDate = logDate;
+  const rows = await dbGet('meals', `date=eq.${forDate}&select=id,date,name,meal_type,calories,protein,carbs,fat,fiber,cholesterol,time`);
+  if (logDate !== forDate) return; // user moved on — this response is stale
+  currentMeals = rows;
   renderMeals();
 }
 // The date the Progress tab's workout list is showing. Independent of logDate:
@@ -6769,13 +6773,19 @@ function progressWorkoutDate() { return workoutViewDate || today; }
 // Workouts for logDate. Feeds the Today tab's burned-calories figure ONLY —
 // it must not touch the Progress list, which has its own date.
 async function loadTodayWorkouts() {
-  currentWorkouts = await dbGet('workouts', `date=eq.${logDate}`);
+  const forDate = logDate;
+  const rows = await dbGet('workouts', `date=eq.${forDate}`);
+  if (logDate !== forDate) return; // stale response for a date we've left
+  currentWorkouts = rows;
   renderWorkoutBurned();
 }
 
 // Workouts for the Progress tab's own date.
 async function loadProgressWorkouts() {
-  progressWorkouts = await dbGet('workouts', `date=eq.${progressWorkoutDate()}`);
+  const forDate = progressWorkoutDate();
+  const rows = await dbGet('workouts', `date=eq.${forDate}`);
+  if (progressWorkoutDate() !== forDate) return; // stale
+  progressWorkouts = rows;
   renderWorkouts();
 }
 
@@ -15392,7 +15402,7 @@ function resetToTodayHome() {
   switchTab('today');
   if (typeof updateLogDateDisplay === 'function') updateLogDateDisplay();
   loadProgressWorkouts();
-  if (dateWasStale) { loadTodayMeals(); loadTodayWorkouts(); }
+  if (dateWasStale) { loadTodayMeals(); loadTodayWorkouts(); if (typeof loadDayTotals === 'function') loadDayTotals(); }
   const content = document.querySelector('.content');
   if (content) content.scrollTop = 0;
 }
@@ -15498,13 +15508,22 @@ setInterval(() => { if (refreshDateIfRolledOver()) applyDateRollover(); }, 60 * 
 setInterval(async () => {
   if (document.visibilityState !== 'visible' || !_currentUser) return;
   if (document.querySelector('.sortable-chosen')) return; // mid-drag — try next tick
+  // Snapshot the date this poll is FOR. On resume this tick can start while
+  // logDate is still the old date, then land after resetToTodayHome() has
+  // switched to today and loaded its meals — writing the old date's (empty)
+  // result over the correct data. That race is what blanked the whole Today
+  // screen after a reset. Any response for a date we're no longer viewing is
+  // now discarded.
+  const forDate = logDate;
   try {
-    const fresh = await dbGet('meals', `date=eq.${logDate}&select=id,date,name,meal_type,calories,protein,carbs,fat,fiber,cholesterol,time`);
+    const fresh = await dbGet('meals', `date=eq.${forDate}&select=id,date,name,meal_type,calories,protein,carbs,fat,fiber,cholesterol,time`);
+    if (logDate !== forDate) return;
     if (fresh && JSON.stringify(fresh) !== JSON.stringify(currentMeals)) {
       currentMeals = fresh;
       renderMeals();
     }
-    const freshW = await dbGet('workouts', `date=eq.${logDate}`);
+    const freshW = await dbGet('workouts', `date=eq.${forDate}`);
+    if (logDate !== forDate) return;
     if (freshW && JSON.stringify(freshW) !== JSON.stringify(currentWorkouts)) {
       currentWorkouts = freshW;
       renderWorkoutBurned();
