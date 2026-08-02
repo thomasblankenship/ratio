@@ -9691,6 +9691,18 @@ function openLogMealModal(id) {
   document.getElementById('log-meal-qty').value = '1';
   buildUnitWheel('log-meal-unit-scroll', 'log-meal-unit', 'serving', updateLogMealPreview);
 
+  // Per-ingredient adjustment is only offered when the meal actually has an
+  // ingredient list to adjust (voice-saved and imported meals always do;
+  // hand-entered totals-only meals may not).
+  _logAdjustRows = null;
+  const ings = Array.isArray(meal.ingredients) ? meal.ingredients : [];
+  document.getElementById('log-meal-adjust-btn').style.display = ings.length ? 'block' : 'none';
+  document.getElementById('log-meal-adjust-btn').innerHTML = '<i class="fa-solid fa-sliders"></i>&nbsp; Adjust Ingredients';
+  document.getElementById('log-meal-adjust-panel').style.display = 'none';
+  document.getElementById('log-meal-amount-block').style.display = 'block';
+  const sb = document.getElementById('log-meal-saveback');
+  if (sb) { sb.checked = false; _syncSavebackBox(); }
+
   const defaultType = window._modalLogDate ? (window._selectedHistMealType || 'breakfast') : (window._selectedMealType || 'breakfast');
   document.querySelectorAll('.log-meal-type-btn').forEach(b => {
     const active = b.dataset.type === defaultType;
@@ -9707,14 +9719,135 @@ function openLogMealModal(id) {
 function updateLogMealPreview() {
   const meal = savedMeals.find(m => m.id === _logMealId);
   if (!meal) return;
-  const qty = parseFloat(document.getElementById('log-meal-qty').value) || 0;
+  const t = _logAdjustRows ? _effectiveAdjustedTotals(meal) : null;
+  const qty = t ? 1 : (parseFloat(document.getElementById('log-meal-qty').value) || 0);
+  const base = t || meal;
   const r = v => Math.round((v || 0) * qty * 10) / 10;
-  document.getElementById('log-meal-preview-cals').textContent = Math.round((meal.calories || 0) * qty);
-  document.getElementById('log-meal-preview-protein').textContent = r(meal.protein);
-  document.getElementById('log-meal-preview-carbs').textContent = r(meal.carbs);
-  document.getElementById('log-meal-preview-fat').textContent = r(meal.fat);
-  document.getElementById('log-meal-preview-fiber').textContent = r(meal.fiber);
-  document.getElementById('log-meal-preview-chol').textContent = Math.round((meal.cholesterol || 0) * qty);
+  document.getElementById('log-meal-preview-cals').textContent = Math.round((base.calories || 0) * qty);
+  document.getElementById('log-meal-preview-protein').textContent = r(base.protein);
+  document.getElementById('log-meal-preview-carbs').textContent = r(base.carbs);
+  document.getElementById('log-meal-preview-fat').textContent = r(base.fat);
+  document.getElementById('log-meal-preview-fiber').textContent = r(base.fiber);
+  document.getElementById('log-meal-preview-chol').textContent = Math.round((base.cholesterol || 0) * qty);
+}
+
+// ===== PER-INGREDIENT ADJUSTMENT AT LOG TIME =====
+// "This meal, but with 6 oz of chicken instead of 4" — scale any ingredient
+// and log the recomputed totals, optionally writing the change back to the
+// saved recipe. Each row scales linearly from its saved qty; the ingredient's
+// stored macros are the amounts for that saved qty.
+let _logAdjustRows = null; // [{ ing, baseQty, qty }] or null when not adjusting
+let _logAdjustBaseSum = null; // ingredient-sum snapshot at panel open — see _effectiveAdjustedTotals
+
+// Saved meals can carry AUTHORITATIVE totals that do NOT equal the sum of
+// their per-ingredient estimates (URL imports and AI saves store model totals
+// top-level with independently rounded ingredient macros). So we apply the
+// user's changes as a DELTA on the stored totals: untouched panel == stored
+// totals exactly; only actual edits move the numbers.
+function _effectiveAdjustedTotals(meal) {
+  const now = _adjustedTotals();
+  const base = _logAdjustBaseSum || now;
+  const eff = {};
+  ['calories','protein','carbs','fat','fiber','cholesterol'].forEach(k => {
+    eff[k] = Math.max(0, (meal[k] || 0) + (now[k] - base[k]));
+  });
+  return eff;
+}
+
+function toggleLogMealAdjust() {
+  const meal = savedMeals.find(m => m.id === _logMealId);
+  if (!meal) return;
+  const panel = document.getElementById('log-meal-adjust-panel');
+  const amount = document.getElementById('log-meal-amount-block');
+  const btn = document.getElementById('log-meal-adjust-btn');
+  if (_logAdjustRows) {
+    // Collapse — back to whole-meal servings mode.
+    _logAdjustRows = null;
+    _logAdjustBaseSum = null;
+    panel.style.display = 'none';
+    amount.style.display = 'block';
+    btn.innerHTML = '<i class="fa-solid fa-sliders"></i>&nbsp; Adjust Ingredients';
+    updateLogMealPreview();
+    return;
+  }
+  _logAdjustRows = (meal.ingredients || []).map(ing => {
+    const baseQty = parseFloat(ing.qty) > 0 ? parseFloat(ing.qty) : 1;
+    return { ing, baseQty, qty: baseQty };
+  });
+  _logAdjustBaseSum = _adjustedTotals(); // snapshot BEFORE any edits
+  document.getElementById('log-meal-qty').value = '1'; // servings lock to 1 while adjusting
+  amount.style.display = 'none';
+  panel.style.display = 'block';
+  btn.innerHTML = '<i class="fa-solid fa-rotate-left"></i>&nbsp; Back to Servings';
+  _renderLogAdjustRows();
+  updateLogMealPreview();
+}
+
+function _renderLogAdjustRows() {
+  const el = document.getElementById('log-meal-adjust-rows');
+  if (!el || !_logAdjustRows) return;
+  el.innerHTML = _logAdjustRows.map((row, i) => {
+    const f = row.qty / row.baseQty;
+    const kcal = Math.round((row.ing.calories || 0) * f);
+    const prot = Math.round((row.ing.protein || 0) * f * 10) / 10;
+    return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--surface-2)">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600;color:var(--ink);word-break:break-word">${escapeHtmlTodo(row.ing.name || 'Ingredient')}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:1px">${kcal} kcal · ${prot}g protein</div>
+      </div>
+      <input type="number" min="0" step="0.1" inputmode="decimal" value="${row.qty}" oninput="_logAdjustQty(${i}, this.value)"
+        style="width:64px;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:15px;font-weight:600;text-align:center;outline:none;flex-shrink:0" />
+      <div style="font-size:11px;color:var(--muted);width:44px;flex-shrink:0">${escapeHtmlTodo(String(row.ing.unit || ''))}</div>
+    </div>`;
+  }).join('');
+}
+
+function _logAdjustQty(i, val) {
+  if (!_logAdjustRows || !_logAdjustRows[i]) return;
+  const q = parseFloat(val);
+  _logAdjustRows[i].qty = (isFinite(q) && q >= 0) ? q : 0;
+  // Update just this row's macro line without rebuilding (keeps the input focused).
+  const rowEl = document.getElementById('log-meal-adjust-rows')?.children?.[i];
+  if (rowEl) {
+    const row = _logAdjustRows[i];
+    const f = row.baseQty ? row.qty / row.baseQty : 0;
+    const meta = rowEl.querySelector('div > div:nth-child(2)');
+    if (meta) meta.textContent = `${Math.round((row.ing.calories || 0) * f)} kcal · ${Math.round((row.ing.protein || 0) * f * 10) / 10}g protein`;
+  }
+  updateLogMealPreview();
+}
+
+function _adjustedTotals() {
+  const sum = { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, cholesterol: 0 };
+  (_logAdjustRows || []).forEach(row => {
+    const f = row.baseQty ? row.qty / row.baseQty : 0;
+    sum.calories += (row.ing.calories || 0) * f;
+    sum.protein += (row.ing.protein || 0) * f;
+    sum.carbs += (row.ing.carbs || 0) * f;
+    sum.fat += (row.ing.fat || 0) * f;
+    sum.fiber += (row.ing.fiber || 0) * f;
+    sum.cholesterol += (row.ing.cholesterol || 0) * f;
+  });
+  return sum;
+}
+
+// "125 g Marinara" scaled by 1.5 -> "187.5 g Marinara". Scales the FIRST
+// number in a string; leaves text without a leading number untouched.
+function _scaleAmountText(text, f) {
+  const str = String(text == null ? '' : text);
+  return str.replace(/(\d+(?:\.\d+)?)/, m => {
+    const v = parseFloat(m) * f;
+    return String(Math.round(v * 10) / 10);
+  });
+}
+
+function _syncSavebackBox() {
+  const cb = document.getElementById('log-meal-saveback');
+  const box = document.getElementById('log-meal-saveback-box');
+  if (!cb || !box) return;
+  box.style.background = cb.checked ? '#CFA13C' : 'transparent';
+  const tick = box.querySelector('i');
+  if (tick) tick.style.display = cb.checked ? '' : 'none';
 }
 
 function selectLogMealType(type, btn) {
@@ -9730,23 +9863,71 @@ function selectLogMealType(type, btn) {
 async function confirmLogSavedMeal() {
   const meal = savedMeals.find(m => m.id === _logMealId);
   if (!meal) return;
-  const qty = parseFloat(document.getElementById('log-meal-qty').value) || 1;
+  const adjusting = !!_logAdjustRows;
+  const qty = adjusting ? 1 : (parseFloat(document.getElementById('log-meal-qty').value) || 1);
   const unit = document.getElementById('log-meal-unit')?.value || 'serving';
   const type = window._logMealType || 'breakfast';
   const targetDate = window._modalLogDate || today;
-  const label = (unit === 'serving' && qty === 1) ? meal.name : `${meal.name} (${qty} ${unit})`;
+  const label = (adjusting || (unit === 'serving' && qty === 1)) ? meal.name : `${meal.name} (${qty} ${unit})`;
+  const base = adjusting ? _effectiveAdjustedTotals(meal) : meal;
   await dbPost('meals', {
     date: targetDate,
     meal_type: type,
     name: label,
-    calories: Math.round((meal.calories || 0) * qty),
-    protein: Math.round((meal.protein || 0) * qty * 10) / 10,
-    carbs: Math.round((meal.carbs || 0) * qty * 10) / 10,
-    fat: Math.round((meal.fat || 0) * qty * 10) / 10,
-    fiber: Math.round((meal.fiber || 0) * qty * 10) / 10,
-    cholesterol: Math.round((meal.cholesterol || 0) * qty),
+    calories: Math.round((base.calories || 0) * qty),
+    protein: Math.round((base.protein || 0) * qty * 10) / 10,
+    carbs: Math.round((base.carbs || 0) * qty * 10) / 10,
+    fat: Math.round((base.fat || 0) * qty * 10) / 10,
+    fiber: Math.round((base.fiber || 0) * qty * 10) / 10,
+    cholesterol: Math.round((base.cholesterol || 0) * qty),
     time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   });
+
+  // Write the adjusted amounts back to the recipe — ONLY when explicitly asked.
+  if (adjusting && document.getElementById('log-meal-saveback')?.checked) {
+    try {
+      // A zeroed row means "this ingredient is out of the recipe" — DROP it.
+      // Persisting qty:0 with zeroed macros would make the ingredient
+      // permanently 0-calorie: the next adjust would treat 0-qty as baseQty 1
+      // with no macros left to scale back up.
+      const newIngredients = _logAdjustRows.filter(row => row.qty > 0).map(row => {
+        const f = row.baseQty ? row.qty / row.baseQty : 0;
+        return {
+          ...row.ing,
+          qty: row.qty,
+          // Voice/AI-saved ingredients embed the amount in the name or unit
+          // ("125 g Marinara" with qty 1) — rescale that text too, or the
+          // recipe would read "1.5 × 125 g" with macros for ~187 g.
+          name: f !== 1 ? _scaleAmountText(row.ing.name, f) : row.ing.name,
+          unit: f !== 1 ? _scaleAmountText(row.ing.unit, f) : row.ing.unit,
+          calories: Math.round((row.ing.calories || 0) * f),
+          protein: Math.round((row.ing.protein || 0) * f * 10) / 10,
+          carbs: Math.round((row.ing.carbs || 0) * f * 10) / 10,
+          fat: Math.round((row.ing.fat || 0) * f * 10) / 10,
+          fiber: Math.round((row.ing.fiber || 0) * f * 10) / 10,
+          cholesterol: Math.round((row.ing.cholesterol || 0) * f)
+        };
+      });
+      const t = _effectiveAdjustedTotals(meal);
+      await dbPatch('saved_meals', meal.id, {
+        ingredients: newIngredients,
+        calories: Math.round(t.calories),
+        protein: Math.round(t.protein * 10) / 10,
+        carbs: Math.round(t.carbs * 10) / 10,
+        fat: Math.round(t.fat * 10) / 10,
+        fiber: Math.round(t.fiber * 10) / 10,
+        cholesterol: Math.round(t.cholesterol)
+      });
+      savedMeals = await dbGet('saved_meals', 'order=created_at.desc') || [];
+      if (typeof renderSavedMeals === 'function') renderSavedMeals();
+      toast(`"${meal.name}" recipe updated ✓`);
+    } catch (e) {
+      console.error('saved meal update failed', e);
+      toast('Logged, but the recipe update failed — try editing it in My Meals');
+    }
+  }
+  _logAdjustRows = null;
+  _logAdjustBaseSum = null;
   document.getElementById('log-meal-modal').style.display = 'none';
   // Clear Meals-tab search so the query doesn't linger after logging
   const fsi2 = document.getElementById('food-search-input');
@@ -15780,7 +15961,26 @@ if (document.readyState === 'loading') {
   <div style="background:var(--surface);border-radius:20px 20px 0 0;padding:24px;width:100%;max-width:520px">
     <div style="font-size:16px;font-weight:700;color:var(--ink);margin-bottom:4px" id="log-meal-name"></div>
     <div style="font-size:12px;color:var(--muted);margin-bottom:16px" id="log-meal-per"></div>
-    <div style="margin-bottom:12px">
+
+    <!-- Toggles between whole-meal servings and per-ingredient adjustment.
+         Never both: adjusting locks servings to 1 so the math stays obvious. -->
+    <button type="button" id="log-meal-adjust-btn" onclick="toggleLogMealAdjust()" style="display:none;width:100%;margin-bottom:12px;background:var(--surface);color:#CFA13C;border:1px solid var(--gold-line);border-radius:10px;padding:9px;font-size:12px;font-weight:700;cursor:pointer"><i class="fa-solid fa-sliders"></i>&nbsp; Adjust Ingredients</button>
+
+    <div id="log-meal-adjust-panel" style="display:none;margin-bottom:12px">
+      <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Ingredients — change any amount</div>
+      <div id="log-meal-adjust-rows" style="max-height:220px;overflow-y:auto;-webkit-overflow-scrolling:touch"></div>
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin-top:12px">
+        <span style="position:relative;width:20px;height:20px;flex-shrink:0;display:inline-block">
+          <input type="checkbox" id="log-meal-saveback" onchange="_syncSavebackBox()" style="position:absolute;inset:0;width:20px;height:20px;margin:0;opacity:0;cursor:pointer;z-index:1" />
+          <span id="log-meal-saveback-box" style="position:absolute;inset:0;border:1.5px solid #CFA13C;border-radius:5px;background:transparent;display:flex;align-items:center;justify-content:center;pointer-events:none">
+            <i class="fa-solid fa-check" style="font-size:12px;color:#101512;display:none"></i>
+          </span>
+        </span>
+        <span style="font-size:12px;color:var(--ink);font-weight:600">Also update the saved meal</span>
+      </label>
+    </div>
+
+    <div style="margin-bottom:12px" id="log-meal-amount-block">
       <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Amount</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <input type="number" min="0" id="log-meal-qty" placeholder="1" value="1" step="0.1" oninput="updateLogMealPreview()"
@@ -15811,7 +16011,7 @@ if (document.readyState === 'loading') {
       </div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-      <button class="btn btn-secondary" onclick="document.getElementById('log-meal-modal').style.display='none'" style="background:var(--surface-2);color:var(--ink)">Cancel</button>
+      <button class="btn btn-secondary" onclick="_logAdjustRows=null;_logAdjustBaseSum=null;document.getElementById('log-meal-modal').style.display='none'" style="background:var(--surface-2);color:var(--ink)">Cancel</button>
       <button class="btn" onclick="confirmLogSavedMeal()">Add to Today</button>
     </div>
   </div>
