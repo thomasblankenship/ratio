@@ -1207,9 +1207,19 @@
         <!-- Photo date locked to today -->
         <input type="hidden" id="photo-date" />
         <div id="photo-preview" style="display:none;margin-bottom:12px">
-          <img id="preview-img" style="width:100%;border-radius:10px;max-height:280px;object-fit:cover" />
+          <div style="position:relative">
+            <img id="preview-img" style="width:100%;border-radius:10px;max-height:280px;object-fit:cover" />
+            <!-- There was no way out of a photo you disliked: the preview simply
+                 stayed on screen with no cancel. -->
+            <button type="button" onclick="clearPhotoSelection()" aria-label="Remove photo"
+              style="position:absolute;top:8px;right:8px;width:32px;height:32px;border-radius:50%;border:none;background:rgba(0,0,0,0.62);color:#fff;font-size:17px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center">&times;</button>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:10px">
+            <button type="button" class="btn" id="upload-btn-main" onclick="uploadPhoto()" style="flex:1">Upload Photo</button>
+            <button type="button" onclick="retakePhoto()" style="padding:0 16px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap">Retake</button>
+          </div>
         </div>
-        <label for="photo-input" style="display:block;background:linear-gradient(160deg,var(--gold-tint),var(--gold-tint-2));border-radius:12px;padding:28px 20px;text-align:center;cursor:pointer;margin-bottom:8px">
+        <label for="photo-input" id="photo-dropzone" style="display:block;background:linear-gradient(160deg,var(--gold-tint),var(--gold-tint-2));border-radius:12px;padding:28px 20px;text-align:center;cursor:pointer;margin-bottom:8px">
           <div style="width:48px;height:48px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;margin:0 auto 12px">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
           </div>
@@ -1217,7 +1227,7 @@
           <div style="font-size:12px;color:var(--muted)">JPG or PNG</div>
         </label>
         <input type="file" id="photo-input" accept="image/*" style="display:none" onchange="previewPhoto(event)" />
-        <button class="btn" id="upload-btn" onclick="uploadPhoto()" style="display:none">Upload Photo</button>
+        <button class="btn" id="upload-btn" onclick="uploadPhoto()" style="display:none"></button>
       </div>
 
       <div class="card">
@@ -6714,7 +6724,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-03-a';
+const RATIO_BUILD = '2026-08-03-b';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -7964,6 +7974,16 @@ function renderPhotos() {
   if (!allPhotos.length) { el.innerHTML = '<div class="empty">No photos yet — upload your first progress photo!</div>'; return; }
   const byDate = {};
   allPhotos.forEach(p => { if (!byDate[p.date]) byDate[p.date] = []; byDate[p.date].push(p); });
+  // Always Front, Side, Back — never the order they happened to be uploaded in.
+  // Comparing two dates is the whole point of this screen, and it only works if
+  // the same angle sits in the same column every time.
+  const ANGLE_ORDER = { front: 0, side: 1, back: 2 };
+  Object.values(byDate).forEach(list => list.sort((a, b) => {
+    const ai = ANGLE_ORDER[(a.angle || '').toLowerCase()];
+    const bi = ANGLE_ORDER[(b.angle || '').toLowerCase()];
+    // Anything unrecognised sorts last rather than jumping to the front.
+    return (ai === undefined ? 99 : ai) - (bi === undefined ? 99 : bi);
+  }));
   el.innerHTML = Object.entries(byDate).map(([date, photos]) => `
     <div class="photo-date-group">
       <div class="photo-date-label">${new Date(date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</div>
@@ -7979,6 +7999,30 @@ function renderPhotos() {
 }
 
 
+
+// Returns the picker to its empty state. Without this a photo the user
+// disliked stayed on screen with no way to dismiss it.
+function clearPhotoSelection() {
+  selectedPhotoFile = null;
+  const input = document.getElementById('photo-input');
+  // Reset the value or re-picking the SAME file fires no change event.
+  if (input) input.value = '';
+  const prev = document.getElementById('photo-preview');
+  if (prev) prev.style.display = 'none';
+  const img = document.getElementById('preview-img');
+  if (img) img.removeAttribute('src');
+  const dz = document.getElementById('photo-dropzone');
+  if (dz) dz.style.display = 'block';
+  const legacyBtn = document.getElementById('upload-btn');
+  if (legacyBtn) legacyBtn.style.display = 'none';
+}
+
+// Dismiss the current shot and reopen the picker in one tap.
+function retakePhoto() {
+  clearPhotoSelection();
+  const input = document.getElementById('photo-input');
+  if (input) input.click();
+}
 
 function previewPhoto(e) {
   const file = e.target.files[0];
@@ -8002,9 +8046,21 @@ function previewPhoto(e) {
         const compressed = (blob.size / 1024).toFixed(0);
         document.getElementById('preview-img').src = canvas.toDataURL('image/jpeg', 0.8);
         document.getElementById('photo-preview').style.display = 'block';
-        document.getElementById('upload-btn').style.display = 'block';
-        document.getElementById('upload-btn').textContent = `Upload Photo (~${compressed}KB)`;
-        toast(`Compressed to ${compressed}KB ✓`);
+        // Hide the big dropzone once a photo is chosen. It was 28px of padding
+        // plus an icon, and it pushed the actual Upload button below the fold —
+        // a tester tapped "Use Photo" in the iOS camera, saw the preview, and
+        // reasonably assumed she was done. The photo was never uploaded.
+        const dz = document.getElementById('photo-dropzone');
+        if (dz) dz.style.display = 'none';
+        const mainBtn = document.getElementById('upload-btn-main');
+        if (mainBtn) mainBtn.textContent = `Upload Photo (~${compressed}KB)`;
+        const legacyBtn = document.getElementById('upload-btn');
+        if (legacyBtn) legacyBtn.style.display = 'none';
+        // Bring the buttons into view rather than trusting the user to scroll.
+        try {
+          document.getElementById('photo-preview').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } catch (e) {}
+        toast(`Compressed to ${compressed}KB — now tap Upload Photo`);
       }, 'image/jpeg', 0.8);
     };
     img.src = ev.target.result;
@@ -8016,8 +8072,10 @@ async function uploadPhoto() {
   if (!selectedPhotoFile) return;
   const date = document.getElementById('photo-date').value;
   if (!date) { toast('Select a date'); return; }
-  const btn = document.getElementById('upload-btn');
-  btn.textContent = 'Uploading...'; btn.style.opacity = '0.5';
+  // The visible button is the one inside the preview now; the old one is kept
+  // only so nothing that references it breaks.
+  const btn = document.getElementById('upload-btn-main') || document.getElementById('upload-btn');
+  btn.textContent = 'Uploading...'; btn.style.opacity = '0.5'; btn.disabled = true;
   try {
     // Check if photo already exists for this date + angle
     const existing = allPhotos.find(p => p.date === date && p.angle === selectedAngle);
@@ -8047,20 +8105,15 @@ async function uploadPhoto() {
       toast(`${selectedAngle.charAt(0).toUpperCase() + selectedAngle.slice(1)} photo saved ✓`);
     }
 
-    document.getElementById('photo-preview').style.display = 'none';
-    document.getElementById('photo-input').value = '';
-    selectedPhotoFile = null;
+    clearPhotoSelection();
     await loadPhotos();
   } catch (e) {
     toast('Upload failed — please try again');
     console.error(e);
-    // Clear preview on failure
-    document.getElementById('photo-preview').style.display = 'none';
-    document.getElementById('photo-input').value = '';
-    selectedPhotoFile = null;
+    // Keep the photo on screen so the user can just tap Upload again — clearing
+    // it forced them to re-take a shot that was never their fault.
   }
-  btn.style.display = 'none'; btn.textContent = 'Upload Photo'; btn.style.opacity = '1';
-  btn.style.opacity = '1';
+  btn.textContent = 'Upload Photo'; btn.style.opacity = '1'; btn.disabled = false;
 }
 
 function updateCompareSelects() {
