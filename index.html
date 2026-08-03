@@ -1,8 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
-  <script>eruda.init();</script>
+  <!-- The debug console is NOT loaded here any more. It is loaded on demand by
+       maybeLoadDebugConsole() once we know who is signed in — QA testers get it,
+       real users never see it. ?debug=1 forces it on for anyone, which is the
+       escape hatch for problems that happen before sign-in. -->
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>Ratio</title>
@@ -246,6 +248,10 @@
     .profile-save-btn { background: var(--accent); color: #101512; border: none; border-radius: 18px; padding: 8px 18px; font-size: 13px; font-weight: 700; cursor: pointer; }
     .profile-coming-soon { text-align: center; color: var(--muted); font-size: 14px; padding: 60px 0; }
     .mp-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--surface-2); gap: 10px; cursor: pointer; }
+    /* QA-only rows are hidden by default and revealed for testers, rather than
+       shown and then hidden — otherwise a real user sees them flash on load. */
+    .qa-only { display: none !important; }
+    body.qa-mode .qa-only { display: flex !important; }
     .mp-row-label { font-size: 14px; color: var(--muted); flex-shrink: 0; }
     .mp-row-value { font-size: 14px; color: #CFA13C; font-weight: 600; text-align: right; }
     .mp-inline-pill { background: var(--surface-2); border: 1px solid var(--line); border-radius: 14px; padding: 5px 12px; font-size: 12px; font-weight: 600; color: var(--muted); cursor: pointer; font-family: inherit; }
@@ -1069,7 +1075,7 @@
 
       <!-- STEPS -->
       <div id="progress-section-steps"></div>
-      <div class="card">
+      <div class="card" id="steps-card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
           <div class="card-title" style="color:#CFA13C;margin-bottom:0">Steps</div>
           <span onclick="editStepGoalDirect()" style="cursor:pointer;font-weight:600;color:#CFA13C;font-size:12px" id="steps-goal-display">— Goal <i class="fa-solid fa-pen" style="font-size:0.7em"></i></span>
@@ -1394,7 +1400,8 @@
             <div id="todo-notif-toggle-knob" style="position:absolute;top:3px;right:3px;width:16px;height:16px;border-radius:50%;background:var(--surface);transition:all 0.2s"></div>
           </div>
         </div>
-        <div class="mp-row" onclick="sendTestTodoNotification()">
+        <!-- ⚠️ PRE-LAUNCH: QA ONLY — hide before public release. See LAUNCH-CHECKLIST.md -->
+        <div class="mp-row qa-only" onclick="sendTestTodoNotification()">
           <div class="mp-row-label">Test Reminder</div>
           <div class="mp-row-value" style="color:#CFA13C">Send in 10s</div>
         </div>
@@ -1406,7 +1413,8 @@
           <div class="mp-row-label">App Appearance</div>
           <div class="mp-row-value" id="settings-appearance-value">Dark</div>
         </div>
-        <div class="mp-row" style="cursor:default;border-bottom:none">
+        <!-- ⚠️ PRE-LAUNCH: QA ONLY — hide before public release. See LAUNCH-CHECKLIST.md -->
+        <div class="mp-row qa-only" style="cursor:default;border-bottom:none">
           <div class="mp-row-label">App Version</div>
           <div class="mp-row-value" style="color:var(--muted)" id="settings-build-version">—</div>
         </div>
@@ -1531,12 +1539,16 @@
             <span style="font-size:12px;color:var(--muted)">g</span>
           </div>
         </div>
-        <div class="mp-row" style="cursor:default;border-bottom:none">
+        <div class="mp-row" id="dt-steps-row" style="cursor:default">
           <div class="mp-row-label">Step Goal</div>
           <div style="display:flex;align-items:center;gap:2px">
             <input type="text" inputmode="numeric" id="dt-display-steps" oninput="dtInputChanged('steps',this.value)" onfocus="moveCaretToEnd(this)" style="width:70px;text-align:right;background:none;border:none;color:#CFA13C;font-weight:600;font-size:14px;outline:none;font-family:inherit;padding:0" />
             <span style="font-size:12px;color:var(--muted)">steps</span>
           </div>
+        </div>
+        <div class="mp-row" style="cursor:default;border-bottom:none">
+          <div class="mp-row-label">Track steps</div>
+          <button type="button" id="dt-steps-toggle" onclick="toggleStepsTracking()" style="background:none;border:none;color:#CFA13C;font-weight:600;font-size:14px;cursor:pointer;padding:0">On</button>
         </div>
       </div>
       <div style="font-size:11px;color:var(--muted-2);margin-top:10px;padding:0 4px">Your daily target already accounts for your activity level — eat this amount every day regardless of workouts.</div>
@@ -3295,6 +3307,7 @@ async function loadTodoNotificationsToggle() {
   _setTodoNotifToggleUI(enabled);
 }
 async function toggleTodoNotificationsEnabled() {
+  if (!IS_NATIVE) { toast('Reminders are only available in the iOS app'); return; }
   const cur = (await loadSetting('todo_notifications_enabled')) !== false;
   const next = !cur;
   await saveSetting('todo_notifications_enabled', next);
@@ -3432,6 +3445,14 @@ async function syncHealthKitAll(showToast) {
 }
 
 async function toggleHealthKitConnection() {
+  // Without this, a browser user could switch this on and persist
+  // healthkit_enabled: true — a setting that can never become true for them.
+  if (!IS_NATIVE) {
+    const box = document.getElementById('healthkit-toggle');
+    if (box) box.checked = !box.checked;
+    toast('Apple Health is only available in the iOS app');
+    return;
+  }
   const enabled = document.getElementById('healthkit-toggle').checked;
   const hkBox = document.getElementById('healthkit-toggle-box');
   if (hkBox) hkBox.style.background = enabled ? '#CFA13C' : 'transparent';
@@ -3582,6 +3603,12 @@ async function vlStopListeningQuiet() {
   _vlClearWatchdog();
   const plugin = window.Capacitor?.Plugins?.SpeechRecognition;
   if (plugin) { try { await plugin.stop(); await plugin.removeAllListeners(); } catch(e) {} }
+  // Quiet means quiet: detach onend first so aborting can't submit a stray
+  // half-heard phrase the user never confirmed.
+  if (_vlWebRec) {
+    try { _vlWebRec.onend = null; _vlWebRec.onresult = null; _vlWebRec.onerror = null; _vlWebRec.abort(); } catch(e) {}
+    _vlWebRec = null;
+  }
 }
 
 function vlShowState(state) {
@@ -3662,12 +3689,80 @@ function _vlStartWatchdog() {
   }, 500);
 }
 
+// ── Web Speech fallback ───────────────────────────────────────────────────
+// Chrome and Edge (desktop and Android) ship SpeechRecognition. Everything
+// downstream — vlHandleUtterance, the AI round trip, follow-up questions, the
+// confirm screen — is transport-agnostic, so feeding it browser transcripts
+// makes voice logging work off-iOS with no other changes.
+let _vlWebRec = null;
+
+function vlStartListeningWeb() {
+  const Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!Ctor) { _vlStarting = false; vlShowTypeInstead(); toast('Voice input needs Chrome or the iOS app — type instead'); return; }
+
+  _vlLiveText = '';
+  const liveEl = document.getElementById('vl-live-transcript');
+  if (liveEl) liveEl.textContent = '';
+
+  let rec;
+  try { rec = new Ctor(); } catch (e) {
+    console.error('vlStartListeningWeb construct failed', e);
+    _vlStarting = false; vlShowTypeInstead(); toast('Could not start the microphone — type instead'); return;
+  }
+  _vlWebRec = rec;
+  rec.lang = 'en-US';
+  rec.interimResults = true;
+  rec.continuous = false;
+  rec.maxAlternatives = 1;
+
+  const stillListening = () => document.getElementById('vl-state-listening')?.style.display !== 'none';
+
+  rec.onresult = (ev) => {
+    let text = '';
+    for (let i = 0; i < ev.results.length; i++) text += ev.results[i][0].transcript;
+    text = text.trim();
+    if (text) { _vlLiveText = text; _vlLastPartialAt = Date.now(); }
+    const el = document.getElementById('vl-live-transcript');
+    if (el) el.textContent = text;
+  };
+
+  rec.onerror = (ev) => {
+    console.warn('web speech error', ev.error);
+    _vlWebRec = null;
+    _vlClearWatchdog();
+    if (ev.error === 'not-allowed' || ev.error === 'service-not-allowed') {
+      toast('Microphone blocked — allow it in your browser settings');
+    } else if (ev.error !== 'aborted' && ev.error !== 'no-speech') {
+      toast('Could not start listening — try again');
+    }
+    if (stillListening()) { vlResetToIdle(); vlShowTypeInstead(); }
+  };
+
+  // Browsers end the session themselves on a pause, which is the same contract
+  // the native plugin's listeningState:stopped event provides.
+  rec.onend = () => {
+    _vlWebRec = null;
+    if (stillListening() && _vlLiveText) { _vlClearWatchdog(); vlHandleUtterance(_vlLiveText); }
+  };
+
+  try {
+    rec.start();
+  } catch (e) {
+    console.error('vlStartListeningWeb start failed', e);
+    _vlWebRec = null; _vlStarting = false; vlShowTypeInstead(); toast('Could not start listening — try again'); return;
+  }
+
+  vlShowState('listening');
+  _vlStarting = false;
+  _vlStartWatchdog();
+}
+
 async function vlStartListening() {
   if (_vlStarting) return; // guards against a double-tap starting two concurrent listening sessions
   _vlStarting = true;
 
   const plugin = window.Capacitor?.Plugins?.SpeechRecognition;
-  if (!plugin) { _vlStarting = false; vlShowTypeInstead(); toast('Voice input not available on this device — type instead'); return; }
+  if (!plugin) { return vlStartListeningWeb(); }
 
   try {
     const avail = await plugin.available();
@@ -3755,6 +3850,8 @@ async function vlStopListening() {
   _vlClearWatchdog();
   const plugin = window.Capacitor?.Plugins?.SpeechRecognition;
   if (plugin) { try { await plugin.stop(); } catch(e) {} }
+  // Browser recognizer: stop() fires onend, which submits whatever was heard.
+  if (_vlWebRec) { try { _vlWebRec.stop(); } catch(e) {} }
   // Guard against a race with the native 'listeningState:stopped' event, which may have already
   // fired plugin.stop()'s own handler and moved us into 'processing' by the time this resolves —
   // without this check both paths could call vlHandleUtterance for the same utterance.
@@ -4180,6 +4277,7 @@ async function loadNotificationsToggle() {
   _setNotifToggleUI(enabled);
 }
 async function toggleNotificationsEnabled() {
+  if (!IS_NATIVE) { toast('Reminders are only available in the iOS app'); return; }
   const cur = (await loadSetting('notifications_enabled')) !== false;
   const next = !cur;
   await saveSetting('notifications_enabled', next);
@@ -4194,18 +4292,25 @@ async function toggleNotificationsEnabled() {
   }
 }
 async function initHealthKitSync() {
-  if (!window.Capacitor?.Plugins?.HealthKit) return;
+  // The UI must reflect the stored setting on EVERY platform. This guard used to
+  // sit at the top, so someone who enabled Apple Health on their iPhone then
+  // opened the web app saw the toggle off — the app contradicting itself.
   const enabled = await loadSetting('healthkit_enabled');
   const toggle = document.getElementById('healthkit-toggle');
   if (toggle) toggle.checked = !!enabled;
   const hkBox = document.getElementById('healthkit-toggle-box');
   if (hkBox) hkBox.style.background = enabled ? '#CFA13C' : 'transparent';
+  applyPlatformUI();
+  if (!IS_NATIVE) return;
   if (enabled) syncHealthKitAll(false);
 }
 
 function switchTab(tab) {
   document.querySelector('.content').scrollTop = 0;
   saveLastView({ tab });
+  // Idempotent and a no-op on iOS; cheapest place to guarantee the web-disabled
+  // states are applied no matter which screen the user reaches first.
+  applyPlatformUI();
   ['today','meals','progress','photos','aicoach','shopping','todo','profile','profile-myprofile','profile-settings','profile-appearance','profile-allergies','profile-devices','profile-targets','profile-report','profile-privacy','profile-help','profile-tos','profile-privacy-policy','voicelog'].forEach(t => {
     document.getElementById(`tab-${t}`).style.display = t === tab ? 'block' : 'none';
   });
@@ -4258,7 +4363,8 @@ function updateProgressNavHighlight() {
   const navEl = document.getElementById('progress-section-nav');
   const contentEl = document.querySelector('.content');
   if (!navEl || !contentEl) return;
-  const sections = ['goals', 'workouts', 'steps', 'photos', 'nutrition'];
+  const sections = ['goals', 'workouts', 'steps', 'photos', 'nutrition']
+    .filter(sec => sec !== 'steps' || stepsTrackingEnabled());
   // Trigger line = vertical midpoint of the visible area below the sticky nav
   const navBottom = navEl.getBoundingClientRect().bottom;
   const contentBottom = contentEl.getBoundingClientRect().bottom;
@@ -4958,6 +5064,19 @@ async function dbPatch(table, id, data) {
   if (!res.ok) throw new Error(JSON.stringify(result));
   return result;
 }
+// Storage object keys used to be '<date>/<angle>.jpg' — no user in the path.
+// Combined with x-upsert that meant two accounts uploading the same angle on the
+// same day wrote to the SAME object, and the second silently replaced the first.
+// Namespacing by user id makes collisions impossible.
+//
+// Reads are unaffected: progress_photos rows store the full URL that was written
+// at upload time, so existing photos keep resolving at their old paths. Only new
+// uploads take the new shape.
+function photoPath(...parts) {
+  const uid = _currentUser?.id || 'anon';
+  return [uid, ...parts].join('/');
+}
+
 async function storageUpload(bucket, path, file) {
   // DELETE first then POST to handle overwrites cleanly
   await fetch(`${SUPABASE_URL}/storage/v1/object/${bucket}/${path}`, {
@@ -5120,9 +5239,15 @@ async function setPendingOnboarding(data) {
   try { localStorage.setItem('pending_onboarding', json); } catch(e) {}
   // Tertiary: cookie backup, minimal payload to stay under 4KB
   try {
+    // Every field here is one the recovery path actually consumes. username in
+    // particular: without it the chosen username is never claimed, and the user
+    // silently ends up with none. userId is the cross-account guard — omitting
+    // it would let this record apply to whoever signs in next on this device.
     const mini = JSON.stringify({
       name: data.name, profile: data.profile, targets: data.targets, goals: data.goals,
-      obGoalType: data.obGoalType, obActivity: data.obActivity, obPace: data.obPace
+      obGoalType: data.obGoalType, obActivity: data.obActivity, obPace: data.obPace,
+      username: data.username, userId: data.userId,
+      preferences: data.preferences, healthOptIn: data.healthOptIn, notifOptIn: data.notifOptIn
     });
     const exp = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toUTCString();
     document.cookie = `pending_ob=${encodeURIComponent(mini)};expires=${exp};path=/;SameSite=Lax`;
@@ -5435,9 +5560,38 @@ async function obNext(step) {
     return;
   }
   if (step === 10) {
+    obShowStep(11);
+    return;
+  }
+  if (step === 11) {
     await handleSignUp();
     return;
   }
+}
+
+// The daily step goal from onboarding, clamped to something sane. Falls back to
+// 10,000 — the same value every read site already assumed when the key was
+// simply absent, so behaviour is unchanged for anyone who ignores the field.
+function obStepGoal() {
+  const raw = parseInt(document.getElementById('ob-step-goal')?.value, 10);
+  if (!isFinite(raw) || raw < 1000) return 10000;
+  return Math.min(50000, raw);
+}
+
+// Opting out of steps entirely. The goal value is still stored so turning
+// tracking back on later restores a sensible number rather than a blank.
+let _obStepsTrackingOn = true;
+function obToggleStepTracking() {
+  _obStepsTrackingOn = !_obStepsTrackingOn;
+  const input = document.getElementById('ob-step-goal');
+  const help = document.getElementById('ob-step-goal-help');
+  const note = document.getElementById('ob-steps-off-note');
+  const btn = document.getElementById('ob-steps-skip-btn');
+  if (input) input.style.display = _obStepsTrackingOn ? 'block' : 'none';
+  if (help) help.style.display = _obStepsTrackingOn ? 'block' : 'none';
+  if (note) note.style.display = _obStepsTrackingOn ? 'none' : 'block';
+  if (btn) btn.textContent = _obStepsTrackingOn ? "I don't track steps" : 'Track steps after all';
+  obSaveProgress();
 }
 
 function obToggleAllergy(el) {
@@ -5457,6 +5611,7 @@ function obBack(step) {
   if (step === 8) { obShowStep(7); return; }
   if (step === 9) { obShowStep(8); return; }
   if (step === 10) { obShowStep(9); return; }
+  if (step === 11) { obShowStep(10); return; }
 }
 
 
@@ -5994,6 +6149,8 @@ async function handleLogin() {
         const check = await loadSetting('profile');
         if (!check) throw new Error('Settings did not persist — will retry on next login');
         if (p.healthOptIn) { try { await saveSetting('healthkit_enabled', true); } catch(e) {} }
+        // Reminders were asked about during signup; honour a decline on recovery too.
+        if (p.notifOptIn === false) { try { await saveSetting('notifications_enabled', false); await saveSetting('todo_notifications_enabled', false); } catch(e) {} }
         if (p.goals?.weightStart) {
           try { await dbPost('scans', { date: today, weight: p.goals.weightStart }); } catch(e) { console.warn('scan post failed', e); }
         }
@@ -6062,7 +6219,7 @@ async function _finishSignUpInBackground(pendingData, newUserId, username) {
       const photoDate = document.getElementById('ob-photo-date')?.value || new Date().toISOString().slice(0,10);
       const uploadResults = await Promise.allSettled(
         Object.entries(_obPhotos).map(async ([angle, file]) => {
-          const path = `${photoDate}/${angle}.jpg`;
+          const path = `${newUserId || _currentUser?.id || 'anon'}/${photoDate}/${angle}.jpg`;
           const res = await fetch(`${SUPABASE_URL}/storage/v1/object/progress-photos/${path}`, {
             method: 'POST',
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'image/jpeg', 'x-upsert': 'true' },
@@ -6146,15 +6303,16 @@ async function handleSignUp() {
           name,
           username,
           profile: { heightIn: ft * 12 + inn, age, gender: _obGender || 'male', activity: _obActivity || 'active', name, primaryGoal: _obGoalType, weeklyPace: _obPace, dob: (document.getElementById('ob-dob')?.value || null), location: (document.getElementById('ob-location')?.value.trim() || ''), timezone: (document.getElementById('ob-timezone')?.value || 'auto') },
-          targets: { calories: pendingPlan.calories, protein: pendingPlan.protein, carbs: Math.round((pendingPlan.calories * 0.35) / 4), fat: Math.round((pendingPlan.calories * 0.25) / 9) },
-          goals: { weightStart: weight, weightGoal: goalWeight, bfCurrent, bfGoal, bfTrackingOn: true, muscleCurrent, muscleGoal, muscleTrackingOn: true, muscleMethod: null, primaryGoal: _obGoalType },
+          targets: { calories: pendingPlan.calories, protein: pendingPlan.protein, carbs: Math.round((pendingPlan.calories * 0.35) / 4), fat: Math.round((pendingPlan.calories * 0.25) / 9), steps: obStepGoal() },
+          goals: { weightStart: weight, weightGoal: goalWeight, bfCurrent, bfGoal, bfTrackingOn: true, muscleCurrent, muscleGoal, muscleTrackingOn: true, muscleMethod: null, primaryGoal: _obGoalType, celebrated: {}, stepsTrackingOn: _obStepsTrackingOn },
           preferences: { allergies: window._obAllergies || [], allergiesOther: window._obAllergiesOther || '', favoriteFoods: window._obFavoriteFoods || '' },
           plan: pendingPlan,
           obGoalType: _obGoalType,
           obName: name,
           obActivity: _obActivity,
           obPace: _obPace,
-          healthOptIn: !!window._obHealthOptIn
+          healthOptIn: !!window._obHealthOptIn,
+          notifOptIn: window._obNotifOptIn !== false
         };
         newUserId = data.user?.id || data.id;
         console.log('[handleSignUp] newUserId:', newUserId);
@@ -6272,7 +6430,10 @@ function obSaveProgress(preserveTimestamp) {
       'ob-height-ft','ob-height-in','ob-age','ob-weight','ob-goal-weight',
       'ob-bf-current','ob-bf-goal','ob-muscle-current','ob-muscle-goal',
       'ob-signup-name','ob-signup-username','ob-signup-email',
-      'ob-dob','ob-location','ob-timezone'
+      'ob-dob','ob-location','ob-timezone',
+      // Previously absent, so step 9's answers and the step goal were lost on
+      // any interruption after they were entered.
+      'ob-step-goal','ob-allergy-other','ob-favorite-foods'
     ];
     const fields = {};
     fieldIds.forEach(id => { const el = document.getElementById(id); if (el) fields[id] = el.value; });
@@ -6292,6 +6453,12 @@ function obSaveProgress(preserveTimestamp) {
     const snapshot = {
       step: _obCurrentStep,
       obGoalType: _obGoalType, obGender: _obGender, obActivity: _obActivity, obPace: _obPace,
+      // Chip selections and the two opt-ins live on window, not in inputs, so
+      // they have to be snapshotted explicitly or they vanish on resume.
+      obAllergies: Array.from(document.querySelectorAll('.ob-allergy-chip.ob-allergy-selected')).map(el => el.dataset.allergy),
+      obHealthOptIn: window._obHealthOptIn,
+      obStepsTrackingOn: _obStepsTrackingOn,
+      obNotifOptIn: window._obNotifOptIn,
       fields,
       savedAt
     };
@@ -6330,6 +6497,10 @@ function obRestoreProgress() {
     _obGender = snap.obGender || null;
     _obActivity = snap.obActivity || null;
     _obPace = snap.obPace || null;
+    if (Array.isArray(snap.obAllergies)) window._obAllergies = snap.obAllergies;
+    if (typeof snap.obHealthOptIn === 'boolean') window._obHealthOptIn = snap.obHealthOptIn;
+    if (snap.obStepsTrackingOn === false) { _obStepsTrackingOn = true; setTimeout(obToggleStepTracking, 0); }
+    if (typeof snap.obNotifOptIn === 'boolean') window._obNotifOptIn = snap.obNotifOptIn;
     document.querySelectorAll('.ob-screen').forEach(el => { el.style.display = 'none'; });
     const authEl = document.getElementById('auth-screen');
     if (authEl) authEl.style.display = 'none';
@@ -6370,6 +6541,13 @@ function obRestoreProgress() {
     const dobRestored = document.getElementById('ob-dob')?.value;
     if (dobRestored) obDobChanged(dobRestored);
     if (_obGender) obSelectGender(_obGender);
+    // Re-tint the allergy chips that were selected before the interruption,
+    // otherwise they read as unselected while window._obAllergies still holds them.
+    if (Array.isArray(snap.obAllergies) && snap.obAllergies.length) {
+      document.querySelectorAll('.ob-allergy-chip').forEach(el => {
+        if (snap.obAllergies.includes(el.dataset.allergy) && !el.classList.contains('ob-allergy-selected')) obToggleAllergy(el);
+      });
+    }
     // Restore numpad display labels for weight/bf/muscle fields
     ['weight','goal-weight','bf-current','bf-goal','muscle-current','muscle-goal'].forEach(f => {
       const input = document.getElementById('ob-' + f);
@@ -6402,7 +6580,97 @@ function obClearProgress() {
   localStorage.removeItem('ob_progress');
 }
 
-const RATIO_BUILD = '2026-08-02-e';
+// Is this the Capacitor-wrapped iOS app, or a plain browser? Every native
+// feature was probing `window.Capacitor?.Plugins?.X` inline, which made the app
+// honest about what it could DO but not about what it could OFFER — controls for
+// iOS-only features stayed fully interactive on the web and happily wrote
+// settings that could never take effect.
+const IS_NATIVE = !!(window.Capacitor && window.Capacitor.Plugins);
+const HAS_WEB_SPEECH = typeof window !== 'undefined' && !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+
+// Dims and disables controls that cannot work in a browser, and explains why.
+// Safe to call repeatedly — it is idempotent and skipped entirely on iOS.
+function applyPlatformUI() {
+  const qa = isQaUser();
+  document.body.classList.toggle('qa-mode', qa);
+  if (qa) maybeLoadDebugConsole();
+  if (IS_NATIVE) return;
+  try {
+    const disable = (el, why) => {
+      if (!el || el.dataset.webDisabled === '1') return;
+      el.dataset.webDisabled = '1';
+      el.style.opacity = '0.4';
+      el.style.pointerEvents = 'none';
+      if (why) el.title = why;
+    };
+    const hkWhy = 'Apple Health is only available in the iOS app';
+    disable(document.getElementById('healthkit-toggle'), hkWhy);
+    disable(document.getElementById('healthkit-toggle-box'), hkWhy);
+    const hkStatus = document.getElementById('healthkit-status');
+    if (hkStatus && !hkStatus.textContent) hkStatus.textContent = 'Available in the iOS app only';
+    const syncBtn = document.querySelector('#tab-profile-devices .btn');
+    disable(syncBtn, hkWhy);
+
+    // Reminder toggles used to flip and toast "reminders on" while nothing was
+    // ever scheduled — the most misleading control in the app on web.
+    const notifWhy = 'Reminders are only available in the iOS app';
+    disable(document.getElementById('notif-toggle-track'), notifWhy);
+    disable(document.getElementById('todo-notif-toggle-track'), notifWhy);
+
+    // Steps come from Apple Health, so point browser users at the real answer
+    // rather than at a settings page that cannot help them.
+    const stepsDisabled = document.getElementById('steps-chart-disabled');
+    if (stepsDisabled) stepsDisabled.innerHTML = 'Step tracking needs the iOS app and Apple Health. You can hide this card in <b onclick="switchTab(\'profile-targets\')" style="color:#CFA13C;cursor:pointer">Daily Targets</b>.';
+  } catch (e) { console.warn('applyPlatformUI failed', e); }
+}
+
+// ── QA TESTERS ───────────────────────────────────────────────────────────────
+// Debug tools follow the PERSON, not the build — so the same public release can
+// ship to the App Store and still give testers what they need. Anyone in this
+// list gets the eruda console plus the .qa-only rows in Profile → Settings
+// (Test Reminder, App Version). Everyone else sees none of it.
+//
+// User ids rather than emails on purpose: this list is readable in page source,
+// and a UUID tells a stranger nothing. To add someone, have them sign in, then
+// read the "[Ratio] your user id" line this logs to the console and paste it in.
+//
+// This is NOT a security boundary — it only decides what UI is shown. Nothing
+// here grants access to anyone else's data.
+const QA_USER_IDS = [
+  // Uncomment to switch debug tools back on for that account. No other change
+  // is needed anywhere — the console and the QA rows both key off this list.
+  // '2a9cb3ab-1555-4b1d-b832-171ff650e613', // Steve
+  // '1e828559-ba19-4c50-94e7-367cdc5b79c0', // dummy test account
+];
+
+// ?debug=1 forces the console on for anyone. Needed because sign-in problems
+// happen before we know who the user is — and on the web there IS a URL bar.
+function _debugForced() {
+  try { return location.search.indexOf('debug=1') > -1; } catch (e) { return false; }
+}
+
+function isQaUser() {
+  try {
+    if (_debugForced()) return true;
+    return !!_currentUser && QA_USER_IDS.includes(_currentUser.id);
+  } catch (e) { return false; }
+}
+
+let _debugConsoleLoaded = false;
+function maybeLoadDebugConsole() {
+  if (_debugConsoleLoaded || !isQaUser()) return;
+  _debugConsoleLoaded = true;
+  // Loaded via onload rather than an inline init: adblockers and corporate
+  // proxies both block this CDN, and a bare eruda.init() threw a ReferenceError
+  // that took the whole page down with it.
+  const d = document.createElement('script');
+  d.src = 'https://cdn.jsdelivr.net/npm/eruda';
+  d.onload = () => { try { eruda.init(); } catch (e) {} };
+  d.onerror = () => { console.warn('[Ratio] debug console blocked by the network'); };
+  document.head.appendChild(d);
+}
+
+const RATIO_BUILD = '2026-08-02-L1-qa-off';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -6482,8 +6750,8 @@ async function obSaveAndWelcome() {
   const obLocVal = document.getElementById('ob-location')?.value.trim() || '';
   const obTzVal = document.getElementById('ob-timezone')?.value || 'auto';
   userProfile = { heightIn: ft * 12 + inn, age, gender: _obGender || 'male', activity: _obActivity || 'active', name, primaryGoal: _obGoalType, weeklyPace: _obPace, dob: obDobVal, location: obLocVal, timezone: obTzVal };
-  userTargets = { calories: plan.calories, protein: plan.protein, carbs: Math.round((plan.calories * 0.35) / 4), fat: Math.round((plan.calories * 0.25) / 9) };
-  userGoals = { weightStart: weight, weightGoal: goalWeight, bfCurrent, bfGoal, bfTrackingOn: true, muscleCurrent, muscleGoal, muscleTrackingOn: true, muscleMethod: null, primaryGoal: _obGoalType };
+  userTargets = { calories: plan.calories, protein: plan.protein, carbs: Math.round((plan.calories * 0.35) / 4), fat: Math.round((plan.calories * 0.25) / 9), steps: obStepGoal() };
+  userGoals = { weightStart: weight, weightGoal: goalWeight, bfCurrent, bfGoal, bfTrackingOn: true, muscleCurrent, muscleGoal, muscleTrackingOn: true, muscleMethod: null, primaryGoal: _obGoalType, celebrated: {}, stepsTrackingOn: _obStepsTrackingOn };
 
   const preferences = { allergies: window._obAllergies || [], allergiesOther: window._obAllergiesOther || '', favoriteFoods: window._obFavoriteFoods || '' };
   await Promise.all([saveSetting('goals', userGoals), saveSetting('targets', userTargets), saveSetting('profile', userProfile), saveSetting('preferences', preferences)]);
@@ -6497,7 +6765,19 @@ async function obSaveAndWelcome() {
   if (!check) {
     console.error('[obSaveAndWelcome] profile did not persist — token may be invalid. Saving to pending instead.');
     // Save to pending_onboarding as fallback so it applies on next proper login
-    const pendingData = { name, profile: userProfile, targets: userTargets, goals: userGoals, plan, obGoalType: _obGoalType, obName: name, obActivity: _obActivity, obPace: _obPace };
+    // This bundle must carry everything the recovery path reads, or answers the
+    // user already gave are lost. It previously omitted username, preferences,
+    // healthOptIn and userId — so a recovered signup came back with no username
+    // claimed and step 9's allergies silently discarded.
+    const pendingData = {
+      name, profile: userProfile, targets: userTargets, goals: userGoals, plan,
+      obGoalType: _obGoalType, obName: name, obActivity: _obActivity, obPace: _obPace,
+      username: window._obUsername || window._obSignupUsername || null,
+      userId: _currentUser?.id || null,
+      preferences,
+      healthOptIn: !!window._obHealthOptIn,
+      notifOptIn: window._obNotifOptIn !== false
+    };
     await setPendingOnboarding(pendingData);
     if (_currentUser?.id) {
       try {
@@ -6511,6 +6791,12 @@ async function obSaveAndWelcome() {
     }
   }
   if (window._obHealthOptIn) { try { await saveSetting('healthkit_enabled', true); } catch(e) { console.warn('healthkit enable failed', e); } }
+  // Reminders default to on everywhere else via `!== false`, so only an explicit
+  // decline needs storing — but store both so the row reflects what was asked.
+  try {
+    await saveSetting('notifications_enabled', window._obNotifOptIn !== false);
+    await saveSetting('todo_notifications_enabled', window._obNotifOptIn !== false);
+  } catch(e) { console.warn('notification preference save failed', e); }
   localStorage.setItem('ff_onboarded', '1');
   obClearProgress();
   if (weight) { try { await dbPost('scans', { date: today, weight }); } catch(e) {} }
@@ -6569,7 +6855,7 @@ async function dismissWelcome() {
     const date = document.getElementById('ob-photo-date')?.value || new Date().toISOString().slice(0,10);
     const results = await Promise.allSettled(
       Object.entries(_obPhotos).map(async ([angle, file]) => {
-        const path = `${date}/${angle}.jpg`;
+        const path = photoPath(date, `${angle}.jpg`);
         const uploadRes = await storageUpload('progress-photos', path, file);
         if (uploadRes.error) throw new Error(uploadRes.error);
         const url = storageUrl('progress-photos', path) + '?t=' + Date.now();
@@ -6596,6 +6882,10 @@ function updateHeaderHeightVar() {
 
 async function appInit() {
   logDate = today;
+  // Printed so a new tester can read their id back to you for QA_USER_IDS.
+  // Also the fastest way to confirm which account a device is actually on.
+  if (_currentUser?.id) console.log('[Ratio] your user id: ' + _currentUser.id + (isQaUser() ? '  (QA)' : ''));
+  applyPlatformUI();
   // Make sure app shell is visible and welcome/auth screens are hidden
   document.getElementById('app-shell').style.display = 'block';
   document.getElementById('welcome-screen').style.display = 'none';
@@ -6656,6 +6946,8 @@ async function appInit() {
           const check = await loadSetting('profile');
           if (!check) throw new Error('Settings did not persist');
           if (p.healthOptIn) { try { await saveSetting('healthkit_enabled', true); } catch(e) {} }
+        // Reminders were asked about during signup; honour a decline on recovery too.
+        if (p.notifOptIn === false) { try { await saveSetting('notifications_enabled', false); await saveSetting('todo_notifications_enabled', false); } catch(e) {} }
           if (p.goals?.weightStart) {
             try { await dbPost('scans', { date: today, weight: p.goals.weightStart }); } catch(e) { console.warn('scan post failed', e); }
           }
@@ -7671,8 +7963,9 @@ async function uploadPhoto() {
     const existing = allPhotos.find(p => p.date === date && p.angle === selectedAngle);
 
     const ext = selectedPhotoFile.name.split('.').pop();
-    // Use fixed path per date+angle so it overwrites in storage
-    const path = `${date}/${selectedAngle}.${ext}`;
+    // Fixed path per user+date+angle: overwrites THIS user's own photo for that
+    // slot, and can never touch anyone else's.
+    const path = photoPath(date, `${selectedAngle}.${ext}`);
 
     // Upload to storage (overwrites existing file at same path)
     const uploadRes = await storageUpload('progress-photos', path, selectedPhotoFile);
@@ -10557,7 +10850,7 @@ async function saveMeal() {
   if (_mbPhotoFile) {
     try {
       const ext = (_mbPhotoFile.name.split('.').pop() || 'jpg').toLowerCase();
-      const path = `meals/${_mbEditingMealId || Date.now()}.${ext}`;
+      const path = photoPath('meals', `${_mbEditingMealId || Date.now()}.${ext}`);
       const uploadRes = await storageUpload('meal-photos', path, _mbPhotoFile);
       if (uploadRes.error) throw new Error(typeof uploadRes.error === 'string' ? uploadRes.error : uploadRes.error.message || 'Upload failed');
       imageUrl = storageUrl('meal-photos', path) + '?t=' + Date.now();
@@ -11722,6 +12015,7 @@ async function loadGoals() {
       bfCurrent: g.bfCurrent || g.bfStart || null,
       bfGoal: g.bfGoal || null,
       bfTrackingOn: g.bfTrackingOn !== false,
+      stepsTrackingOn: g.stepsTrackingOn !== false,
       muscleCurrent: g.muscleCurrent || g.muscle || null,
       muscleGoal: g.muscleGoal || null,
       muscleTrackingOn: g.muscleTrackingOn !== false,
@@ -11736,10 +12030,27 @@ async function loadGoals() {
   }
   if (profileData) userProfile = profileData;
   syncResolvedTimezone();
+  // A stored targets row replaces userTargets wholesale, so a row written by an
+  // older build — or by a partially-recovered signup — can be missing keys.
+  // Seeding TARGETS from those unguarded pushed `undefined` into every calorie
+  // ring and macro readout, and `userTargets.calories.toLocaleString()` further
+  // down threw outright, killing the entire profile render. Backfill instead.
+  const TARGET_FALLBACKS = { calories: 2000, protein: 150, carbs: 200, fat: 65, steps: 10000 };
+  let targetsPatched = false;
+  Object.keys(TARGET_FALLBACKS).forEach(k => {
+    const v = userTargets[k];
+    if (typeof v !== 'number' || !isFinite(v)) { userTargets[k] = TARGET_FALLBACKS[k]; targetsPatched = true; }
+  });
+  if (targetsPatched) {
+    console.warn('[Ratio] targets row was incomplete — backfilled defaults', userTargets);
+    if (_currentUser) { try { saveSetting('targets', userTargets); } catch (e) {} }
+  }
   TARGETS.calories = userTargets.calories;
   TARGETS.protein = userTargets.protein;
   TARGETS.carbs = userTargets.carbs;
   TARGETS.fat = userTargets.fat;
+  TARGETS.steps = userTargets.steps;
+  applyStepsVisibility();
   updateGoalsDisplay();
 }
 
@@ -12253,6 +12564,25 @@ function getStepsWeekDates(offset) {
 // "Canvas is already in use. Chart with ID 'nn' must be destroyed" errors.
 // One render at a time; a request arriving mid-render is coalesced into a
 // single re-run afterwards instead of racing.
+// One place decides whether steps exist for this user, so the card, the nav
+// chip and the Daily Targets row can never disagree.
+function stepsTrackingEnabled() {
+  return userGoals.stepsTrackingOn !== false;
+}
+
+// Keeps the Daily Targets row and the Progress nav chip in step with the choice.
+function applyStepsVisibility() {
+  const on = stepsTrackingEnabled();
+  const row = document.getElementById('dt-steps-row');
+  if (row) row.style.display = on ? '' : 'none';
+  const chip = document.querySelector('.progress-nav-chip[data-section="steps"]');
+  if (chip) chip.style.display = on ? '' : 'none';
+  const toggle = document.getElementById('dt-steps-toggle');
+  if (toggle) toggle.textContent = on ? 'On' : 'Off';
+  const card = document.getElementById('steps-card');
+  if (card && !on) card.style.display = 'none';
+}
+
 let _stepsChartRendering = false;
 let _stepsChartQueued = false;
 
@@ -12270,6 +12600,15 @@ async function renderStepsChart() {
 async function _renderStepsChartInner() {
   const disabledEl = document.getElementById('steps-chart-disabled');
   const contentEl = document.getElementById('steps-chart-content');
+  // Opting out hides the card outright rather than showing a "connect Apple
+  // Health" nag — someone who said they don't track steps should not be sold
+  // steps every time they open Progress.
+  const cardEl = document.getElementById('steps-card');
+  if (!stepsTrackingEnabled()) {
+    if (cardEl) cardEl.style.display = 'none';
+    return;
+  }
+  if (cardEl) cardEl.style.display = '';
   const enabled = window.Capacitor?.Plugins?.HealthKit && await loadSetting('healthkit_enabled');
   if (!enabled) {
     disabledEl.style.display = 'block';
@@ -14164,6 +14503,14 @@ async function toggleMuscleTracking() {
   updateGoalsDisplay();
 }
 
+async function toggleStepsTracking() {
+  userGoals.stepsTrackingOn = userGoals.stepsTrackingOn === false ? true : false;
+  await saveSetting('goals', userGoals);
+  applyStepsVisibility();
+  if (typeof renderStepsChart === 'function') renderStepsChart();
+  updateGoalsDisplay();
+}
+
 async function toggleBfTracking() {
   userGoals.bfTrackingOn = userGoals.bfTrackingOn === false ? true : false;
   await saveSetting('goals', userGoals);
@@ -15857,6 +16204,16 @@ if (document.readyState === 'loading') {
           <div style="font-size:12px;color:var(--muted);margin-top:2px">Training twice a day or professional athlete</div>
         </button>
       </div>
+      <div style="margin-top:22px;padding-top:20px;border-top:1px solid var(--line)">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
+          <div style="font-size:15px;font-weight:700;color:var(--ink)">Daily step goal</div>
+          <button type="button" id="ob-steps-skip-btn" onclick="obToggleStepTracking()" style="background:none;border:none;color:#CFA13C;font-size:13px;font-weight:600;cursor:pointer;padding:0">I don't track steps</button>
+        </div>
+        <div id="ob-step-goal-help" style="font-size:12px;color:var(--muted);margin-bottom:10px">Most people start at 10,000. You can change this anytime.</div>
+        <input id="ob-step-goal" type="number" inputmode="numeric" value="10000" min="1000" max="50000" step="500"
+               style="width:100%;padding:14px;border:2px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font-size:16px;font-weight:600">
+        <div id="ob-steps-off-note" style="display:none;font-size:13px;color:var(--muted);background:var(--bg-deep);border-radius:12px;padding:14px">Steps are off — the Steps card won't appear anywhere in the app. You can turn it on later in Profile.</div>
+      </div>
       <div id="ob-step5-error" style="font-size:13px;color:#F87171;margin-top:8px;display:none"></div>
     </div>
     <div style="padding:20px 24px 40px;display:flex;gap:10px">
@@ -16100,9 +16457,53 @@ if (document.readyState === 'loading') {
     <div style="padding:20px 24px 40px;display:flex;flex-direction:column;gap:10px">
       <div style="display:flex;gap:10px">
         <button onclick="obBack(10)" style="padding:16px 20px;border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);font-size:20px;cursor:pointer">←</button>
-        <button id="ob-health-create-btn" onclick="window._obHealthOptIn=true;obNext(10)" style="flex:1;padding:16px;background:#CFA13C;color:#101512;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer">Connect & Create Account</button>
+        <button id="ob-health-create-btn" onclick="window._obHealthOptIn=true;obNext(10)" style="flex:1;padding:16px;background:#CFA13C;color:#101512;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer">Connect Apple Health</button>
       </div>
-      <button onclick="window._obHealthOptIn=false;obNext(10)" style="width:100%;padding:12px;background:none;border:none;font-size:14px;color:var(--muted);cursor:pointer">Skip — Create Account without connecting</button>
+      <button onclick="window._obHealthOptIn=false;obNext(10)" style="width:100%;padding:12px;background:none;border:none;font-size:14px;color:var(--muted);cursor:pointer">Skip — continue without connecting</button>
+    </div>
+  </div>
+
+  <!-- Step 11: Reminders -->
+  <div class="ob-screen" id="ob-step-11" style="position:fixed;top:0;left:0;right:0;bottom:0;background:var(--surface);display:none;flex-direction:column;z-index:9999">
+    <div style="padding:24px 24px 0;flex:1;overflow-y:auto;min-height:0">
+      <div style="display:flex;gap:4px;margin-bottom:32px">
+        <div style="flex:1;height:4px;background:#CFA13C;border-radius:2px"></div>
+        <div style="flex:1;height:4px;background:#CFA13C;border-radius:2px"></div>
+        <div style="flex:1;height:4px;background:#CFA13C;border-radius:2px"></div>
+        <div style="flex:1;height:4px;background:#CFA13C;border-radius:2px"></div>
+        <div style="flex:1;height:4px;background:#CFA13C;border-radius:2px"></div>
+        <div style="flex:1;height:4px;background:#CFA13C;border-radius:2px"></div>
+        <div style="flex:1;height:4px;background:#CFA13C;border-radius:2px"></div>
+        <div style="flex:1;height:4px;background:#CFA13C;border-radius:2px"></div>
+        <div style="flex:1;height:4px;background:#CFA13C;border-radius:2px"></div>
+        <div style="flex:1;height:4px;background:#CFA13C;border-radius:2px"></div>
+      </div>
+      <div style="font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Last one</div>
+      <div style="font-size:26px;font-weight:800;color:var(--ink);letter-spacing:-0.5px;margin-bottom:8px">Want a nudge now and then?</div>
+      <div style="font-size:14px;color:var(--muted);margin-bottom:24px;line-height:1.5">People who log consistently see the clearest results. A quiet reminder helps.</div>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px">
+        <div style="display:flex;align-items:center;gap:12px;background:var(--bg-deep);border-radius:12px;padding:14px 16px">
+          <span style="font-size:22px">🍽️</span>
+          <div><div style="font-size:14px;font-weight:700;color:var(--ink)">Meal reminders</div><div style="font-size:12px;color:var(--muted)">If a meal hasn't been logged by the usual time</div></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;background:var(--bg-deep);border-radius:12px;padding:14px 16px">
+          <span style="font-size:22px">✅</span>
+          <div><div style="font-size:14px;font-weight:700;color:var(--ink)">To-do reminders</div><div style="font-size:12px;color:var(--muted)">Only for items you set a time on</div></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;background:var(--bg-deep);border-radius:12px;padding:14px 16px">
+          <span style="font-size:22px">📊</span>
+          <div><div style="font-size:14px;font-weight:700;color:var(--ink)">Your weekly report</div><div style="font-size:12px;color:var(--muted)">One summary a week, nothing more</div></div>
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:8px">No streak nagging, no daily guilt. Change this anytime in Profile → Notifications.</div>
+      <div id="ob-step11-error" style="font-size:13px;color:#F87171;margin-top:4px;display:none"></div>
+    </div>
+    <div style="padding:20px 24px 40px;display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;gap:10px">
+        <button onclick="obBack(11)" style="padding:16px 20px;border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);font-size:20px;cursor:pointer">←</button>
+        <button id="ob-notif-create-btn" onclick="window._obNotifOptIn=true;obNext(11)" style="flex:1;padding:16px;background:#CFA13C;color:#101512;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer">Turn on reminders &amp; Create Account</button>
+      </div>
+      <button onclick="window._obNotifOptIn=false;obNext(11)" style="width:100%;padding:12px;background:none;border:none;font-size:14px;color:var(--muted);cursor:pointer">No reminders — Create Account</button>
     </div>
   </div>
 <!-- MEAL BUILDER MODAL -->
@@ -16120,7 +16521,7 @@ if (document.readyState === 'loading') {
       style="width:100%;padding:14px 16px;border:1.5px solid var(--line);border-radius:12px;font-size:16px;outline:none;box-sizing:border-box;margin-bottom:16px;font-weight:600" />
 
     <!-- Photo -->
-    <input type="file" id="mb-photo-input" accept="image/*" capture="environment" style="display:none" onchange="mbPhotoSelected(event)" />
+    <input type="file" id="mb-photo-input" accept="image/*" style="display:none" onchange="mbPhotoSelected(event)" />
     <div id="mb-photo-section" style="margin-bottom:16px"></div>
 
     <!-- Macro totals -->
