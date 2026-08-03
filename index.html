@@ -6402,7 +6402,7 @@ function obClearProgress() {
   localStorage.removeItem('ob_progress');
 }
 
-const RATIO_BUILD = '2026-08-02-d';
+const RATIO_BUILD = '2026-08-02-e';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -11735,11 +11735,29 @@ async function loadGoals() {
     };
   }
   if (profileData) userProfile = profileData;
+  syncResolvedTimezone();
   TARGETS.calories = userTargets.calories;
   TARGETS.protein = userTargets.protein;
   TARGETS.carbs = userTargets.carbs;
   TARGETS.fat = userTargets.fat;
   updateGoalsDisplay();
+}
+
+// The Worker needs to know the user's local day — a voice assistant logging
+// dinner at 9pm must not write it to tomorrow's date just because UTC rolled
+// over. Timezone is often stored as "auto" (resolved on the device), which the
+// server can't interpret, so mirror the resolved zone into tzResolved. Writes
+// only when it actually changed, so this costs nothing on a normal load and
+// still follows the user if they travel.
+function syncResolvedTimezone() {
+  try {
+    if (!_currentUser) return;
+    const resolved = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (!resolved || userProfile.tzResolved === resolved) return;
+    userProfile = { ...userProfile, tzResolved: resolved };
+    saveSetting('profile', userProfile);
+    console.log('[Ratio] resolved timezone stored: ' + resolved);
+  } catch (e) { /* never block load over this */ }
 }
 
 function updateGoalsDisplay() {
