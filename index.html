@@ -250,6 +250,11 @@
     .mp-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--surface-2); gap: 10px; cursor: pointer; }
     /* QA-only rows are hidden by default and revealed for testers, rather than
        shown and then hidden — otherwise a real user sees them flash on load. */
+    /* Placeholders must never look like entered values. These inputs render
+       their text in accent gold, and the placeholder inherited it — so an empty
+       height field read as "5 ft" and testers changed only the inches. */
+    .ob-screen input::placeholder,
+    .mp-row input::placeholder { color: var(--muted-2); opacity: 1; font-weight: 400; font-style: italic; }
     .qa-only { display: none !important; }
     body.qa-mode .qa-only { display: flex !important; }
     .mp-row-label { font-size: 14px; color: var(--muted); flex-shrink: 0; }
@@ -362,9 +367,21 @@
     <div style="font-size:56px;margin-bottom:20px">📧</div>
     <div style="font-size:24px;font-weight:800;color:var(--ink);margin-bottom:8px">Check your email</div>
     <div id="auth-verify-email-text" style="font-size:15px;color:var(--muted);line-height:1.6;margin-bottom:28px">We sent a verification code to your email.</div>
-    <input id="auth-otp-input" type="text" inputmode="numeric" maxlength="8" placeholder="00000000" autocomplete="one-time-code"
+    <!-- Placeholder was "00000000", which testers read as a code already filled
+         in and tried to submit. Dashes read unmistakably as blanks. -->
+    <input id="auth-otp-input" type="text" inputmode="numeric" maxlength="8" placeholder="------" autocomplete="one-time-code"
       style="width:100%;max-width:260px;padding:16px;text-align:center;font-size:26px;font-weight:800;letter-spacing:6px;border:1.5px solid var(--line);border-radius:12px;outline:none;box-sizing:border-box;margin-bottom:14px"
       oninput="this.value=this.value.replace(/[^0-9]/g,'')" onkeydown="if(event.key==='Enter')verifyOtpCode()" />
+    <div style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.5">Type the code from the email.</div>
+
+    <!-- Spam guidance shown up front, not only after a failure. A first-time
+         tester waited on an email that had already arrived in her spam folder,
+         and did not know spam folders existed. -->
+    <div style="background:var(--bg-deep);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:18px;text-align:left;max-width:340px">
+      <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:4px">Don't see it after a minute?</div>
+      <div style="font-size:12.5px;color:var(--muted);line-height:1.55">Check your <b style="color:var(--ink)">Spam</b> or <b style="color:var(--ink)">Junk</b> folder — new apps often land there. The email is from <b style="color:var(--ink)">Ratio Fitness</b>. Marking it &quot;Not spam&quot; means future emails arrive normally.</div>
+    </div>
+
     <div id="auth-otp-error" style="font-size:13px;color:#F87171;margin-bottom:14px;display:none"></div>
     <button id="auth-otp-verify-btn" onclick="verifyOtpCode()" style="width:100%;max-width:380px;padding:16px;background:#CFA13C;color:#101512;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:12px">Verify & Continue</button>
     <button onclick="resendOtpCode()" id="auth-otp-resend-btn" style="background:none;border:none;font-size:13px;color:var(--muted);cursor:pointer">Didn't get a code? Resend</button>
@@ -5457,10 +5474,23 @@ async function obNext(step) {
     const age = parseInt(document.getElementById('ob-age').value);
     if (!age || age > 100) { if (errEl) { errEl.textContent = 'Please enter your date of birth.'; errEl.style.display = 'block'; } return; }
     if (age < 16) { if (errEl) { errEl.textContent = 'You must be at least 16 years old to use Ratio Fitness.'; errEl.style.display = 'block'; } return; }
-    const ft = parseInt(document.getElementById('ob-height-ft').value);
-    const inn = parseInt(document.getElementById('ob-height-in').value);
-    if (!ft || ft < 3 || ft > 8) { if (errEl) { errEl.textContent = 'Please enter a valid height.'; errEl.style.display = 'block'; } return; }
-    if (inn === undefined || inn < 0 || inn > 11) { if (errEl) { errEl.textContent = 'Please enter valid inches (0-11).'; errEl.style.display = 'block'; } return; }
+    const ftEl = document.getElementById('ob-height-ft');
+    const innEl = document.getElementById('ob-height-in');
+    const ftRaw = (ftEl?.value || '').trim();
+    const innRaw = (innEl?.value || '').trim();
+    const ft = parseInt(ftRaw, 10);
+    const inn = parseInt(innRaw, 10);
+    // Name the box that's actually empty and put the cursor in it. "Please
+    // enter a valid height" told a tester nothing when she had filled in the
+    // inches and never realised the feet box was still blank.
+    const heightFail = (msg, el) => {
+      if (errEl) { errEl.textContent = msg; errEl.style.display = 'block'; }
+      if (el) { try { el.focus(); } catch (e) {} }
+    };
+    if (!ftRaw) { heightFail('Enter your height in feet.', ftEl); return; }
+    if (!isFinite(ft) || ft < 3 || ft > 8) { heightFail('Feet should be between 3 and 8.', ftEl); return; }
+    if (!innRaw) { heightFail('Enter the inches too — use 0 if it is an even number of feet.', innEl); return; }
+    if (!isFinite(inn) || inn < 0 || inn > 11) { heightFail('Inches should be between 0 and 11.', innEl); return; }
     // Show/hide goal weight based on goal type
     const gwSection = document.getElementById('ob-goal-weight-section');
     if (gwSection) gwSection.style.display = _obGoalType === 'maintain' ? 'none' : 'block';
@@ -6120,8 +6150,12 @@ async function handleLogin() {
     if (pending) {
       try {
         const p = JSON.parse(pending);
-        if (p.userId && _currentUser?.id && p.userId !== _currentUser.id) {
-          console.warn('[handleLogin] Ignoring pending_onboarding — it belongs to a different user_id than the one currently signed in.');
+        // A record with NO userId used to be applied to whoever signed in next
+        // on this device — someone else's profile, goals and username landing
+        // on a stranger's account. An unattributable record is now rejected
+        // outright rather than trusted by default.
+        if (!p.userId || !_currentUser?.id || p.userId !== _currentUser.id) {
+          console.warn('[handleLogin] Ignoring pending_onboarding — missing or mismatched user_id.');
           pending = null;
         }
       } catch(e) { /* fall through, JSON.parse below will also fail and be caught */ }
@@ -6235,10 +6269,20 @@ async function _finishSignUpInBackground(pendingData, newUserId, username) {
       console.log('[bgFinish] photos uploaded:', uploadedPhotos.length, 'of', photoKeys.length);
       if (uploadedPhotos.length > 0) {
         pendingData.startingPhotos = uploadedPhotos;
+        // Also stash them where dismissWelcome() can find them. This path only
+        // uploads bytes — the progress_photos ROW is written later, and the
+        // recovery block that would have written it is skipped once a profile
+        // exists (which it does by then). Without this the photo is in the
+        // bucket with nothing pointing at it.
+        window._obUploadedPhotos = uploadedPhotos;
         // Keep the local copy in sync too, in case Supabase sync below fails
         await setPendingOnboarding(pendingData);
       }
-      _obPhotos = {};
+      // Only drop the in-memory files for angles that actually uploaded. A
+      // failed upload used to destroy the photo outright, leaving nothing for
+      // dismissWelcome() to retry.
+      const uploadedAngles = new Set(uploadedPhotos.map(u => u.angle));
+      Object.keys(_obPhotos).forEach(a => { if (uploadedAngles.has(a)) delete _obPhotos[a]; });
     }
 
     const sbRes = await fetch(`${WORKER_URL}/save-pending`, {
@@ -6670,7 +6714,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-02-L2-qa-on';
+const RATIO_BUILD = '2026-08-03-a';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -6850,6 +6894,20 @@ async function showWelcomeScreen() {
 async function dismissWelcome() {
   document.getElementById('welcome-screen').style.display = 'none';
 
+  // Photos the background signup path already pushed to storage: the bytes are
+  // there but no progress_photos row exists, so write the rows now. Without
+  // this the photo silently never appears in Progress Photos.
+  if (_currentUser && Array.isArray(window._obUploadedPhotos) && window._obUploadedPhotos.length) {
+    for (const up of window._obUploadedPhotos) {
+      try {
+        const already = await dbGet('progress_photos', `date=eq.${up.date}&angle=eq.${up.angle}&select=id`);
+        if (already && already.length) continue;
+        await dbPost('progress_photos', { date: up.date, photo_url: up.url, angle: up.angle, notes: 'Starting photo' });
+      } catch (e) { console.warn('Could not record starting photo row:', up.angle, e); }
+    }
+    window._obUploadedPhotos = null;
+  }
+
   // Upload any starting photos collected during onboarding before entering the app
   if (_currentUser && Object.keys(_obPhotos).length > 0) {
     const date = document.getElementById('ob-photo-date')?.value || new Date().toISOString().slice(0,10);
@@ -6918,7 +6976,9 @@ async function appInit() {
     if (pending) {
       try {
         const p = JSON.parse(pending);
-        if (p.userId && _currentUser?.id && p.userId !== _currentUser.id) {
+        // Same reasoning as handleLogin: no userId means unattributable, so
+        // do not apply it to whoever happens to be signed in.
+        if (!p.userId || !_currentUser?.id || p.userId !== _currentUser.id) {
           console.warn('[appInit] Ignoring pending_onboarding — it belongs to a different user_id than the one currently signed in.');
           pending = null;
         }
