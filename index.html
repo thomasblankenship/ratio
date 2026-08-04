@@ -2760,7 +2760,7 @@ function toggleMealForm() {
 
 // ===== UNIFIED FOOD SEARCH (Dashboard + History) =====
 // Renders local matches (My Meals / Saved Foods) INSTANTLY, then streams in
-// Food Database (USDA) results a moment later without blocking the UI.
+// Food Database results a moment later without blocking the UI.
 // A request sequence guard ensures a slow response for an earlier keystroke
 // can never overwrite the results of a later, faster-finishing keystroke.
 let _dashMealSearchTimeout = null;
@@ -2855,8 +2855,13 @@ async function _runFoodSearch(query, ctx) {
       let dbHtml = `<div style="padding:6px 12px;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px;background:var(--surface)">Food Database</div>`;
       dbHtml += usdaResults.map(f => {
         const k = _dashCache({name:f.name, cals:f.calories, protein:f.protein, carbs:f.carbs, fat:f.fat, fiber:f.fiber||0, chol:f.cholesterol||0, unit:f.serving_size});
-        return _searchRow(f.name, nutritionMetaString(f, {perUnit: f.serving_size}), k, ctx);
+        // Which source a number came from is worth seeing — it is how you learn
+        // which one to trust for which kind of food. Raw vs cooked is called out
+        // too, because logging cooked food against a raw entry is the single
+        // biggest cause of macros looking wrong.
+        return _searchRow(foodResultLabel(f), nutritionMetaString(f, {perUnit: f.serving_size}), k, ctx);
       }).join('');
+      dbHtml += foodAttributionHTML(usdaData);
       slot.outerHTML = dbHtml;
       el.style.display = 'block';
     } else if (!el.querySelector('div')?.textContent) {
@@ -2864,6 +2869,25 @@ async function _runFoodSearch(query, ctx) {
       el.style.display = 'none';
     }
   } catch(e) { console.error('[foodSearch] error:', e); }
+}
+
+// Small tag after a result name showing where it came from, plus a raw/cooked
+// hint. Both are cheap to render and remove a whole class of silent error.
+function foodResultLabel(f) {
+  const name = String(f.name || '');
+  const src = f.source === 'fatsecret' ? 'fatsecret' : (f.source === 'usda' ? 'USDA' : null);
+  const lower = name.toLowerCase();
+  let state = '';
+  if (/\b(cooked|roasted|grilled|baked|boiled|broiled)\b/.test(lower)) state = '<span style="color:#7BC47F;font-size:10px;font-weight:700"> COOKED</span>';
+  else if (/\braw\b/.test(lower)) state = '<span style="color:#E0A458;font-size:10px;font-weight:700"> RAW</span>';
+  const tag = src ? `<span style="color:var(--muted-2);font-size:10px"> · ${src}</span>` : '';
+  return name + state + tag;
+}
+
+// FatSecret's free tiers require visible attribution wherever their data shows.
+function foodAttributionHTML(payload) {
+  if (!payload || !payload.attribution) return '';
+  return `<div style="padding:6px 12px 8px;font-size:10px;color:var(--muted-2);background:var(--surface)">${payload.attribution}</div>`;
 }
 
 function _closeManualForm(ctx) {
@@ -6780,7 +6804,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-04-a';
+const RATIO_BUILD = '2026-08-04-b';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -8522,11 +8546,12 @@ async function searchFoodDatabase(query) {
       html += usdaResults.map((f, i) => `
         <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--surface-2)">
           <div>
-            <div style="font-size:14px;font-weight:500">${f.name}</div>
+            <div style="font-size:14px;font-weight:500">${foodResultLabel(f)}</div>
             <div style="font-size:11px;color:var(--muted)">${nutritionMetaString(f, {perUnit: f.serving_size})}</div>
           </div>
           <button type="button" onclick='document.getElementById("food-search-input").blur();logSearchResult(${JSON.stringify(JSON.stringify(f))})' style="background:#CFA13C;color:#101512;border:none;border-radius:14px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer">+ Log</button>
         </div>`).join('');
+      html += foodAttributionHTML(data);
     }
 
     resultsEl.innerHTML = html;
@@ -10942,8 +10967,9 @@ async function mbSearchDB(query) {
     let html = '<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px;margin:10px 0 6px">Food Database</div>';
     usdaResults.forEach(f => {
       const food = {name:f.name, calories:f.calories, protein:f.protein, carbs:f.carbs, fat:f.fat, fiber:f.fiber||0, cholesterol:f.cholesterol||0, unit:f.serving_size};
-      html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--surface-2)"><div><div style="font-size:14px;font-weight:500">' + f.name + '</div><div style="font-size:11px;color:var(--muted)">' + nutritionMetaString(food, {perUnit: f.serving_size}) + '</div></div>' + mbFoodBtn(food) + '</div>';
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--surface-2)"><div><div style="font-size:14px;font-weight:500">' + foodResultLabel(f) + '</div><div style="font-size:11px;color:var(--muted)">' + nutritionMetaString(food, {perUnit: f.serving_size}) + '</div></div>' + mbFoodBtn(food) + '</div>';
     });
+    html += foodAttributionHTML(data);
     slot.outerHTML = html;
   } catch(e) { console.error('[mbSearchDB] error:', e); }
 }
