@@ -305,7 +305,10 @@
     /* COMPARE */
     .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
     .compare-photo { border-radius: 10px; overflow: hidden; background: var(--gray-100); aspect-ratio: 3/4; }
-    .compare-photo img { width: 100%; height: 100%; object-fit: cover; }
+    .compare-photo img { width: 100%; height: 100%; object-fit: cover; transform-origin: center center; will-change: transform; }
+    /* Adjust mode: the browser must stop claiming the gestures, or a pinch
+       zooms the page instead of the photo. */
+    .compare-photo.adjusting { touch-action: none; cursor: move; box-shadow: inset 0 0 0 2px #CFA13C; }
     .compare-label { font-size: 11px; color: var(--gray-400); text-align: center; margin-top: 4px; }
   </style>
 </head>
@@ -1242,11 +1245,28 @@
             <select id="compare-date-2" onchange="updateCompare()"><option value="">Select date</option></select>
           </div>
         </div>
+        <!-- Compare was hardcoded to the front photo with no way to change it,
+             so side and back could be uploaded but never compared. -->
+        <div class="angle-selector" id="compare-angle-selector" style="margin-bottom:12px">
+          <button class="angle-btn selected" id="cmp-angle-front" onclick="setCompareAngle('front', this)">Front</button>
+          <button class="angle-btn" id="cmp-angle-side" onclick="setCompareAngle('side', this)">Side</button>
+          <button class="angle-btn" id="cmp-angle-back" onclick="setCompareAngle('back', this)">Back</button>
+        </div>
+        <div id="compare-missing" style="display:none;font-size:13px;color:var(--muted);padding:14px 4px;text-align:center"></div>
         <div id="compare-view" style="display:none">
           <div class="compare-grid">
-            <div><div class="compare-photo"><img id="compare-img-1" /></div><div class="compare-label" id="compare-label-1"></div></div>
-            <div><div class="compare-photo"><img id="compare-img-2" /></div><div class="compare-label" id="compare-label-2"></div></div>
+            <div><div class="compare-photo" id="compare-box-1"><img id="compare-img-1" /></div><div class="compare-label" id="compare-label-1"></div></div>
+            <div><div class="compare-photo" id="compare-box-2"><img id="compare-img-2" /></div><div class="compare-label" id="compare-label-2"></div></div>
           </div>
+          <!-- Photos taken from different distances make a comparison
+               misleading. Rather than guessing with body detection, let the
+               person line them up themselves and remember what they chose. -->
+          <div style="display:flex;gap:8px;align-items:center;margin-top:10px">
+            <button type="button" id="cmp-adjust-btn" onclick="toggleCompareAdjust()"
+              style="flex:1;padding:11px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-size:13px;font-weight:600;cursor:pointer">Adjust size &amp; position</button>
+            <button type="button" id="cmp-reset-btn" onclick="resetCompareAlign()" style="display:none;padding:11px 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--muted);font-size:13px;font-weight:600;cursor:pointer">Reset</button>
+          </div>
+          <div id="cmp-adjust-hint" style="display:none;font-size:12px;color:var(--muted);margin-top:8px;line-height:1.5;text-align:center">Drag to move, pinch to resize. Line up the same body landmark in both. Saved automatically.</div>
         </div>
       </div>
 
@@ -6724,7 +6744,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-03-b';
+const RATIO_BUILD = '2026-08-03-d';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -8123,15 +8143,180 @@ function updateCompareSelects() {
   document.getElementById('compare-date-2').innerHTML = opts;
 }
 
+let _compareAngle = 'front';
+
+// ── Photo alignment ─────────────────────────────────────────────────────────
+// Progress photos get taken from different distances, which makes a before/after
+// comparison read as a bigger or smaller change than it really is. Rather than
+// guessing with body detection — which can silently distort the exact thing the
+// person is trying to judge — they line the two up by hand and we remember it.
+//
+// The transform is stored per photo in progress_photos.align as {s, x, y}:
+// scale, and offset as a PERCENTAGE of the box, so it survives any screen size.
+let _cmpAdjusting = false;
+const _cmpDefault = { s: 1, x: 0, y: 0 };
+
+function _cmpAlignOf(photo) {
+  const a = photo && photo.align;
+  if (!a || typeof a !== 'object') return { ..._cmpDefault };
+  const num = (v, d) => (typeof v === 'number' && isFinite(v) ? v : d);
+  return { s: num(a.s, 1), x: num(a.x, 0), y: num(a.y, 0) };
+}
+
+function _cmpApply(imgEl, align) {
+  if (!imgEl) return;
+  const a = align || _cmpDefault;
+  imgEl.style.transform = `translate(${a.x}%, ${a.y}%) scale(${a.s})`;
+}
+
+function toggleCompareAdjust() {
+  _cmpAdjusting = !_cmpAdjusting;
+  const btn = document.getElementById('cmp-adjust-btn');
+  const reset = document.getElementById('cmp-reset-btn');
+  const hint = document.getElementById('cmp-adjust-hint');
+  if (btn) {
+    btn.textContent = _cmpAdjusting ? 'Done adjusting' : 'Adjust size & position';
+    btn.style.background = _cmpAdjusting ? '#CFA13C' : 'var(--surface)';
+    btn.style.color = _cmpAdjusting ? '#101512' : 'var(--ink)';
+  }
+  if (reset) reset.style.display = _cmpAdjusting ? 'block' : 'none';
+  if (hint) hint.style.display = _cmpAdjusting ? 'block' : 'none';
+  [1, 2].forEach(n => {
+    const box = document.getElementById('compare-box-' + n);
+    if (box) box.classList.toggle('adjusting', _cmpAdjusting);
+  });
+}
+
+async function resetCompareAlign() {
+  for (const n of [1, 2]) {
+    const box = document.getElementById('compare-box-' + n);
+    const id = box && box.dataset.photoId;
+    if (!id) continue;
+    _cmpApply(document.getElementById('compare-img-' + n), _cmpDefault);
+    await _cmpSave(id, { ..._cmpDefault });
+  }
+  toast('Alignment reset');
+}
+
+async function _cmpSave(photoId, align) {
+  // Keep the in-memory copy in step so re-rendering doesn't undo the change.
+  const row = allPhotos.find(p => String(p.id) === String(photoId));
+  if (row) row.align = align;
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/progress_photos?id=eq.${photoId}`, {
+      method: 'PATCH',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${_authToken || SUPABASE_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify({ align })
+    });
+  } catch (e) {
+    // Non-fatal: the on-screen alignment still holds for this session.
+    console.warn('Could not save photo alignment', e);
+  }
+}
+
+// Drag to pan, two fingers to pinch. Only active in adjust mode — otherwise
+// these handlers would swallow ordinary page scrolling.
+function _cmpBindGestures(n) {
+  const box = document.getElementById('compare-box-' + n);
+  const img = document.getElementById('compare-img-' + n);
+  if (!box || !img || box.dataset.gesturesBound === '1') return;
+  box.dataset.gesturesBound = '1';
+
+  let start = null;
+
+  const current = () => {
+    const row = allPhotos.find(p => String(p.id) === String(box.dataset.photoId));
+    return _cmpAlignOf(row);
+  };
+  const dist = (t) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+
+  box.addEventListener('touchstart', (e) => {
+    if (!_cmpAdjusting) return;
+    e.preventDefault();
+    const t = e.touches;
+    start = {
+      align: current(),
+      x: t[0].clientX, y: t[0].clientY,
+      d: t.length >= 2 ? dist(t) : null,
+      w: box.clientWidth || 1, h: box.clientHeight || 1
+    };
+  }, { passive: false });
+
+  box.addEventListener('touchmove', (e) => {
+    if (!_cmpAdjusting || !start) return;
+    e.preventDefault();
+    const t = e.touches;
+    const next = { ...start.align };
+    if (t.length >= 2 && start.d) {
+      // Clamped so a photo can't be shrunk to nothing or blown up past use.
+      next.s = Math.min(4, Math.max(0.4, start.align.s * (dist(t) / start.d)));
+    } else {
+      next.x = start.align.x + ((t[0].clientX - start.x) / start.w) * 100;
+      next.y = start.align.y + ((t[0].clientY - start.y) / start.h) * 100;
+    }
+    _cmpApply(img, next);
+    box._pending = next;
+  }, { passive: false });
+
+  const finish = async () => {
+    if (!_cmpAdjusting || !start) return;
+    start = null;
+    const next = box._pending;
+    box._pending = null;
+    if (next && box.dataset.photoId) await _cmpSave(box.dataset.photoId, next);
+  };
+  box.addEventListener('touchend', finish);
+  box.addEventListener('touchcancel', finish);
+}
+
+
+function setCompareAngle(angle, btn) {
+  _compareAngle = angle;
+  ['front','side','back'].forEach(a => {
+    const el = document.getElementById('cmp-angle-' + a);
+    if (el) el.classList.toggle('selected', a === angle);
+  });
+  updateCompare();
+}
+
 function updateCompare() {
   const d1 = document.getElementById('compare-date-1').value;
   const d2 = document.getElementById('compare-date-2').value;
+  const missingEl = document.getElementById('compare-missing');
+  if (missingEl) missingEl.style.display = 'none';
   if (!d1 || !d2) { document.getElementById('compare-view').style.display = 'none'; return; }
-  const p1 = allPhotos.find(p => p.date === d1 && p.angle === 'front') || allPhotos.find(p => p.date === d1);
-  const p2 = allPhotos.find(p => p.date === d2 && p.angle === 'front') || allPhotos.find(p => p.date === d2);
-  if (!p1 || !p2) return;
-  document.getElementById('compare-img-1').src = p1.photo_url;
-  document.getElementById('compare-img-2').src = p2.photo_url;
+  // Match the chosen angle exactly. Falling back to "any photo from that date"
+  // would quietly compare a front shot against a back one.
+  const p1 = allPhotos.find(p => p.date === d1 && p.angle === _compareAngle);
+  const p2 = allPhotos.find(p => p.date === d2 && p.angle === _compareAngle);
+  if (!p1 || !p2) {
+    document.getElementById('compare-view').style.display = 'none';
+    if (missingEl) {
+      const which = !p1 && !p2 ? 'either date' : (!p1 ? 'the first date' : 'the second date');
+      missingEl.textContent = `No ${_compareAngle} photo for ${which}. Pick another angle, or add one above.`;
+      missingEl.style.display = 'block';
+    }
+    return;
+  }
+  const img1 = document.getElementById('compare-img-1');
+  const img2 = document.getElementById('compare-img-2');
+  img1.src = p1.photo_url;
+  img2.src = p2.photo_url;
+  // Re-apply whatever alignment was saved for these two photos, and tell the
+  // gesture handlers which rows they are now editing.
+  const box1 = document.getElementById('compare-box-1');
+  const box2 = document.getElementById('compare-box-2');
+  if (box1) box1.dataset.photoId = p1.id;
+  if (box2) box2.dataset.photoId = p2.id;
+  _cmpApply(img1, _cmpAlignOf(p1));
+  _cmpApply(img2, _cmpAlignOf(p2));
+  _cmpBindGestures(1);
+  _cmpBindGestures(2);
   document.getElementById('compare-label-1').textContent = new Date(d1+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});
   document.getElementById('compare-label-2').textContent = new Date(d2+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});
   document.getElementById('compare-view').style.display = 'block';
