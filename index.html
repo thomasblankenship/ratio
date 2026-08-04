@@ -2874,9 +2874,13 @@ async function _runFoodSearch(query, ctx) {
 // Small tag after a result name showing where it came from, plus a raw/cooked
 // hint. Both are cheap to render and remove a whole class of silent error.
 function foodResultLabel(f) {
-  const name = String(f.name || '');
+  // Brand has to be in the name. FatSecret returns four different "Ribeye"
+  // entries with different macros, and without the brand they are
+  // indistinguishable — the user is picking blind.
+  const base = String(f.name || '');
+  const name = f.brand ? `${base} <span style="color:var(--muted);font-weight:400">· ${f.brand}</span>` : base;
   const src = f.source === 'fatsecret' ? 'fatsecret' : (f.source === 'usda' ? 'USDA' : null);
-  const lower = name.toLowerCase();
+  const lower = base.toLowerCase();
   let state = '';
   if (/\b(cooked|roasted|grilled|baked|boiled|broiled)\b/.test(lower)) state = '<span style="color:#7BC47F;font-size:10px;font-weight:700"> COOKED</span>';
   else if (/\braw\b/.test(lower)) state = '<span style="color:#E0A458;font-size:10px;font-weight:700"> RAW</span>';
@@ -6804,7 +6808,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-04-b';
+const RATIO_BUILD = '2026-08-04-c';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
