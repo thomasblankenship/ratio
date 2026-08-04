@@ -1436,7 +1436,7 @@
           <div class="mp-row-value" id="settings-change-pw-status" style="font-size:13px">Send reset link</div>
         </div>
         <div class="mp-row" style="cursor:default">
-          <div class="mp-row-label">Reminder Notifications</div>
+          <div class="mp-row-label">Come-Back Nudges</div>
           <div onclick="toggleNotificationsEnabled()" id="notif-toggle-track" style="cursor:pointer;width:40px;height:22px;border-radius:11px;background:var(--accent);position:relative;transition:background 0.2s;flex-shrink:0">
             <div id="notif-toggle-knob" style="position:absolute;top:3px;right:3px;width:16px;height:16px;border-radius:50%;background:var(--surface);transition:all 0.2s"></div>
           </div>
@@ -6808,7 +6808,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-04-c';
+const RATIO_BUILD = '2026-08-04-d';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -16963,19 +16963,19 @@ if (document.readyState === 'loading') {
       <div style="font-size:14px;color:var(--muted);margin-bottom:24px;line-height:1.5">People who log consistently see the clearest results. A quiet reminder helps.</div>
       <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px">
         <div style="display:flex;align-items:center;gap:12px;background:var(--bg-deep);border-radius:12px;padding:14px 16px">
-          <span style="font-size:22px">🍽️</span>
-          <div><div style="font-size:14px;font-weight:700;color:var(--ink)">Meal reminders</div><div style="font-size:12px;color:var(--muted)">If a meal hasn't been logged by the usual time</div></div>
-        </div>
-        <div style="display:flex;align-items:center;gap:12px;background:var(--bg-deep);border-radius:12px;padding:14px 16px">
           <span style="font-size:22px">✅</span>
           <div><div style="font-size:14px;font-weight:700;color:var(--ink)">To-do reminders</div><div style="font-size:12px;color:var(--muted)">Only for items you set a time on</div></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;background:var(--bg-deep);border-radius:12px;padding:14px 16px">
+          <span style="font-size:22px">👋</span>
+          <div><div style="font-size:14px;font-weight:700;color:var(--ink)">A nudge if you've been away</div><div style="font-size:12px;color:var(--muted)">After a few days, not every day</div></div>
         </div>
         <div style="display:flex;align-items:center;gap:12px;background:var(--bg-deep);border-radius:12px;padding:14px 16px">
           <span style="font-size:22px">📊</span>
           <div><div style="font-size:14px;font-weight:700;color:var(--ink)">Your weekly report</div><div style="font-size:12px;color:var(--muted)">One summary a week, nothing more</div></div>
         </div>
       </div>
-      <div style="font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:8px">No streak nagging, no daily guilt. Change this anytime in Profile → Notifications.</div>
+      <div style="font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:8px">That's all of them. No daily meal prompts, no streak nagging, nothing more than one weekly summary. Change this anytime in Profile → Settings.</div>
       <div id="ob-step11-error" style="font-size:13px;color:#F87171;margin-top:4px;display:none"></div>
     </div>
     <div style="padding:20px 24px 40px;display:flex;flex-direction:column;gap:10px">
