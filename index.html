@@ -1453,6 +1453,12 @@
           <div class="mp-row-value" style="color:#CFA13C">Send in 10s</div>
         </div>
         <div class="mp-row" style="cursor:default">
+          <div class="mp-row-label">Feature Announcements</div>
+          <div onclick="toggleAnnouncementsEnabled()" id="ann-toggle-track" style="cursor:pointer;width:40px;height:22px;border-radius:11px;background:var(--accent);position:relative;transition:background 0.2s;flex-shrink:0">
+            <div id="ann-toggle-knob" style="position:absolute;top:3px;right:3px;width:16px;height:16px;border-radius:50%;background:var(--surface);transition:all 0.2s"></div>
+          </div>
+        </div>
+        <div class="mp-row" style="cursor:default">
           <div class="mp-row-label">Email Settings</div>
           <div class="mp-row-value" style="color:var(--muted)">Coming Soon</div>
         </div>
@@ -3417,6 +3423,29 @@ async function loadTodoNotificationsToggle() {
   const enabled = (await loadSetting('todo_notifications_enabled')) !== false;
   _setTodoNotifToggleUI(enabled);
 }
+// Feature announcements. Default ON — the setting is absent until someone
+// turns it off, so `!== false` is the check everywhere.
+//
+// Today these surface in the notification bell. The same flag will govern
+// announcement EMAILS once the domain has proper SPF/DKIM/DMARC — sending
+// them through Supabase's shared SMTP would land them in spam, as the
+// verification email already did.
+async function toggleAnnouncementsEnabled() {
+  const cur = (await loadSetting('feature_announcements_enabled')) !== false;
+  const next = !cur;
+  await saveSetting('feature_announcements_enabled', next);
+  _setAnnToggleUI(next);
+  toast(next ? 'Feature announcements on ✓' : 'Feature announcements off');
+  if (next) refreshNotifCenter();
+}
+
+function _setAnnToggleUI(on) {
+  const track = document.getElementById('ann-toggle-track');
+  const knob = document.getElementById('ann-toggle-knob');
+  if (track) track.style.background = on ? 'var(--accent)' : 'var(--muted)';
+  if (knob) { knob.style.right = on ? '3px' : 'auto'; knob.style.left = on ? 'auto' : '3px'; }
+}
+
 async function toggleTodoNotificationsEnabled() {
   if (!IS_NATIVE) { toast('Reminders are only available in the iOS app'); return; }
   const cur = (await loadSetting('todo_notifications_enabled')) !== false;
@@ -4386,6 +4415,9 @@ function vlEditManually() {
 async function loadNotificationsToggle() {
   const enabled = (await loadSetting('notifications_enabled')) !== false;
   _setNotifToggleUI(enabled);
+  // Announcements are not native-gated — they surface in the in-app bell, so
+  // they work on web too.
+  _setAnnToggleUI((await loadSetting('feature_announcements_enabled')) !== false);
 }
 async function toggleNotificationsEnabled() {
   if (!IS_NATIVE) { toast('Reminders are only available in the iOS app'); return; }
@@ -5992,6 +6024,32 @@ async function refreshSession(refreshToken) {
   } catch(e) { return null; }
 }
 
+// Verifies a confirmation link that arrived on OUR domain rather than
+// Supabase's. Supabase's default {{ .ConfirmationURL }} points at
+// <project>.supabase.co, so the link inside a "Ratio Fitness" email goes
+// somewhere visibly not ratioapp.app — spam filters read that mismatch as a
+// phishing signal, and it is one of the three issues Resend flagged. The
+// template now sends people to ratioapp.app carrying a token_hash; this
+// exchanges that hash for a real session.
+async function verifyEmailToken(tokenHash, type) {
+  const res = await fetch(`${SUPABASE_URL}/auth/v1/verify`, {
+    method: 'POST',
+    headers: { 'apikey': SUPABASE_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ type, token_hash: tokenHash })
+  });
+  const data = await res.json();
+  if (!res.ok || !data.access_token) {
+    const err = new Error(data.error_description || data.msg || data.error || 'Link invalid or expired.');
+    err.code = data.error_code || '';
+    throw err;
+  }
+  if (data.expires_in && !data.expires_at) data.expires_at = Math.floor(Date.now() / 1000) + data.expires_in;
+  localStorage.setItem('sb_session', JSON.stringify(data));
+  _authToken = data.access_token;
+  _currentUser = data.user;
+  return data;
+}
+
 async function signIn(email, password) {
   const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
     method: 'POST',
@@ -6808,7 +6866,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-04-d';
+const RATIO_BUILD = '2026-08-04-f';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -6826,6 +6884,40 @@ async function init() {
   // that plugin is installed.
   try { window.Capacitor?.Plugins?.Keyboard?.setAccessoryBarVisible({ isVisible: false }); } catch(e) {}
   updateDailyQuote();
+
+  // Confirmation links that land on our own domain (?token_hash=...&type=...).
+  // Handled before the hash branch below because these arrive as a query
+  // string, not a fragment. ?code= is the Alexa OAuth flow and is untouched.
+  const qs = new URLSearchParams(window.location.search);
+  const tokenHash = qs.get('token_hash');
+  const linkType = qs.get('type');
+  if (tokenHash && linkType) {
+    history.replaceState(null, '', window.location.pathname);
+    try {
+      const sess = await verifyEmailToken(tokenHash, linkType);
+      if (linkType === 'recovery') {
+        _authToken = sess.access_token;
+        showAuthScreen();
+        showChangePasswordForm(sess.access_token);
+        return;
+      }
+      // signup / email_change / magiclink — the account is confirmed and we
+      // now hold a live session, so fall through into the normal signed-in
+      // path rather than making a confirmed user log in again.
+    } catch (e) {
+      console.warn('[verifyEmailToken]', e.message);
+      showAuthScreen();
+      const errEl = document.getElementById('auth-error');
+      if (errEl) {
+        errEl.textContent = /expired/i.test(e.message)
+          ? 'That link has expired — request a new one below.'
+          : 'Link invalid or already used. Please sign in.';
+      }
+      if (linkType === 'recovery') showAuthTab('reset');
+      return;
+    }
+  }
+
   // Parse URL hash for Supabase auth redirects
   const hash = window.location.hash;
   if (hash) {
@@ -15875,6 +15967,23 @@ async function refreshNotifCenter() {
     });
   } catch(e) {}
 
+  try { // Feature announcements — new rows in the shared announcements table
+    if ((await loadSetting('feature_announcements_enabled')) !== false) {
+      // Shared table, so skip the automatic user_id filter.
+      const anns = await dbGet('announcements', 'active=eq.true&order=published_at.desc&limit=10', true);
+      (anns || []).forEach(a => {
+        const id = 'ann-' + a.id;
+        if (nc.items.some(i => i.id === id)) return;
+        // Don't retro-notify someone who signs up months later about every
+        // feature ever shipped. Anything older than 30 days is history.
+        const ts = new Date(a.published_at).getTime();
+        if (!isFinite(ts) || Date.now() - ts > 30 * 24 * 60 * 60 * 1000) return;
+        nc.items.push({ id, type: 'announcement', title: a.title, body: a.body, url: a.url || null, ts, read: false });
+        changed = true;
+      });
+    }
+  } catch(e) { /* announcements are never worth breaking the bell over */ }
+
   nc.items.sort((a, b) => b.ts - a.ts);
   if (nc.items.length > 30) { nc.items = nc.items.slice(0, 30); changed = true; }
   if (changed) saveSetting('notif_center', nc);
@@ -15934,6 +16043,11 @@ async function notifItemTap(id) {
   closeNotifCenter();
   if (item.type === 'weekly_report') openWeeklyReportFromBell();
   else if (item.type === 'todo_due') openTodoListPage();
+  // Announcements are self-contained — the title and body say it all. Only
+  // open something if the row carried a link.
+  else if (item.type === 'announcement' && item.url) {
+    try { window.open(item.url, '_blank', 'noopener'); } catch (e) {}
+  }
 }
 
 async function markAllNotifsRead() {
