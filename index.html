@@ -3560,17 +3560,53 @@ async function _healthUpsertScanMetric(date, field, value) {
   } catch (e) { console.error('HealthKit scan upsert failed', field, date, e?.message || String(e)); }
 }
 
+// How far back a body measurement may come from and still be treated as
+// current. The native query is unbounded, so it returns the most recent sample
+// in Health FULL STOP — for a tester whose last weigh-in was in 2018, that is
+// an eight-year-old number presented as today's weight. It looked like a
+// cross-account leak when it first appeared; it was her own ancient data.
+//
+// This lives here rather than in HealthKitPlugin.swift on purpose: the Swift
+// fix needs Xcode and a TestFlight build, and the same guard in JavaScript
+// ships with an ordinary deploy. The Swift version is still worth shipping
+// when the Mac session happens, because it avoids pulling the sample at all —
+// but this closes the hole today. Both are safe together.
+const HEALTH_BODY_LOOKBACK_DAYS = 90;
+
+// Health returns an ISO timestamp. Slicing the first ten characters yields the
+// UTC date, which is the wrong day for anyone weighing themselves in the
+// evening west of Greenwich. Format in the device's own timezone instead.
+function _healthLocalDate(iso) {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return String(iso).slice(0, 10);
+  return new Intl.DateTimeFormat('en-CA', {
+    year: 'numeric', month: '2-digit', day: '2-digit'
+  }).format(d);
+}
+
+function _healthIsRecent(iso) {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return false; // undateable — do not import
+  const ageDays = (Date.now() - d.getTime()) / 86400000;
+  if (ageDays > HEALTH_BODY_LOOKBACK_DAYS) {
+    console.log(`[HealthKit] ignoring body sample from ${iso} — ${Math.round(ageDays)} days old`);
+    return false;
+  }
+  // A sample dated in the future is a clock problem, not a measurement.
+  return ageDays > -2;
+}
+
 async function syncHealthKitBody(showToast) {
   if (!window.Capacitor?.Plugins?.HealthKit) return;
   if (!Capacitor.Plugins.HealthKit.fetchBodyMeasurements) return; // native without this method
   try {
     await Capacitor.Plugins.HealthKit.requestAuthorization();
     const r = await Capacitor.Plugins.HealthKit.fetchBodyMeasurements();
-    if (r && r.weightLbs != null && r.weightDate) {
-      await _healthUpsertScanMetric(r.weightDate.slice(0, 10), 'weight', Math.round(r.weightLbs * 10) / 10);
+    if (r && r.weightLbs != null && r.weightDate && _healthIsRecent(r.weightDate)) {
+      await _healthUpsertScanMetric(_healthLocalDate(r.weightDate), 'weight', Math.round(r.weightLbs * 10) / 10);
     }
-    if (r && r.bodyFatPercent != null && r.bodyFatDate) {
-      await _healthUpsertScanMetric(r.bodyFatDate.slice(0, 10), 'body_fat', Math.round(r.bodyFatPercent * 10) / 10);
+    if (r && r.bodyFatPercent != null && r.bodyFatDate && _healthIsRecent(r.bodyFatDate)) {
+      await _healthUpsertScanMetric(_healthLocalDate(r.bodyFatDate), 'body_fat', Math.round(r.bodyFatPercent * 10) / 10);
     }
     if (typeof loadScans === 'function') loadScans();
   } catch (e) {
@@ -6866,7 +6902,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-04-f';
+const RATIO_BUILD = '2026-08-05-a-health';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
