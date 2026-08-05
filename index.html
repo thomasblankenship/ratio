@@ -3577,8 +3577,15 @@ const HEALTH_BODY_LOOKBACK_DAYS = 90;
 // UTC date, which is the wrong day for anyone weighing themselves in the
 // evening west of Greenwich. Format in the device's own timezone instead.
 function _healthLocalDate(iso) {
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return String(iso).slice(0, 10);
+  const s = String(iso || '').trim();
+  // The UPDATED HealthKitPlugin.swift formats the day in the device's own
+  // timezone and returns a bare "2026-08-04". Feeding that to new Date()
+  // parses it as UTC midnight, which is the PREVIOUS day anywhere west of
+  // Greenwich — so the Swift fix and this one would cancel out and reintroduce
+  // the off-by-one they each fix alone. A date-only string is already local.
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const d = new Date(s);
+  if (isNaN(d.getTime())) return s.slice(0, 10);
   return new Intl.DateTimeFormat('en-CA', {
     year: 'numeric', month: '2-digit', day: '2-digit'
   }).format(d);
@@ -6902,7 +6909,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-05-a-health';
+const RATIO_BUILD = '2026-08-05-b-health';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
