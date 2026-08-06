@@ -281,6 +281,24 @@
     .appearance-check { color: #CFA13C; font-size: 12px; display: none; }
     .appearance-card.active .appearance-check { display: inline-block; }
     .appearance-card.active .appearance-card-label { color: #CFA13C; }
+    /* ---- Conversational onboarding (Coach Ian / Coach Olivia) ---- */
+    .obchat-msg { display:flex; margin:10px 0; align-items:flex-end; gap:8px; }
+    .obchat-msg.bot { justify-content:flex-start; }
+    .obchat-msg.user { justify-content:flex-end; }
+    .obchat-avatar { width:34px; height:34px; border-radius:50%; object-fit:cover; object-position:top; flex-shrink:0; background:var(--gold-tint); }
+    .obchat-bubble { max-width:78%; padding:11px 14px; border-radius:16px; font-size:15px; line-height:1.45; white-space:pre-wrap; }
+    .obchat-msg.bot .obchat-bubble { background:var(--bg-deep); color:var(--ink); border:1px solid var(--line); border-bottom-left-radius:4px; }
+    .obchat-msg.user .obchat-bubble { background:#CFA13C; color:#101512; border-bottom-right-radius:4px; font-weight:600; }
+    .obchat-chips { display:flex; flex-wrap:wrap; gap:8px; padding:6px 0 2px 42px; }
+    .obchat-chip { border:1px solid #CFA13C; background:var(--gold-tint); color:#CFA13C; border-radius:20px; padding:9px 15px; font-size:14px; font-weight:700; cursor:pointer; }
+    .obchat-typing span { display:inline-block; width:7px; height:7px; margin:0 2px; border-radius:50%; background:var(--muted); animation: ocblink 1.2s infinite; }
+    .obchat-typing span:nth-child(2){ animation-delay:0.2s } .obchat-typing span:nth-child(3){ animation-delay:0.4s }
+    @keyframes ocblink { 0%,60%,100%{opacity:0.25} 30%{opacity:1} }
+    .obchat-card { margin:8px 0 8px 42px; background:var(--bg-deep); border:1px solid var(--line); border-radius:14px; padding:12px 14px; font-size:13px; color:var(--muted); }
+    .obchat-card b { color:var(--ink); font-weight:700; }
+    .obchat-micbtn.listening { animation: vlPulse 1.4s ease-in-out infinite; background:#CFA13C !important; }
+    .obchat-micbtn.listening i { color:#101512 !important; }
+
     .vl-fab { position: fixed; right: 18px; bottom: 90px; width: 56px; height: 56px; border-radius: 50%; background: #CFA13C; border: none; box-shadow: 0 4px 14px rgba(207,161,60,0.4); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 300; }
     /* The app renders as a centered 520px column, but position:fixed anchors
        to the VIEWPORT — so on desktop the mic floated at the monitor's far
@@ -6201,6 +6219,365 @@ function showAuthTab(tab) {
   else if (tab === 'reset') { showSignIn(); showResetForm(); }
 }
 
+// ============================================================
+// CONVERSATIONAL ONBOARDING — Coach Ian / Coach Olivia
+// The interview replaces form screens 1–6. The classic forms stay reachable
+// via "Prefer forms?" and are also where the collected values get WRITTEN,
+// so everything downstream (obCalcPlan, signup at step 7, recovery bundles)
+// works unchanged. The coach asks for what it doesn't know — it never
+// invents a number — and every parsed number is echoed in writing, because
+// people catch numeric errors by eye and miss them by ear.
+// ============================================================
+const OB_COACHES = {
+  ian:    { name: 'Coach Ian',    img: 'coach-ian.png',    initial: 'I',
+            goals: ['fat_loss', 'muscle_gain'],
+            sub: 'Body fat loss & muscle gain',
+            intro: "Hey, I'm Coach Ian — body fat loss and muscle gain are my specialty, so you're in the right hands. Tell me about yourself and what you want to accomplish: your age, height, current weight, where you want to end up. Just talk to me like you'd talk to a friend." },
+  olivia: { name: 'Coach Olivia', img: 'coach-olivia.png', initial: 'O',
+            goals: ['weight_loss', 'maintain'],
+            sub: 'Weight loss & maintenance',
+            intro: "Hi, I'm Coach Olivia — I'll be your coach. Tell me a bit about yourself and what you're aiming for: your age, height, current weight, and what you'd like to accomplish. Just talk naturally — I'll keep track." }
+};
+const OB_GOAL_LABELS = { fat_loss: 'Lose Body Fat', weight_loss: 'Lose Weight', muscle_gain: 'Gain Muscle', maintain: 'Maintain & Perform' };
+
+let _oc = null;
+
+function obStartChat() {
+  _oc = { stage: 'goal', coach: null, fields: {}, history: [], lastInputVoice: false, busy: false, listening: false, rec: null, partial: '' };
+  document.querySelectorAll('.ob-screen').forEach(el => { el.style.display = 'none'; });
+  const scr = document.getElementById('ob-chat');
+  scr.style.display = 'flex';
+  document.getElementById('obchat-messages').innerHTML = '';
+  _ocSetCoach(null);
+  _ocAddBot("Welcome to Ratio Fitness. Let's test out your microphone — tap the gold mic and just talk, or type if you'd rather.\n\nSo, what's your primary goal?");
+  _ocChips(Object.entries(OB_GOAL_LABELS).map(([k, label]) => ({ label, action: () => _ocSetGoal(k) })));
+}
+
+function obChatUseForms() {
+  _ocStopListening();
+  document.getElementById('ob-chat').style.display = 'none';
+  obShowStep(1);
+}
+
+function _ocSetCoach(key) {
+  const img = document.getElementById('obchat-coach-avatar');
+  const fb = document.getElementById('obchat-coach-fallback');
+  if (!key) {
+    img.style.display = 'none'; fb.style.display = 'flex'; fb.textContent = 'R';
+    document.getElementById('obchat-coach-name').textContent = 'Ratio Fitness';
+    document.getElementById('obchat-coach-sub').textContent = "Let's get you set up";
+    return;
+  }
+  const c = OB_COACHES[key];
+  fb.textContent = c.initial;
+  img.src = c.img;
+  img.style.display = 'block';
+  img.onload = () => { fb.style.display = 'none'; };
+  img.onerror = () => { img.style.display = 'none'; fb.style.display = 'flex'; };
+  document.getElementById('obchat-coach-name').textContent = c.name;
+  document.getElementById('obchat-coach-sub').textContent = c.sub;
+}
+
+function _ocScroll() {
+  const box = document.getElementById('obchat-messages');
+  if (box) box.scrollTop = box.scrollHeight;
+}
+
+function _ocAddBot(text, opts) {
+  const c = _oc && _oc.coach ? OB_COACHES[_oc.coach] : null;
+  const box = document.getElementById('obchat-messages');
+  const row = document.createElement('div');
+  row.className = 'obchat-msg bot';
+  const av = c ? `<img class="obchat-avatar" src="${c.img}" alt="" onerror="this.outerHTML='<div class=\\'obchat-avatar\\' style=\\'display:flex;align-items:center;justify-content:center;color:#CFA13C;font-weight:800\\'>${c.initial}</div>'">`
+              : `<div class="obchat-avatar" style="display:flex;align-items:center;justify-content:center;color:#CFA13C;font-weight:800">R</div>`;
+  row.innerHTML = av + `<div class="obchat-bubble"></div>`;
+  row.querySelector('.obchat-bubble').textContent = text;
+  box.appendChild(row);
+  if (_oc) _oc.history.push({ role: 'assistant', content: text });
+  _ocScroll();
+  // Respond in kind: if they spoke to the coach, the coach speaks back. The
+  // text is always on screen either way — numbers must be readable.
+  if (_oc && _oc.lastInputVoice && !(opts && opts.silent)) _ocSpeak(text);
+}
+
+function _ocAddUser(text) {
+  const box = document.getElementById('obchat-messages');
+  const row = document.createElement('div');
+  row.className = 'obchat-msg user';
+  row.innerHTML = `<div class="obchat-bubble"></div>`;
+  row.querySelector('.obchat-bubble').textContent = text;
+  box.appendChild(row);
+  _oc.history.push({ role: 'user', content: text });
+  _ocScroll();
+}
+
+function _ocChips(options) {
+  const box = document.getElementById('obchat-messages');
+  const old = box.querySelector('.obchat-chips'); if (old) old.remove();
+  const wrap = document.createElement('div');
+  wrap.className = 'obchat-chips';
+  options.forEach(o => {
+    const b = document.createElement('button');
+    b.className = 'obchat-chip'; b.textContent = o.label;
+    b.onclick = () => { wrap.remove(); o.action(); };
+    wrap.appendChild(b);
+  });
+  box.appendChild(wrap);
+  _ocScroll();
+}
+
+function _ocTyping(on) {
+  const box = document.getElementById('obchat-messages');
+  const cur = document.getElementById('obchat-typing-row');
+  if (!on) { if (cur) cur.remove(); return; }
+  if (cur) return;
+  const row = document.createElement('div');
+  row.id = 'obchat-typing-row';
+  row.className = 'obchat-msg bot';
+  row.innerHTML = `<div class="obchat-avatar" style="display:flex;align-items:center;justify-content:center;color:#CFA13C;font-weight:800">${_oc && _oc.coach ? OB_COACHES[_oc.coach].initial : 'R'}</div><div class="obchat-bubble obchat-typing"><span></span><span></span><span></span></div>`;
+  box.appendChild(row);
+  _ocScroll();
+}
+
+function _ocSpeak(text) {
+  try {
+    if (!window.speechSynthesis) return;
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = 1.05;
+    speechSynthesis.speak(u);
+  } catch (e) {}
+}
+
+function _ocSetGoal(key) {
+  _obGoalType = key;
+  _ocAddUser(OB_GOAL_LABELS[key]);
+  const coachKey = OB_COACHES.ian.goals.includes(key) ? 'ian' : 'olivia';
+  _oc.coach = coachKey;
+  _oc.stage = 'interview';
+  if (key === 'maintain') _oc.fields.pace = 'maintain';
+  _ocSetCoach(coachKey);
+  setTimeout(() => _ocAddBot(OB_COACHES[coachKey].intro), 350);
+}
+
+// Spoken goal selection — the mic test happens ON the goal question, so
+// "I want to lose some body fat" has to work without an API round-trip.
+function _ocMatchGoal(text) {
+  const t = text.toLowerCase();
+  if (/(body ?fat|bf%|lean|tone|cut|shred)/.test(t)) return 'fat_loss';
+  if (/(muscle|bulk|gain|stronger|mass)/.test(t)) return 'muscle_gain';
+  if (/(maintain|keep|stay|perform)/.test(t)) return 'maintain';
+  if (/(lose|drop|weight|slim|smaller)/.test(t)) return 'weight_loss';
+  return null;
+}
+
+const OC_REQUIRED = () => {
+  const need = ['gender', 'age', 'height_ft', 'weight_lb', 'activity', 'pace'];
+  if (_obGoalType !== 'maintain') need.push('goal_weight_lb');
+  return need;
+};
+function _ocMissing() {
+  return OC_REQUIRED().filter(k => _oc.fields[k] === undefined || _oc.fields[k] === null);
+}
+
+function _ocRenderCard() {
+  const f = _oc.fields;
+  const box = document.getElementById('obchat-messages');
+  const old = document.getElementById('obchat-profile-card'); if (old) old.remove();
+  const rows = [];
+  if (f.name) rows.push(`Name: <b>${f.name}</b>`);
+  if (f.gender) rows.push(`Sex: <b>${f.gender}</b>`);
+  if (f.age !== undefined) rows.push(`Age: <b>${f.age}</b>`);
+  if (f.height_ft !== undefined) rows.push(`Height: <b>${f.height_ft}'${f.height_in ?? 0}"</b>`);
+  if (f.weight_lb !== undefined) rows.push(`Weight: <b>${f.weight_lb} lb</b>`);
+  if (f.goal_weight_lb !== undefined) rows.push(`Goal: <b>${f.goal_weight_lb} lb</b>`);
+  if (f.body_fat_pct !== undefined) rows.push(`Body fat: <b>${f.body_fat_pct}%</b>`);
+  if (f.activity) rows.push(`Activity: <b>${f.activity}</b>`);
+  if (f.pace && f.pace !== 'maintain') rows.push(`Pace: <b>${f.pace.replace('lose_05','0.5 lb/wk').replace('lose_15','1.5 lb/wk').replace('lose_1','1 lb/wk').replace('lose_2','2 lb/wk').replace('gain_025','0.25 lb/wk').replace('gain_05','0.5 lb/wk').replace('gain_1','1 lb/wk')}</b>`);
+  if (!rows.length) return;
+  const card = document.createElement('div');
+  card.id = 'obchat-profile-card';
+  card.className = 'obchat-card';
+  card.innerHTML = `<div style="font-size:11px;letter-spacing:0.5px;color:#CFA13C;font-weight:700;margin-bottom:6px">WHAT I'VE GOT SO FAR — say it again to correct anything</div>` + rows.join(' &nbsp;·&nbsp; ');
+  box.appendChild(card);
+  _ocScroll();
+}
+
+async function _ocTurn(userText) {
+  if (_oc.busy) return;
+  _oc.busy = true;
+  _ocTyping(true);
+  try {
+    const res = await fetch(WORKER_URL + '/onboard-chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        coach: _oc.coach, goal: _obGoalType, fields: _oc.fields,
+        messages: _oc.history.slice(-20)
+      })
+    });
+    const data = await res.json();
+    _ocTyping(false);
+    if (data.fields) Object.assign(_oc.fields, data.fields);
+    if (_oc.fields.height_ft !== undefined && _oc.fields.height_in === undefined) _oc.fields.height_in = 0;
+    _ocAddBot(data.say || "Sorry — say that again?");
+    _ocRenderCard();
+    if (data.capped || !_ocMissing().length) _ocComplete();
+  } catch (e) {
+    console.error('[obchat] turn failed', e);
+    _ocTyping(false);
+    _ocAddBot("I'm having trouble hearing you — check your connection and try again, or tap \"Prefer forms?\" up top to continue the classic way.", { silent: true });
+  }
+  _oc.busy = false;
+}
+
+function _ocComplete() {
+  if (_oc.stage === 'done') return;
+  _oc.stage = 'done';
+  const f = _oc.fields;
+  // Write everything into the classic form fields and globals — obCalcPlan,
+  // the recovery bundle, and obSaveAndWelcome all read from THERE, so the
+  // interview stays a front-end to the machinery that already works.
+  _obGender = f.gender || 'male';
+  _obActivity = f.activity || 'moderate';
+  _obPace = f.pace || (_obGoalType === 'maintain' ? 'maintain' : 'lose_1');
+  const set = (id, v) => { const el = document.getElementById(id); if (el && v !== undefined && v !== null) el.value = v; };
+  set('ob-age', f.age);
+  set('ob-height-ft', f.height_ft);
+  set('ob-height-in', f.height_in ?? 0);
+  set('ob-weight', f.weight_lb);
+  set('ob-goal-weight', f.goal_weight_lb ?? f.weight_lb);
+  set('ob-bf-current', f.body_fat_pct);
+  set('ob-bf-goal', f.goal_body_fat_pct);
+  set('ob-favorite-foods', f.favorite_foods);
+  if (f.name) window._obName = f.name;
+  if (Array.isArray(f.allergies) && f.allergies.length) {
+    window._obAllergies = f.allergies;
+    document.querySelectorAll('.ob-allergy-chip').forEach(el => {
+      if (f.allergies.some(a => a.toLowerCase() === String(el.dataset.allergy || '').toLowerCase())) el.classList.add('ob-allergy-selected');
+    });
+  }
+  const plan = obCalcPlan();
+  const coachName = OB_COACHES[_oc.coach].name.replace('Coach ', '');
+  _ocAddBot(`Here's your plan${f.name ? ', ' + f.name : ''}: ${plan.calories.toLocaleString()} calories a day with ${plan.protein}g of protein.` +
+    (plan.goalDateStr && plan.goalDateStr !== 'Track progress to see' ? ` At your pace you'd hit ${plan.goalWeight} lb around ${plan.goalDateStr}.` : '') +
+    ` Let's create your account so I can save it — and from here on, that gold mic works everywhere in the app. Just tell me what you ate and I'll log it.`);
+  _ocChips([{ label: 'Create my account →', action: () => {
+    _ocStopListening();
+    document.getElementById('ob-chat').style.display = 'none';
+    obShowStep(7);
+  } }]);
+}
+
+function obChatSend() {
+  const input = document.getElementById('obchat-input');
+  const text = (input.value || '').trim();
+  if (!text || !_oc || _oc.busy) return;
+  input.value = '';
+  _oc.lastInputVoice = false;
+  _ocDispatch(text);
+}
+
+function _ocDispatch(text) {
+  if (_oc.stage === 'goal') {
+    _ocAddUser(text);
+    const goal = _ocMatchGoal(text);
+    if (goal) {
+      const box = document.getElementById('obchat-messages');
+      const chips = box.querySelector('.obchat-chips'); if (chips) chips.remove();
+      // _ocSetGoal adds its own user bubble for the chip path; here the user
+      // already spoke, so set state directly.
+      _obGoalType = goal;
+      const coachKey = OB_COACHES.ian.goals.includes(goal) ? 'ian' : 'olivia';
+      _oc.coach = coachKey; _oc.stage = 'interview';
+      if (goal === 'maintain') _oc.fields.pace = 'maintain';
+      _ocSetCoach(coachKey);
+      _ocAddBot(`${OB_GOAL_LABELS[goal]} — heard you loud and clear. Your mic works.`, { silent: true });
+      setTimeout(() => _ocAddBot(OB_COACHES[coachKey].intro), 500);
+    } else {
+      _ocAddBot("I didn't catch a goal in that — tap one below, or say something like \"I want to lose body fat.\"");
+      _ocChips(Object.entries(OB_GOAL_LABELS).map(([k, label]) => ({ label, action: () => _ocSetGoal(k) })));
+    }
+    return;
+  }
+  if (_oc.stage === 'done') { _oc.stage = 'interview'; } // they corrected something after the plan — re-open
+  _ocAddUser(text);
+  _ocTurn(text);
+}
+
+// ---- microphone: tap to talk, tap again to stop ----
+function _ocStopListening() {
+  if (!_oc) return;
+  _oc.listening = false;
+  const btn = document.getElementById('obchat-mic');
+  if (btn) btn.classList.remove('listening');
+  try { if (_oc.rec) { _oc.rec.stop(); _oc.rec = null; } } catch (e) {}
+  try { const p = window.Capacitor?.Plugins?.SpeechRecognition; if (p && _oc.nativeListening) { p.stop(); _oc.nativeListening = false; } } catch (e) {}
+}
+
+async function obChatMic() {
+  if (!_oc || _oc.busy) return;
+  if (_oc.listening) { _ocStopListening(); return; }
+  const btn = document.getElementById('obchat-mic');
+  const plugin = window.Capacitor?.Plugins?.SpeechRecognition;
+  _oc.partial = '';
+  _oc.lastInputVoice = true;
+  try { speechSynthesis?.cancel(); } catch (e) {}
+
+  if (plugin) {
+    try {
+      const avail = await plugin.available();
+      if (!avail.available) { toast('Speech recognition not available — type instead'); return; }
+      let perm = await plugin.checkPermissions();
+      if (perm.speechRecognition !== 'granted') perm = await plugin.requestPermissions();
+      if (perm.speechRecognition !== 'granted') { toast('Microphone permission needed — enable in Settings'); return; }
+      _oc.listening = true; _oc.nativeListening = true;
+      btn.classList.add('listening');
+      const handle = await plugin.addListener('partialResults', (d) => {
+        const t = (d.matches && d.matches[0]) || '';
+        if (t) { _oc.partial = t; const inp = document.getElementById('obchat-input'); if (inp) inp.value = t; }
+      });
+      let result = null;
+      try { result = await plugin.start({ language: 'en-US', partialResults: true, maxResults: 1, popup: false }); }
+      finally { try { handle.remove(); } catch (e) {} }
+      _oc.nativeListening = false;
+      const finalText = ((result && result.matches && result.matches[0]) || _oc.partial || '').trim();
+      _ocStopListening();
+      const inp = document.getElementById('obchat-input'); if (inp) inp.value = '';
+      if (finalText) _ocDispatch(finalText);
+    } catch (e) {
+      console.error('[obchat] native mic error', e);
+      _ocStopListening();
+      toast('Could not start the mic — type instead');
+    }
+    return;
+  }
+
+  const Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!Ctor) { toast('Voice needs Chrome, Edge or Safari — type instead'); return; }
+  const rec = new Ctor();
+  rec.lang = 'en-US'; rec.interimResults = true; rec.continuous = false;
+  _oc.rec = rec; _oc.listening = true;
+  btn.classList.add('listening');
+  rec.onresult = (ev) => {
+    let t = '';
+    for (const r of ev.results) t += r[0].transcript;
+    _oc.partial = t.trim();
+    const inp = document.getElementById('obchat-input'); if (inp) inp.value = _oc.partial;
+  };
+  rec.onerror = (ev) => {
+    _ocStopListening();
+    if (ev.error === 'not-allowed') toast('Microphone blocked — allow it in your browser, or type instead');
+  };
+  rec.onend = () => {
+    const finalText = _oc.partial;
+    _ocStopListening();
+    const inp = document.getElementById('obchat-input'); if (inp) inp.value = '';
+    if (finalText) _ocDispatch(finalText);
+  };
+  try { rec.start(); } catch (e) { _ocStopListening(); toast('Could not start the mic — type instead'); }
+}
+
 function startSignup() {
   // Critical safety: clear any residual authenticated session AND any cached
   // data (scans, goals, foods, meals, etc.) before starting a new account.
@@ -6212,7 +6589,9 @@ function startSignup() {
   resetAppState();
   document.getElementById('auth-screen').style.display = 'none';
   document.querySelectorAll('.ob-screen').forEach(el => { el.style.display = 'none'; });
-  obShowStep(1);
+  // The coach interview is the default path; "Prefer forms?" inside it goes
+  // to the classic screens (obShowStep(1)), which remain fully functional.
+  obStartChat();
 }
 
 // Verifies the 6-digit signup code without ever leaving the page. Since the
@@ -6918,7 +7297,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-06-a-fabfix';
+const RATIO_BUILD = '2026-08-06-b-coachchat';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -16592,6 +16971,29 @@ if (document.readyState === 'loading') {
 <!-- ONBOARDING SCREENS (outside app-shell so display:none does not affect them) -->
 <!-- ONBOARDING MODAL -->
 <!-- ONBOARDING SCREENS (no wrapper - direct body children to avoid stacking context) -->
+
+<!-- CONVERSATIONAL ONBOARDING — the coach interview. Default entry from Get
+     Started; the classic form screens below remain as the fallback path. -->
+<div class="ob-screen" id="ob-chat" style="position:fixed;top:0;left:0;right:0;bottom:0;background:var(--surface);display:none;flex-direction:column;z-index:9999;max-width:520px;margin:0 auto">
+  <div style="display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line);flex-shrink:0">
+    <img id="obchat-coach-avatar" class="obchat-avatar" style="width:42px;height:42px;display:none" alt="" onerror="this.style.display='none'">
+    <div id="obchat-coach-fallback" style="width:42px;height:42px;border-radius:50%;background:var(--gold-tint);display:flex;align-items:center;justify-content:center;color:#CFA13C;font-weight:800;font-size:18px">R</div>
+    <div style="flex:1;min-width:0">
+      <div id="obchat-coach-name" style="font-size:16px;font-weight:800;color:var(--ink)">Ratio Fitness</div>
+      <div id="obchat-coach-sub" style="font-size:12px;color:var(--muted)">Let's get you set up</div>
+    </div>
+    <button onclick="obChatUseForms()" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline;padding:4px">Prefer forms?</button>
+  </div>
+  <div id="obchat-messages" style="flex:1;overflow-y:auto;padding:16px 18px 8px"></div>
+  <div style="flex-shrink:0;padding:10px 14px calc(14px + env(safe-area-inset-bottom));border-top:1px solid var(--line);display:flex;gap:10px;align-items:center">
+    <input id="obchat-input" type="text" placeholder="Type or tap the mic…" autocomplete="off"
+      onkeydown="if(event.key==='Enter')obChatSend()"
+      style="flex:1;padding:13px 16px;border:1px solid var(--line);border-radius:24px;background:var(--bg-deep);color:var(--ink);font-size:15px;outline:none">
+    <button id="obchat-send" onclick="obChatSend()" aria-label="Send" style="width:46px;height:46px;border-radius:50%;background:var(--bg-deep);border:1px solid var(--line);color:var(--ink);cursor:pointer;flex-shrink:0"><i class="fa-solid fa-arrow-up"></i></button>
+    <button id="obchat-mic" class="obchat-micbtn" onclick="obChatMic()" aria-label="Speak" style="width:46px;height:46px;border-radius:50%;background:var(--gold-tint);border:1px solid #CFA13C;color:#CFA13C;cursor:pointer;flex-shrink:0"><i class="fa-solid fa-microphone"></i></button>
+  </div>
+</div>
+
 <div class="ob-screen" id="ob-step-1" style="position:fixed;top:0;left:0;right:0;bottom:0;background:var(--surface);display:none;flex-direction:column;z-index:9999;overflow-y:auto;padding:0">
     <div style="padding:24px 24px 0;flex:1;display:flex;flex-direction:column">
       <!-- Progress bar -->
