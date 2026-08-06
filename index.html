@@ -6249,6 +6249,7 @@ function obStartChat() {
   scr.style.display = 'flex';
   document.getElementById('obchat-messages').innerHTML = '';
   _ocSetCoach(null);
+  _ocSyncMuteBtn();
   _ocAddBot("Welcome to Ratio Fitness. Let's test out your microphone — tap the gold mic and just talk, or type if you'd rather.\n\nSo, what's your primary goal?");
   _ocChips(Object.entries(OB_GOAL_LABELS).map(([k, label]) => ({ label, action: () => _ocSetGoal(k) })));
 }
@@ -6297,7 +6298,10 @@ function _ocAddBot(text, opts) {
   _ocScroll();
   // Respond in kind: if they spoke to the coach, the coach speaks back. The
   // text is always on screen either way — numbers must be readable.
-  if (_oc && _oc.lastInputVoice && !(opts && opts.silent)) _ocSpeak(text);
+  // Alexa-like by default: the coach speaks every reply unless muted from the
+  // header. The text is always on screen regardless — numbers must be READ,
+  // not just heard.
+  if (_oc && !(opts && opts.silent)) _ocSpeak(text);
 }
 
 function _ocAddUser(text) {
@@ -6339,12 +6343,58 @@ function _ocTyping(on) {
   _ocScroll();
 }
 
+// ---- coach voices ----
+// Ian gets a male device voice, Olivia a female one, chosen from whatever
+// this device ships (iPhone, Mac and Android all differ, so this is "a good
+// male voice", not one fixed voice everywhere). Muteable from the chat
+// header; the choice persists. Voices load asynchronously in most browsers,
+// hence the voiceschanged re-cache.
+let _ocMuted = false;
+try { _ocMuted = localStorage.getItem('obchat_muted') === '1'; } catch (e) {}
+let _ocVoices = { ian: null, olivia: null };
+
+function _ocCacheVoices() {
+  try {
+    const all = speechSynthesis.getVoices().filter(v => v.lang && v.lang.toLowerCase().startsWith('en'));
+    if (!all.length) return;
+    const findBy = (names) => {
+      for (const n of names) { const hit = all.find(v => v.name.toLowerCase().includes(n)); if (hit) return hit; }
+      return null;
+    };
+    // Ordered by quality where recognizable: iOS/macOS names first, then
+    // Google/Microsoft desktop names. "male"/"female" catch generic labels.
+    _ocVoices.ian = findBy(['aaron', 'evan', 'alex', 'daniel', 'fred', 'arthur', 'guy', 'david', 'james', 'male']) || null;
+    _ocVoices.olivia = findBy(['samantha', 'ava', 'allison', 'susan', 'zoe', 'karen', 'moira', 'serena', 'jenny', 'aria', 'zira', 'female']) || null;
+  } catch (e) {}
+}
+try {
+  if (window.speechSynthesis) {
+    _ocCacheVoices();
+    speechSynthesis.addEventListener?.('voiceschanged', _ocCacheVoices);
+  }
+} catch (e) {}
+
+function obChatToggleMute() {
+  _ocMuted = !_ocMuted;
+  try { localStorage.setItem('obchat_muted', _ocMuted ? '1' : '0'); } catch (e) {}
+  try { if (_ocMuted) speechSynthesis.cancel(); } catch (e) {}
+  _ocSyncMuteBtn();
+}
+function _ocSyncMuteBtn() {
+  const btn = document.getElementById('obchat-mute');
+  if (!btn) return;
+  btn.innerHTML = _ocMuted ? '<i class="fa-solid fa-volume-xmark"></i>' : '<i class="fa-solid fa-volume-high"></i>';
+  btn.style.color = _ocMuted ? 'var(--muted)' : '#CFA13C';
+}
+
 function _ocSpeak(text) {
   try {
-    if (!window.speechSynthesis) return;
+    if (!window.speechSynthesis || _ocMuted) return;
     speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
     u.rate = 1.05;
+    const v = _oc && _oc.coach ? _ocVoices[_oc.coach] : null;
+    if (v) u.voice = v;
     speechSynthesis.speak(u);
   } catch (e) {}
 }
@@ -7297,7 +7347,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-06-b-coachchat';
+const RATIO_BUILD = '2026-08-06-c-voices';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -16982,6 +17032,7 @@ if (document.readyState === 'loading') {
       <div id="obchat-coach-name" style="font-size:16px;font-weight:800;color:var(--ink)">Ratio Fitness</div>
       <div id="obchat-coach-sub" style="font-size:12px;color:var(--muted)">Let's get you set up</div>
     </div>
+    <button id="obchat-mute" onclick="obChatToggleMute()" aria-label="Coach voice on or off" style="background:none;border:none;color:#CFA13C;font-size:17px;cursor:pointer;padding:6px 8px"><i class="fa-solid fa-volume-high"></i></button>
     <button onclick="obChatUseForms()" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline;padding:4px">Prefer forms?</button>
   </div>
   <div id="obchat-messages" style="flex:1;overflow-y:auto;padding:16px 18px 8px"></div>
