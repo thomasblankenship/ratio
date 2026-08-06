@@ -1713,7 +1713,7 @@
         <p>These Terms are governed by the laws of the State of Texas, without regard to conflict of law principles.</p>
 
         <h3>15. Contact Us</h3>
-        <p>Questions about these Terms? Reach us at <a href="mailto:sb@funolio.com" style="color:#CFA13C;text-decoration:none">sb@funolio.com</a>.</p>
+        <p>Questions about these Terms? Reach us at <a href="mailto:support@ratioapp.app" style="color:#CFA13C;text-decoration:none">support@ratioapp.app</a>.</p>
       </div>
     </div>
 
@@ -1760,7 +1760,7 @@
         <p>We may update this Privacy Policy from time to time. We'll let you know of material changes within the App.</p>
 
         <h3>12. Contact Us</h3>
-        <p>Questions about this Policy or your data? Reach us at <a href="mailto:sb@funolio.com" style="color:#CFA13C;text-decoration:none">sb@funolio.com</a>.</p>
+        <p>Questions about this Policy or your data? Reach us at <a href="mailto:support@ratioapp.app" style="color:#CFA13C;text-decoration:none">support@ratioapp.app</a>.</p>
       </div>
     </div>
 
@@ -1771,51 +1771,51 @@
         <button onclick="switchTab('profile')" class="profile-save-btn">Save</button>
       </div>
       <div class="card" style="padding:4px 0">
-        <div class="mp-row" onclick="window.location.href='mailto:sb@funolio.com?subject=Ratio Fitness Support'" style="border-bottom:none">
+        <div class="mp-row" onclick="window.location.href='mailto:support@ratioapp.app?subject=Ratio Fitness Support'" style="border-bottom:none">
           <div class="mp-row-label">Contact Support</div>
-          <div class="mp-row-value">sb@funolio.com</div>
+          <div class="mp-row-value">support@ratioapp.app</div>
         </div>
       </div>
     </div>
 
     <div id="tab-voicelog" style="display:none">
+      <!-- Chat-style skin over the ORIGINAL vl state machine. The vl-state-*
+           divs still toggle exactly as before — their visibility is
+           load-bearing (listening checks, watchdog) — but most are now
+           visually empty and the conversation renders as bubbles in
+           #vl-thread. The user talks to their assigned coach: Ian for
+           fat_loss/muscle_gain, Olivia for weight_loss/maintain, derived from
+           the profile goal so existing accounts get a coach with no migration. -->
       <div class="profile-subpage-header">
         <button onclick="closeVoiceLog()" class="profile-back-btn"><i class="fa-solid fa-arrow-left"></i></button>
-        <div class="profile-subpage-title">Voice Log</div>
-        <div style="width:36px"></div>
-      </div>
-
-      <!-- IDLE -->
-      <div id="vl-state-idle" style="text-align:center;padding:40px 20px 20px">
-        <button class="vl-mic-circle" id="vl-mic-btn" onclick="vlStartListening()"><i class="fa-solid fa-microphone"></i></button>
-        <div style="font-size:15px;font-weight:600;color:var(--ink);margin-top:20px">Tap to speak</div>
-        <div style="font-size:13px;color:var(--muted);margin-top:8px;line-height:1.6;max-width:280px;margin-left:auto;margin-right:auto">
-          Try: "Log 2 eggs and toast for breakfast"<br>"Save chicken and rice as a meal"<br>"I ran 3 miles in 28 minutes"<br>"Find me a recipe for airfryer potatoes"<br>"Add chicken and rice to my shopping list"<br>"Add mow the lawn to my to-do list"
+        <div style="display:flex;align-items:center;gap:10px;flex:1;justify-content:center">
+          <img id="vl-coach-avatar" class="obchat-avatar" style="width:34px;height:34px" alt="" onerror="this.style.display='none'">
+          <div id="vl-coach-name" class="profile-subpage-title" style="margin:0">Coach</div>
         </div>
-        <button onclick="vlShowTypeInstead()" style="background:none;border:none;color:#CFA13C;font-size:13px;font-weight:600;margin-top:20px;cursor:pointer">Type instead</button>
+        <button id="vl-mute" onclick="vlToggleMute()" aria-label="Coach voice on or off" style="background:none;border:none;color:#CFA13C;font-size:16px;cursor:pointer;padding:6px;width:36px"><i class="fa-solid fa-volume-high"></i></button>
       </div>
 
-      <!-- FOLLOW-UP QUESTION -->
-      <div id="vl-state-followup" style="display:none;text-align:center;padding:40px 20px 20px">
-        <div style="font-size:32px;margin-bottom:12px">🎤</div>
-        <div id="vl-followup-question" style="font-size:16px;font-weight:600;color:var(--ink);margin-bottom:24px;line-height:1.5"></div>
-        <button class="vl-mic-circle" id="vl-followup-mic-btn" onclick="vlStartListening()"><i class="fa-solid fa-microphone"></i></button>
-        <div style="font-size:13px;color:var(--muted);margin-top:16px">Tap to answer</div>
-        <button onclick="vlShowTypeInstead()" style="background:none;border:none;color:#CFA13C;font-size:13px;font-weight:600;margin-top:16px;cursor:pointer">Type instead</button>
+      <div id="vl-thread" style="padding:8px 2px 4px;min-height:120px"></div>
+
+      <!-- IDLE — logic flag only; the bottom bar is the interface now -->
+      <div id="vl-state-idle" style="padding:0"></div>
+
+      <!-- FOLLOW-UP — question renders as a bubble; div stays for state logic -->
+      <div id="vl-state-followup" style="display:none;padding:0">
+        <div id="vl-followup-question" style="display:none"></div>
       </div>
 
-      <!-- LISTENING -->
-      <div id="vl-state-listening" style="display:none;text-align:center;padding:40px 20px 20px">
-        <div id="vl-listening-context" style="display:none;font-size:14px;color:var(--muted);margin-bottom:16px;line-height:1.5;max-width:300px;margin-left:auto;margin-right:auto"></div>
-        <button class="vl-mic-circle listening" id="vl-mic-btn-listening" onclick="vlStopListening()"><i class="fa-solid fa-microphone"></i></button>
-        <div style="font-size:15px;font-weight:600;color:#CFA13C;margin-top:20px">Listening... tap to stop</div>
-        <div id="vl-live-transcript" style="font-size:15px;color:var(--ink);margin-top:16px;min-height:44px;line-height:1.5;max-width:300px;margin-left:auto;margin-right:auto"></div>
+      <!-- LISTENING — visibility of THIS div is checked throughout the vl
+           code, so it must keep toggling. Slimmed to a live-transcript strip. -->
+      <div id="vl-state-listening" style="display:none;text-align:center;padding:10px 20px">
+        <div id="vl-listening-context" style="display:none;font-size:13px;color:var(--muted);margin-bottom:8px;line-height:1.5"></div>
+        <div style="font-size:13px;font-weight:700;color:#CFA13C"><i class="fa-solid fa-microphone"></i>&nbsp; Listening&hellip; tap the mic to stop</div>
+        <div id="vl-live-transcript" style="font-size:15px;color:var(--ink);margin-top:8px;min-height:22px;line-height:1.5"></div>
       </div>
 
-      <!-- PROCESSING -->
-      <div id="vl-state-processing" style="display:none;text-align:center;padding:60px 20px 20px">
-        <div class="vl-spinner"></div>
-        <div id="vl-processing-text" style="font-size:14px;color:var(--muted);margin-top:16px">Thinking...</div>
+      <!-- PROCESSING — typing bubble in the thread does the talking -->
+      <div id="vl-state-processing" style="display:none;padding:0">
+        <div id="vl-processing-text" style="display:none">Thinking...</div>
       </div>
 
       <!-- CONFIRM -->
@@ -1823,17 +1823,18 @@
         <div id="vl-confirm-body"></div>
       </div>
 
-      <!-- CLARIFY / ERROR -->
-      <div id="vl-state-clarify" style="display:none;text-align:center;padding:40px 20px 20px">
-        <div style="font-size:32px;margin-bottom:12px">🤔</div>
-        <div id="vl-clarify-text" style="font-size:15px;color:var(--ink);margin-bottom:20px;line-height:1.5"></div>
-        <button class="btn" onclick="vlTryAgain()" style="max-width:200px;margin:0 auto">Try Again</button>
+      <!-- CLARIFY — message renders as a bubble; div stays for state logic -->
+      <div id="vl-state-clarify" style="display:none;padding:0">
+        <div id="vl-clarify-text" style="display:none"></div>
       </div>
 
-      <!-- TYPE-INSTEAD (shared fallback — appears below whichever state above is active) -->
-      <div id="vl-type-instead" style="display:none;margin-top:6px;padding:0 20px;max-width:320px;margin-left:auto;margin-right:auto">
-        <textarea id="vl-type-input" rows="2" placeholder="e.g. Log a banana and peanut butter for a snack" style="width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--bg-deep);color:var(--ink);font-size:14px;outline:none;box-sizing:border-box;resize:vertical;font-family:inherit"></textarea>
-        <button class="btn" onclick="vlSubmitTyped()" style="margin-top:8px">Send</button>
+      <!-- Persistent chat bar — always available, replaces "Type instead" -->
+      <div style="position:sticky;bottom:0;background:var(--surface);padding:10px 4px calc(10px + env(safe-area-inset-bottom));border-top:1px solid var(--line);display:flex;gap:8px;align-items:center;margin-top:8px">
+        <input id="vl-type-input" type="text" placeholder="Ask Coach&hellip;" autocomplete="off"
+          onkeydown="if(event.key==='Enter')vlSubmitTyped()"
+          style="flex:1;padding:13px 16px;border:1px solid var(--line);border-radius:24px;background:var(--bg-deep);color:var(--ink);font-size:15px;outline:none;min-width:0">
+        <button onclick="vlSubmitTyped()" aria-label="Send" style="width:46px;height:46px;border-radius:50%;background:var(--bg-deep);border:1px solid var(--line);color:var(--ink);cursor:pointer;flex-shrink:0"><i class="fa-solid fa-arrow-up"></i></button>
+        <button id="vl-bar-mic" class="obchat-micbtn" onclick="vlBarMicTap()" aria-label="Speak" style="width:46px;height:46px;border-radius:50%;background:var(--gold-tint);border:1px solid #CFA13C;color:#CFA13C;cursor:pointer;flex-shrink:0"><i class="fa-solid fa-microphone"></i></button>
       </div>
     </div>
 
@@ -2231,11 +2232,11 @@
 
     <!-- Support -->
     <div style="border-top:1px solid var(--surface-2);padding-top:16px;text-align:center">
-      <a href="mailto:sb@funolio.com?subject=Ratio Fitness Support" style="font-size:13px;color:var(--muted);text-decoration:none;display:flex;align-items:center;justify-content:center;gap:6px">
+      <a href="mailto:support@ratioapp.app?subject=Ratio Fitness Support" style="font-size:13px;color:var(--muted);text-decoration:none;display:flex;align-items:center;justify-content:center;gap:6px">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8A8880" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
         Contact Support
       </a>
-      <div style="font-size:11px;color:var(--line);margin-top:4px">sb@funolio.com</div>
+      <div style="font-size:11px;color:var(--line);margin-top:4px">support@ratioapp.app</div>
     </div>
     </div>
   </div>
@@ -3795,11 +3796,159 @@ let _vlListenStartedAt = 0;
 let _vlLastPartialAt = 0;
 let _vlWatchdogTimer = null;
 
+// ---- voice log chat thread ----
+// Which coach this user talks to, forever: derived from their primary goal so
+// existing accounts get one with no migration. Same mapping as onboarding —
+// Ian: fat_loss / muscle_gain, Olivia: weight_loss / maintain.
+function vlCoachKey() {
+  const g = userProfile?.primaryGoal || window._obGoalType || 'fat_loss';
+  return (g === 'fat_loss' || g === 'muscle_gain') ? 'ian' : 'olivia';
+}
+
+function _vlThreadEl() { return document.getElementById('vl-thread'); }
+function _vlThreadScroll() {
+  const bar = document.getElementById('vl-type-input');
+  try { bar?.scrollIntoView({ block: 'end' }); } catch (e) {}
+}
+
+function _vlAvatarCol(inner, caption) {
+  return `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0">${inner}<div style="font-size:9px;color:var(--muted);max-width:44px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${caption}</div></div>`;
+}
+
+function _vlThreadBot(text) {
+  const box = _vlThreadEl(); if (!box) return;
+  const c = OB_COACHES[vlCoachKey()];
+  const row = document.createElement('div');
+  row.className = 'obchat-msg bot';
+  row.innerHTML = _vlAvatarCol('<img class="obchat-avatar" alt="">', c.name) + `<div class="obchat-bubble"></div>`;
+  const img = row.querySelector('img.obchat-avatar');
+  img.src = c.img;
+  // A real handler, not an inline attribute — nesting quotes inside onerror
+  // was itself throwing when the image 404'd, which defeats a fallback.
+  img.onerror = () => {
+    const d = document.createElement('div');
+    d.className = 'obchat-avatar';
+    d.style.cssText = 'display:flex;align-items:center;justify-content:center;color:#CFA13C;font-weight:800';
+    d.textContent = c.initial;
+    img.replaceWith(d);
+  };
+  row.querySelector('.obchat-bubble').textContent = text;
+  box.appendChild(row);
+  _vlThreadScroll();
+  if (!_vlMuted) _vlSpeak(text);
+}
+
+function _vlThreadUser(text) {
+  const box = _vlThreadEl(); if (!box) return;
+  const name = (userProfile?.name || 'You').split(' ')[0];
+  const row = document.createElement('div');
+  row.className = 'obchat-msg user';
+  const av = `<div class="obchat-avatar" style="display:flex;align-items:center;justify-content:center;background:var(--gold-tint);color:#CFA13C;font-weight:800">${(name[0] || 'Y').toUpperCase()}</div>`;
+  row.innerHTML = `<div class="obchat-bubble"></div>` + _vlAvatarCol(av, name);
+  row.querySelector('.obchat-bubble').textContent = text;
+  box.appendChild(row);
+  _vlThreadScroll();
+}
+
+function _vlThreadTyping(on) {
+  const box = _vlThreadEl(); if (!box) return;
+  const cur = document.getElementById('vl-typing-row');
+  if (!on) { if (cur) cur.remove(); return; }
+  if (cur) return;
+  const c = OB_COACHES[vlCoachKey()];
+  const row = document.createElement('div');
+  row.id = 'vl-typing-row';
+  row.className = 'obchat-msg bot';
+  row.innerHTML = _vlAvatarCol(`<div class="obchat-avatar" style="display:flex;align-items:center;justify-content:center;color:#CFA13C;font-weight:800">${c.initial}</div>`, c.name) + `<div class="obchat-bubble obchat-typing"><span></span><span></span><span></span></div>`;
+  box.appendChild(row);
+  _vlThreadScroll();
+}
+
+// Coach voice in the log, same treatment as onboarding: speaks by default,
+// muteable from the header, choice persists.
+let _vlMuted = false;
+try { _vlMuted = localStorage.getItem('obchat_muted') === '1'; } catch (e) {}
+function vlToggleMute() {
+  _vlMuted = !_vlMuted;
+  try { localStorage.setItem('obchat_muted', _vlMuted ? '1' : '0'); } catch (e) {}
+  try { if (_vlMuted) speechSynthesis.cancel(); } catch (e) {}
+  try { if (_vlMuted && _coachAudioEl) _coachAudioEl.pause(); } catch (e) {}
+  _vlSyncMuteBtn();
+}
+function _vlSyncMuteBtn() {
+  const btn = document.getElementById('vl-mute');
+  if (!btn) return;
+  btn.innerHTML = _vlMuted ? '<i class="fa-solid fa-volume-xmark"></i>' : '<i class="fa-solid fa-volume-high"></i>';
+  btn.style.color = _vlMuted ? 'var(--muted)' : '#CFA13C';
+}
+function _vlSpeak(text) {
+  if (!_vlMuted) {
+    coachAudioTryPlay(vlCoachKey(), text).then(played => { if (!played) _vlSpeakDevice(text); });
+    return;
+  }
+}
+function _vlSpeakDevice(text) {
+  try {
+    if (!window.speechSynthesis || _vlMuted) return;
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = 1.05;
+    if (typeof _ocVoices !== 'undefined') {
+      const v = _ocVoices[vlCoachKey()];
+      if (v) u.voice = v;
+    }
+    speechSynthesis.speak(u);
+  } catch (e) {}
+}
+
+function vlBarMicTap() {
+  const listening = document.getElementById('vl-state-listening')?.style.display !== 'none';
+  if (listening) vlStopListening(); else vlStartListening();
+}
+
+// The coach reacts to what was just logged, like a person would. Deterministic
+// client-side rules — no AI call, so the numbers are exact and it is instant.
+// Thresholds: a single sitting carrying >=50% of the day's fat target or
+// >=50% of the 300mg cholesterol guideline earns a KIND heads-up ("it's
+// fine, just watch that macro today"). Big protein gets praised. Everything
+// else gets a rotating in-character acknowledgement.
+function vlCoachReactToLog(t) {
+  const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+  const r = OB_COACHES[vlCoachKey()].reactions;
+  const fatTarget = (typeof userTargets !== 'undefined' && userTargets && userTargets.fat) || 68;
+  const CHOL_TARGET = 300; // mg — same fixed guideline the macros card uses
+  const fatPct = t.fat / fatTarget;
+  const cholPct = (t.cholesterol || 0) / CHOL_TARGET;
+  let msg;
+  if (fatPct >= 0.5 && cholPct >= 0.5) msg = pick(r.highBoth)(Math.round(t.fat), Math.round(t.cholesterol));
+  else if (fatPct >= 0.5) msg = pick(r.highFat)(Math.round(t.fat), Math.min(100, Math.round(fatPct * 100)));
+  else if (cholPct >= 0.5) msg = pick(r.highChol)(Math.round(t.cholesterol), Math.min(100, Math.round(cholPct * 100)));
+  else if (t.protein >= 30) msg = pick(r.bigProtein)(Math.round(t.protein));
+  else msg = pick(r.ok);
+  _vlThreadBot(msg);
+}
+
 function openVoiceLog() {
   const activeBtn = document.querySelector('.bottom-nav-btn.active');
   _vlReturnTab = activeBtn ? activeBtn.dataset.tab : 'today';
   switchTab('voicelog');
   vlResetToIdle();
+  // Coach header + fresh thread with a greeting in their own voice. Same
+  // coach every time — continuity is the point.
+  const key = vlCoachKey();
+  const c = OB_COACHES[key];
+  const nameEl = document.getElementById('vl-coach-name');
+  if (nameEl) nameEl.textContent = c.name;
+  const avEl = document.getElementById('vl-coach-avatar');
+  if (avEl) { avEl.style.display = ''; avEl.src = c.img; }
+  _vlSyncMuteBtn();
+  const box = _vlThreadEl();
+  if (box) {
+    box.innerHTML = '';
+    const first = (userProfile?.name || '').split(' ')[0];
+    const greets = c.logGreetings(first);
+    _vlThreadBot(greets[Math.floor(Date.now() / 86400000) % greets.length]);
+  }
 }
 
 async function closeVoiceLog() {
@@ -3826,6 +3975,16 @@ function vlShowState(state) {
     const el = document.getElementById(`vl-state-${s}`);
     if (el) el.style.display = (s === state) ? 'block' : 'none';
   });
+  // Chat-skin mirrors. The state divs stay authoritative for logic; these
+  // only keep the thread honest about what is happening.
+  _vlThreadTyping(state === 'processing');
+  const mic = document.getElementById('vl-bar-mic');
+  if (mic) mic.classList.toggle('listening', state === 'listening');
+  if (state === 'confirm') {
+    const lines = OB_COACHES[vlCoachKey()].confirmLines;
+    _vlThreadBot(lines[Math.floor(Math.random() * lines.length)]);
+  }
+  _vlThreadScroll();
 }
 
 function vlResetToIdle() {
@@ -3835,7 +3994,7 @@ function vlResetToIdle() {
   const typeWrap = document.getElementById('vl-type-instead');
   if (typeWrap) typeWrap.style.display = 'none';
   const typeInput = document.getElementById('vl-type-input');
-  if (typeInput) { typeInput.value = ''; typeInput.placeholder = 'e.g. Log a banana and peanut butter for a snack'; }
+  if (typeInput) { typeInput.value = ''; typeInput.placeholder = 'Ask Coach\u2026'; }
   const liveEl = document.getElementById('vl-live-transcript');
   if (liveEl) liveEl.textContent = '';
   const ctxEl = document.getElementById('vl-listening-context');
@@ -3849,8 +4008,9 @@ function vlResetToIdle() {
 }
 
 function vlShowTypeInstead() {
-  const el = document.getElementById('vl-type-instead');
-  if (el) el.style.display = 'block';
+  // The chat bar is always visible now; this survives as "focus the input"
+  // for the code paths that call it when the mic is unavailable.
+  document.getElementById('vl-type-input')?.focus();
 }
 
 function vlSubmitTyped() {
@@ -4073,6 +4233,7 @@ async function vlStopListening() {
 // Entry point for every finalized utterance, whether it's a fresh command, a typed command,
 // or the answer to a follow-up question. Routes into the (possibly multi-turn) AI conversation.
 function vlHandleUtterance(text) {
+  _vlThreadUser(text);
   _vlCorrecting = false; // the correction (if any) has been captured — the hint is no longer needed
   if (_vlAwaitingFollowup) {
     _vlHistory.push({ role: 'user', content: text });
@@ -4097,6 +4258,7 @@ async function vlSendToAI(text) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         transcript: text,
+        coach: vlCoachKey(), // so followup/clarify questions come back in character
         history: _vlHistory.slice(0, -1), // prior turns, not including the transcript we just sent above
         forceFinalize,
         context: {
@@ -4121,6 +4283,7 @@ async function vlSendToAI(text) {
       _vlAwaitingFollowup = true;
       _vlHistory.push({ role: 'assistant', content: data.followupQuestion || 'Can you say more?' });
       document.getElementById('vl-followup-question').textContent = data.followupQuestion || 'Can you say more?';
+      _vlThreadBot(data.followupQuestion || 'Can you say more?');
       vlShowState('followup');
       return;
     }
@@ -4130,6 +4293,7 @@ async function vlSendToAI(text) {
     _vlParsed = data;
     if (data.action === 'clarify') {
       document.getElementById('vl-clarify-text').textContent = data.clarifyQuestion || "I didn't quite catch that — try again?";
+      _vlThreadBot(data.clarifyQuestion || "I didn't quite catch that — try again?");
       vlShowState('clarify');
     } else if (data.action === 'find_recipe') {
       vlFindRecipe(data.findRecipe?.dishName);
@@ -4145,6 +4309,7 @@ async function vlSendToAI(text) {
     if (sessionId !== _vlSessionId) return; // user already left or restarted this session — discard
     console.error('vlSendToAI error', e);
     document.getElementById('vl-clarify-text').textContent = 'Could not reach the voice assistant — check your connection and try again.';
+    _vlThreadBot('Could not reach the voice assistant — check your connection and try again.');
     vlShowState('clarify');
   }
 }
@@ -4189,6 +4354,7 @@ function vlCorrectType() {
 async function vlFindRecipe(dishName) {
   if (!dishName) {
     document.getElementById('vl-clarify-text').textContent = "I didn't catch what dish you wanted a recipe for — try again?";
+    _vlThreadBot("I didn't catch what dish you wanted a recipe for — try again?");
     vlShowState('clarify');
     return;
   }
@@ -4338,6 +4504,8 @@ async function vlConfirmSave() {
       // lunch" writes two rows, each under its own meal, not one combined row.
       const groups = vlGroupItemsByMealType(items, data.logFood?.mealType);
       if (!groups.length) { toast('Nothing to log — try again'); return; }
+      const overall = { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, cholesterol: 0 };
+      items.forEach(i => { overall.calories += +i.calories||0; overall.protein += +i.protein||0; overall.carbs += +i.carbs||0; overall.fat += +i.fat||0; overall.fiber += +i.fiber||0; overall.cholesterol += +i.cholesterol||0; });
       for (const g of groups) {
         const totals = g.items.reduce((a,i) => ({ calories: a.calories+(+i.calories||0), protein: a.protein+(+i.protein||0), carbs: a.carbs+(+i.carbs||0), fat: a.fat+(+i.fat||0), fiber: a.fiber+(+i.fiber||0), cholesterol: a.cholesterol+(+i.cholesterol||0) }), {calories:0,protein:0,carbs:0,fat:0,fiber:0,cholesterol:0});
         // Keep the spoken amount in the row name ("Feta Cheese (50g)"), same
@@ -4354,6 +4522,16 @@ async function vlConfirmSave() {
       }
       await loadTodayMeals();
       toast('Logged ✓');
+      // React in character and STAY in the chat — a macro heads-up nobody
+      // sees is not a heads-up. Session state resets so the next thing they
+      // say starts fresh rather than "correcting" the already-saved card.
+      vlShowState('idle');
+      _vlParsed = null;
+      _vlHistory = [];
+      _vlAwaitingFollowup = false;
+      _vlFollowupCount = 0;
+      vlCoachReactToLog(overall);
+      return;
     } else if (data.action === 'save_meal') {
       const ings = data.saveMeal?.ingredients || [];
       const totals = ings.reduce((a,i) => ({ calories: a.calories+(+i.calories||0), protein: a.protein+(+i.protein||0), carbs: a.carbs+(+i.carbs||0), fat: a.fat+(+i.fat||0), fiber: a.fiber+(+i.fiber||0) }), {calories:0,protein:0,carbs:0,fat:0,fiber:0});
@@ -6228,16 +6406,138 @@ function showAuthTab(tab) {
 // invents a number — and every parsed number is echoed in writing, because
 // people catch numeric errors by eye and miss them by ear.
 // ============================================================
+// ---- pre-generated coach audio ----
+// Real character voices (ElevenLabs) for the FIXED lines, shipped as mp3s in
+// /coach-audio/ next to index.html, mapped by manifest.json. Lines the AI
+// writes live, and reaction lines carrying numbers, fall back to the device
+// voice — numbers must be readable on screen anyway. Everything here fails
+// SILENTLY back to the old behaviour: no manifest, no audio files, no
+// ElevenLabs account = exactly the previous device-voice experience.
+let _coachAudioManifest = null; // null=not loaded, false=unavailable
+let _coachAudioEl = null;
+async function _coachAudioLoad() {
+  if (_coachAudioManifest !== null) return _coachAudioManifest;
+  try {
+    const r = await fetch('coach-audio/manifest.json', { cache: 'force-cache' });
+    _coachAudioManifest = r.ok ? await r.json() : false;
+  } catch (e) { _coachAudioManifest = false; }
+  return _coachAudioManifest;
+}
+function _coachAudioNorm(t) { return String(t).toLowerCase().replace(/[^a-z]/g, ''); }
+// Personalised lines ("Hey Semmes!") were generated WITHOUT the name, so try
+// the text as spoken and with the user's first name stripped.
+async function coachAudioTryPlay(coachKey, text) {
+  const man = await _coachAudioLoad();
+  if (!man || !man[coachKey]) return false;
+  const first = ((typeof userProfile !== 'undefined' && userProfile?.name) || (window._obName || '')).split(' ')[0];
+  const keys = [_coachAudioNorm(text)];
+  if (first) keys.push(_coachAudioNorm(text.split(first).join('')));
+  for (const k of keys) {
+    const file = man[coachKey][k];
+    if (file) {
+      try {
+        if (_coachAudioEl) { _coachAudioEl.pause(); }
+        try { speechSynthesis?.cancel(); } catch (e) {}
+        _coachAudioEl = new Audio('coach-audio/' + file);
+        await _coachAudioEl.play();
+        return true;
+      } catch (e) { return false; } // autoplay blocked or file missing -> device voice
+    }
+  }
+  return false;
+}
+
 const OB_COACHES = {
-  ian:    { name: 'Coach Ian',    img: 'coach-ian.png',    initial: 'I',
-            goals: ['fat_loss', 'muscle_gain'],
-            sub: 'Body fat loss & muscle gain',
-            intro: "Hey, I'm Coach Ian — body fat loss and muscle gain are my specialty, so you're in the right hands. Tell me about yourself and what you want to accomplish: your age, height, current weight, where you want to end up. Just talk to me like you'd talk to a friend." },
-  olivia: { name: 'Coach Olivia', img: 'coach-olivia.png', initial: 'O',
-            goals: ['weight_loss', 'maintain'],
-            sub: 'Weight loss & maintenance',
-            intro: "Hi, I'm Coach Olivia — I'll be your coach. Tell me a bit about yourself and what you're aiming for: your age, height, current weight, and what you'd like to accomplish. Just talk naturally — I'll keep track." }
+  ian: {
+    name: 'Coach Ian', img: 'coach-ian.png', initial: 'I',
+    goals: ['fat_loss', 'muscle_gain'],
+    sub: 'Body fat loss & muscle gain',
+    // Sent to the Worker so the AI writes in his voice. Kept short on
+    // purpose: personality belongs in the framing, never in the numbers.
+    persona: "Coach Ian: a funny, lovable meathead personal trainer. Enthusiastic, thinks protein solves most of life's problems and that leg day is sacred. Calls people 'bro', 'brother' or 'champ' occasionally (not every message). His jokes are about the gym, protein and himself — never about the person. Genuinely kind under the meathead bit, never a drill sergeant, never shames anyone about food or weight. Keeps it brief.",
+    intro: "What's up! Coach Ian here — body fat and muscle are literally all I think about. Well, that and protein. Tell me about yourself and what you're chasing: age, height, where you're at now, where you want to be. Talk to me like we're between sets.",
+    logGreetings: (n) => [
+      `Hey${n ? ' ' + n : ''}! What are we logging, bro?`,
+      `${n || 'Hey'}! What'd you eat? Hit me.`,
+      `What's up${n ? ' ' + n : ''} — feed me the details. I love details almost as much as protein.`,
+      `Alright${n ? ' ' + n : ''}, let's get it logged. What've you got?`,
+      `The log is hungry${n ? ', ' + n : ''}. What'd you have?`
+    ],
+    confirmLines: [
+      'Alright, check this — look right?',
+      'Here you go. Does that look about right?',
+      "Got it. This look good to you?",
+      'Boom. Sound right?'
+    ],
+    // Post-log reactions. Tone rule: warnings are INFORMATION delivered
+    // kindly — "it's fine, just watch that macro today" — never guilt.
+    reactions: {
+      ok: [
+        'Logged! Lightweight, baby.',
+        'In the books, bro.',
+        'Logged it. Onward and upward.',
+        'Done. Now go crush the rest of your day.'
+      ],
+      bigProtein: [
+        (p) => `Logged — ${p}g of protein in that one. That's beautiful, bro. I'm not crying, you're crying.`,
+        (p) => `${p}g of protein?? My guy. Logged with pride.`
+      ],
+      highFat: [
+        (fat, pct) => `Logged, no stress — heads up though: that one packed ${fat}g of fat, about ${pct}% of your day. Happens to the best of us, bro. Just keep the rest of the day leaner.`,
+        (fat, pct) => `In the books! That was a fat-heavy one — ${fat}g, roughly ${pct}% of your daily budget. All good, we just go lighter from here.`
+      ],
+      highChol: [
+        (mg, pct) => `Logged! One heads up: ${mg}mg of cholesterol in that one — around ${pct}% of the day. No panic, champ, just go easy on it the rest of the day.`
+      ],
+      highBoth: [
+        (fat, mg) => `Logged it! Real talk, bro — ${fat}g of fat and ${mg}mg of cholesterol in one sitting. Zero shame, that's what good food does. We just keep the rest of the day clean.`
+      ]
+    }
+  },
+  olivia: {
+    name: 'Coach Olivia', img: 'coach-olivia.png', initial: 'O',
+    goals: ['weight_loss', 'maintain'],
+    sub: 'Weight loss & maintenance',
+    persona: "Coach Olivia: charming, quick-witted and genuinely funny — the friend who makes you laugh while quietly keeping you on track. Warm, a little playful, never saccharine. Light humour about everyday life, never about the person's body, food choices or weight. Encouraging without cheerleading. Keeps it brief.",
+    intro: "Hi! I'm Coach Olivia, and I'll be your partner in this. Tell me about yourself and what you're going for — age, height, where you are now, where you'd like to be. Just talk normally, I'll keep track so you don't have to.",
+    logGreetings: (n) => [
+      `Hi${n ? ' ' + n : ''}! What are we logging today?`,
+      `${n || 'Hey'}! Tell me what you ate and I'll do the math.`,
+      `Hey${n ? ' ' + n : ''} — what's on the menu?`,
+      `Ready when you are${n ? ', ' + n : ''}. What've you got?`,
+      `Hit me with it${n ? ', ' + n : ''} — I love doing the math.`
+    ],
+    confirmLines: [
+      'Here we go — does this look right?',
+      'Got it. Check my work?',
+      'That should do it. Look correct?',
+      "Alright — did I get that right?"
+    ],
+    reactions: {
+      ok: [
+        'Logged! Look at us, being responsible.',
+        'Done! That was easy.',
+        'In the books. I love an organized human.',
+        'Logged. Teamwork makes the dream work.'
+      ],
+      bigProtein: [
+        (p) => `Logged! ${p}g of protein — okay, show-off.`,
+        (p) => `${p}g of protein, very impressive. Logged, and I'm telling everyone.`
+      ],
+      highFat: [
+        (fat, pct) => `Logged! Small note from your favorite coach: that one had ${fat}g of fat — roughly ${pct}% of your day. Totally fine. We'll just keep things lighter from here.`,
+        (fat, pct) => `All logged. That one was a little fat-forward — ${fat}g, about ${pct}% of your daily budget. No big deal, just something to watch for the rest of the day.`
+      ],
+      highChol: [
+        (mg, pct) => `Logged! One tiny flag: ${mg}mg of cholesterol there, about ${pct}% of the day. It's fine — just maybe don't make it today's theme.`
+      ],
+      highBoth: [
+        (fat, mg) => `Logged, no drama! That one did bring ${fat}g of fat and ${mg}mg of cholesterol to the party. Enjoy it — we'll keep the rest of the day easy-breezy.`
+      ]
+    }
+  }
 };
+
 const OB_GOAL_LABELS = { fat_loss: 'Lose Body Fat', weight_loss: 'Lose Weight', muscle_gain: 'Gain Muscle', maintain: 'Maintain & Perform' };
 
 let _oc = null;
@@ -6378,6 +6678,7 @@ function obChatToggleMute() {
   _ocMuted = !_ocMuted;
   try { localStorage.setItem('obchat_muted', _ocMuted ? '1' : '0'); } catch (e) {}
   try { if (_ocMuted) speechSynthesis.cancel(); } catch (e) {}
+  try { if (_ocMuted && typeof _coachAudioEl !== 'undefined' && _coachAudioEl) _coachAudioEl.pause(); } catch (e) {}
   _ocSyncMuteBtn();
 }
 function _ocSyncMuteBtn() {
@@ -6388,6 +6689,14 @@ function _ocSyncMuteBtn() {
 }
 
 function _ocSpeak(text) {
+  // Pre-generated character audio first; device voice only as fallback.
+  if (!_ocMuted && _oc && _oc.coach) {
+    coachAudioTryPlay(_oc.coach, text).then(played => { if (!played) _ocSpeakDevice(text); });
+    return;
+  }
+  _ocSpeakDevice(text);
+}
+function _ocSpeakDevice(text) {
   try {
     if (!window.speechSynthesis || _ocMuted) return;
     speechSynthesis.cancel();
@@ -6626,6 +6935,28 @@ async function obChatMic() {
     if (finalText) _ocDispatch(finalText);
   };
   try { rec.start(); } catch (e) { _ocStopListening(); toast('Could not start the mic — type instead'); }
+}
+
+// Shows Terms or Privacy over whatever screen you are on — needed because the
+// in-app versions are tabs inside the app shell, which is hidden during
+// signup. Clones the live .legal-doc node rather than duplicating the text.
+function showLegalOverlay(which) {
+  const srcId = which === 'privacy' ? 'tab-profile-privacy-policy' : 'tab-profile-tos';
+  const src = document.getElementById(srcId);
+  const body = document.getElementById('legal-overlay-body');
+  const titleEl = document.getElementById('legal-overlay-title');
+  if (!src || !body) return;
+  const doc = src.querySelector('.legal-doc');
+  body.innerHTML = '';
+  if (doc) body.appendChild(doc.cloneNode(true));
+  if (titleEl) titleEl.textContent = which === 'privacy' ? 'Privacy Policy' : 'Terms of Service';
+  body.scrollTop = 0;
+  const ov = document.getElementById('legal-overlay');
+  if (ov) ov.style.display = 'flex';
+}
+function hideLegalOverlay() {
+  const ov = document.getElementById('legal-overlay');
+  if (ov) ov.style.display = 'none';
 }
 
 function startSignup() {
@@ -7347,7 +7678,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-06-c-voices';
+const RATIO_BUILD = '2026-08-06-i-meathead';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -7750,7 +8081,6 @@ const QUOTES = [
   { text: "Your body can stand almost anything. It's your mind you have to convince.", author: "Unknown", emoji: "🧠" },
   { text: "The groundwork of all happiness is health.", author: "Leigh Hunt", emoji: "✨" },
   { text: "To keep the body in good health is a duty, otherwise we shall not be able to keep our mind strong.", author: "Buddha", emoji: "☮️" },
-  { text: "What you eat in private, you wear in public.", author: "Unknown", emoji: "🥗" },
   { text: "It's not about being the best. It's about being better than you were yesterday.", author: "Unknown", emoji: "📈" },
   { text: "The body achieves what the mind believes.", author: "Unknown", emoji: "🎯" },
   { text: "Discipline is choosing between what you want now and what you want most.", author: "Abraham Lincoln", emoji: "⚖️" },
@@ -7759,21 +8089,19 @@ const QUOTES = [
   { text: "Every day is a chance to be better than the day before.", author: "Unknown", emoji: "🌅" },
   { text: "Success is the sum of small efforts repeated day in and day out.", author: "Robert Collier", emoji: "🏆" },
   { text: "Motivation gets you started. Habit keeps you going.", author: "Jim Ryun", emoji: "⚡" },
-  { text: "You are what you eat. Don't be fast, cheap, easy, or fake.", author: "Unknown", emoji: "🍎" },
   { text: "Small steps every day lead to big changes.", author: "Unknown", emoji: "👣" },
-  { text: "Earn it.", author: "Unknown", emoji: "💎" },
-  { text: "The pain you feel today will be the strength you feel tomorrow.", author: "Unknown", emoji: "💫" },
   { text: "Consistency is more important than perfection.", author: "Unknown", emoji: "🔄" },
-  { text: "Your future self is watching you right now through your memories.", author: "Unknown", emoji: "👁️" },
   { text: "Fall in love with taking care of yourself.", author: "Unknown", emoji: "❤️" },
   { text: "Energy and persistence conquer all things.", author: "Benjamin Franklin", emoji: "⚡" },
-  { text: "Sweat is just fat crying.", author: "Unknown", emoji: "😅" },
   { text: "Don't limit your challenges. Challenge your limits.", author: "Unknown", emoji: "🏔️" },
   { text: "Results happen over time, not overnight. Work hard, stay consistent.", author: "Unknown", emoji: "⏰" },
   { text: "The secret to getting ahead is getting started.", author: "Mark Twain", emoji: "▶️" },
   { text: "It never gets easier. You just get stronger.", author: "Unknown", emoji: "💪" },
   { text: "Good things come to those who sweat.", author: "Unknown", emoji: "🌟" },
-  { text: "Be stronger than your excuses.", author: "Unknown", emoji: "🛡️" },
+  { text: "Rest is part of the plan, not a break from it.", author: "Unknown", emoji: "🌙" },
+  { text: "You don't have to be perfect to be worth the effort.", author: "Unknown", emoji: "🌱" },
+  { text: "Nourish your body and it will carry you further.", author: "Unknown", emoji: "🥗" },
+  { text: "One good choice makes the next one easier.", author: "Unknown", emoji: "✨" },
 ];
 
 function updateDailyQuote() {
@@ -17024,6 +17352,17 @@ if (document.readyState === 'loading') {
 
 <!-- CONVERSATIONAL ONBOARDING — the coach interview. Default entry from Get
      Started; the classic form screens below remain as the fallback path. -->
+<!-- LEGAL OVERLAY — readable from the signup screen, where consent happens.
+     Pulls its body from the existing in-app Terms/Privacy pages so there is
+     only one copy of the text to keep current. -->
+<div id="legal-overlay" style="position:fixed;top:0;left:0;right:0;bottom:0;background:var(--surface);display:none;flex-direction:column;z-index:10050;max-width:520px;margin:0 auto">
+  <div style="display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line);flex-shrink:0">
+    <button onclick="hideLegalOverlay()" aria-label="Back" style="background:none;border:none;color:var(--ink);font-size:18px;cursor:pointer;padding:4px 8px"><i class="fa-solid fa-arrow-left"></i></button>
+    <div id="legal-overlay-title" style="font-size:16px;font-weight:800;color:var(--ink)">Terms of Service</div>
+  </div>
+  <div id="legal-overlay-body" style="flex:1;overflow-y:auto;padding:16px 18px calc(24px + env(safe-area-inset-bottom))"></div>
+</div>
+
 <div class="ob-screen" id="ob-chat" style="position:fixed;top:0;left:0;right:0;bottom:0;background:var(--surface);display:none;flex-direction:column;z-index:9999;max-width:520px;margin:0 auto">
   <div style="display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line);flex-shrink:0">
     <img id="obchat-coach-avatar" class="obchat-avatar" style="width:42px;height:42px;display:none" alt="" onerror="this.style.display='none'">
@@ -17404,7 +17743,12 @@ if (document.readyState === 'loading') {
         </div>
       </div>
       <div id="ob-signup-error" style="font-size:13px;color:#F87171;margin-bottom:8px;display:none"></div>
-      <div style="font-size:11px;color:var(--muted);text-align:center;line-height:1.5">By creating an account you agree to our Terms of Service. We'll send a verification email to confirm your address.</div>
+      <!-- The Terms and Privacy Policy MUST be reachable from here: this is
+           where consent is actually captured. They were previously named but
+           not linked, which the outside review flagged as the one item
+           carrying real legal exposure. showLegalOverlay reuses the same
+           .legal-doc content as the in-app pages, so there is one copy. -->
+      <div style="font-size:11px;color:var(--muted);text-align:center;line-height:1.6">By creating an account you agree to our <button type="button" onclick="showLegalOverlay('tos')" style="background:none;border:none;padding:0;font:inherit;color:#CFA13C;text-decoration:underline;cursor:pointer">Terms of Service</button> and <button type="button" onclick="showLegalOverlay('privacy')" style="background:none;border:none;padding:0;font:inherit;color:#CFA13C;text-decoration:underline;cursor:pointer">Privacy Policy</button>. We'll send a verification email to confirm your address.</div>
     </div>
     <div style="padding:20px 24px 40px;display:flex;gap:10px">
       <button onclick="obBack(7)" style="padding:16px 20px;border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);font-size:20px;cursor:pointer">←</button>
