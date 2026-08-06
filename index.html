@@ -282,6 +282,15 @@
     .appearance-card.active .appearance-check { display: inline-block; }
     .appearance-card.active .appearance-card-label { color: #CFA13C; }
     .vl-fab { position: fixed; right: 18px; bottom: 90px; width: 56px; height: 56px; border-radius: 50%; background: #CFA13C; border: none; box-shadow: 0 4px 14px rgba(207,161,60,0.4); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 300; }
+    /* The app renders as a centered 520px column, but position:fixed anchors
+       to the VIEWPORT — so on desktop the mic floated at the monitor's far
+       right edge, a thousand pixels from the app. (Semmes's dad hit this on
+       web; on a phone the viewport IS the column, so it looked fine there.)
+       Above 520px, anchor it to the column instead: column half-width 260px,
+       minus 56px button, minus the same 18px inset = 186px right of center. */
+    @media (min-width: 521px) {
+      .vl-fab { right: auto; left: calc(50% + 186px); }
+    }
     .vl-fab i { font-size: 22px; color: #101512; }
     .vl-mic-circle { width: 120px; height: 120px; border-radius: 50%; background: var(--gold-tint); border: 2px solid #CFA13C; display: flex; align-items: center; justify-content: center; margin: 0 auto; cursor: pointer; }
     .vl-mic-circle i { font-size: 40px; color: #CFA13C; }
@@ -6909,7 +6918,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-05-b-health';
+const RATIO_BUILD = '2026-08-06-a-fabfix';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
