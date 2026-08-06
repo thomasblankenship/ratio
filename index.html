@@ -10,6 +10,8 @@
   <title>Ratio</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+  <link rel="icon" type="image/png" href="app-icon.png" />
+  <link rel="apple-touch-icon" href="app-icon.png" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js"></script>
   <style>
@@ -6462,6 +6464,9 @@ function showAuthTab(tab) {
 // voice — numbers must be readable on screen anyway. Everything here fails
 // SILENTLY back to the old behaviour: no manifest, no audio files, no
 // ElevenLabs account = exactly the previous device-voice experience.
+// The greeter's avatar — the gold Ratio app icon, uploaded at repo root.
+// Every use falls back to the "R" letter circle if the file is missing.
+const OB_FRONTDESK_ICON = 'app-icon.png';
 let _coachAudioManifest = null; // null=not loaded, false=unavailable
 let _coachAudioEl = null;
 async function _coachAudioLoad() {
@@ -6613,7 +6618,11 @@ function _ocSetCoach(key) {
   const img = document.getElementById('obchat-coach-avatar');
   const fb = document.getElementById('obchat-coach-fallback');
   if (!key) {
-    img.style.display = 'none'; fb.style.display = 'flex'; fb.textContent = 'R';
+    fb.textContent = 'R';
+    img.src = OB_FRONTDESK_ICON;
+    img.style.display = 'block';
+    img.onload = () => { fb.style.display = 'none'; };
+    img.onerror = () => { img.style.display = 'none'; fb.style.display = 'flex'; };
     document.getElementById('obchat-coach-name').textContent = 'Ratio Fitness';
     document.getElementById('obchat-coach-sub').textContent = "Let's get you set up";
     return;
@@ -6638,15 +6647,22 @@ function _ocAddBot(text, opts) {
   const box = document.getElementById('obchat-messages');
   const row = document.createElement('div');
   row.className = 'obchat-msg bot';
-  const av = c ? `<img class="obchat-avatar" src="${c.img}" alt="" onerror="this.outerHTML='<div class=\\'obchat-avatar\\' style=\\'display:flex;align-items:center;justify-content:center;color:#CFA13C;font-weight:800\\'>${c.initial}</div>'">`
-              : `<div class="obchat-avatar" style="display:flex;align-items:center;justify-content:center;color:#CFA13C;font-weight:800">R</div>`;
-  row.innerHTML = av + `<div class="obchat-bubble"></div>`;
+  row.innerHTML = '<img class="obchat-avatar" alt="">' + `<div class="obchat-bubble"></div>`;
+  const img = row.querySelector('img.obchat-avatar');
+  img.src = c ? c.img : OB_FRONTDESK_ICON;
+  // A real handler, not an inline attribute — nested quotes in onerror THREW
+  // when the image 404'd, which is the opposite of a fallback.
+  img.onerror = () => {
+    const d = document.createElement('div');
+    d.className = 'obchat-avatar';
+    d.style.cssText = 'display:flex;align-items:center;justify-content:center;color:#CFA13C;font-weight:800';
+    d.textContent = c ? c.initial : 'R';
+    img.replaceWith(d);
+  };
   row.querySelector('.obchat-bubble').textContent = text;
   box.appendChild(row);
   if (_oc) _oc.history.push({ role: 'assistant', content: text });
   _ocScroll();
-  // Respond in kind: if they spoke to the coach, the coach speaks back. The
-  // text is always on screen either way — numbers must be readable.
   // Alexa-like by default: the coach speaks every reply unless muted from the
   // header. The text is always on screen regardless — numbers must be READ,
   // not just heard.
@@ -6929,7 +6945,9 @@ function _ocStopListening() {
 // over two working mics on a Windows laptop: open the mic, meter the signal
 // for five seconds, and report what was heard and from which device.
 function _ocMicProblem(code) {
-  _ocAddBot(speechProblemMessage(code), { silent: true });
+  // Spoken as well as shown — a broken MICROPHONE doesn't break the SPEAKER,
+  // and hearing the explanation is exactly what a stuck user needs.
+  _ocAddBot(speechProblemMessage(code));
   if (navigator.mediaDevices?.getUserMedia) {
     _ocChips([
       { label: 'Run a mic check', action: () => obChatMicCheck() },
@@ -6939,7 +6957,10 @@ function _ocMicProblem(code) {
 }
 
 async function obChatMicCheck() {
-  _ocAddBot('Testing your microphone — talk normally for about five seconds…', { silent: true });
+  _ocAddBot('Testing your microphone — talk normally for about five seconds…');
+  // Give the coach's own voice a moment to finish before metering starts,
+  // so speaker bleed into the mic doesn't count as the user talking.
+  await new Promise(r => setTimeout(r, 1500));
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     const label = stream.getAudioTracks()[0]?.label || 'your microphone';
@@ -6961,7 +6982,7 @@ async function obChatMicCheck() {
     stream.getTracks().forEach(t => t.stop());
     try { ctx.close(); } catch (e) {}
     if (peak > 4) {
-      _ocAddBot(`Good news — "${label}" hears you loud and clear. The mic itself is working, so tap the gold mic and try again.`, { silent: true });
+      _ocAddBot(`Good news — "${label}" hears you loud and clear. The mic itself is working, so tap the gold mic and try again.`);
     } else {
       let others = '';
       try {
@@ -6969,13 +6990,13 @@ async function obChatMicCheck() {
           .filter(d => d.kind === 'audioinput' && d.label && !/^(default|communications)/i.test(d.label) && d.label !== label);
         if (devs.length) others = ` You do have other microphones here: ${devs.map(d => '"' + d.label + '"').join(', ')}.`;
       } catch (e) {}
-      _ocAddBot(`I listened for five seconds and heard nothing from "${label}".${others} Your browser may be using the wrong device — click the padlock by the address bar, then Site settings, then Microphone, and pick a different one, then reload. Typing works fine in the meantime.`, { silent: true });
+      _ocAddBot(`I listened for five seconds and heard nothing from "${label}".${others} Your browser may be using the wrong device — click the padlock by the address bar, then Site settings, then Microphone, and pick a different one, then reload. Typing works fine in the meantime.`);
     }
   } catch (e) {
     const blocked = e && (e.name === 'NotAllowedError' || e.name === 'SecurityError');
     _ocAddBot(blocked
       ? "Your browser blocked microphone access, so I can't test it. Allow the mic via the padlock by the address bar — or just type, that works great too."
-      : "I couldn't run the mic test on this device — no worries, typing works just as well.", { silent: true });
+      : "I couldn't run the mic test on this device — no worries, typing works just as well.");
   }
 }
 
@@ -7019,7 +7040,7 @@ async function obChatMic() {
 
   const Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!Ctor) {
-    _ocAddBot("This browser can't do voice — Chrome, Edge and Safari can. Typing works perfectly well though, go ahead.", { silent: true });
+    _ocAddBot("This browser can't do voice — Chrome, Edge and Safari can. Typing works perfectly well though, go ahead.");
     return;
   }
   const rec = new Ctor();
@@ -7788,7 +7809,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-06-k-frontdesk';
+const RATIO_BUILD = '2026-08-06-l-icon';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
