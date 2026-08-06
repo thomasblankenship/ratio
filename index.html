@@ -3505,6 +3505,10 @@ function hkActivityName(code) { return HK_ACTIVITY_NAMES[code] || 'Workout'; }
 
 async function syncHealthKitWorkouts(showToast) {
   if (!window.Capacitor?.Plugins?.HealthKit) { if (showToast) toast('Apple Health is only available in the app'); return; }
+  // No session yet (signup awaits email confirmation) — importing now would
+  // just have RLS reject every row, 365 times. The post-login sync covers it.
+  if (!_authToken || !_currentUser?.id) { console.log('[HealthKit] not signed in yet — sync will run after login'); return; }
+
   const statusEl = document.getElementById('healthkit-status');
   try {
     if (statusEl) statusEl.textContent = 'Syncing…';
@@ -3550,6 +3554,10 @@ async function syncHealthKitWorkouts(showToast) {
 
 async function syncHealthKitSteps(showToast) {
   if (!window.Capacitor?.Plugins?.HealthKit) return;
+  // No session yet (signup awaits email confirmation) — importing now would
+  // just have RLS reject every row, 365 times. The post-login sync covers it.
+  if (!_authToken || !_currentUser?.id) { console.log('[HealthKit] not signed in yet — sync will run after login'); return; }
+
   try {
     await Capacitor.Plugins.HealthKit.requestAuthorization();
     const { days } = await Capacitor.Plugins.HealthKit.fetchStepsHistory({ daysBack: 365 });
@@ -3633,6 +3641,10 @@ function _healthIsRecent(iso) {
 
 async function syncHealthKitBody(showToast) {
   if (!window.Capacitor?.Plugins?.HealthKit) return;
+  // No session yet (signup awaits email confirmation) — importing now would
+  // just have RLS reject every row, 365 times. The post-login sync covers it.
+  if (!_authToken || !_currentUser?.id) { console.log('[HealthKit] not signed in yet — sync will run after login'); return; }
+
   if (!Capacitor.Plugins.HealthKit.fetchBodyMeasurements) return; // native without this method
   try {
     await Capacitor.Plugins.HealthKit.requestAuthorization();
@@ -3866,6 +3878,7 @@ function _vlThreadTyping(on) {
 
 // Coach voice in the log, same treatment as onboarding: speaks by default,
 // muteable from the header, choice persists.
+let _vlSpeechReported = false;
 let _vlMuted = false;
 try { _vlMuted = localStorage.getItem('obchat_muted') === '1'; } catch (e) {}
 function vlToggleMute() {
@@ -3899,6 +3912,27 @@ function _vlSpeakDevice(text) {
     }
     speechSynthesis.speak(u);
   } catch (e) {}
+}
+
+// Turns a Web Speech API error code into something a person can act on.
+// Every one of these was previously either a generic toast or — for
+// no-speech, the most common failure — complete silence.
+function speechProblemMessage(code) {
+  switch (code) {
+    case 'no-speech':
+      return "I didn't hear anything. If your mic is on, your browser may be listening to the wrong device — click the padlock by the address bar, then Site settings, then Microphone, and pick the right one.";
+    case 'not-allowed':
+    case 'service-not-allowed':
+      return "Your browser is blocking the microphone. Click the padlock by the address bar, then Site settings, then Microphone, and choose Allow. You can type in the meantime.";
+    case 'audio-capture':
+      return "I can't find a microphone on this device. Plug one in or check your sound settings — typing works fine too.";
+    case 'network':
+      return "Speech recognition couldn't reach the network just now. Check your connection, or type it instead.";
+    case 'language-not-supported':
+      return "This browser can't do speech recognition in English here — typing will work.";
+    default:
+      return "The microphone didn't work that time. Try again, or just type it.";
+  }
 }
 
 function vlBarMicTap() {
@@ -4079,6 +4113,7 @@ function vlStartListeningWeb() {
     console.error('vlStartListeningWeb construct failed', e);
     _vlStarting = false; vlShowTypeInstead(); toast('Could not start the microphone — type instead'); return;
   }
+  _vlSpeechReported = false;
   _vlWebRec = rec;
   rec.lang = 'en-US';
   rec.interimResults = true;
@@ -4100,10 +4135,15 @@ function vlStartListeningWeb() {
     console.warn('web speech error', ev.error);
     _vlWebRec = null;
     _vlClearWatchdog();
-    if (ev.error === 'not-allowed' || ev.error === 'service-not-allowed') {
-      toast('Microphone blocked — allow it in your browser settings');
-    } else if (ev.error !== 'aborted' && ev.error !== 'no-speech') {
-      toast('Could not start listening — try again');
+    _vlSpeechReported = true; // stops onend double-reporting the same failure
+    // 'aborted' means the user tapped stop — that is not a problem worth
+    // narrating. Everything else gets explained IN THE CHAT, because a toast
+    // vanishes and a silent failure looks like a broken app.
+    if (ev.error !== 'aborted') {
+      if (stillListening()) vlResetToIdle();
+      _vlThreadBot(speechProblemMessage(ev.error));
+      vlShowTypeInstead();
+      return;
     }
     if (stillListening()) { vlResetToIdle(); vlShowTypeInstead(); }
   };
@@ -4112,6 +4152,15 @@ function vlStartListeningWeb() {
   // the native plugin's listeningState:stopped event provides.
   rec.onend = () => {
     _vlWebRec = null;
+    // Ended with nothing heard and no error raised: previously the UI just
+    // sat in the listening state forever with the mic still pulsing.
+    if (stillListening() && !_vlLiveText && !_vlSpeechReported) {
+      _vlClearWatchdog();
+      vlResetToIdle();
+      _vlThreadBot(speechProblemMessage('no-speech'));
+      vlShowTypeInstead();
+      return;
+    }
     if (stillListening() && _vlLiveText) { _vlClearWatchdog(); vlHandleUtterance(_vlLiveText); }
   };
 
@@ -6874,6 +6923,62 @@ function _ocStopListening() {
   try { const p = window.Capacitor?.Plugins?.SpeechRecognition; if (p && _oc.nativeListening) { p.stop(); _oc.nativeListening = false; } } catch (e) {}
 }
 
+// ---- front-desk mic check ----
+// When speech fails during onboarding, don't just explain — offer to TEST.
+// This is the exact diagnosis that found a dud "USBAUDIO2.0" device selected
+// over two working mics on a Windows laptop: open the mic, meter the signal
+// for five seconds, and report what was heard and from which device.
+function _ocMicProblem(code) {
+  _ocAddBot(speechProblemMessage(code), { silent: true });
+  if (navigator.mediaDevices?.getUserMedia) {
+    _ocChips([
+      { label: 'Run a mic check', action: () => obChatMicCheck() },
+      { label: "I'll just type", action: () => document.getElementById('obchat-input')?.focus() }
+    ]);
+  }
+}
+
+async function obChatMicCheck() {
+  _ocAddBot('Testing your microphone — talk normally for about five seconds…', { silent: true });
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const label = stream.getAudioTracks()[0]?.label || 'your microphone';
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    const ctx = new Ctx();
+    const an = ctx.createAnalyser(); an.fftSize = 512;
+    ctx.createMediaStreamSource(stream).connect(an);
+    const buf = new Uint8Array(an.frequencyBinCount);
+    let peak = 0;
+    await new Promise(res => {
+      let n = 0;
+      const iv = setInterval(() => {
+        an.getByteTimeDomainData(buf);
+        let m = 0; for (const v of buf) m = Math.max(m, Math.abs(v - 128));
+        peak = Math.max(peak, m);
+        if (++n > 50) { clearInterval(iv); res(); }
+      }, 100);
+    });
+    stream.getTracks().forEach(t => t.stop());
+    try { ctx.close(); } catch (e) {}
+    if (peak > 4) {
+      _ocAddBot(`Good news — "${label}" hears you loud and clear. The mic itself is working, so tap the gold mic and try again.`, { silent: true });
+    } else {
+      let others = '';
+      try {
+        const devs = (await navigator.mediaDevices.enumerateDevices())
+          .filter(d => d.kind === 'audioinput' && d.label && !/^(default|communications)/i.test(d.label) && d.label !== label);
+        if (devs.length) others = ` You do have other microphones here: ${devs.map(d => '"' + d.label + '"').join(', ')}.`;
+      } catch (e) {}
+      _ocAddBot(`I listened for five seconds and heard nothing from "${label}".${others} Your browser may be using the wrong device — click the padlock by the address bar, then Site settings, then Microphone, and pick a different one, then reload. Typing works fine in the meantime.`, { silent: true });
+    }
+  } catch (e) {
+    const blocked = e && (e.name === 'NotAllowedError' || e.name === 'SecurityError');
+    _ocAddBot(blocked
+      ? "Your browser blocked microphone access, so I can't test it. Allow the mic via the padlock by the address bar — or just type, that works great too."
+      : "I couldn't run the mic test on this device — no worries, typing works just as well.", { silent: true });
+  }
+}
+
 async function obChatMic() {
   if (!_oc || _oc.busy) return;
   if (_oc.listening) { _ocStopListening(); return; }
@@ -6913,10 +7018,13 @@ async function obChatMic() {
   }
 
   const Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!Ctor) { toast('Voice needs Chrome, Edge or Safari — type instead'); return; }
+  if (!Ctor) {
+    _ocAddBot("This browser can't do voice — Chrome, Edge and Safari can. Typing works perfectly well though, go ahead.", { silent: true });
+    return;
+  }
   const rec = new Ctor();
   rec.lang = 'en-US'; rec.interimResults = true; rec.continuous = false;
-  _oc.rec = rec; _oc.listening = true;
+  _oc.rec = rec; _oc.listening = true; _oc._speechReported = false;
   btn.classList.add('listening');
   rec.onresult = (ev) => {
     let t = '';
@@ -6926,13 +7034,15 @@ async function obChatMic() {
   };
   rec.onerror = (ev) => {
     _ocStopListening();
-    if (ev.error === 'not-allowed') toast('Microphone blocked — allow it in your browser, or type instead');
+    _oc._speechReported = true;
+    if (ev.error !== 'aborted') _ocMicProblem(ev.error);
   };
   rec.onend = () => {
     const finalText = _oc.partial;
     _ocStopListening();
     const inp = document.getElementById('obchat-input'); if (inp) inp.value = '';
     if (finalText) _ocDispatch(finalText);
+    else if (!_oc._speechReported) _ocMicProblem('no-speech');
   };
   try { rec.start(); } catch (e) { _ocStopListening(); toast('Could not start the mic — type instead'); }
 }
@@ -7678,7 +7788,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-06-i-meathead';
+const RATIO_BUILD = '2026-08-06-k-frontdesk';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
