@@ -6586,32 +6586,54 @@ async function _ttsRelease() {
   await new Promise(r => setTimeout(r, 350));
 }
 
+// The cache holds a PROMISE, not a finished URL. Storing the URL meant a
+// prefetch that was still in flight did not count as a hit, so playback fired
+// a second identical request — the prefetch bought nothing and every warmed
+// line was generated (and billed) twice. Joining the in-flight promise is the
+// whole point of prefetching.
 async function _ttsUrl(speaker, text) {
   const key = speaker + '|' + text;
-  if (_ttsCache.has(key)) return _ttsCache.get(key);
+  if (_ttsCache.has(key)) return await _ttsCache.get(key);
   if (_ttsOff) return null;
-  let r;
-  try {
-    r = await fetch(WORKER_URL + '/coach-speak', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ speaker, text })
-    });
-  } catch (e) { return null; }                       // offline -> device voice
-  if (r.status === 503) {                            // GEMINI_API_KEY not set
-    _ttsOff = true;
-    console.log('[tts] Worker has no Gemini key — using the device voice');
-    return null;
-  }
-  if (!r.ok) { console.warn('[tts] /coach-speak', r.status); return null; }
-  const url = URL.createObjectURL(await r.blob());
+
+  const pending = (async () => {
+    let r;
+    try {
+      r = await fetch(WORKER_URL + '/coach-speak', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ speaker, text })
+      });
+    } catch (e) { return null; }                     // offline -> device voice
+    if (r.status === 503) {                          // GEMINI_API_KEY not set
+      _ttsOff = true;
+      console.log('[tts] Worker has no Gemini key — using the device voice');
+      return null;
+    }
+    if (!r.ok) { console.warn('[tts] /coach-speak', r.status); return null; }
+    return URL.createObjectURL(await r.blob());
+  })();
+
   if (_ttsCache.size >= TTS_CACHE_MAX) {
     const oldest = _ttsCache.keys().next().value;
-    try { URL.revokeObjectURL(_ttsCache.get(oldest)); } catch (e) {}
+    const stale = _ttsCache.get(oldest);
     _ttsCache.delete(oldest);
+    Promise.resolve(stale).then(u => { try { if (u) URL.revokeObjectURL(u); } catch (e) {} });
   }
-  _ttsCache.set(key, url);
+  _ttsCache.set(key, pending);
+
+  const url = await pending;
+  // Never cache a failure — a one-off network blip must not mute a line for
+  // the rest of the session.
+  if (!url) _ttsCache.delete(key);
   return url;
+}
+
+// Warms the cache for a line we know is about to be said. Fire and forget:
+// the whole point is that _ttsUrl has already resolved by the time the bubble
+// appears, so nothing has to be faked while the network catches up.
+function ratioPrefetch(speaker, text) {
+  try { _ttsUrl(speaker, text).catch(() => {}); } catch (e) {}
 }
 
 // Speaks `text` in `speaker`'s voice. Resolves true only if audio actually
@@ -6781,6 +6803,12 @@ function obStartChat() {
   // Onboarding runs before applyPlatformUI ever fires — load the QA console
   // here or it is missing on the one screen we are actively debugging.
   try { maybeLoadDebugConsole(); } catch (e) {}
+  // Whichever coach they pick, the intro is one of two fixed lines. Warm both
+  // now; by the time they answer the goal question the audio is local.
+  try {
+    ratioPrefetch('ian', OB_COACHES.ian.intro);
+    ratioPrefetch('olivia', OB_COACHES.olivia.intro);
+  } catch (e) {}
   _oc = { stage: 'goal', coach: null, fields: {}, history: [], lastInputVoice: false, busy: false, listening: false, rec: null, partial: '' };
   document.querySelectorAll('.ob-screen').forEach(el => { el.style.display = 'none'; });
   const scr = document.getElementById('ob-chat');
@@ -6921,39 +6949,43 @@ function _ocAddBot(text, opts) {
 function _ocSpeakAndReveal(text, bubble) {
   if (_ocMuted || !text) { bubble.textContent = text || ''; return; }
   const words = text.split(/\s+/);
-  let handedOver = false, done = false, timer = null;
+  let shown = 0, done = false, timer = null, audioLed = false;
   const stopTimer = () => { if (timer) { clearInterval(timer); timer = null; } };
-  const showAll = () => { done = true; stopTimer(); bubble.textContent = text; _ocScroll(); };
-  // Driven by where the VOICE actually is, which is the whole point — Safari
-  // never fired word-boundary events, so the reveal there was a guess.
-  const toFraction = (f) => {
-    handedOver = true; stopTimer();
-    if (done) return;
-    const n = Math.max(1, Math.round(f * words.length));
-    bubble.textContent = words.slice(0, n).join(' ');
+
+  // The one rule that fixes the double reveal: NEVER go backwards. The old
+  // code let the audio callback reset the bubble to a two-word prefix after
+  // the timer had already written the whole line, so the text appeared, then
+  // reappeared, with the voice trailing behind it.
+  const showWords = (count) => {
+    if (done || count <= shown) return;
+    shown = Math.min(count, words.length);
+    bubble.textContent = words.slice(0, shown).join(' ');
     _ocScroll();
   };
+  const showAll = () => { done = true; stopTimer(); bubble.textContent = text; _ocScroll(); };
+  const toFraction = (f) => { audioLed = true; stopTimer(); showWords(Math.max(1, Math.round(f * words.length))); };
+
   bubble.textContent = '';
-  // Provisional reveal so the fetch round trip is not dead air; audio takes
-  // over the instant it starts.
-  let n = 0;
-  timer = setInterval(() => {
-    if (handedOver || done) { stopTimer(); return; }
-    n++;
-    bubble.textContent = words.slice(0, n).join(' ');
-    _ocScroll();
-    if (n >= words.length) stopTimer();
-  }, 300);
+  // Wait before starting a provisional reveal. Cached lines come back fast
+  // enough that showing anything first is just a flicker; only a genuinely
+  // slow fetch earns the placeholder.
+  const patience = setTimeout(() => {
+    if (audioLed || done) return;
+    timer = setInterval(() => {
+      if (audioLed || done) { stopTimer(); return; }
+      showWords(shown + 1);
+      if (shown >= words.length) stopTimer();
+    }, 300);
+  }, 900);
 
   const who = (_oc && _oc.coach) || 'lauren';
   ratioSpeak(who, text, { onProgress: toFraction, onEnd: showAll }).then(played => {
     if (played) return;
-    stopTimer();
-    bubble.textContent = '';
+    clearTimeout(patience); stopTimer();
+    bubble.textContent = ''; shown = 0;
     _ocRevealDeviceVoice(text, bubble);   // unchanged pre-Gemini behaviour
   });
-  // Nothing should ever be left half-written.
-  setTimeout(showAll, Math.max(9000, words.length * 600));
+  setTimeout(() => { clearTimeout(patience); showAll(); }, Math.max(9000, words.length * 600));
 }
 
 function _ocRevealDeviceVoice(text, bubble) {
@@ -7255,7 +7287,7 @@ async function _ocTurn(userText) {
   } catch (e) {
     console.error('[obchat] turn failed', e);
     _ocTyping(false);
-    _ocAddBot("I'm having trouble hearing you — check your connection and try again, or tap \"Prefer forms?\" up top to continue the classic way.", { silent: true });
+    _ocAddBot("I'm having trouble hearing you — check your connection and try again, or just type your answer below.", { silent: true });
   }
   _oc.busy = false;
 }
@@ -7375,6 +7407,21 @@ function _ocMicProblem(code) {
 }
 
 async function obChatMicCheck() {
+  // iOS asks for speech recognition and microphone access SEPARATELY. The
+  // plugin's checkPermissions only covers speech, so a granted speech
+  // permission with a denied mic looks like success and then hears silence.
+  // Log the whole object rather than the one field we used to read.
+  try {
+    const p = window.Capacitor?.Plugins?.SpeechRecognition;
+    if (p) {
+      const perms = await p.checkPermissions();
+      console.log('[miccheck] native permissions:', JSON.stringify(perms));
+      const avail = await p.available();
+      console.log('[miccheck] native available:', JSON.stringify(avail));
+    } else {
+      console.log('[miccheck] no native plugin — web speech path');
+    }
+  } catch (e) { console.warn('[miccheck] permission probe failed', e); }
   _ocAddBot('Testing your microphone — talk normally for about five seconds…');
   // Give the coach's own voice a moment to finish before metering starts,
   // so speaker bleed into the mic doesn't count as the user talking.
@@ -7382,6 +7429,10 @@ async function obChatMicCheck() {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     const label = stream.getAudioTracks()[0]?.label || 'your microphone';
+    // If this line prints on the iPhone, the app CAN capture audio and the
+    // problem is the speech plugin or the audio session, not permission.
+    console.log('[miccheck] capture opened:', label,
+                JSON.stringify(stream.getAudioTracks().map(t => ({ label: t.label, enabled: t.enabled, muted: t.muted, state: t.readyState }))));
     const Ctx = window.AudioContext || window.webkitAudioContext;
     const ctx = new Ctx();
     const an = ctx.createAnalyser(); an.fftSize = 512;
@@ -7399,6 +7450,7 @@ async function obChatMicCheck() {
     });
     stream.getTracks().forEach(t => t.stop());
     try { ctx.close(); } catch (e) {}
+    console.log('[miccheck] peak level over 5s:', peak, '(anything under 5 means no audio arrived)');
     if (peak > 4) {
       _ocAddBot(`Good news — "${label}" hears you loud and clear. The mic itself is working, so tap the gold mic and try again.`);
     } else {
@@ -7480,9 +7532,14 @@ async function obChatMic() {
     } catch (e) {
       console.error('[obchat] native mic error', e);
       _ocStopListening();
-      // Include the real error — this screen had no visible failure path at
-      // all, which is how "the mic does nothing" went undiagnosed.
       _ocAddBot("I couldn't get the microphone started just now" + (e && e.message ? ' (' + e.message + ')' : '') + ". Type your answer and we'll carry on.");
+      // Offer the diagnostic here too. On iOS "no speech detected" can mean
+      // three different things with three different fixes, and only a real
+      // capture attempt tells them apart.
+      _ocChips([
+        { label: 'Run a mic check', action: () => obChatMicCheck() },
+        { label: "I'll just type", action: () => document.getElementById('obchat-input')?.focus() }
+      ]);
     }
     return;
   }
@@ -8273,7 +8330,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-07-h-micaudio';
+const RATIO_BUILD = '2026-08-07-i-sync';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -8282,6 +8339,11 @@ async function init() {
   // cache aggressively. Check with `RATIO_BUILD` in the console, or read it at
   // the bottom of Profile → Settings.
   console.log('[Ratio] build', RATIO_BUILD);
+  // The front desk greeting is the same string for every user who ever signs
+  // up, so warm it early — this is the one line that cannot afford latency.
+  setTimeout(() => {
+    try { if (!_currentUser) ratioPrefetch('lauren', 'Hello and welcome to Ratio Fitness! My name is Lauren — tell me a little about the goals you would like to accomplish so I can recommend the perfect trainer for you. Are you trying to Lose Body Fat, Lose Weight, Gain Muscle, or just Maintain and Perform?'); } catch (e) {}
+  }, 1500);
   const bv = document.getElementById('settings-build-version');
   if (bv) bv.textContent = RATIO_BUILD;
 
@@ -17975,7 +18037,6 @@ if (document.readyState === 'loading') {
       <div id="obchat-coach-sub" style="font-size:12px;color:var(--muted)">Let's get you set up</div>
     </div>
     <button id="obchat-mute" onclick="obChatToggleMute()" aria-label="Coach voice on or off" style="background:none;border:none;color:#CFA13C;font-size:17px;cursor:pointer;padding:6px 8px"><i class="fa-solid fa-volume-high"></i></button>
-    <button onclick="obChatUseForms()" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline;padding:4px">Prefer forms?</button>
   </div>
   <div id="obchat-messages" style="flex:1;overflow-y:auto;padding:16px 18px 8px"></div>
   <div style="flex-shrink:0;padding:10px 14px calc(14px + env(safe-area-inset-bottom));border-top:1px solid var(--line);display:flex;gap:10px;align-items:center">
