@@ -6614,7 +6614,19 @@ async function _ttsUrl(speaker, text) {
       console.log('[tts] Worker has no Gemini key — using the device voice');
       return null;
     }
-    if (!r.ok) { console.warn('[tts] /coach-speak', r.status); return null; }
+    if (!r.ok) {
+      // The Worker reports the UPSTREAM status in its body; without reading it
+      // every failure looked like a bare 502 and told us nothing.
+      let why = '';
+      try {
+        const j = await r.json();
+        why = ' ' + JSON.stringify(j);
+        if (j && j.status === 429) why += '  <- Gemini rate limit. Free tier is low; enabling billing raises it.';
+        if (j && (j.status === 400 || j.status === 403)) why += '  <- Gemini rejected the API key.';
+      } catch (e) {}
+      console.warn('[tts] /coach-speak failed:', r.status + why);
+      return null;
+    }
     return URL.createObjectURL(await r.blob());
   })();
 
@@ -8452,7 +8464,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-07-l-nativelisten';
+const RATIO_BUILD = '2026-08-07-m-ttslog';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
