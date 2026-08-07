@@ -6467,6 +6467,26 @@ function showAuthTab(tab) {
 // The greeter's avatar — the gold Ratio app icon, uploaded at repo root.
 // Every use falls back to the "R" letter circle if the file is missing.
 const OB_FRONTDESK_ICON = 'app-icon.png';
+// The receptionist. She greets, asks the goal, and hands off to the right
+// coach by name — she never runs the interview herself.
+const OB_LAUREN = { name: 'Lauren', img: 'lauren.png' };
+
+// Full-size character moment in the chat — Lauren at her desk, then the
+// chosen coach's introduction. Scrolls away naturally as the conversation
+// continues, which is exactly the "images can leave" behaviour asked for.
+function _ocAddHero(src, alt) {
+  const box = document.getElementById('obchat-messages');
+  if (!box) return;
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex;justify-content:center;margin:10px 0';
+  const img = document.createElement('img');
+  img.src = src; img.alt = alt || '';
+  img.style.cssText = 'max-width:82%;max-height:44vh;object-fit:contain;border-radius:16px';
+  img.onerror = () => row.remove(); // asset missing -> no broken frame, chat flows on
+  row.appendChild(img);
+  box.appendChild(row);
+  _ocScroll();
+}
 let _coachAudioManifest = null; // null=not loaded, false=unavailable
 let _coachAudioEl = null;
 async function _coachAudioLoad() {
@@ -6509,7 +6529,8 @@ const OB_COACHES = {
     // Sent to the Worker so the AI writes in his voice. Kept short on
     // purpose: personality belongs in the framing, never in the numbers.
     persona: "Coach Ian: a funny, lovable meathead personal trainer. Enthusiastic, thinks protein solves most of life's problems and that leg day is sacred. Calls people 'bro', 'brother' or 'champ' occasionally (not every message). His jokes are about the gym, protein and himself — never about the person. Genuinely kind under the meathead bit, never a drill sergeant, never shames anyone about food or weight. Keeps it brief.",
-    intro: "What's up! Coach Ian here — body fat and muscle are literally all I think about. Well, that and protein. Tell me about yourself and what you're chasing: age, height, where you're at now, where you want to be. Talk to me like we're between sets.",
+    intro: "What's up! I'm Coach Ian — I specialize in gaining lean muscle and dropping body fat. Fair warning: my answer to most of life's problems is protein, and I haven't been wrong yet. So tell me about yourself and what you want to accomplish — age, height, current weight, where you want to end up. Talk to me like we're between sets.",
+    fullImg: 'coach-ian-full.png',
     logGreetings: (n) => [
       `Hey${n ? ' ' + n : ''}! What are we logging, bro?`,
       `${n || 'Hey'}! What'd you eat? Hit me.`,
@@ -6553,7 +6574,8 @@ const OB_COACHES = {
     goals: ['weight_loss', 'maintain'],
     sub: 'Weight loss & maintenance',
     persona: "Coach Olivia: charming, quick-witted and genuinely funny — the friend who makes you laugh while quietly keeping you on track. Warm, a little playful, never saccharine. Light humour about everyday life, never about the person's body, food choices or weight. Encouraging without cheerleading. Keeps it brief.",
-    intro: "Hi! I'm Coach Olivia, and I'll be your partner in this. Tell me about yourself and what you're going for — age, height, where you are now, where you'd like to be. Just talk normally, I'll keep track so you don't have to.",
+    intro: "Hi! I'm Coach Olivia — weight loss and maintenance are my specialty, which mostly means I do the math so you don't have to. I promise I'm more fun than that sentence makes me sound. Tell me about yourself and what you'd like to accomplish — age, height, where you are now, where you're headed.",
+    fullImg: 'coach-olivia-full.png',
     logGreetings: (n) => [
       `Hi${n ? ' ' + n : ''}! What are we logging today?`,
       `${n || 'Hey'}! Tell me what you ate and I'll do the math.`,
@@ -6604,7 +6626,8 @@ function obStartChat() {
   document.getElementById('obchat-messages').innerHTML = '';
   _ocSetCoach(null);
   _ocSyncMuteBtn();
-  _ocAddBot("Welcome to Ratio Fitness. Let's test out your microphone — tap the gold mic and just talk, or type if you'd rather.\n\nSo, what's your primary goal?");
+  _ocAddBot("Welcome to Ratio Fitness. My name is Lauren — tell me a little about the goals you would like to accomplish so I can recommend the perfect trainer for you. Are you trying to Lose Body Fat, Lose Weight, Gain Muscle, or just Maintain and Perform?");
+  _ocAddHero(OB_LAUREN.img, 'Lauren at the Ratio Fitness front desk');
   _ocChips(Object.entries(OB_GOAL_LABELS).map(([k, label]) => ({ label, action: () => _ocSetGoal(k) })));
 }
 
@@ -6767,7 +6790,8 @@ function _ocSpeakDevice(text) {
     speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
     u.rate = 1.05;
-    const v = _oc && _oc.coach ? _ocVoices[_oc.coach] : null;
+    // Before a coach is assigned the speaker is Lauren — female voice.
+    const v = _oc ? _ocVoices[_oc.coach || 'olivia'] : null;
     if (v) u.voice = v;
     speechSynthesis.speak(u);
   } catch (e) {}
@@ -6776,12 +6800,23 @@ function _ocSpeakDevice(text) {
 function _ocSetGoal(key) {
   _obGoalType = key;
   _ocAddUser(OB_GOAL_LABELS[key]);
-  const coachKey = OB_COACHES.ian.goals.includes(key) ? 'ian' : 'olivia';
-  _oc.coach = coachKey;
+  _ocIntroduceCoach(OB_COACHES.ian.goals.includes(key) ? 'ian' : 'olivia', key);
+}
+
+// Lauren's handoff, then the coach's full-size entrance. One sequence for
+// both the chip path and the spoken path.
+function _ocIntroduceCoach(coachKey, goalKey) {
   _oc.stage = 'interview';
-  if (key === 'maintain') _oc.fields.pace = 'maintain';
-  _ocSetCoach(coachKey);
-  setTimeout(() => _ocAddBot(OB_COACHES[coachKey].intro), 350);
+  if (goalKey === 'maintain') _oc.fields.pace = 'maintain';
+  const c = OB_COACHES[coachKey];
+  // Lauren speaks BEFORE the coach is assigned, so her line uses her voice.
+  _ocAddBot(`I know just the trainer for you — let me introduce you to ${c.name}.`);
+  setTimeout(() => {
+    _oc.coach = coachKey;
+    _ocSetCoach(coachKey);
+    _ocAddHero(c.fullImg || c.img, c.name);
+    _ocAddBot(c.intro);
+  }, 900);
 }
 
 // Spoken goal selection — the mic test happens ON the goal question, so
@@ -6912,12 +6947,7 @@ function _ocDispatch(text) {
       // _ocSetGoal adds its own user bubble for the chip path; here the user
       // already spoke, so set state directly.
       _obGoalType = goal;
-      const coachKey = OB_COACHES.ian.goals.includes(goal) ? 'ian' : 'olivia';
-      _oc.coach = coachKey; _oc.stage = 'interview';
-      if (goal === 'maintain') _oc.fields.pace = 'maintain';
-      _ocSetCoach(coachKey);
-      _ocAddBot(`${OB_GOAL_LABELS[goal]} — heard you loud and clear. Your mic works.`, { silent: true });
-      setTimeout(() => _ocAddBot(OB_COACHES[coachKey].intro), 500);
+      _ocIntroduceCoach(OB_COACHES.ian.goals.includes(goal) ? 'ian' : 'olivia', goal);
     } else {
       _ocAddBot("I didn't catch a goal in that — tap one below, or say something like \"I want to lose body fat.\"");
       _ocChips(Object.entries(OB_GOAL_LABELS).map(([k, label]) => ({ label, action: () => _ocSetGoal(k) })));
@@ -7809,7 +7839,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-06-l-icon';
+const RATIO_BUILD = '2026-08-07-a-oliviafull';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
