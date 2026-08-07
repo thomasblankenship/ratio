@@ -3810,7 +3810,8 @@ let _vlFollowupCount = 0;
 const VL_MAX_FOLLOWUPS = 2; // after this many follow-up rounds, force the AI to finalize with its best guess rather than ask again
 
 // Recorder safety timers — a "forgot to tap stop" / stuck-listening safeguard
-const VL_SILENCE_STOP_MS = 3000; // auto-stop N ms after the last new word, once something has been heard
+const VL_SILENCE_STOP_MS = 3500; // auto-stop N ms after the last new word, once something has been heard.
+                                 // 3s still clipped people mid-thought after saying a number.
 const VL_NO_SPEECH_TIMEOUT_MS = 7000; // give up if literally nothing is heard within this window
 const VL_MAX_LISTEN_MS = 25000; // hard ceiling regardless of activity — this is the actual answer to "what if someone leaves the recorder on"
 let _vlListenStartedAt = 0;
@@ -4131,7 +4132,10 @@ async function vlStartListeningWeb() {
   _vlWebRec = rec;
   rec.lang = 'en-US';
   rec.interimResults = true;
-  rec.continuous = false;
+  // continuous, so _vlStartWatchdog below is what ends the turn. With
+  // continuous = false Chrome's own endpointer fired first — about 1.5s of
+  // silence — and the watchdog's more generous window never got a say.
+  rec.continuous = true;
   rec.maxAlternatives = 1;
 
   const stillListening = () => document.getElementById('vl-state-listening')?.style.display !== 'none';
@@ -6797,6 +6801,10 @@ const OB_COACHES = {
 
 const OB_GOAL_LABELS = { fat_loss: 'Lose Body Fat', weight_loss: 'Lose Weight', muscle_gain: 'Gain Muscle', maintain: 'Maintain & Perform' };
 
+// Onboarding answers are longer than voice-log commands ("I'm 43, about five
+// nine, maybe 210") so the lead-in is more patient than the log's 7s.
+const OB_NO_SPEECH_MS = 10000;   // nothing heard at all -> stop
+const OB_MAX_LISTEN_MS = 60000;  // hard ceiling on one answer
 let _oc = null;
 
 function obStartChat() {
@@ -7365,6 +7373,7 @@ function _ocDispatch(text) {
 function _ocStopListening() {
   if (!_oc) return;
   _oc.listening = false;
+  if (_oc._endpointer) { clearInterval(_oc._endpointer); _oc._endpointer = null; }
   const btn = document.getElementById('obchat-mic');
   if (btn) btn.classList.remove('listening');
   try { if (_oc.rec) { _oc.rec.stop(); _oc.rec = null; } } catch (e) {}
@@ -7552,15 +7561,36 @@ async function obChatMic() {
   // Mobile Safari shares the same audio session behaviour as the native app.
   await _ttsRelease();
   const rec = new Ctor();
-  rec.lang = 'en-US'; rec.interimResults = true; rec.continuous = false;
+  rec.lang = 'en-US'; rec.interimResults = true;
+  // Same fix as the Voice Log: we decide when the answer is finished, not the
+  // browser. This is the path that cut Semmes off after "43".
+  rec.continuous = true;
   _oc.rec = rec; _oc.listening = true; _oc._speechReported = false;
+  _oc._lastSpeechAt = 0;
+  _oc._listenStartedAt = Date.now();
   btn.classList.add('listening');
   rec.onresult = (ev) => {
     let t = '';
     for (const r of ev.results) t += r[0].transcript;
-    _oc.partial = t.trim();
+    t = t.trim();
+    if (t) { _oc.partial = t; _oc._lastSpeechAt = Date.now(); }
     const inp = document.getElementById('obchat-input'); if (inp) inp.value = _oc.partial;
   };
+  // Three bounds, mirroring the Voice Log watchdog:
+  //   a real pause after speech ends the turn,
+  //   total silence gives up rather than listening forever,
+  //   and a hard ceiling covers someone walking away mid-sentence.
+  _oc._endpointer = setInterval(() => {
+    if (!_oc || !_oc.listening) { clearInterval(_oc && _oc._endpointer); return; }
+    const now = Date.now();
+    const elapsed = now - _oc._listenStartedAt;
+    if (elapsed >= OB_MAX_LISTEN_MS) { try { rec.stop(); } catch (e) {} return; }
+    if (_oc._lastSpeechAt) {
+      if (now - _oc._lastSpeechAt >= VL_SILENCE_STOP_MS) { try { rec.stop(); } catch (e) {} }
+    } else if (elapsed >= OB_NO_SPEECH_MS) {
+      try { rec.stop(); } catch (e) {}
+    }
+  }, 300);
   rec.onerror = (ev) => {
     _ocStopListening();
     _oc._speechReported = true;
@@ -8330,7 +8360,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-07-i-sync';
+const RATIO_BUILD = '2026-08-07-j-pause';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
