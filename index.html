@@ -3907,10 +3907,11 @@ function _vlSyncMuteBtn() {
   btn.style.color = _vlMuted ? 'var(--muted)' : '#CFA13C';
 }
 function _vlSpeak(text) {
-  if (!_vlMuted) {
-    coachAudioTryPlay(vlCoachKey(), text).then(played => { if (!played) _vlSpeakDevice(text); });
-    return;
-  }
+  if (_vlMuted) return;
+  const who = vlCoachKey();
+  coachAudioTryPlay(who, text)
+    .then(played => played || ratioSpeak(who, text))
+    .then(played => { if (!played) _vlSpeakDevice(text); });
 }
 function _vlSpeakDevice(text) {
   try {
@@ -6520,6 +6521,108 @@ function _ocAddHero(src, alt, opts) {
 
 let _coachAudioManifest = null; // null=not loaded, false=unavailable
 let _coachAudioEl = null;
+// ---- Gemini voices via the Worker -------------------------------------
+// Voice and style are chosen SERVER-side from the speaker key; the client
+// never sends a voice name. See /coach-speak in worker.js.
+let _ttsOff = false;               // set once the Worker says it has no key
+const _ttsCache = new Map();       // "speaker|text" -> blob URL
+const TTS_CACHE_MAX = 40;
+
+// iOS refuses to play audio that was not started from a user gesture. Playing
+// a silent clip on the first tap marks the element as user-initiated, and it
+// stays that way for every later src we assign to it.
+const _TTS_SILENCE = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAgD4AAAB9AAACABAAZGF0YQAAAAA=';
+let _ttsUnlocked = false;
+function _ttsUnlock() {
+  if (_ttsUnlocked) return;
+  try {
+    if (!_coachAudioEl) _coachAudioEl = new Audio();
+    _coachAudioEl.muted = true;
+    _coachAudioEl.src = _TTS_SILENCE;
+    const p = _coachAudioEl.play();
+    const settle = () => { try { _coachAudioEl.pause(); } catch (e) {} _coachAudioEl.muted = false; _ttsUnlocked = true; };
+    if (p && p.then) p.then(settle).catch(() => { _coachAudioEl.muted = false; });
+    else settle();
+  } catch (e) {}
+}
+['touchend', 'click', 'keydown'].forEach(ev =>
+  document.addEventListener(ev, _ttsUnlock, { capture: true, passive: true }));
+
+// True while the app is making any sound — Gemini audio OR the device voice.
+// Sequencing used to check only speechSynthesis, which is silent on the
+// Gemini path, so everything downstream fired while a coach was still talking.
+function _ttsBusy() {
+  try { if (_coachAudioEl && !_coachAudioEl.paused && !_coachAudioEl.ended) return true; } catch (e) {}
+  try { if (window.speechSynthesis && speechSynthesis.speaking) return true; } catch (e) {}
+  return false;
+}
+function _ttsStop() {
+  try { if (_coachAudioEl) { _coachAudioEl.pause(); _coachAudioEl.onended = null; } } catch (e) {}
+  try { speechSynthesis.cancel(); } catch (e) {}
+}
+
+async function _ttsUrl(speaker, text) {
+  const key = speaker + '|' + text;
+  if (_ttsCache.has(key)) return _ttsCache.get(key);
+  if (_ttsOff) return null;
+  let r;
+  try {
+    r = await fetch(WORKER_URL + '/coach-speak', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ speaker, text })
+    });
+  } catch (e) { return null; }                       // offline -> device voice
+  if (r.status === 503) {                            // GEMINI_API_KEY not set
+    _ttsOff = true;
+    console.log('[tts] Worker has no Gemini key — using the device voice');
+    return null;
+  }
+  if (!r.ok) { console.warn('[tts] /coach-speak', r.status); return null; }
+  const url = URL.createObjectURL(await r.blob());
+  if (_ttsCache.size >= TTS_CACHE_MAX) {
+    const oldest = _ttsCache.keys().next().value;
+    try { URL.revokeObjectURL(_ttsCache.get(oldest)); } catch (e) {}
+    _ttsCache.delete(oldest);
+  }
+  _ttsCache.set(key, url);
+  return url;
+}
+
+// Speaks `text` in `speaker`'s voice. Resolves true only if audio actually
+// started — callers fall back to the device voice on false.
+// opts.onProgress(fraction 0..1) fires while it plays; opts.onEnd at the end.
+async function ratioSpeak(speaker, text, opts) {
+  opts = opts || {};
+  const url = await _ttsUrl(speaker, text);
+  if (!url) return false;
+  try {
+    _ttsStop();
+    if (!_coachAudioEl) _coachAudioEl = new Audio();
+    const el = _coachAudioEl;
+    el.src = url;
+    let raf = null;
+    const stopRaf = () => { if (raf) { cancelAnimationFrame(raf); raf = null; } };
+    const tick = () => {
+      if (opts.onProgress && el.duration && isFinite(el.duration)) {
+        opts.onProgress(Math.min(1, el.currentTime / el.duration));
+      }
+      if (!el.paused && !el.ended) raf = requestAnimationFrame(tick); else stopRaf();
+    };
+    el.onended = () => { stopRaf(); if (opts.onProgress) opts.onProgress(1); if (opts.onEnd) opts.onEnd(); };
+    el.onerror = () => { stopRaf(); if (opts.onEnd) opts.onEnd(); };
+    await el.play();
+    tick();
+    return true;
+  } catch (e) {
+    // Autoplay blocked (no gesture yet) or a decode failure. Either way the
+    // device voice still gets a turn.
+    console.warn('[tts] playback blocked', e && e.message);
+    return false;
+  }
+}
+
+
 async function _coachAudioLoad() {
   if (_coachAudioManifest !== null) return _coachAudioManifest;
   try {
@@ -6541,9 +6644,9 @@ async function coachAudioTryPlay(coachKey, text) {
     const file = man[coachKey][k];
     if (file) {
       try {
-        if (_coachAudioEl) { _coachAudioEl.pause(); }
-        try { speechSynthesis?.cancel(); } catch (e) {}
-        _coachAudioEl = new Audio('coach-audio/' + file);
+        _ttsStop();
+        if (!_coachAudioEl) _coachAudioEl = new Audio();
+        _coachAudioEl.src = 'coach-audio/' + file;
         await _coachAudioEl.play();
         return true;
       } catch (e) { return false; } // autoplay blocked or file missing -> device voice
@@ -6791,6 +6894,44 @@ function _ocAddBot(text, opts) {
 // (Safari has never fired boundary events reliably). Muted or no engine =
 // text appears immediately, because silent karaoke is just a slow app.
 function _ocSpeakAndReveal(text, bubble) {
+  if (_ocMuted || !text) { bubble.textContent = text || ''; return; }
+  const words = text.split(/\s+/);
+  let handedOver = false, done = false, timer = null;
+  const stopTimer = () => { if (timer) { clearInterval(timer); timer = null; } };
+  const showAll = () => { done = true; stopTimer(); bubble.textContent = text; _ocScroll(); };
+  // Driven by where the VOICE actually is, which is the whole point — Safari
+  // never fired word-boundary events, so the reveal there was a guess.
+  const toFraction = (f) => {
+    handedOver = true; stopTimer();
+    if (done) return;
+    const n = Math.max(1, Math.round(f * words.length));
+    bubble.textContent = words.slice(0, n).join(' ');
+    _ocScroll();
+  };
+  bubble.textContent = '';
+  // Provisional reveal so the fetch round trip is not dead air; audio takes
+  // over the instant it starts.
+  let n = 0;
+  timer = setInterval(() => {
+    if (handedOver || done) { stopTimer(); return; }
+    n++;
+    bubble.textContent = words.slice(0, n).join(' ');
+    _ocScroll();
+    if (n >= words.length) stopTimer();
+  }, 300);
+
+  const who = (_oc && _oc.coach) || 'lauren';
+  ratioSpeak(who, text, { onProgress: toFraction, onEnd: showAll }).then(played => {
+    if (played) return;
+    stopTimer();
+    bubble.textContent = '';
+    _ocRevealDeviceVoice(text, bubble);   // unchanged pre-Gemini behaviour
+  });
+  // Nothing should ever be left half-written.
+  setTimeout(showAll, Math.max(9000, words.length * 600));
+}
+
+function _ocRevealDeviceVoice(text, bubble) {
   const showAll = () => { bubble.textContent = text; };
   if (_ocMuted || !window.speechSynthesis) { showAll(); return; }
   let done = false;
@@ -6926,12 +7067,13 @@ function _ocSyncMuteBtn() {
 }
 
 function _ocSpeak(text) {
-  // Pre-generated character audio first; device voice only as fallback.
-  if (!_ocMuted && _oc && _oc.coach) {
-    coachAudioTryPlay(_oc.coach, text).then(played => { if (!played) _ocSpeakDevice(text); });
-    return;
-  }
-  _ocSpeakDevice(text);
+  if (_ocMuted) return;
+  // Pre-generated file -> Gemini voice -> device voice. Before a coach is
+  // assigned the speaker is Lauren at the front desk.
+  const who = (_oc && _oc.coach) || 'lauren';
+  coachAudioTryPlay(who, text)
+    .then(played => played || ratioSpeak(who, text))
+    .then(played => { if (!played) _ocSpeakDevice(text); });
 }
 function _ocSpeakDevice(text) {
   try {
@@ -6995,11 +7137,9 @@ function _ocIntroduceCoach(coachKey, goalKey) {
 function _ocSpeechIdle(maxMs) {
   return new Promise(res => {
     const deadline = Date.now() + (maxMs || 1200);
-    try { speechSynthesis.cancel(); } catch (e) {}
+    _ttsStop();   // stops Gemini audio AND the device voice
     (function poll() {
-      let busy = false;
-      try { busy = !!speechSynthesis.speaking; } catch (e) {}
-      if (!busy || Date.now() > deadline) setTimeout(res, 120);
+      if (!_ttsBusy() || Date.now() > deadline) setTimeout(res, 120);
       else setTimeout(poll, 80);
     })();
   });
@@ -7010,13 +7150,17 @@ function _ocAfterSpeech(cb) {
   let fired = false;
   function done() { if (!fired) { fired = true; clearTimeout(fallback); cb(); } }
   try {
-    if (_ocMuted || !window.speechSynthesis) { setTimeout(done, 700); return; }
-    // speaking flips true a moment after speak() is called — give it 400ms
-    // to start, then wait for it to drain.
+    if (_ocMuted) { setTimeout(done, 700); return; }
+    // Gemini audio has to be fetched before it can play, so allow longer for
+    // sound to START than the old 400ms — otherwise the coach walks in while
+    // Lauren is still being generated. Once anything is audible, wait it out.
+    let waited = 0;
     setTimeout(function poll() {
-      if (!speechSynthesis.speaking) { setTimeout(done, 250); }
-      else setTimeout(poll, 200);
-    }, 400);
+      waited += 200;
+      if (_ttsBusy()) { setTimeout(poll, 200); return; }
+      if (waited < 2600) { setTimeout(poll, 200); return; }  // nothing playing yet
+      setTimeout(done, 250);
+    }, 200);
   } catch (e) { setTimeout(done, 700); }
 }
 
@@ -8101,7 +8245,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-07-f-slot';
+const RATIO_BUILD = '2026-08-07-g-voice';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
