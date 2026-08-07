@@ -299,6 +299,13 @@
     .obchat-card { margin:8px 0 8px 42px; background:var(--bg-deep); border:1px solid var(--line); border-radius:14px; padding:12px 14px; font-size:13px; color:var(--muted); }
     .obchat-card b { color:var(--ink); font-weight:700; }
     .obchat-micbtn.listening { animation: vlPulse 1.4s ease-in-out infinite; background:#CFA13C !important; }
+    /* First-screen hint: a soft glow that says "talk to me" without implying
+       recording has started. Removed the moment the user does anything. */
+    .obchat-micbtn.hint { animation: ocHintPulse 1.8s ease-in-out infinite; }
+    @keyframes ocHintPulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(207,161,60,0.55); transform: scale(1); }
+      50%      { box-shadow: 0 0 0 12px rgba(207,161,60,0); transform: scale(1.07); }
+    }
     .obchat-micbtn.listening i { color:#101512 !important; }
 
     .vl-fab { position: fixed; right: 18px; bottom: 90px; width: 56px; height: 56px; border-radius: 50%; background: #CFA13C; border: none; box-shadow: 0 4px 14px rgba(207,161,60,0.4); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 300; }
@@ -6481,7 +6488,7 @@ function _ocAddHero(src, alt) {
   row.style.cssText = 'display:flex;justify-content:center;margin:10px 0';
   const img = document.createElement('img');
   img.src = src; img.alt = alt || '';
-  img.style.cssText = 'max-width:82%;max-height:44vh;object-fit:contain;border-radius:16px';
+  img.style.cssText = 'width:94%;max-height:60vh;object-fit:contain;border-radius:16px';
   img.onerror = () => row.remove(); // asset missing -> no broken frame, chat flows on
   row.appendChild(img);
   box.appendChild(row);
@@ -6628,7 +6635,9 @@ function obStartChat() {
   _ocSyncMuteBtn();
   _ocAddBot("Welcome to Ratio Fitness. My name is Lauren — tell me a little about the goals you would like to accomplish so I can recommend the perfect trainer for you. Are you trying to Lose Body Fat, Lose Weight, Gain Muscle, or just Maintain and Perform?");
   _ocAddHero(OB_LAUREN.img, 'Lauren at the Ratio Fitness front desk');
-  _ocChips(Object.entries(OB_GOAL_LABELS).map(([k, label]) => ({ label, action: () => _ocSetGoal(k) })));
+  // No pill buttons — Lauren just ASKED the question, and the answer is meant
+  // to be spoken. The pulsing mic is the hint.
+  document.getElementById('obchat-mic')?.classList.add('hint');
 }
 
 function obChatUseForms() {
@@ -6811,12 +6820,30 @@ function _ocIntroduceCoach(coachKey, goalKey) {
   const c = OB_COACHES[coachKey];
   // Lauren speaks BEFORE the coach is assigned, so her line uses her voice.
   _ocAddBot(`I know just the trainer for you — let me introduce you to ${c.name}.`);
-  setTimeout(() => {
+  // Wait for Lauren to FINISH TALKING before the coach speaks — each _ocSpeak
+  // cancels the previous utterance, so a fixed delay was cutting her off
+  // mid-sentence. Poll until the speech queue drains (bounded), then enter.
+  _ocAfterSpeech(() => {
     _oc.coach = coachKey;
     _ocSetCoach(coachKey);
     _ocAddHero(c.fullImg || c.img, c.name);
     _ocAddBot(c.intro);
-  }, 900);
+  });
+}
+
+function _ocAfterSpeech(cb) {
+  const fallback = setTimeout(done, 9000); // never wedge on a stuck engine
+  let fired = false;
+  function done() { if (!fired) { fired = true; clearTimeout(fallback); cb(); } }
+  try {
+    if (_ocMuted || !window.speechSynthesis) { setTimeout(done, 700); return; }
+    // speaking flips true a moment after speak() is called — give it 400ms
+    // to start, then wait for it to drain.
+    setTimeout(function poll() {
+      if (!speechSynthesis.speaking) { setTimeout(done, 250); }
+      else setTimeout(poll, 200);
+    }, 400);
+  } catch (e) { setTimeout(done, 700); }
 }
 
 // Spoken goal selection — the mic test happens ON the goal question, so
@@ -6938,6 +6965,7 @@ function obChatSend() {
 }
 
 function _ocDispatch(text) {
+  document.getElementById('obchat-mic')?.classList.remove('hint');
   if (_oc.stage === 'goal') {
     _ocAddUser(text);
     const goal = _ocMatchGoal(text);
@@ -6949,8 +6977,7 @@ function _ocDispatch(text) {
       _obGoalType = goal;
       _ocIntroduceCoach(OB_COACHES.ian.goals.includes(goal) ? 'ian' : 'olivia', goal);
     } else {
-      _ocAddBot("I didn't catch a goal in that — tap one below, or say something like \"I want to lose body fat.\"");
-      _ocChips(Object.entries(OB_GOAL_LABELS).map(([k, label]) => ({ label, action: () => _ocSetGoal(k) })));
+      _ocAddBot("I didn't quite catch a goal in that — just tell me one of the four: lose body fat, lose weight, gain muscle, or maintain and perform.");
     }
     return;
   }
@@ -7032,6 +7059,7 @@ async function obChatMicCheck() {
 
 async function obChatMic() {
   if (!_oc || _oc.busy) return;
+  document.getElementById('obchat-mic')?.classList.remove('hint');
   if (_oc.listening) { _ocStopListening(); return; }
   const btn = document.getElementById('obchat-mic');
   const plugin = window.Capacitor?.Plugins?.SpeechRecognition;
@@ -7839,7 +7867,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-07-a-oliviafull';
+const RATIO_BUILD = '2026-08-07-b-frontpolish';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
