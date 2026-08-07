@@ -7403,10 +7403,31 @@ async function _ocResetRecognizer(plugin, settleMs) {
 // This is the exact diagnosis that found a dud "USBAUDIO2.0" device selected
 // over two working mics on a Windows laptop: open the mic, meter the signal
 // for five seconds, and report what was heard and from which device.
+// The stock messages assume a browser. Inside the iOS app there is no address
+// bar and no padlock, so telling someone to click one is worse than saying
+// nothing — it reads as a broken app giving nonsense instructions.
+function _ocProblemCopy(code) {
+  const native = !!(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.SpeechRecognition);
+  if (!native) return speechProblemMessage(code);
+  switch (code) {
+    case 'no-speech':
+      return "I didn't catch anything that time. Try again and start talking right after the mic turns gold — or just type your answer, that works perfectly.";
+    case 'not-allowed':
+    case 'service-not-allowed':
+      return "I don't have permission to use the microphone. You can turn it on in iPhone Settings under Ratio — Microphone and Speech Recognition both need to be on. Typing works in the meantime.";
+    case 'audio-capture':
+      return "I can't reach the microphone on this device. Typing works fine, go ahead.";
+    case 'network':
+      return "Speech recognition couldn't reach the network just now. Try again in a moment, or type your answer.";
+    default:
+      return speechProblemMessage(code);
+  }
+}
+
 function _ocMicProblem(code) {
   // Spoken as well as shown — a broken MICROPHONE doesn't break the SPEAKER,
   // and hearing the explanation is exactly what a stuck user needs.
-  _ocAddBot(speechProblemMessage(code));
+  _ocAddBot(_ocProblemCopy(code));
   if (navigator.mediaDevices?.getUserMedia) {
     _ocChips([
       { label: 'Run a mic check', action: () => obChatMicCheck() },
@@ -7484,6 +7505,10 @@ async function obChatMic() {
   document.getElementById('obchat-mic')?.classList.remove('hint');
   if (_oc.listening) { _ocStopListening(); return; }
   const btn = document.getElementById('obchat-mic');
+  // Gold on the TAP. Releasing the audio session and resetting the recogniser
+  // takes over a second before start() is even called, and during that window
+  // the button used to look completely inert.
+  if (btn) btn.classList.add('listening');
   const plugin = window.Capacitor?.Plugins?.SpeechRecognition;
   _oc.partial = '';
   _oc.lastInputVoice = true;
@@ -7520,6 +7545,7 @@ async function obChatMic() {
       });
       let result = null;
       const opts = { language: 'en-US', partialResults: true, maxResults: 1, popup: false };
+      const startedAt = Date.now();
       try {
         try {
           result = await plugin.start(opts);
@@ -7533,11 +7559,25 @@ async function obChatMic() {
         }
       }
       finally { try { handle.remove(); } catch (e) {} }
+      // How long the recogniser actually ran distinguishes the two remaining
+      // explanations: a few hundred milliseconds means it never captured
+      // anything (audio session), several seconds means it listened properly
+      // and genuinely heard silence (input routing).
+      console.log('[obchat] native mic finished after', Date.now() - startedAt, 'ms; partial:', JSON.stringify(_oc.partial || ''));
       _oc.nativeListening = false;
       const finalText = ((result && result.matches && result.matches[0]) || _oc.partial || '').trim();
       _ocStopListening();
       const inp = document.getElementById('obchat-input'); if (inp) inp.value = '';
-      if (finalText) _ocDispatch(finalText);
+      if (finalText) {
+        _ocDispatch(finalText);
+      } else {
+        // THE BUG. start() can RESOLVE with nothing rather than rejecting, and
+        // this branch did not exist — so the tap flashed gold and then did
+        // absolutely nothing, with no message and no console line. Every
+        // theory about why the iPhone mic "failed" was built on that silence.
+        console.warn('[obchat] native mic resolved with no speech. raw result:', JSON.stringify(result));
+        _ocMicProblem('no-speech');
+      }
     } catch (e) {
       console.error('[obchat] native mic error', e);
       _ocStopListening();
@@ -7555,6 +7595,7 @@ async function obChatMic() {
 
   const Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!Ctor) {
+    _ocStopListening();   // or the button stays gold forever
     _ocAddBot("This browser can't do voice — Chrome, Edge and Safari can. Typing works perfectly well though, go ahead.");
     return;
   }
@@ -8360,7 +8401,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-07-j-pause';
+const RATIO_BUILD = '2026-08-07-k-nospeech';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
