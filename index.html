@@ -3843,10 +3843,13 @@ function _vlThreadBot(text) {
   row.className = 'obchat-msg bot';
   row.innerHTML = _vlAvatarCol('<img class="obchat-avatar" alt="">', c.name) + `<div class="obchat-bubble"></div>`;
   const img = row.querySelector('img.obchat-avatar');
-  img.src = c.img;
+  // Headshot first — a full-body shot squeezed into a 34px circle is torso.
+  let usedFallback = !c.headImg;
+  img.src = c.headImg || c.img;
   // A real handler, not an inline attribute — nesting quotes inside onerror
   // was itself throwing when the image 404'd, which defeats a fallback.
   img.onerror = () => {
+    if (!usedFallback) { usedFallback = true; img.src = c.img; return; }
     const d = document.createElement('div');
     d.className = 'obchat-avatar';
     d.style.cssText = 'display:flex;align-items:center;justify-content:center;color:#CFA13C;font-weight:800';
@@ -6486,21 +6489,29 @@ function _ocAddHero(src, alt, opts) {
   if (!box) return;
   const intro = !!(opts && opts.intro);
   const row = document.createElement('div');
-  // The intro hero is deliberately full-bleed: it cancels the message list's
-  // side padding with negative margins so Lauren's desk reaches both edges
-  // and runs down to the type box.
-  row.style.cssText = intro
-    ? 'margin:8px -18px -8px;display:block'
-    : 'display:flex;justify-content:center;margin:10px 0';
+  const fill = !!(opts && opts.fill);
+  if (fill) row.id = 'obchat-hero';
+  // Full-bleed: negative margins cancel the list's side padding so the desk
+  // reaches both edges. On the intro the row also FLEXES, taking whatever
+  // height the text left over — that is what removes the dead space at the
+  // top and stops long lines being clipped.
+  row.style.cssText = fill
+    ? 'flex:1;min-height:0;margin:6px -18px 0;display:block;overflow:hidden'
+    : intro
+      ? 'margin:8px -18px -8px;display:block'
+      : 'display:flex;justify-content:center;margin:10px 0';
   const img = document.createElement('img');
   img.src = src; img.alt = alt || '';
   // `reserve` is the chrome above and below that the image must not fight for:
   // header + type box + however much text is on screen.
   const reserve = (opts && opts.reserve) || 300;
   const fit = (opts && opts.fit) || 'cover';
-  img.style.cssText = intro
-    ? `display:block;width:100%;height:calc(100dvh - ${reserve}px);min-height:280px;object-fit:${fit};object-position:50% ${fit === 'contain' ? '50%' : '12%'}`
-    : 'width:94%;max-height:60vh;object-fit:contain;border-radius:16px';
+  const pos = fit === 'contain' ? '50%' : '12%';
+  img.style.cssText = fill
+    ? `display:block;width:100%;height:100%;object-fit:${fit};object-position:50% ${pos}`
+    : intro
+      ? `display:block;width:100%;height:calc(100dvh - ${reserve}px);min-height:280px;object-fit:${fit};object-position:50% ${pos}`
+      : 'width:94%;max-height:60vh;object-fit:contain;border-radius:16px';
   img.onerror = () => row.remove(); // asset missing -> no broken frame, chat flows on
   row.appendChild(img);
   box.appendChild(row);
@@ -6550,7 +6561,7 @@ const OB_COACHES = {
     // purpose: personality belongs in the framing, never in the numbers.
     persona: "Coach Ian: a funny, lovable meathead personal trainer. Enthusiastic, thinks protein solves most of life's problems and that leg day is sacred. Calls people 'bro', 'brother' or 'champ' occasionally (not every message). His jokes are about the gym, protein and himself — never about the person. Genuinely kind under the meathead bit, never a drill sergeant, never shames anyone about food or weight. Keeps it brief.",
     intro: "What's up! I'm Coach Ian — I specialize in gaining lean muscle and dropping body fat. Fair warning: my answer to most of life's problems is protein, and I haven't been wrong yet. So tell me about yourself and what you want to accomplish — age, height, current weight, where you want to end up. Talk to me like we're between sets.",
-    fullImg: 'coach-ian-full.png',
+    fullImg: 'coach-ian-full.png', headImg: 'coach-ian-head.png',
     logGreetings: (n) => [
       `Hey${n ? ' ' + n : ''}! What are we logging, bro?`,
       `${n || 'Hey'}! What'd you eat? Hit me.`,
@@ -6595,7 +6606,7 @@ const OB_COACHES = {
     sub: 'Weight loss & maintenance',
     persona: "Coach Olivia: charming, quick-witted and genuinely funny — the friend who makes you laugh while quietly keeping you on track. Warm, a little playful, never saccharine. Light humour about everyday life, never about the person's body, food choices or weight. Encouraging without cheerleading. Keeps it brief.",
     intro: "Hi! I'm Coach Olivia — weight loss and maintenance are my specialty, which mostly means I do the math so you don't have to. I promise I'm more fun than that sentence makes me sound. Tell me about yourself and what you'd like to accomplish — age, height, where you are now, where you're headed.",
-    fullImg: 'coach-olivia-full.png',
+    fullImg: 'coach-olivia-full.png', headImg: 'coach-olivia-head.png',
     logGreetings: (n) => [
       `Hi${n ? ' ' + n : ''}! What are we logging today?`,
       `${n || 'Hey'}! Tell me what you ate and I'll do the math.`,
@@ -6655,9 +6666,14 @@ function obStartChat() {
   const bar = document.getElementById('obchat-introbar');
   if (bar) bar.style.display = 'flex';
   const msgs = document.getElementById('obchat-messages');
-  if (msgs) msgs.style.paddingTop = '14px';
+  // Fixed single screen, NOT a scroller. A scrolling list with a fixed-height
+  // image is what clipped the top of Lauren's line and left dead space under
+  // the status bar: the text overflowed and got scrolled away. Here the text
+  // takes the height it needs and the portrait absorbs the remainder, so both
+  // always fit exactly.
+  if (msgs) msgs.style.cssText = 'flex:1;min-height:0;overflow:hidden;padding:2px 18px 0;display:flex;flex-direction:column';
   _ocAddBot("Hello and welcome to Ratio Fitness! My name is Lauren — tell me a little about the goals you would like to accomplish so I can recommend the perfect trainer for you. Are you trying to Lose Body Fat, Lose Weight, Gain Muscle, or just Maintain and Perform?");
-  _ocAddHero(OB_LAUREN.img, 'Lauren at the Ratio Fitness front desk', { intro: true });
+  _ocAddHero(OB_LAUREN.img, 'Lauren at the Ratio Fitness front desk', { intro: true, fill: true });
   // No pill buttons — Lauren just ASKED the question, and the answer is meant
   // to be spoken. The pulsing mic is the hint.
   document.getElementById('obchat-mic')?.classList.add('hint');
@@ -6684,7 +6700,14 @@ function _ocSetCoach(key) {
   }
   const c = OB_COACHES[key];
   fb.textContent = c.initial;
-  img.src = c.img;
+  img.onerror = null;
+  let headTried = !c.headImg;
+  img.src = c.headImg || c.img;
+  img.addEventListener('error', function onErr() {
+    if (!headTried) { headTried = true; img.src = c.img; return; }
+    img.removeEventListener('error', onErr);
+    img.style.display = 'none'; fb.style.display = 'flex';
+  });
   img.style.display = 'block';
   img.onload = () => { fb.style.display = 'none'; };
   img.onerror = () => { img.style.display = 'none'; fb.style.display = 'flex'; };
@@ -6692,10 +6715,39 @@ function _ocSetCoach(key) {
   document.getElementById('obchat-coach-sub').textContent = c.sub;
 }
 
+// True while the front desk is on screen — before a coach is assigned.
+function _ocIsIntro() { return !!_oc && !_oc.coach; }
+
+// The intro is a single-message slot: each new line REPLACES the last, so the
+// screen always shows exactly the last thing said. Rows go ABOVE the portrait,
+// which is the flex child that absorbs the leftover height.
+function _ocPlace(row, opts) {
+  const box = document.getElementById('obchat-messages');
+  if (!box) return;
+  if (_ocIsIntro()) {
+    if (!(opts && opts.keepPrevious)) {
+      box.querySelectorAll('.obchat-msg, .obchat-chips').forEach(el => el.remove());
+    }
+    row.style.flexShrink = '0';
+    const hero = document.getElementById('obchat-hero');
+    if (hero) { box.insertBefore(row, hero); return; }
+  }
+  box.appendChild(row);
+}
+
 function _ocScroll() {
+  const box = document.getElementById('obchat-messages');
+  // Nothing to scroll on the intro — it is a fixed screen, and scrolling it
+  // is precisely what pushed the top of the text out of view.
+  if (!box || _ocIsIntro()) return;
+  box.scrollTop = box.scrollHeight;
+}
+
+function _ocScrollRaw() {
   const box = document.getElementById('obchat-messages');
   if (box) box.scrollTop = box.scrollHeight;
 }
+
 
 function _ocAddBot(text, opts) {
   const c = _oc && _oc.coach ? OB_COACHES[_oc.coach] : null;
@@ -6709,8 +6761,13 @@ function _ocAddBot(text, opts) {
   } else {
     row.innerHTML = '<img class="obchat-avatar" alt="">' + `<div class="obchat-bubble"></div>`;
     const img = row.querySelector('img.obchat-avatar');
-    img.src = c.img;
+    // Prefer a purpose-made headshot; a full-body shot squeezed into a 34px
+    // circle is mostly torso. Falls back to the body shot, then the letter,
+    // so this works before the headshots are uploaded.
+    let usedFallback = !c.headImg;
+    img.src = c.headImg || c.img;
     img.onerror = () => {
+      if (!usedFallback) { usedFallback = true; img.src = c.img; return; }
       const d = document.createElement('div');
       d.className = 'obchat-avatar';
       d.style.cssText = 'display:flex;align-items:center;justify-content:center;color:#CFA13C;font-weight:800';
@@ -6719,7 +6776,7 @@ function _ocAddBot(text, opts) {
     };
   }
   const bubble = row.querySelector('.obchat-bubble');
-  box.appendChild(row);
+  _ocPlace(row);
   if (_oc) _oc.history.push({ role: 'assistant', content: text });
 
   const speak = _oc && !(opts && opts.silent);
@@ -6785,7 +6842,7 @@ function _ocAddUser(text) {
   row.className = 'obchat-msg user';
   row.innerHTML = `<div class="obchat-bubble"></div>`;
   row.querySelector('.obchat-bubble').textContent = text;
-  box.appendChild(row);
+  _ocPlace(row);
   _oc.history.push({ role: 'user', content: text });
   _ocScroll();
 }
@@ -6801,7 +6858,9 @@ function _ocChips(options) {
     b.onclick = () => { wrap.remove(); o.action(); };
     wrap.appendChild(b);
   });
-  box.appendChild(wrap);
+  // keepPrevious: chips belong WITH the message that offered them, so adding
+  // them must not wipe that message off the intro slot.
+  _ocPlace(wrap, { keepPrevious: true });
   _ocScroll();
 }
 
@@ -6909,7 +6968,12 @@ function _ocIntroduceCoach(coachKey, goalKey) {
     // leaving it running underneath makes the coach feel like a scroll item
     // rather than someone walking in.
     const msgs = document.getElementById('obchat-messages');
-    if (msgs) { msgs.innerHTML = ''; msgs.style.paddingTop = '14px'; msgs.scrollTop = 0; }
+    if (msgs) {
+      msgs.innerHTML = '';
+      // Back to a normal scrolling thread — the coach conversation is long.
+      msgs.style.cssText = 'flex:1;overflow-y:auto;padding:14px 18px 8px';
+      msgs.scrollTop = 0;
+    }
     // Header back — it carries their name and face.
     const hdr = document.getElementById('obchat-header');
     if (hdr) hdr.style.display = 'flex';
@@ -7103,7 +7167,25 @@ function _ocStopListening() {
   const btn = document.getElementById('obchat-mic');
   if (btn) btn.classList.remove('listening');
   try { if (_oc.rec) { _oc.rec.stop(); _oc.rec = null; } } catch (e) {}
-  try { const p = window.Capacitor?.Plugins?.SpeechRecognition; if (p && _oc.nativeListening) { p.stop(); _oc.nativeListening = false; } } catch (e) {}
+  // Stop UNCONDITIONALLY. The old code only stopped when _oc.nativeListening
+  // said a session was ours, but obStartChat replaces _oc wholesale — so a
+  // session started before that point could never be stopped again, and the
+  // next start() failed with "Ongoing speech recognition" forever.
+  try {
+    const p = window.Capacitor?.Plugins?.SpeechRecognition;
+    if (p) { p.stop(); }
+    _oc.nativeListening = false;
+  } catch (e) {}
+}
+
+// Returns the native recogniser to a known-idle state. Every step is
+// best-effort: on a device where the recogniser was already idle these all
+// throw harmlessly, and that is fine — the point is that afterwards nothing
+// is running.
+async function _ocResetRecognizer(plugin, settleMs) {
+  try { await plugin.removeAllListeners(); } catch (e) {}
+  try { await plugin.stop(); } catch (e) {}
+  await new Promise(r => setTimeout(r, settleMs || 250));
 }
 
 // ---- front-desk mic check ----
@@ -7187,10 +7269,13 @@ async function obChatMic() {
       _ocAddBot(msg);
     };
     try {
-      // iOS gives speech synthesis and speech recognition the same audio
-      // session, and starting the recogniser while the TTS voice still holds
-      // it can fail silently. Wait for the queue to drain before opening it.
+      // Let the TTS voice release the shared audio session first.
       await _ocSpeechIdle();
+      // Then clear any recogniser session left running by an earlier attempt.
+      // This is the actual cause of "Ongoing speech recognition": the native
+      // recogniser outlives the JS state that was tracking it, so one
+      // abandoned start() bricks the mic until the app is force-quit.
+      await _ocResetRecognizer(plugin);
       const avail = await plugin.available();
       if (!avail.available) { bail("Voice isn't available on this device — go ahead and type your answer, that works just as well."); return; }
       let perm = await plugin.checkPermissions();
@@ -7203,7 +7288,19 @@ async function obChatMic() {
         if (t) { _oc.partial = t; const inp = document.getElementById('obchat-input'); if (inp) inp.value = t; }
       });
       let result = null;
-      try { result = await plugin.start({ language: 'en-US', partialResults: true, maxResults: 1, popup: false }); }
+      const opts = { language: 'en-US', partialResults: true, maxResults: 1, popup: false };
+      try {
+        try {
+          result = await plugin.start(opts);
+        } catch (e1) {
+          // One retry, and only for the stuck-session error — anything else is
+          // a real failure and should surface immediately.
+          if (!/ongoing/i.test(e1 && (e1.errorMessage || e1.message) || '')) throw e1;
+          console.warn('[obchat] recogniser was stuck; resetting and retrying once');
+          await _ocResetRecognizer(plugin, 600);
+          result = await plugin.start(opts);
+        }
+      }
       finally { try { handle.remove(); } catch (e) {} }
       _oc.nativeListening = false;
       const finalText = ((result && result.matches && result.matches[0]) || _oc.partial || '').trim();
@@ -8004,7 +8101,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-07-e-stage';
+const RATIO_BUILD = '2026-08-07-f-slot';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -17695,8 +17792,8 @@ if (document.readyState === 'loading') {
        up with text underneath it once the list scrolls, which is exactly what
        happened. Occupying layout makes that impossible. Carries the safe-area
        inset so it clears the clock and battery. -->
-  <div id="obchat-introbar" style="display:none;flex-shrink:0;justify-content:flex-end;align-items:center;padding:calc(10px + env(safe-area-inset-top)) 14px 4px">
-    <button onclick="obChatToggleMute()" aria-label="Voice on or off" id="obchat-mute-intro" style="background:none;border:none;color:#CFA13C;font-size:18px;cursor:pointer;padding:6px 8px"><i class="fa-solid fa-volume-high"></i></button>
+  <div id="obchat-introbar" style="display:none;flex-shrink:0;justify-content:flex-end;align-items:center;padding:calc(2px + env(safe-area-inset-top)) 12px 0">
+    <button onclick="obChatToggleMute()" aria-label="Voice on or off" id="obchat-mute-intro" style="background:none;border:none;color:#CFA13C;font-size:17px;cursor:pointer;padding:2px 6px;line-height:1"><i class="fa-solid fa-volume-high"></i></button>
   </div>
   <div id="obchat-header" style="display:flex;align-items:center;gap:12px;padding:calc(14px + env(safe-area-inset-top)) 18px 14px;border-bottom:1px solid var(--line);flex-shrink:0">
     <img id="obchat-coach-avatar" class="obchat-avatar" style="width:42px;height:42px;display:none" alt="" onerror="this.style.display='none'">
