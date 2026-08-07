@@ -6476,24 +6476,33 @@ function showAuthTab(tab) {
 const OB_FRONTDESK_ICON = 'app-icon.png';
 // The receptionist. She greets, asks the goal, and hands off to the right
 // coach by name — she never runs the interview herself.
-const OB_LAUREN = { name: 'Lauren', img: 'lauren.png' };
+const OB_LAUREN = { name: 'Lauren', img: 'lauren.jpg' };
 
 // Full-size character moment in the chat — Lauren at her desk, then the
 // chosen coach's introduction. Scrolls away naturally as the conversation
 // continues, which is exactly the "images can leave" behaviour asked for.
-function _ocAddHero(src, alt) {
+function _ocAddHero(src, alt, opts) {
   const box = document.getElementById('obchat-messages');
   if (!box) return;
+  const intro = !!(opts && opts.intro);
   const row = document.createElement('div');
-  row.style.cssText = 'display:flex;justify-content:center;margin:10px 0';
+  // The intro hero is deliberately full-bleed: it cancels the message list's
+  // side padding with negative margins so Lauren's desk reaches both edges
+  // and runs down to the type box.
+  row.style.cssText = intro
+    ? 'margin:8px -18px -8px;display:block'
+    : 'display:flex;justify-content:center;margin:10px 0';
   const img = document.createElement('img');
   img.src = src; img.alt = alt || '';
-  img.style.cssText = 'width:94%;max-height:60vh;object-fit:contain;border-radius:16px';
+  img.style.cssText = intro
+    ? 'display:block;width:100%;height:calc(100dvh - 300px);min-height:300px;object-fit:cover;object-position:50% 15%'
+    : 'width:94%;max-height:60vh;object-fit:contain;border-radius:16px';
   img.onerror = () => row.remove(); // asset missing -> no broken frame, chat flows on
   row.appendChild(img);
   box.appendChild(row);
   _ocScroll();
 }
+
 let _coachAudioManifest = null; // null=not loaded, false=unavailable
 let _coachAudioEl = null;
 async function _coachAudioLoad() {
@@ -6633,8 +6642,15 @@ function obStartChat() {
   document.getElementById('obchat-messages').innerHTML = '';
   _ocSetCoach(null);
   _ocSyncMuteBtn();
-  _ocAddBot("Welcome to Ratio Fitness. My name is Lauren — tell me a little about the goals you would like to accomplish so I can recommend the perfect trainer for you. Are you trying to Lose Body Fat, Lose Weight, Gain Muscle, or just Maintain and Perform?");
-  _ocAddHero(OB_LAUREN.img, 'Lauren at the Ratio Fitness front desk');
+  // Intro chrome: hide the branded header, float the two controls instead.
+  const hdr = document.getElementById('obchat-header');
+  if (hdr) hdr.style.display = 'none';
+  const bar = document.getElementById('obchat-introbar');
+  if (bar) bar.style.display = 'flex';
+  const msgs = document.getElementById('obchat-messages');
+  if (msgs) msgs.style.paddingTop = 'calc(52px + env(safe-area-inset-top))';
+  _ocAddBot("Hello and welcome to Ratio Fitness! My name is Lauren — tell me a little about the goals you would like to accomplish so I can recommend the perfect trainer for you. Are you trying to Lose Body Fat, Lose Weight, Gain Muscle, or just Maintain and Perform?");
+  _ocAddHero(OB_LAUREN.img, 'Lauren at the Ratio Fitness front desk', { intro: true });
   // No pill buttons — Lauren just ASKED the question, and the answer is meant
   // to be spoken. The pulsing mic is the hint.
   document.getElementById('obchat-mic')?.classList.add('hint');
@@ -6679,26 +6695,81 @@ function _ocAddBot(text, opts) {
   const box = document.getElementById('obchat-messages');
   const row = document.createElement('div');
   row.className = 'obchat-msg bot';
-  row.innerHTML = '<img class="obchat-avatar" alt="">' + `<div class="obchat-bubble"></div>`;
-  const img = row.querySelector('img.obchat-avatar');
-  img.src = c ? c.img : OB_FRONTDESK_ICON;
-  // A real handler, not an inline attribute — nested quotes in onerror THREW
-  // when the image 404'd, which is the opposite of a fallback.
-  img.onerror = () => {
-    const d = document.createElement('div');
-    d.className = 'obchat-avatar';
-    d.style.cssText = 'display:flex;align-items:center;justify-content:center;color:#CFA13C;font-weight:800';
-    d.textContent = c ? c.initial : 'R';
-    img.replaceWith(d);
-  };
-  row.querySelector('.obchat-bubble').textContent = text;
+  // The front desk shows no avatar — Lauren's words stand alone on the intro.
+  const bare = !c;
+  if (bare) {
+    row.innerHTML = `<div class="obchat-bubble" style="max-width:100%"></div>`;
+  } else {
+    row.innerHTML = '<img class="obchat-avatar" alt="">' + `<div class="obchat-bubble"></div>`;
+    const img = row.querySelector('img.obchat-avatar');
+    img.src = c.img;
+    img.onerror = () => {
+      const d = document.createElement('div');
+      d.className = 'obchat-avatar';
+      d.style.cssText = 'display:flex;align-items:center;justify-content:center;color:#CFA13C;font-weight:800';
+      d.textContent = c.initial;
+      img.replaceWith(d);
+    };
+  }
+  const bubble = row.querySelector('.obchat-bubble');
   box.appendChild(row);
   if (_oc) _oc.history.push({ role: 'assistant', content: text });
+
+  const speak = _oc && !(opts && opts.silent);
+  if (speak) _ocSpeakAndReveal(text, bubble);
+  else bubble.textContent = text;
   _ocScroll();
-  // Alexa-like by default: the coach speaks every reply unless muted from the
-  // header. The text is always on screen regardless — numbers must be READ,
-  // not just heard.
-  if (_oc && !(opts && opts.silent)) _ocSpeak(text);
+}
+
+// Reveals the sentence in time with the voice instead of dumping it. Uses the
+// speech engine's own word-boundary events where available (Chrome, Edge);
+// falls back to a timed reveal at a natural speaking pace where they aren't
+// (Safari has never fired boundary events reliably). Muted or no engine =
+// text appears immediately, because silent karaoke is just a slow app.
+function _ocSpeakAndReveal(text, bubble) {
+  const showAll = () => { bubble.textContent = text; };
+  if (_ocMuted || !window.speechSynthesis) { showAll(); return; }
+  let done = false;
+  let timer = null;
+  const finish = () => { if (!done) { done = true; if (timer) clearInterval(timer); showAll(); } };
+  try {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = 1.05;
+    // Before a coach is assigned the speaker is Lauren — female voice.
+    const v = _oc ? _ocVoices[_oc.coach || 'olivia'] : null;
+    if (v) u.voice = v;
+
+    let usedBoundary = false;
+    u.onboundary = (ev) => {
+      usedBoundary = true;
+      if (timer) { clearInterval(timer); timer = null; }
+      const i = ev.charIndex != null ? ev.charIndex : 0;
+      // include the word being spoken, not just everything before it
+      const nextSpace = text.indexOf(' ', i);
+      bubble.textContent = text.slice(0, nextSpace === -1 ? text.length : nextSpace);
+      _ocScroll();
+    };
+    u.onend = finish;
+    u.onerror = finish;
+    speechSynthesis.speak(u);
+
+    // Timed fallback: start revealing at a natural pace, and let boundary
+    // events take over if they arrive.
+    const words = text.split(/\s+/);
+    let n = 0;
+    const perWord = Math.max(150, Math.min(320, 60000 / (170 * u.rate))); // ~170 wpm
+    timer = setInterval(() => {
+      if (usedBoundary || done) { clearInterval(timer); timer = null; return; }
+      n++;
+      bubble.textContent = words.slice(0, n).join(' ');
+      _ocScroll();
+      if (n >= words.length) { clearInterval(timer); timer = null; }
+    }, perWord);
+
+    // Hard stop — never leave a half-written sentence if the engine dies.
+    setTimeout(finish, Math.max(6000, words.length * 500));
+  } catch (e) { finish(); }
 }
 
 function _ocAddUser(text) {
@@ -6779,10 +6850,13 @@ function obChatToggleMute() {
   _ocSyncMuteBtn();
 }
 function _ocSyncMuteBtn() {
-  const btn = document.getElementById('obchat-mute');
-  if (!btn) return;
-  btn.innerHTML = _ocMuted ? '<i class="fa-solid fa-volume-xmark"></i>' : '<i class="fa-solid fa-volume-high"></i>';
-  btn.style.color = _ocMuted ? 'var(--muted)' : '#CFA13C';
+  const icon = _ocMuted ? '<i class="fa-solid fa-volume-xmark"></i>' : '<i class="fa-solid fa-volume-high"></i>';
+  ['obchat-mute', 'obchat-mute-intro'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    btn.innerHTML = icon;
+    btn.style.color = _ocMuted ? 'var(--muted)' : '#CFA13C';
+  });
 }
 
 function _ocSpeak(text) {
@@ -6824,6 +6898,13 @@ function _ocIntroduceCoach(coachKey, goalKey) {
   // cancels the previous utterance, so a fixed delay was cutting her off
   // mid-sentence. Poll until the speech queue drains (bounded), then enter.
   _ocAfterSpeech(() => {
+    // Coach stage: bring the header back (it carries their name and face).
+    const hdr = document.getElementById('obchat-header');
+    if (hdr) hdr.style.display = 'flex';
+    const bar = document.getElementById('obchat-introbar');
+    if (bar) bar.style.display = 'none';
+    const msgs = document.getElementById('obchat-messages');
+    if (msgs) msgs.style.paddingTop = '16px';
     _oc.coach = coachKey;
     _ocSetCoach(coachKey);
     _ocAddHero(c.fullImg || c.img, c.name);
@@ -7867,7 +7948,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-07-b-frontpolish';
+const RATIO_BUILD = '2026-08-07-d-intro';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -17553,7 +17634,14 @@ if (document.readyState === 'loading') {
 </div>
 
 <div class="ob-screen" id="ob-chat" style="position:fixed;top:0;left:0;right:0;bottom:0;background:var(--surface);display:none;flex-direction:column;z-index:9999;max-width:520px;margin:0 auto">
-  <div style="display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line);flex-shrink:0">
+  <!-- Floating controls for the intro, where the header bar is hidden. Sits
+       below the notch via the safe-area inset — the header was colliding
+       with the status bar on iPhone. -->
+  <div id="obchat-introbar" style="display:none;position:absolute;top:calc(8px + env(safe-area-inset-top));right:12px;z-index:5;align-items:center;gap:6px">
+    <button onclick="obChatToggleMute()" aria-label="Voice on or off" id="obchat-mute-intro" style="background:rgba(0,0,0,0.45);backdrop-filter:blur(6px);border:none;color:#CFA13C;font-size:15px;cursor:pointer;padding:7px 10px;border-radius:16px"><i class="fa-solid fa-volume-high"></i></button>
+    <button onclick="obChatUseForms()" style="background:rgba(0,0,0,0.45);backdrop-filter:blur(6px);border:none;color:var(--muted);font-size:11px;cursor:pointer;padding:7px 10px;border-radius:16px">Prefer forms?</button>
+  </div>
+  <div id="obchat-header" style="display:flex;align-items:center;gap:12px;padding:calc(14px + env(safe-area-inset-top)) 18px 14px;border-bottom:1px solid var(--line);flex-shrink:0">
     <img id="obchat-coach-avatar" class="obchat-avatar" style="width:42px;height:42px;display:none" alt="" onerror="this.style.display='none'">
     <div id="obchat-coach-fallback" style="width:42px;height:42px;border-radius:50%;background:var(--gold-tint);display:flex;align-items:center;justify-content:center;color:#CFA13C;font-weight:800;font-size:18px">R</div>
     <div style="flex:1;min-width:0">
