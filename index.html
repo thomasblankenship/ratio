@@ -239,7 +239,7 @@
     .empty { text-align: center; color: var(--gray-400); font-size: 13px; padding: 24px 0; }
 
     /* TOAST */
-    .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--surface-2); color: var(--ink); padding: 10px 20px; border-radius: 20px; font-size: 13px; font-weight: 500; z-index: 999; opacity: 0; transition: opacity 0.3s; pointer-events: none; white-space: nowrap; }
+    .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--surface-2); color: var(--ink); padding: 10px 20px; border-radius: 20px; font-size: 13px; font-weight: 500; z-index: 10050; opacity: 0; transition: opacity 0.3s; pointer-events: none; white-space: nowrap; }
     .profile-row { width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border: none; border-bottom: 1px solid var(--surface-2); background: none; color: var(--ink); font-size: 15px; font-weight: 500; font-family: inherit; text-align: left; cursor: pointer; }
     .profile-row > span { display: flex; align-items: center; gap: 12px; }
     .profile-row-icon { width: 20px; text-align: center; color: #CFA13C; font-size: 15px; }
@@ -6494,8 +6494,12 @@ function _ocAddHero(src, alt, opts) {
     : 'display:flex;justify-content:center;margin:10px 0';
   const img = document.createElement('img');
   img.src = src; img.alt = alt || '';
+  // `reserve` is the chrome above and below that the image must not fight for:
+  // header + type box + however much text is on screen.
+  const reserve = (opts && opts.reserve) || 300;
+  const fit = (opts && opts.fit) || 'cover';
   img.style.cssText = intro
-    ? 'display:block;width:100%;height:calc(100dvh - 300px);min-height:300px;object-fit:cover;object-position:50% 15%'
+    ? `display:block;width:100%;height:calc(100dvh - ${reserve}px);min-height:280px;object-fit:${fit};object-position:50% ${fit === 'contain' ? '50%' : '12%'}`
     : 'width:94%;max-height:60vh;object-fit:contain;border-radius:16px';
   img.onerror = () => row.remove(); // asset missing -> no broken frame, chat flows on
   row.appendChild(img);
@@ -6635,6 +6639,9 @@ const OB_GOAL_LABELS = { fat_loss: 'Lose Body Fat', weight_loss: 'Lose Weight', 
 let _oc = null;
 
 function obStartChat() {
+  // Onboarding runs before applyPlatformUI ever fires — load the QA console
+  // here or it is missing on the one screen we are actively debugging.
+  try { maybeLoadDebugConsole(); } catch (e) {}
   _oc = { stage: 'goal', coach: null, fields: {}, history: [], lastInputVoice: false, busy: false, listening: false, rec: null, partial: '' };
   document.querySelectorAll('.ob-screen').forEach(el => { el.style.display = 'none'; });
   const scr = document.getElementById('ob-chat');
@@ -6648,7 +6655,7 @@ function obStartChat() {
   const bar = document.getElementById('obchat-introbar');
   if (bar) bar.style.display = 'flex';
   const msgs = document.getElementById('obchat-messages');
-  if (msgs) msgs.style.paddingTop = 'calc(52px + env(safe-area-inset-top))';
+  if (msgs) msgs.style.paddingTop = '14px';
   _ocAddBot("Hello and welcome to Ratio Fitness! My name is Lauren — tell me a little about the goals you would like to accomplish so I can recommend the perfect trainer for you. Are you trying to Lose Body Fat, Lose Weight, Gain Muscle, or just Maintain and Perform?");
   _ocAddHero(OB_LAUREN.img, 'Lauren at the Ratio Fitness front desk', { intro: true });
   // No pill buttons — Lauren just ASKED the question, and the answer is meant
@@ -6898,17 +6905,39 @@ function _ocIntroduceCoach(coachKey, goalKey) {
   // cancels the previous utterance, so a fixed delay was cutting her off
   // mid-sentence. Poll until the speech queue drains (bounded), then enter.
   _ocAfterSpeech(() => {
-    // Coach stage: bring the header back (it carries their name and face).
+    // A fresh screen for the entrance. The front-desk thread has done its job;
+    // leaving it running underneath makes the coach feel like a scroll item
+    // rather than someone walking in.
+    const msgs = document.getElementById('obchat-messages');
+    if (msgs) { msgs.innerHTML = ''; msgs.style.paddingTop = '14px'; msgs.scrollTop = 0; }
+    // Header back — it carries their name and face.
     const hdr = document.getElementById('obchat-header');
     if (hdr) hdr.style.display = 'flex';
     const bar = document.getElementById('obchat-introbar');
     if (bar) bar.style.display = 'none';
-    const msgs = document.getElementById('obchat-messages');
-    if (msgs) msgs.style.paddingTop = '16px';
     _oc.coach = coachKey;
     _ocSetCoach(coachKey);
-    _ocAddHero(c.fullImg || c.img, c.name);
+    // Same shape as Lauren's intro — words on top, full-bleed portrait below —
+    // so the reveal animation starts in the same place on both screens.
+    // `contain` rather than `cover`: these are full-body standing shots and a
+    // cover crop cuts their legs off.
     _ocAddBot(c.intro);
+    _ocAddHero(c.fullImg || c.img, c.name, { intro: true, reserve: 430, fit: 'contain' });
+  });
+}
+
+// Resolves once nothing is being spoken. Bounded, because a wedged speech
+// engine must never leave the mic button dead.
+function _ocSpeechIdle(maxMs) {
+  return new Promise(res => {
+    const deadline = Date.now() + (maxMs || 1200);
+    try { speechSynthesis.cancel(); } catch (e) {}
+    (function poll() {
+      let busy = false;
+      try { busy = !!speechSynthesis.speaking; } catch (e) {}
+      if (!busy || Date.now() > deadline) setTimeout(res, 120);
+      else setTimeout(poll, 80);
+    })();
   });
 }
 
@@ -7149,12 +7178,24 @@ async function obChatMic() {
   try { speechSynthesis?.cancel(); } catch (e) {}
 
   if (plugin) {
+    // Every failure below used to be a toast() — which renders BEHIND this
+    // full-screen panel, so on iPhone a broken mic was completely silent.
+    // Lauren says it out loud instead, and it goes to the console too.
+    const bail = (msg, detail) => {
+      console.warn('[obchat] native mic:', detail || msg);
+      _ocStopListening();
+      _ocAddBot(msg);
+    };
     try {
+      // iOS gives speech synthesis and speech recognition the same audio
+      // session, and starting the recogniser while the TTS voice still holds
+      // it can fail silently. Wait for the queue to drain before opening it.
+      await _ocSpeechIdle();
       const avail = await plugin.available();
-      if (!avail.available) { toast('Speech recognition not available — type instead'); return; }
+      if (!avail.available) { bail("Voice isn't available on this device — go ahead and type your answer, that works just as well."); return; }
       let perm = await plugin.checkPermissions();
       if (perm.speechRecognition !== 'granted') perm = await plugin.requestPermissions();
-      if (perm.speechRecognition !== 'granted') { toast('Microphone permission needed — enable in Settings'); return; }
+      if (perm.speechRecognition !== 'granted') { bail("I need microphone permission to hear you — you can switch it on in iPhone Settings under Ratio. Typing works in the meantime.", 'permission ' + JSON.stringify(perm)); return; }
       _oc.listening = true; _oc.nativeListening = true;
       btn.classList.add('listening');
       const handle = await plugin.addListener('partialResults', (d) => {
@@ -7172,7 +7213,9 @@ async function obChatMic() {
     } catch (e) {
       console.error('[obchat] native mic error', e);
       _ocStopListening();
-      toast('Could not start the mic — type instead');
+      // Include the real error — this screen had no visible failure path at
+      // all, which is how "the mic does nothing" went undiagnosed.
+      _ocAddBot("I couldn't get the microphone started just now" + (e && e.message ? ' (' + e.message + ')' : '') + ". Type your answer and we'll carry on.");
     }
     return;
   }
@@ -7204,7 +7247,7 @@ async function obChatMic() {
     if (finalText) _ocDispatch(finalText);
     else if (!_oc._speechReported) _ocMicProblem('no-speech');
   };
-  try { rec.start(); } catch (e) { _ocStopListening(); toast('Could not start the mic — type instead'); }
+  try { rec.start(); } catch (e) { _ocStopListening(); _ocAddBot("I couldn't get the microphone started just now. Type your answer and we'll carry on."); }
 }
 
 // Shows Terms or Privacy over whatever screen you are on — needed because the
@@ -7927,10 +7970,23 @@ function _debugForced() {
   try { return location.search.indexOf('debug=1') > -1; } catch (e) { return false; }
 }
 
+// Signup and sign-in problems happen BEFORE there is a _currentUser, which is
+// precisely when the console is most useful — and onboarding is all pre-login.
+// So a QA sign-in leaves a marker on the device and that marker keeps the
+// console available on later visits, signed in or not. It is a device flag,
+// not a permission: it only decides whether a debug panel is drawn.
+const QA_DEVICE_KEY = 'ratio_qa_device';
+function _qaDeviceFlag() {
+  try { return localStorage.getItem(QA_DEVICE_KEY) === '1'; } catch (e) { return false; }
+}
+function _rememberQaDevice() {
+  try { localStorage.setItem(QA_DEVICE_KEY, '1'); } catch (e) {}
+}
 function isQaUser() {
   try {
     if (_debugForced()) return true;
-    return !!_currentUser && QA_USER_IDS.includes(_currentUser.id);
+    if (_currentUser && QA_USER_IDS.includes(_currentUser.id)) { _rememberQaDevice(); return true; }
+    return _qaDeviceFlag();
   } catch (e) { return false; }
 }
 
@@ -7948,7 +8004,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-07-d-intro';
+const RATIO_BUILD = '2026-08-07-e-stage';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -17634,12 +17690,13 @@ if (document.readyState === 'loading') {
 </div>
 
 <div class="ob-screen" id="ob-chat" style="position:fixed;top:0;left:0;right:0;bottom:0;background:var(--surface);display:none;flex-direction:column;z-index:9999;max-width:520px;margin:0 auto">
-  <!-- Floating controls for the intro, where the header bar is hidden. Sits
-       below the notch via the safe-area inset — the header was colliding
-       with the status bar on iPhone. -->
-  <div id="obchat-introbar" style="display:none;position:absolute;top:calc(8px + env(safe-area-inset-top));right:12px;z-index:5;align-items:center;gap:6px">
-    <button onclick="obChatToggleMute()" aria-label="Voice on or off" id="obchat-mute-intro" style="background:rgba(0,0,0,0.45);backdrop-filter:blur(6px);border:none;color:#CFA13C;font-size:15px;cursor:pointer;padding:7px 10px;border-radius:16px"><i class="fa-solid fa-volume-high"></i></button>
-    <button onclick="obChatUseForms()" style="background:rgba(0,0,0,0.45);backdrop-filter:blur(6px);border:none;color:var(--muted);font-size:11px;cursor:pointer;padding:7px 10px;border-radius:16px">Prefer forms?</button>
+  <!-- Intro chrome. This is a REAL row in the flex column, not an overlay:
+       an absolutely-positioned button above a scrolling list will always end
+       up with text underneath it once the list scrolls, which is exactly what
+       happened. Occupying layout makes that impossible. Carries the safe-area
+       inset so it clears the clock and battery. -->
+  <div id="obchat-introbar" style="display:none;flex-shrink:0;justify-content:flex-end;align-items:center;padding:calc(10px + env(safe-area-inset-top)) 14px 4px">
+    <button onclick="obChatToggleMute()" aria-label="Voice on or off" id="obchat-mute-intro" style="background:none;border:none;color:#CFA13C;font-size:18px;cursor:pointer;padding:6px 8px"><i class="fa-solid fa-volume-high"></i></button>
   </div>
   <div id="obchat-header" style="display:flex;align-items:center;gap:12px;padding:calc(14px + env(safe-area-inset-top)) 18px 14px;border-bottom:1px solid var(--line);flex-shrink:0">
     <img id="obchat-coach-avatar" class="obchat-avatar" style="width:42px;height:42px;display:none" alt="" onerror="this.style.display='none'">
