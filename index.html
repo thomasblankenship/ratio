@@ -4113,7 +4113,8 @@ function _vlStartWatchdog() {
 // makes voice logging work off-iOS with no other changes.
 let _vlWebRec = null;
 
-function vlStartListeningWeb() {
+async function vlStartListeningWeb() {
+  try { await _ttsRelease(); } catch (e) {}
   const Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!Ctor) { _vlStarting = false; vlShowTypeInstead(); toast('Voice input needs Chrome or the iOS app — type instead'); return; }
 
@@ -4214,6 +4215,8 @@ async function vlStartListening() {
     return;
   }
 
+  // The coach has usually just spoken through the audio element here too.
+  try { await _ttsRelease(); } catch (e) {}
   _vlLiveText = '';
   const liveEl = document.getElementById('vl-live-transcript');
   if (liveEl) liveEl.textContent = '';
@@ -6561,6 +6564,28 @@ function _ttsStop() {
   try { speechSynthesis.cancel(); } catch (e) {}
 }
 
+// Pausing is not enough before recording. On iOS the app has ONE audio
+// session; a paused <audio> element still holds it, configured for playback,
+// and a recogniser started against it just hears silence. Dropping the source
+// and calling load() is what actually hands the session back.
+// Only call this before opening the mic — between spoken lines a plain
+// _ttsStop() is correct, because keeping the session warm avoids a gap.
+async function _ttsRelease() {
+  _ttsStop();
+  try {
+    if (_coachAudioEl) {
+      _coachAudioEl.removeAttribute('src');
+      _coachAudioEl.srcObject = null;
+      _coachAudioEl.load();            // <- the part that releases the session
+    }
+  } catch (e) {}
+  // Re-arm the unlock so the next tap re-blesses the element if this teardown
+  // ever costs us the user-gesture permission. Cheap insurance: without it a
+  // future iOS change would silence the coaches with no visible cause.
+  _ttsUnlocked = false;
+  await new Promise(r => setTimeout(r, 350));
+}
+
 async function _ttsUrl(speaker, text) {
   const key = speaker + '|' + text;
   if (_ttsCache.has(key)) return _ttsCache.get(key);
@@ -7413,8 +7438,9 @@ async function obChatMic() {
       _ocAddBot(msg);
     };
     try {
-      // Let the TTS voice release the shared audio session first.
+      // Hand the audio session back BEFORE recording — see _ttsRelease.
       await _ocSpeechIdle();
+      await _ttsRelease();
       // Then clear any recogniser session left running by an earlier attempt.
       // This is the actual cause of "Ongoing speech recognition": the native
       // recogniser outlives the JS state that was tracking it, so one
@@ -7466,6 +7492,8 @@ async function obChatMic() {
     _ocAddBot("This browser can't do voice — Chrome, Edge and Safari can. Typing works perfectly well though, go ahead.");
     return;
   }
+  // Mobile Safari shares the same audio session behaviour as the native app.
+  await _ttsRelease();
   const rec = new Ctor();
   rec.lang = 'en-US'; rec.interimResults = true; rec.continuous = false;
   _oc.rec = rec; _oc.listening = true; _oc._speechReported = false;
@@ -8245,7 +8273,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-07-g-voice';
+const RATIO_BUILD = '2026-08-07-h-micaudio';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
