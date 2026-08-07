@@ -7374,6 +7374,7 @@ function _ocStopListening() {
   if (!_oc) return;
   _oc.listening = false;
   if (_oc._endpointer) { clearInterval(_oc._endpointer); _oc._endpointer = null; }
+  _oc._finishNative = null;
   const btn = document.getElementById('obchat-mic');
   if (btn) btn.classList.remove('listening');
   try { if (_oc.rec) { _oc.rec.stop(); _oc.rec = null; } } catch (e) {}
@@ -7503,7 +7504,13 @@ async function obChatMicCheck() {
 async function obChatMic() {
   if (!_oc || _oc.busy) return;
   document.getElementById('obchat-mic')?.classList.remove('hint');
-  if (_oc.listening) { _ocStopListening(); return; }
+  if (_oc.listening) {
+    // Mid-turn tap = "I'm done", so submit what was heard rather than binning
+    // it. _ocStopListening alone would discard the transcript.
+    if (_oc._finishNative) _oc._finishNative();
+    else _ocStopListening();
+    return;
+  }
   const btn = document.getElementById('obchat-mic');
   // Gold on the TAP. Releasing the audio session and resetting the recogniser
   // takes over a second before start() is even called, and during that window
@@ -7538,46 +7545,90 @@ async function obChatMic() {
       if (perm.speechRecognition !== 'granted') perm = await plugin.requestPermissions();
       if (perm.speechRecognition !== 'granted') { bail("I need microphone permission to hear you — you can switch it on in iPhone Settings under Ratio. Typing works in the meantime.", 'permission ' + JSON.stringify(perm)); return; }
       _oc.listening = true; _oc.nativeListening = true;
+      _oc.partial = '';
+      _oc._lastSpeechAt = 0;
+      _oc._listenStartedAt = Date.now();
       btn.classList.add('listening');
-      const handle = await plugin.addListener('partialResults', (d) => {
-        const t = (d.matches && d.matches[0]) || '';
-        if (t) { _oc.partial = t; const inp = document.getElementById('obchat-input'); if (inp) inp.value = t; }
-      });
-      let result = null;
-      const opts = { language: 'en-US', partialResults: true, maxResults: 1, popup: false };
-      const startedAt = Date.now();
-      try {
-        try {
-          result = await plugin.start(opts);
-        } catch (e1) {
-          // One retry, and only for the stuck-session error — anything else is
-          // a real failure and should surface immediately.
-          if (!/ongoing/i.test(e1 && (e1.errorMessage || e1.message) || '')) throw e1;
-          console.warn('[obchat] recogniser was stuck; resetting and retrying once');
-          await _ocResetRecognizer(plugin, 600);
-          result = await plugin.start(opts);
+
+      // The transcript arrives HERE, not from start(). On iOS with
+      // partialResults the start() promise resolves as soon as recognition
+      // begins and returns undefined; treating that as the final answer (and
+      // then stopping) is what broke this from the very first build.
+      const partialHandle = await plugin.addListener('partialResults', (d) => {
+        const t = ((d && d.matches && d.matches[0]) || '').trim();
+        if (t) {
+          _oc.partial = t;
+          _oc._lastSpeechAt = Date.now();
+          const inp = document.getElementById('obchat-input'); if (inp) inp.value = t;
         }
+      });
+
+      let finished = false;
+      const finishNative = async (reason) => {
+        if (finished) return;
+        finished = true;
+        if (_oc._endpointer) { clearInterval(_oc._endpointer); _oc._endpointer = null; }
+        _oc._finishNative = null;
+        try { partialHandle.remove(); } catch (e) {}
+        try { if (stateHandle) stateHandle.remove(); } catch (e) {}
+        try { await plugin.stop(); } catch (e) {}
+        _oc.nativeListening = false;
+        const finalText = (_oc.partial || '').trim();
+        console.log('[obchat] native mic ended (' + reason + ') after',
+                    Date.now() - _oc._listenStartedAt, 'ms; heard:', JSON.stringify(finalText));
+        _ocStopListening();
+        const inp = document.getElementById('obchat-input'); if (inp) inp.value = '';
+        if (finalText) _ocDispatch(finalText);
+        else _ocMicProblem('no-speech');
+      };
+      // Tapping the mic again should SUBMIT what was said, not throw it away.
+      _oc._finishNative = () => { finishNative('tapped'); };
+
+      // The plugin tells us when iOS itself ends the session.
+      let stateHandle = null;
+      try {
+        stateHandle = await plugin.addListener('listeningState', (d) => {
+          if (d && d.status === 'stopped') finishNative('engine-stopped');
+        });
+      } catch (e) {}
+
+      // Our own endpointing, same three bounds as the web path: a real pause
+      // after speech, a lead-in timeout if nothing is ever heard, a hard cap.
+      _oc._endpointer = setInterval(() => {
+        if (finished || !_oc) return;
+        const now = Date.now();
+        const elapsed = now - _oc._listenStartedAt;
+        if (elapsed >= OB_MAX_LISTEN_MS) return finishNative('max-length');
+        if (_oc._lastSpeechAt) {
+          if (now - _oc._lastSpeechAt >= VL_SILENCE_STOP_MS) finishNative('pause');
+        } else if (elapsed >= OB_NO_SPEECH_MS) {
+          finishNative('nothing-heard');
+        }
+      }, 300);
+
+      const opts = { language: 'en-US', partialResults: true, maxResults: 1, popup: false };
+      let result = null;
+      try {
+        result = await plugin.start(opts);
+      } catch (e1) {
+        if (!/ongoing/i.test(e1 && (e1.errorMessage || e1.message) || '')) {
+          if (_oc._endpointer) { clearInterval(_oc._endpointer); _oc._endpointer = null; }
+          finished = true;
+          try { partialHandle.remove(); } catch (e) {}
+          try { if (stateHandle) stateHandle.remove(); } catch (e) {}
+          throw e1;
+        }
+        console.warn('[obchat] recogniser was stuck; resetting and retrying once');
+        await _ocResetRecognizer(plugin, 600);
+        result = await plugin.start(opts);
       }
-      finally { try { handle.remove(); } catch (e) {} }
-      // How long the recogniser actually ran distinguishes the two remaining
-      // explanations: a few hundred milliseconds means it never captured
-      // anything (audio session), several seconds means it listened properly
-      // and genuinely heard silence (input routing).
-      console.log('[obchat] native mic finished after', Date.now() - startedAt, 'ms; partial:', JSON.stringify(_oc.partial || ''));
-      _oc.nativeListening = false;
-      const finalText = ((result && result.matches && result.matches[0]) || _oc.partial || '').trim();
-      _ocStopListening();
-      const inp = document.getElementById('obchat-input'); if (inp) inp.value = '';
-      if (finalText) {
-        _ocDispatch(finalText);
-      } else {
-        // THE BUG. start() can RESOLVE with nothing rather than rejecting, and
-        // this branch did not exist — so the tap flashed gold and then did
-        // absolutely nothing, with no message and no console line. Every
-        // theory about why the iPhone mic "failed" was built on that silence.
-        console.warn('[obchat] native mic resolved with no speech. raw result:', JSON.stringify(result));
-        _ocMicProblem('no-speech');
-      }
+
+      // If this platform DOES return the transcript from start(), take it and
+      // finish now. If it returns undefined — iOS — keep listening; that is
+      // the normal case and used to be treated as failure.
+      const direct = ((result && result.matches && result.matches[0]) || '').trim();
+      if (direct) { _oc.partial = direct; finishNative('start-result'); }
+      else console.log('[obchat] recogniser running; waiting for partialResults');
     } catch (e) {
       console.error('[obchat] native mic error', e);
       _ocStopListening();
@@ -8401,7 +8452,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-07-k-nospeech';
+const RATIO_BUILD = '2026-08-07-l-nativelisten';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
