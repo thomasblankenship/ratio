@@ -1790,7 +1790,7 @@
     <!-- A real full-screen panel, not a tab inside the shell. Covering the
          bottom nav and the top bar is deliberate: a stray tap on "Today"
          mid-conversation used to discard the whole thread. -->
-    <div id="tab-voicelog" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:var(--surface);z-index:900;flex-direction:column;max-width:520px;margin:0 auto">
+    <div id="tab-voicelog" style="display:none;position:fixed;top:0;left:0;right:0;height:100dvh;background:var(--surface);z-index:2000;flex-direction:column;max-width:520px;margin:0 auto">
       <!-- Chat-style skin over the ORIGINAL vl state machine. The vl-state-*
            divs still toggle exactly as before — their visibility is
            load-bearing (listening checks, watchdog) — but most are now
@@ -4018,9 +4018,18 @@ function openVoiceLog() {
   const activeBtn = document.querySelector('.bottom-nav-btn.active');
   _vlReturnTab = activeBtn ? activeBtn.dataset.tab : 'today';
   switchTab('voicelog');
-  // switchTab sets display:block; this panel is a flex column.
   const panel = document.getElementById('tab-voicelog');
-  if (panel) panel.style.display = 'flex';
+  if (panel) {
+    // MUST live directly on <body>. Its original home, .content, is a
+    // -webkit-overflow-scrolling:touch scroller, and WebKit makes such an
+    // element the containing block for position:fixed descendants — so on
+    // iPhone this panel was pinned inside the scroll area rather than the
+    // viewport, leaving the app bar and bottom nav on top of it. Chromium
+    // does not do this, so it only ever showed up on the device.
+    if (panel.parentElement !== document.body) document.body.appendChild(panel);
+    // switchTab sets display:block; this panel is a flex column.
+    panel.style.display = 'flex';
+  }
   vlResetToIdle();
   // Coach header + fresh thread with a greeting in their own voice. Same
   // coach every time — continuity is the point.
@@ -8536,7 +8545,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-07-n-coachui';
+const RATIO_BUILD = '2026-08-07-o-panelfix';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
