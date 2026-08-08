@@ -3936,7 +3936,10 @@ function _vlSpeak(text) {
 function _vlSpeakDevice(text) {
   try {
     if (!window.speechSynthesis || _vlMuted || _ttsSuppressed) return;
-    speechSynthesis.cancel();
+    // Stop BOTH engines, not just our own. cancel() alone let this voice talk
+    // over a Gemini clip that was still playing from the previous line —
+    // that is the two-voices-at-once bug, verbatim from the console.
+    _ttsStop();
     const u = new SpeechSynthesisUtterance(text);
     u.rate = 1.05;
     if (typeof _ocVoices !== 'undefined') {
@@ -4436,6 +4439,15 @@ async function vlSendToAI(text) {
       document.getElementById('vl-clarify-text').textContent = data.clarifyQuestion || "I didn't quite catch that — try again?";
       _vlThreadBot(data.clarifyQuestion || "I didn't quite catch that — try again?");
       vlShowState('clarify');
+    } else if (data.action === 'acknowledge') {
+      // "No thanks / just asking" — one closer line, then stand down. The
+      // old behaviour re-ran the last lookup and repeated the same answer
+      // at a man who had said no twice.
+      const line = (typeof data.say === 'string' && data.say.trim()) ? data.say.trim() : 'No worries — holler when you need me!';
+      _vlAwaitingFollowup = false;
+      _vlParsed = null;
+      _vlThreadBot(line);
+      vlResetToIdle();
     } else if (data.action === 'lookup_food') {
       vlLookupFood(data.lookupFood?.name, data.lookupFood?.grams);
     } else if (data.action === 'find_recipe') {
@@ -7260,7 +7272,7 @@ function _ocRevealDeviceVoice(text, bubble) {
   let timer = null;
   const finish = () => { if (!done) { done = true; if (timer) clearInterval(timer); showAll(); } };
   try {
-    speechSynthesis.cancel();
+    _ttsStop();   // both engines — see _vlSpeakDevice
     const u = new SpeechSynthesisUtterance(text);
     u.rate = 1.05;
     // Before a coach is assigned the speaker is Lauren — female voice.
@@ -7404,7 +7416,7 @@ function _ocSpeak(text) {
 function _ocSpeakDevice(text) {
   try {
     if (!window.speechSynthesis || _ocMuted || _ttsSuppressed) return;
-    speechSynthesis.cancel();
+    _ttsStop();   // both engines — see _vlSpeakDevice
     const u = new SpeechSynthesisUtterance(text);
     u.rate = 1.05;
     // Before a coach is assigned the speaker is Lauren — female voice.
@@ -8715,7 +8727,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-07-t-lookup';
+const RATIO_BUILD = '2026-08-07-u-onevoice';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
