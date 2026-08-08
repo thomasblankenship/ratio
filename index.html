@@ -6694,6 +6694,7 @@ async function _ttsUrl(speaker, text) {
       console.log('[tts] Worker has no Gemini key — using the device voice');
       return null;
     }
+    const voiceUsed = r.headers.get('X-Ratio-TTS-Voice') || 'unknown';
     if (!r.ok) {
       // The Worker reports the UPSTREAM status in its body; without reading it
       // every failure looked like a bare 502 and told us nothing.
@@ -6707,22 +6708,23 @@ async function _ttsUrl(speaker, text) {
       console.warn('[tts] /coach-speak failed:', r.status + why);
       return null;
     }
-    return URL.createObjectURL(await r.blob());
+    return { url: URL.createObjectURL(await r.blob()), voice: voiceUsed,
+             cache: r.headers.get('X-Ratio-TTS-Cache') || '?' };
   })();
 
   if (_ttsCache.size >= TTS_CACHE_MAX) {
     const oldest = _ttsCache.keys().next().value;
     const stale = _ttsCache.get(oldest);
     _ttsCache.delete(oldest);
-    Promise.resolve(stale).then(u => { try { if (u) URL.revokeObjectURL(u); } catch (e) {} });
+    Promise.resolve(stale).then(v => { try { if (v && v.url) URL.revokeObjectURL(v.url); } catch (e) {} });
   }
   _ttsCache.set(key, pending);
 
-  const url = await pending;
+  const got = await pending;
   // Never cache a failure — a one-off network blip must not mute a line for
   // the rest of the session.
-  if (!url) _ttsCache.delete(key);
-  return url;
+  if (!got) _ttsCache.delete(key);
+  return got;
 }
 
 // Warms the cache for a line we know is about to be said. Fire and forget:
@@ -6737,13 +6739,16 @@ function ratioPrefetch(speaker, text) {
 // opts.onProgress(fraction 0..1) fires while it plays; opts.onEnd at the end.
 async function ratioSpeak(speaker, text, opts) {
   opts = opts || {};
-  const url = await _ttsUrl(speaker, text);
-  if (!url) return false;
+  const got = await _ttsUrl(speaker, text);
+  if (!got || !got.url) return false;
   try {
     _ttsStop();
     if (!_coachAudioEl) _coachAudioEl = new Audio();
     const el = _coachAudioEl;
-    el.src = url;
+    // Named on EVERY line, not just the device fallback — this is the log that
+    // tells us which voice is actually speaking.
+    console.log('[voice] Gemini "' + got.voice + '" as ' + speaker + ' (' + got.cache + ')');
+    el.src = got.url;
     let raf = null;
     const stopRaf = () => { if (raf) { cancelAnimationFrame(raf); raf = null; } };
     const tick = () => {
@@ -7101,6 +7106,10 @@ function _ocRevealDeviceVoice(text, bubble) {
     // Before a coach is assigned the speaker is Lauren — female voice.
     const v = _oc ? _ocVoices[_oc.coach || 'olivia'] : null;
     if (v) u.voice = v;
+    // This is the MAIN fallback path — it builds its own utterance rather than
+    // going through _ocSpeakDevice, so without this line the one voice Semmes
+    // is trying to identify was the one voice never logged.
+    _logDeviceVoice(u.voice);
 
     let usedBoundary = false;
     u.onboundary = (ev) => {
@@ -8545,7 +8554,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-07-o-panelfix';
+const RATIO_BUILD = '2026-08-07-p-voicename';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
