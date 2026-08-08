@@ -3935,7 +3935,7 @@ function _vlSpeak(text) {
 }
 function _vlSpeakDevice(text) {
   try {
-    if (!window.speechSynthesis || _vlMuted) return;
+    if (!window.speechSynthesis || _vlMuted || _ttsSuppressed) return;
     speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
     u.rate = 1.05;
@@ -4057,6 +4057,7 @@ async function closeVoiceLog() {
 }
 
 async function vlStopListeningQuiet() {
+  ttsSuppress(false);
   _vlClearWatchdog();
   const plugin = window.Capacitor?.Plugins?.SpeechRecognition;
   if (plugin) { try { await plugin.stop(); await plugin.removeAllListeners(); } catch(e) {} }
@@ -4336,6 +4337,7 @@ async function vlStartListening() {
 }
 
 async function vlStopListening() {
+  ttsSuppress(false);
   _vlClearWatchdog();
   const plugin = window.Capacitor?.Plugins?.SpeechRecognition;
   if (plugin) { try { await plugin.stop(); } catch(e) {} }
@@ -6638,6 +6640,16 @@ function _ttsUnlock() {
 // True while the app is making any sound — Gemini audio OR the device voice.
 // Sequencing used to check only speechSynthesis, which is silent on the
 // Gemini path, so everything downstream fired while a coach was still talking.
+// Set while a microphone is open anywhere in the app. Stopping playback was
+// never sufficient: the failure was audio that had not STARTED yet, resolving
+// mid-turn and playing straight into the live mic, which then transcribed the
+// coach and answered on the user's behalf.
+let _ttsSuppressed = false;
+function ttsSuppress(on) {
+  _ttsSuppressed = !!on;
+  if (on) { try { _ttsStop(); } catch (e) {} }
+}
+
 function _ttsBusy() {
   try { if (_coachAudioEl && !_coachAudioEl.paused && !_coachAudioEl.ended) return true; } catch (e) {}
   try { if (window.speechSynthesis && speechSynthesis.speaking) return true; } catch (e) {}
@@ -6655,6 +6667,7 @@ function _ttsStop() {
 // Only call this before opening the mic — between spoken lines a plain
 // _ttsStop() is correct, because keeping the session warm avoids a gap.
 async function _ttsRelease() {
+  ttsSuppress(true);   // every caller of this is about to open the microphone
   _ttsStop();
   try {
     if (_coachAudioEl) {
@@ -6694,7 +6707,16 @@ async function _ttsUrl(speaker, text) {
       console.log('[tts] Worker has no Gemini key — using the device voice');
       return null;
     }
-    const voiceUsed = r.headers.get('X-Ratio-TTS-Voice') || 'unknown';
+    // Everything the server used to decide how this sounds. Percent-decoded:
+    // header values are ASCII-only, and the style prompts are not.
+    const dec = (h) => { try { return decodeURIComponent(r.headers.get(h) || ''); } catch (e) { return r.headers.get(h) || ''; } };
+    const spec = {
+      voice: r.headers.get('X-Ratio-TTS-Voice') || 'unknown',
+      traits: dec('X-Ratio-TTS-Traits'),
+      accent: dec('X-Ratio-TTS-Accent'),
+      style: dec('X-Ratio-TTS-Style'),
+      model: r.headers.get('X-Ratio-TTS-Model') || ''
+    };
     if (!r.ok) {
       // The Worker reports the UPSTREAM status in its body; without reading it
       // every failure looked like a bare 502 and told us nothing.
@@ -6708,7 +6730,7 @@ async function _ttsUrl(speaker, text) {
       console.warn('[tts] /coach-speak failed:', r.status + why);
       return null;
     }
-    return { url: URL.createObjectURL(await r.blob()), voice: voiceUsed,
+    return { url: URL.createObjectURL(await r.blob()), spec,
              cache: r.headers.get('X-Ratio-TTS-Cache') || '?' };
   })();
 
@@ -6727,6 +6749,25 @@ async function _ttsUrl(speaker, text) {
   return got;
 }
 
+// The full configuration is printed ONCE per speaker per session; every line
+// after that gets the short form. Repeating the style prompt on every bubble
+// would bury the rest of the console, which is what it is competing with.
+const _voiceSpecLogged = new Set();
+function _logGeminiVoice(speaker, got) {
+  try {
+    const sp = got.spec || {};
+    if (!_voiceSpecLogged.has(speaker)) {
+      _voiceSpecLogged.add(speaker);
+      console.log('[voice] === ' + speaker + ' ===');
+      console.log('[voice]   name:   ' + sp.voice + (sp.traits ? '  (' + sp.traits + ')' : ''));
+      console.log('[voice]   accent: ' + (sp.accent || '(not pinned — will drift between lines)'));
+      console.log('[voice]   style:  ' + (sp.style || '(none)'));
+      console.log('[voice]   model:  ' + (sp.model || '(unknown)'));
+    }
+    console.log('[voice] ' + speaker + ' -> ' + sp.voice + ' (' + got.cache + ')');
+  } catch (e) {}
+}
+
 // Warms the cache for a line we know is about to be said. Fire and forget:
 // the whole point is that _ttsUrl has already resolved by the time the bubble
 // appears, so nothing has to be faked while the network catches up.
@@ -6739,15 +6780,22 @@ function ratioPrefetch(speaker, text) {
 // opts.onProgress(fraction 0..1) fires while it plays; opts.onEnd at the end.
 async function ratioSpeak(speaker, text, opts) {
   opts = opts || {};
+  if (_ttsSuppressed) return false;          // mic already open — do not start
   const got = await _ttsUrl(speaker, text);
   if (!got || !got.url) return false;
+  // Checked AGAIN after the await: the mic may have opened while this was
+  // being generated, which is exactly how the coach ended up talking into it.
+  if (_ttsSuppressed) {
+    console.log('[voice] suppressed — mic is open, not playing "' + text.slice(0, 40) + '..."');
+    return false;
+  }
   try {
     _ttsStop();
     if (!_coachAudioEl) _coachAudioEl = new Audio();
     const el = _coachAudioEl;
     // Named on EVERY line, not just the device fallback — this is the log that
     // tells us which voice is actually speaking.
-    console.log('[voice] Gemini "' + got.voice + '" as ' + speaker + ' (' + got.cache + ')');
+    _logGeminiVoice(speaker, got);
     el.src = got.url;
     let raf = null;
     const stopRaf = () => { if (raf) { cancelAnimationFrame(raf); raf = null; } };
@@ -7071,17 +7119,19 @@ function _ocSpeakAndReveal(text, bubble) {
   const toFraction = (f) => { audioLed = true; stopTimer(); showWords(Math.max(1, Math.round(f * words.length))); };
 
   bubble.textContent = '';
-  // Wait before starting a provisional reveal. Cached lines come back fast
-  // enough that showing anything first is just a flicker; only a genuinely
-  // slow fetch earns the placeholder.
+  // The provisional reveal exists so a slow generation is not dead air — but
+  // it must never FINISH, or the voice ends up narrating text that is already
+  // fully on screen. It stops at roughly a third of the line and waits for
+  // the audio to take over.
+  const provisionalCap = Math.max(2, Math.ceil(words.length * 0.35));
   const patience = setTimeout(() => {
     if (audioLed || done) return;
     timer = setInterval(() => {
       if (audioLed || done) { stopTimer(); return; }
+      if (shown >= provisionalCap) { stopTimer(); return; }   // hold for the voice
       showWords(shown + 1);
-      if (shown >= words.length) stopTimer();
     }, 300);
-  }, 900);
+  }, 1300);
 
   const who = (_oc && _oc.coach) || 'lauren';
   ratioSpeak(who, text, { onProgress: toFraction, onEnd: showAll }).then(played => {
@@ -7095,7 +7145,7 @@ function _ocSpeakAndReveal(text, bubble) {
 
 function _ocRevealDeviceVoice(text, bubble) {
   const showAll = () => { bubble.textContent = text; };
-  if (_ocMuted || !window.speechSynthesis) { showAll(); return; }
+  if (_ocMuted || _ttsSuppressed || !window.speechSynthesis) { showAll(); return; }
   let done = false;
   let timer = null;
   const finish = () => { if (!done) { done = true; if (timer) clearInterval(timer); showAll(); } };
@@ -7243,7 +7293,7 @@ function _ocSpeak(text) {
 }
 function _ocSpeakDevice(text) {
   try {
-    if (!window.speechSynthesis || _ocMuted) return;
+    if (!window.speechSynthesis || _ocMuted || _ttsSuppressed) return;
     speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
     u.rate = 1.05;
@@ -7473,6 +7523,7 @@ function _ocDispatch(text) {
 
 // ---- microphone: tap to talk, tap again to stop ----
 function _ocStopListening() {
+  ttsSuppress(false);
   if (!_oc) return;
   _oc.listening = false;
   if (_oc._endpointer) { clearInterval(_oc._endpointer); _oc._endpointer = null; }
@@ -8554,7 +8605,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-07-p-voicename';
+const RATIO_BUILD = '2026-08-07-r-voicedetail';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
