@@ -6613,6 +6613,44 @@ let _coachAudioEl = null;
 // ---- Gemini voices via the Worker -------------------------------------
 // Voice and style are chosen SERVER-side from the speaker key; the client
 // never sends a voice name. See /coach-speak in worker.js.
+// ---- TTS spend meter --------------------------------------------------
+// Published Gemini rates. Correct these against a real invoice rather than
+// trusting them — they are the one part of this that can silently go stale.
+const TTS_AUDIO_TOKENS_PER_SEC = 25;
+const TTS_AUDIO_USD_PER_MTOK = 20;     // audio output
+const TTS_TEXT_USD_PER_MTOK = 1;       // text input
+const TTS_CHARS_PER_TOKEN = 4;         // rough, and it barely moves the total
+const _ttsSpend = { generated: 0, cached: 0, seconds: 0, chars: 0 };
+
+function _ttsSpendUsd() {
+  const audio = _ttsSpend.seconds * TTS_AUDIO_TOKENS_PER_SEC / 1e6 * TTS_AUDIO_USD_PER_MTOK;
+  const text = (_ttsSpend.chars / TTS_CHARS_PER_TOKEN) / 1e6 * TTS_TEXT_USD_PER_MTOK;
+  return audio + text;
+}
+
+// Called from the console during a billing test. Everything needed to check
+// the app's arithmetic against the invoice.
+function ratioTtsSpend() {
+  const usd = _ttsSpendUsd();
+  const total = _ttsSpend.generated + _ttsSpend.cached;
+  const out = {
+    linesSpoken: total,
+    generated: _ttsSpend.generated + ' (billable)',
+    servedFromCache: _ttsSpend.cached + (total ? '  = ' + Math.round(_ttsSpend.cached / total * 100) + '% free' : ''),
+    audioSeconds: Math.round(_ttsSpend.seconds * 10) / 10,
+    charactersSent: _ttsSpend.chars,
+    estimatedUsd: '$' + usd.toFixed(6),
+    perGeneratedLine: _ttsSpend.generated ? '$' + (usd / _ttsSpend.generated).toFixed(6) : '$0',
+    per1000Users: '$' + (_ttsSpend.generated ? (usd / _ttsSpend.generated * 1000).toFixed(2) : '0')
+                  + ' per 1000 lines like these',
+    note: 'Estimate at $' + TTS_AUDIO_USD_PER_MTOK + '/Mtok audio, ' +
+          TTS_AUDIO_TOKENS_PER_SEC + ' tok/sec. Compare with the invoice.'
+  };
+  console.log('[tts-spend]', JSON.stringify(out, null, 2));
+  return out;
+}
+window.ratioTtsSpend = ratioTtsSpend;
+
 let _ttsOff = false;               // set once the Worker says it has no key
 const _ttsCache = new Map();       // "speaker|text" -> blob URL
 const TTS_CACHE_MAX = 40;
@@ -6730,8 +6768,21 @@ async function _ttsUrl(speaker, text) {
       console.warn('[tts] /coach-speak failed:', r.status + why);
       return null;
     }
-    return { url: URL.createObjectURL(await r.blob()), spec,
-             cache: r.headers.get('X-Ratio-TTS-Cache') || '?' };
+    const blob = await r.blob();
+    const cacheState = r.headers.get('X-Ratio-TTS-Cache') || '?';
+    // 24 kHz mono 16-bit PCM in a 44-byte WAV header — so the byte count IS
+    // the duration, exactly, with no need to decode or wait for metadata.
+    const seconds = Math.max(0, (blob.size - 44) / 2 / 24000);
+    if (cacheState === 'miss') {
+      _ttsSpend.generated++;
+      _ttsSpend.seconds += seconds;
+      _ttsSpend.chars += text.length;
+      console.log('[tts-spend] +' + seconds.toFixed(1) + 's generated  |  session total $' +
+                  _ttsSpendUsd().toFixed(6) + ' over ' + _ttsSpend.generated + ' line(s)');
+    } else {
+      _ttsSpend.cached++;
+    }
+    return { url: URL.createObjectURL(blob), spec, cache: cacheState, seconds };
   })();
 
   if (_ttsCache.size >= TTS_CACHE_MAX) {
@@ -8605,7 +8656,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-07-r-voicedetail';
+const RATIO_BUILD = '2026-08-07-s-ttsmeter';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
