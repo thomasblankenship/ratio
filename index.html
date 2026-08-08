@@ -6900,11 +6900,23 @@ function ratioPrefetch(speaker, text) {
 // Speaks `text` in `speaker`'s voice. Resolves true only if audio actually
 // started — callers fall back to the device voice on false.
 // opts.onProgress(fraction 0..1) fires while it plays; opts.onEnd at the end.
+let _ttsSeq = 0;
 async function ratioSpeak(speaker, text, opts) {
   opts = opts || {};
   if (_ttsSuppressed) return false;          // mic already open — do not start
+  // Sequence guard. Generation can take 20+ seconds, and a request that
+  // resolves AFTER a newer line has started must not play — that is how
+  // Lauren's handoff ended up talking over Olivia's screen while Olivia's own
+  // audio got stomped. 'stale' is truthy on purpose: callers fall back to the
+  // device voice only on a REAL failure (false), never for a superseded line.
+  const mySeq = ++_ttsSeq;
   const got = await _ttsUrl(speaker, text);
   if (!got || !got.url) return false;
+  if (mySeq !== _ttsSeq) {
+    console.log('[voice] stale — a newer line superseded "' + text.slice(0, 40) + '..."');
+    if (opts.onEnd) { try { opts.onEnd(); } catch (e) {} }
+    return 'stale';
+  }
   // Checked AGAIN after the await: the mic may have opened while this was
   // being generated, which is exactly how the coach ended up talking into it.
   if (_ttsSuppressed) {
@@ -7083,6 +7095,10 @@ function obStartChat() {
   try {
     ratioPrefetch('ian', OB_COACHES.ian.intro);
     ratioPrefetch('olivia', OB_COACHES.olivia.intro);
+    // Lauren's handoff lines are fixed strings too — and they sit at the
+    // exact moment a 20-second generation hurts most.
+    ratioPrefetch('lauren', 'I know just the trainer for you — let me introduce you to ' + OB_COACHES.ian.name + '.');
+    ratioPrefetch('lauren', 'I know just the trainer for you — let me introduce you to ' + OB_COACHES.olivia.name + '.');
   } catch (e) {}
   _oc = { stage: 'goal', coach: null, fields: {}, history: [], lastInputVoice: false, busy: false, listening: false, rec: null, partial: '' };
   document.querySelectorAll('.ob-screen').forEach(el => { el.style.display = 'none'; });
@@ -7211,8 +7227,11 @@ function _ocAddBot(text, opts) {
   if (_oc) _oc.history.push({ role: 'assistant', content: text });
 
   const speak = _oc && !(opts && opts.silent);
-  if (speak) _ocSpeakAndReveal(text, bubble);
-  else bubble.textContent = text;
+  if (speak) _ocSpeakAndReveal(text, bubble, opts);
+  else {
+    bubble.textContent = text;
+    if (opts && opts.onSpoken) setTimeout(opts.onSpoken, 400);
+  }
   _ocScroll();
 }
 
@@ -7221,8 +7240,22 @@ function _ocAddBot(text, opts) {
 // falls back to a timed reveal at a natural speaking pace where they aren't
 // (Safari has never fired boundary events reliably). Muted or no engine =
 // text appears immediately, because silent karaoke is just a slow app.
-function _ocSpeakAndReveal(text, bubble) {
-  if (_ocMuted || !text) { bubble.textContent = text || ''; return; }
+function _ocSpeakAndReveal(text, bubble, opts2) {
+  // Fires exactly once, when this line has genuinely finished being spoken —
+  // by Gemini, by the device voice, instantly when muted, or by the backstop.
+  // Stage transitions hang off this instead of a clock, because generation
+  // latency (20s+ observed) is unboundable from here.
+  let _spokenFired = false;
+  const spoken = () => {
+    if (_spokenFired) return; _spokenFired = true;
+    try { if (opts2 && opts2.onSpoken) opts2.onSpoken(); } catch (e) {}
+  };
+  if (_ocMuted || !text) {
+    bubble.textContent = text || '';
+    setTimeout(spoken, 600);   // muted still advances, at reading pace
+    return;
+  }
+  setTimeout(spoken, 30000);   // backstop: never wedge a stage forever
   const words = text.split(/\s+/);
   let shown = 0, done = false, timer = null, audioLed = false;
   const stopTimer = () => { if (timer) { clearInterval(timer); timer = null; } };
@@ -7256,17 +7289,17 @@ function _ocSpeakAndReveal(text, bubble) {
   }, 1300);
 
   const who = (_oc && _oc.coach) || 'lauren';
-  ratioSpeak(who, text, { onProgress: toFraction, onEnd: showAll }).then(played => {
-    if (played) return;
+  ratioSpeak(who, text, { onProgress: toFraction, onEnd: () => { showAll(); spoken(); } }).then(played => {
+    if (played) return;                    // includes 'stale' — no fallback
     clearTimeout(patience); stopTimer();
     bubble.textContent = ''; shown = 0;
-    _ocRevealDeviceVoice(text, bubble);   // unchanged pre-Gemini behaviour
+    _ocRevealDeviceVoice(text, bubble, spoken);
   });
   setTimeout(() => { clearTimeout(patience); showAll(); }, Math.max(9000, words.length * 600));
 }
 
-function _ocRevealDeviceVoice(text, bubble) {
-  const showAll = () => { bubble.textContent = text; };
+function _ocRevealDeviceVoice(text, bubble, onSpoken) {
+  const showAll = () => { bubble.textContent = text; if (onSpoken) onSpoken(); };
   if (_ocMuted || _ttsSuppressed || !window.speechSynthesis) { showAll(); return; }
   let done = false;
   let timer = null;
@@ -7439,12 +7472,14 @@ function _ocIntroduceCoach(coachKey, goalKey) {
   _oc.stage = 'interview';
   if (goalKey === 'maintain') _oc.fields.pace = 'maintain';
   const c = OB_COACHES[coachKey];
-  // Lauren speaks BEFORE the coach is assigned, so her line uses her voice.
-  _ocAddBot(`I know just the trainer for you — let me introduce you to ${c.name}.`);
-  // Wait for Lauren to FINISH TALKING before the coach speaks — each _ocSpeak
-  // cancels the previous utterance, so a fixed delay was cutting her off
-  // mid-sentence. Poll until the speech queue drains (bounded), then enter.
-  _ocAfterSpeech(() => {
+  // The coach enters when Lauren's line has actually FINISHED — not on a
+  // timer. The old 9s poll expired mid-generation (20s+ observed), loaded the
+  // coach screen early, and Lauren's late audio then played over it while the
+  // coach's own line got stomped and never spoke at all.
+  let entered = false;
+  const enterCoach = () => {
+    if (entered || !_oc) return;
+    entered = true;
     // A fresh screen for the entrance. The front-desk thread has done its job;
     // leaving it running underneath makes the coach feel like a scroll item
     // rather than someone walking in.
@@ -7468,7 +7503,9 @@ function _ocIntroduceCoach(coachKey, goalKey) {
     // cover crop cuts their legs off.
     _ocAddBot(c.intro);
     _ocAddHero(c.fullImg || c.img, c.name, { intro: true, reserve: 430, fit: 'contain' });
-  });
+  };
+  // Lauren speaks BEFORE the coach is assigned, so her line uses her voice.
+  _ocAddBot(`I know just the trainer for you — let me introduce you to ${c.name}.`, { onSpoken: enterCoach });
 }
 
 // Resolves once nothing is being spoken. Bounded, because a wedged speech
@@ -8727,7 +8764,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-07-u-onevoice';
+const RATIO_BUILD = '2026-08-07-v-handoff';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
