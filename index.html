@@ -4436,6 +4436,8 @@ async function vlSendToAI(text) {
       document.getElementById('vl-clarify-text').textContent = data.clarifyQuestion || "I didn't quite catch that — try again?";
       _vlThreadBot(data.clarifyQuestion || "I didn't quite catch that — try again?");
       vlShowState('clarify');
+    } else if (data.action === 'lookup_food') {
+      vlLookupFood(data.lookupFood?.name, data.lookupFood?.grams);
     } else if (data.action === 'find_recipe') {
       vlFindRecipe(data.findRecipe?.dishName);
     } else {
@@ -4463,6 +4465,63 @@ async function vlSendToAI(text) {
     _vlThreadBot(msg);
     vlShowState('clarify');
   }
+}
+
+// "How many calories does hummus have?" — answered from the SAME database the
+// food tab searches (USDA + FatSecret via /search). The sentence is composed
+// here, deterministically, from the top result: the AI extracts the food name
+// and nothing else, so a wrong number can only come from the database, never
+// from a model's memory of what hummus is usually like.
+async function vlLookupFood(name, grams) {
+  name = (name || '').trim();
+  if (!name) { _vlThreadBot("What food did you want to know about?"); vlShowState('clarify'); return; }
+  const sessionId = _vlSessionId;
+  _vlThreadTyping(true);
+  let rows = [];
+  try {
+    const r = await fetch(`${WORKER_URL}/search?q=${encodeURIComponent(name)}`);
+    rows = (await r.json()).results || [];
+  } catch (e) { console.warn('[vl] lookup search failed', e); }
+  if (sessionId !== _vlSessionId) return;
+  _vlThreadTyping(false);
+
+  if (!rows.length) {
+    const msg = `Hm — I couldn't find "${name}" in the database. Try a more specific name, or tell me the label numbers and I'll log it that way.`;
+    _vlHistory.push({ role: 'assistant', content: msg });
+    _vlAwaitingFollowup = true;
+    _vlThreadBot(msg);
+    vlShowState('followup');
+    return;
+  }
+
+  const f = rows[0];
+  const per = f.serving_size ? `per ${f.serving_size}` : 'per serving';
+  const n = (v) => (v === undefined || v === null || isNaN(v)) ? null : Math.round(v * 10) / 10;
+  const bits = [];
+  if (n(f.protein) !== null) bits.push(`${n(f.protein)}g protein`);
+  if (n(f.carbs) !== null) bits.push(`${n(f.carbs)}g carbs`);
+  if (n(f.fat) !== null) bits.push(`${n(f.fat)}g fat`);
+
+  let scaled = '';
+  // Only scale when the serving is gram-denominated — scaling "1 cup" by
+  // grams would be a guess dressed up as arithmetic.
+  const servingG = parseFloat((f.serving_size || '').match(/\((\d+(?:\.\d+)?)\s*g\)/)?.[1] || (/^\d+(?:\.\d+)?\s*g$/.test(f.serving_size || '') ? parseFloat(f.serving_size) : NaN));
+  if (grams && isFinite(servingG) && servingG > 0) {
+    const k = grams / servingG;
+    scaled = ` For ${grams}g that's about ${Math.round(f.calories * k)} calories and ${Math.round((f.protein || 0) * k)}g protein.`;
+  }
+
+  const alt = rows.length > 1 && rows[1].name && rows[1].name.toLowerCase() !== (f.name || '').toLowerCase()
+    ? ` (Closest match — say "${rows[1].name}" if you meant that one.)` : '';
+
+  const msg = `${f.name}: about ${Math.round(f.calories)} calories ${per}` +
+              (bits.length ? ` — ${bits.join(', ')}` : '') + `.${scaled}` +
+              ` Want me to log some?${alt}`;
+  // Into the history, so "log 100 grams of that" has this context.
+  _vlHistory.push({ role: 'assistant', content: msg });
+  _vlAwaitingFollowup = true;
+  _vlThreadBot(msg);
+  vlShowState('followup');
 }
 
 function vlTryAgain() { vlResetToIdle(); }
@@ -8656,7 +8715,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-07-s-ttsmeter';
+const RATIO_BUILD = '2026-08-07-t-lookup';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
