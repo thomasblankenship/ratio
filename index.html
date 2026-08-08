@@ -1787,7 +1787,10 @@
       </div>
     </div>
 
-    <div id="tab-voicelog" style="display:none">
+    <!-- A real full-screen panel, not a tab inside the shell. Covering the
+         bottom nav and the top bar is deliberate: a stray tap on "Today"
+         mid-conversation used to discard the whole thread. -->
+    <div id="tab-voicelog" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:var(--surface);z-index:900;flex-direction:column;max-width:520px;margin:0 auto">
       <!-- Chat-style skin over the ORIGINAL vl state machine. The vl-state-*
            divs still toggle exactly as before — their visibility is
            load-bearing (listening checks, watchdog) — but most are now
@@ -1795,15 +1798,20 @@
            #vl-thread. The user talks to their assigned coach: Ian for
            fat_loss/muscle_gain, Olivia for weight_loss/maintain, derived from
            the profile goal so existing accounts get a coach with no migration. -->
-      <div class="profile-subpage-header">
-        <button onclick="closeVoiceLog()" class="profile-back-btn"><i class="fa-solid fa-arrow-left"></i></button>
-        <div style="display:flex;align-items:center;gap:10px;flex:1;justify-content:center">
-          <img id="vl-coach-avatar" class="obchat-avatar" style="width:34px;height:34px" alt="" onerror="this.style.display='none'">
-          <div id="vl-coach-name" class="profile-subpage-title" style="margin:0">Coach</div>
-        </div>
-        <button id="vl-mute" onclick="vlToggleMute()" aria-label="Coach voice on or off" style="background:none;border:none;color:#CFA13C;font-size:16px;cursor:pointer;padding:6px;width:36px"><i class="fa-solid fa-volume-high"></i></button>
+      <!-- Back and mute only. The coach's name and face were redundant —
+           their avatar is on every bubble they speak. -->
+      <div style="display:flex;align-items:center;flex-shrink:0;padding:calc(8px + env(safe-area-inset-top)) 12px 8px;border-bottom:1px solid var(--line)">
+        <button onclick="closeVoiceLog()" class="profile-back-btn" aria-label="Back"><i class="fa-solid fa-arrow-left"></i></button>
+        <div style="flex:1"></div>
+        <span id="vl-coach-name" style="display:none"></span>
+        <img id="vl-coach-avatar" style="display:none" alt="">
+        <button id="vl-mute" onclick="vlToggleMute()" aria-label="Coach voice on or off" style="background:none;border:none;color:#CFA13C;font-size:17px;cursor:pointer;padding:6px;width:36px"><i class="fa-solid fa-volume-high"></i></button>
       </div>
 
+      <!-- The scrolling container. Previously the thread had no scroller of
+           its own and relied on the page, which is why long conversations ran
+           off the bottom of the screen instead of following the newest line. -->
+      <div id="vl-scroll" style="flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 10px">
       <div id="vl-thread" style="padding:8px 2px 4px;min-height:120px"></div>
 
       <!-- IDLE — logic flag only; the bottom bar is the interface now -->
@@ -1837,8 +1845,11 @@
         <div id="vl-clarify-text" style="display:none"></div>
       </div>
 
-      <!-- Persistent chat bar — always available, replaces "Type instead" -->
-      <div style="position:sticky;bottom:0;background:var(--surface);padding:10px 4px calc(10px + env(safe-area-inset-bottom));border-top:1px solid var(--line);display:flex;gap:8px;align-items:center;margin-top:8px">
+      </div><!-- /vl-scroll -->
+
+      <!-- Persistent chat bar — pinned by the flex column, no longer sticky
+           inside a scrolling page. -->
+      <div style="flex-shrink:0;background:var(--surface);padding:10px 10px calc(10px + env(safe-area-inset-bottom));border-top:1px solid var(--line);display:flex;gap:8px;align-items:center">
         <input id="vl-type-input" type="text" placeholder="Ask Coach&hellip;" autocomplete="off"
           onkeydown="if(event.key==='Enter')vlSubmitTyped()"
           style="flex:1;padding:13px 16px;border:1px solid var(--line);border-radius:24px;background:var(--bg-deep);color:var(--ink);font-size:15px;outline:none;min-width:0">
@@ -1852,7 +1863,6 @@
       <div style="display:flex;background:var(--surface-2);border-radius:12px;padding:4px;margin-bottom:16px">
         <button id="coach-subtab-btn-meals" onclick="switchCoachSubTab('meals')" style="flex:1;padding:10px 4px;border:none;border-radius:9px;background:var(--surface);color:var(--ink);font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,0.08)"><i class="fa-solid fa-utensils"></i> Meals</button>
         <button id="coach-subtab-btn-workouts" onclick="switchCoachSubTab('workouts')" style="flex:1;padding:10px 4px;border:none;border-radius:9px;background:transparent;color:var(--muted);font-size:13px;font-weight:700;cursor:pointer">💪 Workouts</button>
-        <button id="coach-subtab-btn-chat" onclick="switchCoachSubTab('chat')" style="flex:1;padding:10px 4px;border:none;border-radius:9px;background:transparent;color:var(--muted);font-size:13px;font-weight:700;cursor:pointer">💬 Ask Coach</button>
       </div>
 
       <!-- MEAL IDEAS -->
@@ -3829,6 +3839,15 @@ function vlCoachKey() {
 
 function _vlThreadEl() { return document.getElementById('vl-thread'); }
 function _vlThreadScroll() {
+  // Scroll the panel's own container. The old scrollIntoView on the input
+  // depended on the PAGE scrolling, which stopped working the moment the
+  // conversation lived inside a fixed panel — and was unreliable before that.
+  const box = document.getElementById('vl-scroll');
+  if (box) {
+    // rAF so the new bubble has been laid out before we measure.
+    requestAnimationFrame(() => { box.scrollTop = box.scrollHeight; });
+    return;
+  }
   const bar = document.getElementById('vl-type-input');
   try { bar?.scrollIntoView({ block: 'end' }); } catch (e) {}
 }
@@ -3924,7 +3943,26 @@ function _vlSpeakDevice(text) {
       const v = _ocVoices[vlCoachKey()];
       if (v) u.voice = v;
     }
+    _logDeviceVoice(u.voice);
     speechSynthesis.speak(u);
+  } catch (e) {}
+}
+
+// RESEARCH ONLY — changes nothing. Semmes hears an Australian voice on the
+// first line after tapping the mic and may want to keep it, so name it before
+// touching anything. Logs once per distinct voice, plus the full list of what
+// this device offers the first time.
+let _voiceListLogged = false;
+function _logDeviceVoice(v) {
+  try {
+    if (!_voiceListLogged) {
+      _voiceListLogged = true;
+      const all = (speechSynthesis.getVoices() || [])
+        .map(x => `${x.name} [${x.lang}]${x.default ? ' (device default)' : ''}${x.localService ? '' : ' (network)'}`);
+      console.log('[voice] device offers ' + all.length + ':', all.join(' | '));
+    }
+    console.log('[voice] speaking with:',
+      v ? `${v.name} [${v.lang}]` : 'NO VOICE SELECTED -> the system default is used');
   } catch (e) {}
 }
 
@@ -3980,15 +4018,18 @@ function openVoiceLog() {
   const activeBtn = document.querySelector('.bottom-nav-btn.active');
   _vlReturnTab = activeBtn ? activeBtn.dataset.tab : 'today';
   switchTab('voicelog');
+  // switchTab sets display:block; this panel is a flex column.
+  const panel = document.getElementById('tab-voicelog');
+  if (panel) panel.style.display = 'flex';
   vlResetToIdle();
   // Coach header + fresh thread with a greeting in their own voice. Same
   // coach every time — continuity is the point.
   const key = vlCoachKey();
   const c = OB_COACHES[key];
+  // Name and face live on the bubbles now; these nodes are kept hidden so the
+  // rest of the vl code can keep setting them without null checks.
   const nameEl = document.getElementById('vl-coach-name');
   if (nameEl) nameEl.textContent = c.name;
-  const avEl = document.getElementById('vl-coach-avatar');
-  if (avEl) { avEl.style.display = ''; avEl.src = c.img; }
   _vlSyncMuteBtn();
   const box = _vlThreadEl();
   if (box) {
@@ -4339,9 +4380,29 @@ async function vlSendToAI(text) {
         }
       })
     });
-    const data = await res.json();
-    if (sessionId !== _vlSessionId) return; // user already left or restarted this session — discard
-    if (data.error || !data.action) throw new Error(data.error || 'No action returned');
+    // Read as TEXT first. res.json() on an empty body or an HTML error page
+    // throws a SyntaxError with no useful message, which is how this failure
+    // logged as a bare "Error {}" and told us nothing.
+    const raw = await res.text();
+    if (sessionId !== _vlSessionId) return; // user already left or restarted — discard
+    let data;
+    try {
+      data = JSON.parse(raw);
+    } catch (parseErr) {
+      console.error('[vl] /ai-voice-action returned non-JSON. status=' + res.status,
+                    'body:', JSON.stringify(raw.slice(0, 300)));
+      throw new Error('Bad response from the server (HTTP ' + res.status + ')');
+    }
+    if (!res.ok || data.error || !data.action) {
+      console.error('[vl] /ai-voice-action failed. status=' + res.status,
+                    'body:', JSON.stringify(raw.slice(0, 300)));
+      if (res.status === 401 || res.status === 403) {
+        throw new Error('Your session expired (HTTP ' + res.status + ') — sign out and back in.');
+      }
+      throw new Error(
+        (typeof data.error === 'string' ? data.error : JSON.stringify(data.error || 'No action returned'))
+        + ' (HTTP ' + res.status + ')');
+    }
 
     // Accept a followup even when we asked the AI to finalize — if the model
     // asks anyway, showing the question (which the user can answer or cancel)
@@ -4376,9 +4437,19 @@ async function vlSendToAI(text) {
     }
   } catch(e) {
     if (sessionId !== _vlSessionId) return; // user already left or restarted this session — discard
-    console.error('vlSendToAI error', e);
-    document.getElementById('vl-clarify-text').textContent = 'Could not reach the voice assistant — check your connection and try again.';
-    _vlThreadBot('Could not reach the voice assistant — check your connection and try again.');
+    // e.message, not the object — an Error logs as "Error {}" in eruda and
+    // that is exactly what made this undiagnosable.
+    console.error('[vl] vlSendToAI failed:', (e && e.message) || String(e), e);
+    // Tell the user which KIND of failure it was; "check your connection" is
+    // actively misleading when the connection is fine.
+    const expired = /expired|401|403/.test((e && e.message) || '');
+    const msg = expired
+      ? "Your session has expired — sign out and back in and I'll be right here."
+      : (navigator.onLine === false
+          ? "You're offline right now — I'll be here when you're back."
+          : "Something went wrong on my end just now, not your connection. Try that again?");
+    document.getElementById('vl-clarify-text').textContent = msg;
+    _vlThreadBot(msg);
     vlShowState('clarify');
   }
 }
@@ -7161,6 +7232,7 @@ function _ocSpeakDevice(text) {
     // Before a coach is assigned the speaker is Lauren — female voice.
     const v = _oc ? _ocVoices[_oc.coach || 'olivia'] : null;
     if (v) u.voice = v;
+    _logDeviceVoice(u.voice);
     speechSynthesis.speak(u);
   } catch (e) {}
 }
@@ -8464,7 +8536,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-07-m-ttslog';
+const RATIO_BUILD = '2026-08-07-n-coachui';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -10322,8 +10394,12 @@ function switchMealIdeasSubTab(sub) {
 
 function switchCoachSubTab(tab) {
   saveLastView({ coachSub: tab });
-  const panels = { meals: 'coach-subtab-meals', workouts: 'coach-subtab-workouts', chat: 'coach-subtab-chat' };
-  const btns = { meals: 'coach-subtab-btn-meals', workouts: 'coach-subtab-btn-workouts', chat: 'coach-subtab-btn-chat' };
+  // "Ask Coach" retired — the mic button is the coach now. The panel markup
+  // is left in place but unreachable, so any stale call falls back to meals
+  // rather than showing an empty tab.
+  const panels = { meals: 'coach-subtab-meals', workouts: 'coach-subtab-workouts' };
+  const btns = { meals: 'coach-subtab-btn-meals', workouts: 'coach-subtab-btn-workouts' };
+  if (!panels[which]) which = 'meals';
   Object.keys(panels).forEach(key => {
     document.getElementById(panels[key]).style.display = key === tab ? 'block' : 'none';
     const btn = document.getElementById(btns[key]);
