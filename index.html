@@ -6894,6 +6894,9 @@ function _logGeminiVoice(speaker, got) {
 // the whole point is that _ttsUrl has already resolved by the time the bubble
 // appears, so nothing has to be faked while the network catches up.
 function ratioPrefetch(speaker, text) {
+  // Muted means FREE: the speaking paths already skip fetching when muted,
+  // but prefetches used to fire anyway — generating audio nobody would hear.
+  if (_ocMuted) return;
   try { _ttsUrl(speaker, text).catch(() => {}); } catch (e) {}
 }
 
@@ -7598,10 +7601,29 @@ async function _ocTurn(userText) {
     });
     const data = await res.json();
     _ocTyping(false);
+    if (data.debug) console.warn('[obchat] server-side turn failure:', data.debug);
+    const gotFields = data.fields && Object.keys(data.fields).length > 0;
     if (data.fields) Object.assign(_oc.fields, data.fields);
     if (_oc.fields.height_ft !== undefined && _oc.fields.height_in === undefined) _oc.fields.height_in = 0;
     _ocAddBot(data.say || "Sorry — say that again?");
     _ocRenderCard();
+    // ---- miss streak ----
+    // A transient failure, or a turn that extracted nothing while fields are
+    // still missing, counts as a miss. Extracting anything resets it. At two,
+    // change tactics ONCE: offer typing, focused and blamed on the mic.
+    if (gotFields) {
+      _oc.missStreak = 0;
+    } else if (data.transient || _ocMissing().length) {
+      _oc.missStreak = (_oc.missStreak || 0) + 1;
+      if (_oc.missStreak === 2 && !_oc.typeOfferMade) {
+        _oc.typeOfferMade = true;
+        _ocAddBot("You know what, mics can be stubborn — feel free to just type it below, I read as well as I listen.", { silent: false });
+        _ocChips([
+          { label: 'Type it instead', action: () => document.getElementById('obchat-input')?.focus() },
+          { label: "Keep talking", action: () => {} }
+        ]);
+      }
+    }
     if (data.capped || !_ocMissing().length) _ocComplete();
   } catch (e) {
     console.error('[obchat] turn failed', e);
@@ -8764,7 +8786,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-07-v-handoff';
+const RATIO_BUILD = '2026-08-08-a-coachreport';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -14987,7 +15009,12 @@ async function editStepGoalDirect() {
   if (input) { input.focus(); input.select(); }
 }
 
-Chart.register({
+// Guarded: this runs at TOP LEVEL, so if the Chart.js CDN is blocked (ad
+// blockers and corporate proxies do this — same reason eruda loads
+// defensively) an unguarded call here threw and KILLED the rest of the
+// script: every `let` declared after this line stayed uninitialized, which
+// silently broke the weekly report page and everything else in the tail.
+if (typeof Chart !== 'undefined') Chart.register({
   id: 'stepsBarLabels',
   afterDatasetsDraw(chart) {
     if (chart.canvas.id !== 'steps-chart') return;
@@ -18049,6 +18076,66 @@ function _wrDeltaLine(cur, prevVal, unit, mode) {
 function _wrStatTile(label, value, unit) {
   return `<div class="stat-item"><div class="stat-val">${value}<span style="font-size:12px;font-weight:600;color:var(--muted);margin-left:2px">${unit || ''}</span></div><div class="stat-label">${label}</div></div>`;
 }
+// The coach's read on the week — deterministic, like vlCoachReactToLog:
+// character in the framing, numbers straight from the same stats the cards
+// show. Never guilt; an over week is information plus a hand on the shoulder.
+function _wrCoachSummary(st, cmp) {
+  const key = vlCoachKey();
+  const c = OB_COACHES[key];
+  const first = (userProfile?.name || '').split(' ')[0];
+  const protTarget = (typeof userTargets !== 'undefined' && userTargets && userTargets.protein) || TARGETS.protein || 150;
+  const goal = userProfile?.primaryGoal || 'fat_loss';
+  const ian = key === 'ian';
+  const p = [];
+
+  // Opener, by how much of the week got logged.
+  if (st.loggedDays >= 6) p.push(ian
+    ? `${first ? first + ', ' : ''}${st.loggedDays} out of 7 days logged — that's what I'm talking about. Consistency is the whole game, brother.`
+    : `${first ? first + ', ' : ''}${st.loggedDays} of 7 days logged — honestly, that's the hardest part and you did it.`);
+  else if (st.loggedDays >= 3) p.push(ian
+    ? `Alright${first ? ' ' + first : ''}, ${st.loggedDays} of 7 days logged. Solid base — let's stack a couple more this week.`
+    : `Hey${first ? ' ' + first : ''}, you logged ${st.loggedDays} of 7 days. Good bones — a couple more and the picture gets really clear.`);
+  else p.push(ian
+    ? `Hey${first ? ' ' + first : ''}, I only got ${st.loggedDays} day${st.loggedDays === 1 ? '' : 's'} of logs this week, so I'm coaching with one eye open here. No stress — just feed me the data and I'll feed you the plan.`
+    : `Hey${first ? ' ' + first : ''}, I only saw ${st.loggedDays} day${st.loggedDays === 1 ? '' : 's'} of logs, so take my read with a grain of salt. The more you log, the sharper I get.`);
+
+  // Protein, only when there were logged days.
+  if (st.loggedDays) {
+    const pr = st.avgProt / protTarget;
+    if (pr >= 0.9) p.push(ian
+      ? `Protein averaged ${st.avgProt}g a day against your ${protTarget}g target — you love to see it.`
+      : `Protein came in at ${st.avgProt}g a day against your ${protTarget}g target — genuinely strong.`);
+    else if (pr >= 0.6) p.push(`Protein averaged ${st.avgProt}g against your ${protTarget}g target — a bit shy. ${ian ? 'One more palm-of-protein per day closes that gap, easy.' : 'One extra protein-forward snack a day closes it.'}`);
+    else p.push(`Protein averaged ${st.avgProt}g against ${protTarget}g — the biggest single lever we've got. ${ian ? 'Protein first, questions later.' : "Let's make it the first thing on the plate this week."}`);
+  }
+
+  // Training.
+  if (st.workoutCount) p.push(ian
+    ? `${st.workoutCount} workout${st.workoutCount === 1 ? '' : 's'}, ${st.workoutMins} minutes of work. Respect.`
+    : `${st.workoutCount} workout${st.workoutCount === 1 ? '' : 's'} and ${st.workoutMins} minutes moving — lovely.`);
+
+  // Weight, goal-aware and gentle. Only with two readings.
+  if (st.weightDelta != null) {
+    const d = st.weightDelta;
+    const losing = goal === 'fat_loss' || goal === 'weight_loss';
+    if (d === 0) p.push('Weight held steady this week.');
+    else if ((losing && d < 0) || (goal === 'muscle_gain' && d > 0))
+      p.push(`Scale moved ${Math.abs(d)} lb ${d < 0 ? 'down' : 'up'} — the right direction. ${ian ? 'The machine is working.' : 'Quietly excellent.'}`);
+    else p.push(`Scale went ${Math.abs(d)} lb ${d < 0 ? 'down' : 'up'} this week. One week is noise, not a verdict — ${ian ? 'we judge the trend, not the Tuesday.' : 'trends over Tuesdays, always.'}`);
+  }
+
+  const html = p.map(x => `<div style="margin-bottom:6px">${x}</div>`).join('');
+  return `
+    <div class="card" style="display:flex;gap:12px;align-items:flex-start;margin-bottom:12px;padding:16px">
+      <img src="${c.headImg || c.img}" alt="${c.name}" style="width:44px;height:44px;border-radius:50%;object-fit:cover;flex-shrink:0;background:var(--gold-tint)"
+        onerror="this.style.display='none'">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:11px;font-weight:700;color:#CFA13C;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">${c.name}'s take</div>
+        <div style="font-size:13.5px;color:var(--ink);line-height:1.55">${html}</div>
+      </div>
+    </div>`;
+}
+
 async function renderWeeklyReport() {
   const el = document.getElementById('weekly-report-content');
   if (!el) return;
@@ -18112,7 +18199,7 @@ async function renderWeeklyReport() {
       </div>
       ${cmp && cmp.stepDaysCount ? `<div style="font-size:12px;margin-top:10px">${_wrDeltaLine(st.stepAvg, cmp.stepAvg, '/day', 'up-good')}</div>` : ''}
     </div>` : '';
-  el.innerHTML = navHtml + `
+  el.innerHTML = navHtml + _wrCoachSummary(st, cmp) + `
     <div style="background:linear-gradient(160deg,var(--gold-tint),var(--gold-tint-2));border-radius:16px;padding:20px;margin-bottom:12px;border:1px solid var(--gold-line)">
       <div style="font-size:11px;font-weight:700;color:#CFA13C;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Week in Review</div>
       <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:12px">
