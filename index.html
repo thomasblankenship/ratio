@@ -4378,6 +4378,7 @@ async function vlSendToAI(text) {
   const forceFinalize = _vlFollowupCount >= VL_MAX_FOLLOWUPS;
 
   try {
+    const _t0 = performance.now();
     const res = await fetch(`${WORKER_URL}/ai-voice-action`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -4390,8 +4391,8 @@ async function vlSendToAI(text) {
           defaultMealType,
           todayDate: new Date().toISOString().slice(0,10),
           todayWeekday: ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][new Date().getDay()],
-          savedFoods: (savedFoods || []).slice(0, 60).map(f => ({ name: f.name, unit: f.unit, calories: f.cals_per_unit || f.calories_per_unit || 0, protein: f.protein_per_unit, carbs: f.carbs_per_unit, fat: f.fat_per_unit, fiber: f.fiber_per_unit, cholesterol: f.cholesterol_per_unit })),
-          savedMeals: (savedMeals || []).slice(0, 60).map(m => ({ name: m.name, calories: m.calories, protein: m.protein, carbs: m.carbs, fat: m.fat, fiber: m.fiber }))
+          savedFoods: (savedFoods || []).slice(0, 150).map(f => ({ name: f.name, unit: f.unit, calories: f.cals_per_unit || f.calories_per_unit || 0, protein: f.protein_per_unit, carbs: f.carbs_per_unit, fat: f.fat_per_unit, fiber: f.fiber_per_unit, cholesterol: f.cholesterol_per_unit })),
+          savedMeals: (savedMeals || []).slice(0, 150).map(m => ({ name: m.name, calories: m.calories, protein: m.protein, carbs: m.carbs, fat: m.fat, fiber: m.fiber }))
         }
       })
     });
@@ -4399,6 +4400,7 @@ async function vlSendToAI(text) {
     // throws a SyntaxError with no useful message, which is how this failure
     // logged as a bare "Error {}" and told us nothing.
     const raw = await res.text();
+    console.log('[vl-timing] /ai-voice-action ' + Math.round(performance.now() - _t0) + 'ms');
     if (sessionId !== _vlSessionId) return; // user already left or restarted — discard
     let data;
     try {
@@ -6806,6 +6808,7 @@ async function _ttsUrl(speaker, text) {
 
   const pending = (async () => {
     let r;
+    const _t0 = performance.now();
     try {
       r = await fetch(WORKER_URL + '/coach-speak', {
         method: 'POST',
@@ -6838,11 +6841,15 @@ async function _ttsUrl(speaker, text) {
         if (j && j.status === 429) why += '  <- Gemini rate limit. Free tier is low; enabling billing raises it.';
         if (j && (j.status === 400 || j.status === 403)) why += '  <- Gemini rejected the API key.';
       } catch (e) {}
-      console.warn('[tts] /coach-speak failed:', r.status + why);
+      console.warn('[tts-timing] /coach-speak FAILED after ' + Math.round(performance.now() - _t0) + 'ms:', r.status + why);
       return null;
     }
     const blob = await r.blob();
+    const genMs = r.headers.get('X-Ratio-TTS-Gen-Ms');
     const cacheState = r.headers.get('X-Ratio-TTS-Cache') || '?';
+    const totalMs = Math.round(performance.now() - _t0);
+    console.log('[tts-timing] /coach-speak ' + cacheState + ' — total ' + totalMs + 'ms' +
+                (genMs ? ' (Gemini generation: ' + genMs + 'ms)' : '') + ', ' + text.length + ' chars');
     // 24 kHz mono 16-bit PCM in a 44-byte WAV header — so the byte count IS
     // the duration, exactly, with no need to decode or wait for metadata.
     const seconds = Math.max(0, (blob.size - 44) / 2 / 24000);
@@ -8788,7 +8795,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-09-a-bugfixes';
+const RATIO_BUILD = '2026-08-09-b-savedfoodcap';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
