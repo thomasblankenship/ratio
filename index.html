@@ -2455,7 +2455,7 @@
     <div style="margin-bottom:12px">
       <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Amount</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <input type="number" min="0" id="em-qty" placeholder="1" value="1" step="0.1" oninput="emUpdatePreview()" onfocus="this.select()"
+        <input type="number" min="0" id="em-qty" placeholder="1" value="1" step="0.1" oninput="emUpdatePreview()"
           style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:16px;font-weight:600;outline:none;box-sizing:border-box" />
         <div style="background:var(--surface);border-radius:10px;overflow:hidden;border:1px solid var(--line);position:relative">
           <div style="font-size:10px;color:var(--muted);text-align:center;padding:4px 0;border-bottom:1px solid var(--surface-2)">Unit</div>
@@ -2690,7 +2690,7 @@
     <div style="margin-bottom:12px">
       <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Amount</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <input type="number" min="0" id="food-modal-qty" placeholder="1" value="1" step="0.1" oninput="updateFoodModalPreview()" onfocus="this.select()"
+        <input type="number" min="0" id="food-modal-qty" placeholder="1" value="1" step="0.1" oninput="updateFoodModalPreview()"
           style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:16px;font-weight:600;outline:none;box-sizing:border-box" />
         <div style="background:var(--surface);border-radius:10px;overflow:hidden;border:1px solid var(--line);position:relative">
           <div style="font-size:10px;color:var(--muted);text-align:center;padding:4px 0;border-bottom:1px solid var(--surface-2)">Unit</div>
@@ -6848,7 +6848,7 @@ async function _ttsUrl(speaker, text) {
     const genMs = r.headers.get('X-Ratio-TTS-Gen-Ms');
     const cacheState = r.headers.get('X-Ratio-TTS-Cache') || '?';
     const totalMs = Math.round(performance.now() - _t0);
-    console.log('[tts-timing] /coach-speak ' + cacheState + ' — total ' + totalMs + 'ms' +
+    console.log('[tts-timing] /coach-speak ' + cacheState + ' \u2014 total ' + totalMs + 'ms' +
                 (genMs ? ' (Gemini generation: ' + genMs + 'ms)' : '') + ', ' + text.length + ' chars');
     // 24 kHz mono 16-bit PCM in a 44-byte WAV header — so the byte count IS
     // the duration, exactly, with no need to decode or wait for metadata.
@@ -8795,7 +8795,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-09-b-savedfoodcap';
+const RATIO_BUILD = '2026-08-09-e-numselect';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -18220,7 +18220,6 @@ async function renderWeeklyReport() {
     <div class="card" id="wr-ai-card" style="background:linear-gradient(160deg,var(--gold-tint),var(--gold-tint-2));border:1px solid var(--gold-line)">
       <div class="card-title" style="color:#CFA13C">Coach's Summary</div>
       <div id="wr-ai-text" style="font-size:14px;color:var(--muted);line-height:1.6;font-style:italic">✨ Your coach is reviewing the week...</div>
-
     </div>
     <div class="card">
       <div class="card-title" style="color:#CFA13C">Nutrition — Daily Averages</div>
@@ -18299,6 +18298,29 @@ async function _wrLoadAiSummary(weekStart, weekLabel, st, cmp) {
     if (el) el.innerHTML = '<span style="color:#F87171;font-style:normal">Could not reach your coach right now.</span> <button onclick="renderWeeklyReport()" style="background:none;border:none;color:#CFA13C;font-weight:700;cursor:pointer;text-decoration:underline;font-size:12px;padding:0">Try again</button>';
   }
 }
+// Tapping a number field that already holds a value used to drop the cursor
+// wherever you touched — usually in FRONT of the existing number — so typing
+// APPENDED instead of replacing. That is how a fat value of 8 became 814.9
+// when 14.9 was typed over it: silent, plausible-looking, wrong data. Select
+// the whole value on focus so typing replaces it.
+//
+// Delegated at the document level rather than an onfocus on each field: there
+// are 45 number inputs across the app's modals and any new one would have to
+// remember to opt in. This covers all of them, including ones added later.
+//
+// The rAF is for iOS: selecting synchronously inside focus is unreliable in
+// WKWebView (caret placement lands after our select and undoes it).
+document.addEventListener('focusin', (e) => {
+  const el = e.target;
+  if (!el || el.tagName !== 'INPUT' || el.type !== 'number') return;
+  if (el.readOnly || el.disabled) return;
+  if (!String(el.value || '').length) return; // nothing to replace
+  requestAnimationFrame(() => {
+    if (document.activeElement !== el) return; // focus moved on before the frame ran
+    try { el.select(); } catch (err) {}
+  });
+});
+
 let _obSaveDebounce = null;
 document.addEventListener('input', (e) => {
   if (e.target && e.target.id && e.target.id.startsWith('ob-') && e.target.closest('.ob-screen')) {
@@ -19224,7 +19246,7 @@ if (document.readyState === 'loading') {
     <div style="margin-bottom:12px">
       <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Amount</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <input type="number" min="0" id="mb-serving-qty" placeholder="1" value="1" step="0.1" oninput="mbUpdateServingPreview()" onfocus="this.select()"
+        <input type="number" min="0" id="mb-serving-qty" placeholder="1" value="1" step="0.1" oninput="mbUpdateServingPreview()"
           style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:16px;font-weight:600;outline:none;box-sizing:border-box" />
         <div style="background:var(--surface);border-radius:10px;overflow:hidden;border:1px solid var(--line);position:relative">
           <div style="font-size:10px;color:var(--muted);text-align:center;padding:4px 0;border-bottom:1px solid var(--surface-2)">Unit</div>
@@ -19288,7 +19310,7 @@ if (document.readyState === 'loading') {
     <div style="margin-bottom:12px" id="log-meal-amount-block">
       <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Amount</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <input type="number" min="0" id="log-meal-qty" placeholder="1" value="1" step="0.1" oninput="updateLogMealPreview()" onfocus="this.select()"
+        <input type="number" min="0" id="log-meal-qty" placeholder="1" value="1" step="0.1" oninput="updateLogMealPreview()"
           style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:16px;font-weight:600;outline:none;box-sizing:border-box" />
         <div style="background:var(--surface);border-radius:10px;overflow:hidden;border:1px solid var(--line);position:relative">
           <div style="font-size:10px;color:var(--muted);text-align:center;padding:4px 0;border-bottom:1px solid var(--surface-2)">Unit</div>
