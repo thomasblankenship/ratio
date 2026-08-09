@@ -736,8 +736,9 @@
         </div>
         <!-- Food/meal search — always visible regardless of which sub-tab is active -->
         <div style="position:relative">
-          <input type="text" id="food-search-input" placeholder="🔍 Search foods, meals, or database..."
-            style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:16px;outline:none;box-sizing:border-box"
+          <i class="fa-solid fa-magnifying-glass" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:13px;pointer-events:none"></i>
+          <input type="text" id="food-search-input" placeholder="Search foods, meals, or database..."
+            style="width:100%;padding:10px 12px 10px 32px;border:1px solid var(--line);border-radius:10px;font-size:16px;outline:none;box-sizing:border-box"
             oninput="onFoodSearchInput(this.value)" />
         </div>
         <div id="food-search-results" style="display:none;margin-top:12px"></div>
@@ -2454,7 +2455,7 @@
     <div style="margin-bottom:12px">
       <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Amount</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <input type="number" min="0" id="em-qty" placeholder="1" value="1" step="0.1" oninput="emUpdatePreview()"
+        <input type="number" min="0" id="em-qty" placeholder="1" value="1" step="0.1" oninput="emUpdatePreview()" onfocus="this.select()"
           style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:16px;font-weight:600;outline:none;box-sizing:border-box" />
         <div style="background:var(--surface);border-radius:10px;overflow:hidden;border:1px solid var(--line);position:relative">
           <div style="font-size:10px;color:var(--muted);text-align:center;padding:4px 0;border-bottom:1px solid var(--surface-2)">Unit</div>
@@ -2689,7 +2690,7 @@
     <div style="margin-bottom:12px">
       <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Amount</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <input type="number" min="0" id="food-modal-qty" placeholder="1" value="1" step="0.1" oninput="updateFoodModalPreview()"
+        <input type="number" min="0" id="food-modal-qty" placeholder="1" value="1" step="0.1" oninput="updateFoodModalPreview()" onfocus="this.select()"
           style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:16px;font-weight:600;outline:none;box-sizing:border-box" />
         <div style="background:var(--surface);border-radius:10px;overflow:hidden;border:1px solid var(--line);position:relative">
           <div style="font-size:10px;color:var(--muted);text-align:center;padding:4px 0;border-bottom:1px solid var(--surface-2)">Unit</div>
@@ -4409,7 +4410,8 @@ async function vlSendToAI(text) {
     }
     if (!res.ok || data.error || !data.action) {
       console.error('[vl] /ai-voice-action failed. status=' + res.status,
-                    'body:', JSON.stringify(raw.slice(0, 300)));
+                    'body:', JSON.stringify(raw.slice(0, 300)),
+                    data.detail ? ('detail: ' + data.detail) : '');
       if (res.status === 401 || res.status === 403) {
         throw new Error('Your session expired (HTTP ' + res.status + ') — sign out and back in.');
       }
@@ -8786,7 +8788,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-08-a-coachreport';
+const RATIO_BUILD = '2026-08-09-a-bugfixes';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -18211,7 +18213,7 @@ async function renderWeeklyReport() {
     <div class="card" id="wr-ai-card" style="background:linear-gradient(160deg,var(--gold-tint),var(--gold-tint-2));border:1px solid var(--gold-line)">
       <div class="card-title" style="color:#CFA13C">Coach's Summary</div>
       <div id="wr-ai-text" style="font-size:14px;color:var(--muted);line-height:1.6;font-style:italic">✨ Your coach is reviewing the week...</div>
-      <button id="wr-ai-regen" onclick="regenerateWeeklyAi('${wkStart}')" style="display:none;background:none;border:none;color:var(--muted);font-size:11px;cursor:pointer;padding:8px 0 0;text-decoration:underline">Regenerate summary</button>
+
     </div>
     <div class="card">
       <div class="card-title" style="color:#CFA13C">Nutrition — Daily Averages</div>
@@ -18284,23 +18286,12 @@ async function _wrLoadAiSummary(weekStart, weekLabel, st, cmp) {
     const summary = await _wrGetAiSummary(weekStart, weekLabel, st, cmp);
     const el = document.getElementById('wr-ai-text');
     if (el) { el.style.fontStyle = 'normal'; el.style.color = 'var(--ink-2)'; el.textContent = summary; }
-    const regen = document.getElementById('wr-ai-regen');
-    if (regen) regen.style.display = 'inline-block';
   } catch(e) {
     console.error('weekly AI summary error', e);
     const el = document.getElementById('wr-ai-text');
     if (el) el.innerHTML = '<span style="color:#F87171;font-style:normal">Could not reach your coach right now.</span> <button onclick="renderWeeklyReport()" style="background:none;border:none;color:#CFA13C;font-weight:700;cursor:pointer;text-decoration:underline;font-size:12px;padding:0">Try again</button>';
   }
 }
-async function regenerateWeeklyAi(weekStart) {
-  try {
-    const cache = (await loadSetting('weekly_report_ai')) || {};
-    delete cache[weekStart];
-    await saveSetting('weekly_report_ai', cache);
-  } catch(e) {}
-  renderWeeklyReport();
-}
-
 let _obSaveDebounce = null;
 document.addEventListener('input', (e) => {
   if (e.target && e.target.id && e.target.id.startsWith('ob-') && e.target.closest('.ob-screen')) {
@@ -19226,7 +19217,7 @@ if (document.readyState === 'loading') {
     <div style="margin-bottom:12px">
       <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Amount</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <input type="number" min="0" id="mb-serving-qty" placeholder="1" value="1" step="0.1" oninput="mbUpdateServingPreview()"
+        <input type="number" min="0" id="mb-serving-qty" placeholder="1" value="1" step="0.1" oninput="mbUpdateServingPreview()" onfocus="this.select()"
           style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:16px;font-weight:600;outline:none;box-sizing:border-box" />
         <div style="background:var(--surface);border-radius:10px;overflow:hidden;border:1px solid var(--line);position:relative">
           <div style="font-size:10px;color:var(--muted);text-align:center;padding:4px 0;border-bottom:1px solid var(--surface-2)">Unit</div>
@@ -19290,7 +19281,7 @@ if (document.readyState === 'loading') {
     <div style="margin-bottom:12px" id="log-meal-amount-block">
       <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Amount</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <input type="number" min="0" id="log-meal-qty" placeholder="1" value="1" step="0.1" oninput="updateLogMealPreview()"
+        <input type="number" min="0" id="log-meal-qty" placeholder="1" value="1" step="0.1" oninput="updateLogMealPreview()" onfocus="this.select()"
           style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:16px;font-weight:600;outline:none;box-sizing:border-box" />
         <div style="background:var(--surface);border-radius:10px;overflow:hidden;border:1px solid var(--line);position:relative">
           <div style="font-size:10px;color:var(--muted);text-align:center;padding:4px 0;border-bottom:1px solid var(--surface-2)">Unit</div>
