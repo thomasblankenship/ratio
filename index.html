@@ -8800,7 +8800,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-11-f-mbservings';
+const RATIO_BUILD = '2026-08-11-g-mblayout';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -18652,15 +18652,39 @@ async function _wrLoadAiSummary(weekStart, weekLabel, st, cmp) {
 //
 // The rAF is for iOS: selecting synchronously inside focus is unreliable in
 // WKWebView (caret placement lands after our select and undoes it).
+// Pointer sequence on desktop is mousedown -> focus -> (our select) -> mouseup,
+// and that trailing mouseup COLLAPSES the selection back to a caret. Touch
+// does not, which is why selecting on focus alone worked on the phone while
+// a desktop click still appended: typing 3.5 into a box holding 1 gave 13.5.
+// So remember which field we just focused and re-select on its mouseup.
+let _numSelectPending = null;
+
+function _numSelectAll(el) {
+  if (!el || el.tagName !== 'INPUT' || el.type !== 'number') return;
+  if (el.readOnly || el.disabled) return;
+  if (!String(el.value || '').length) return; // nothing to replace
+  try { el.select(); } catch (err) {}
+}
+
 document.addEventListener('focusin', (e) => {
   const el = e.target;
   if (!el || el.tagName !== 'INPUT' || el.type !== 'number') return;
   if (el.readOnly || el.disabled) return;
-  if (!String(el.value || '').length) return; // nothing to replace
+  if (!String(el.value || '').length) return;
+  _numSelectPending = el;
   requestAnimationFrame(() => {
     if (document.activeElement !== el) return; // focus moved on before the frame ran
-    try { el.select(); } catch (err) {}
+    _numSelectAll(el);
   });
+});
+
+document.addEventListener('mouseup', (e) => {
+  if (!_numSelectPending || e.target !== _numSelectPending) { _numSelectPending = null; return; }
+  const el = _numSelectPending;
+  _numSelectPending = null;
+  // Only the FIRST mouseup after focusing re-selects, so a deliberate
+  // click-and-drag to highlight part of the number still works afterwards.
+  setTimeout(() => { if (document.activeElement === el) _numSelectAll(el); }, 0);
 });
 
 let _obSaveDebounce = null;
@@ -19510,25 +19534,27 @@ if (document.readyState === 'loading') {
   </div>
 
   <div style="flex:1;overflow-y:auto;overflow-x:hidden;padding:20px 20px calc(20px + env(safe-area-inset-bottom));box-sizing:border-box">
+    <!-- Photo leads: it is the thing you recognise the meal by, and with the
+         name above it Semmes did not notice the name or servings fields at all. -->
+    <input type="file" id="mb-photo-input" accept="image/*" style="display:none" onchange="mbPhotoSelected(event)" />
+    <div id="mb-photo-section" style="margin-bottom:16px"></div>
+
     <!-- Meal name -->
     <input type="text" id="meal-builder-name" placeholder="Meal name (e.g. Chicken Rice Bowl)"
       style="width:100%;padding:14px 16px;border:1.5px solid var(--line);border-radius:12px;font-size:16px;outline:none;box-sizing:border-box;margin-bottom:16px;font-weight:600" />
 
     <!-- How many servings the batch makes. Saved macros are per serving, so
-         logging this meal as "1" logs one serving, not the whole pan. -->
+         logging this meal as "1" logs one serving, not the whole pan.
+         Gold to match the macro figures it controls. -->
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;padding:12px 16px;border:1.5px solid var(--line);border-radius:12px">
       <div style="flex:1">
-        <div style="font-size:13px;font-weight:600;color:var(--ink)">Makes</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:2px">Macros save per serving</div>
+        <div style="font-size:11px;font-weight:700;color:#CFA13C;text-transform:uppercase;letter-spacing:0.5px">Makes</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:3px">Macros save per serving</div>
       </div>
       <input type="number" min="1" step="0.5" id="mb-servings-input" value="1" onchange="mbServingsChanged()" oninput="mbServingsChanged()"
-        style="width:72px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:16px;font-weight:700;text-align:center;outline:none;box-sizing:border-box" />
+        style="width:72px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:17px;font-weight:800;color:#CFA13C;text-align:center;outline:none;box-sizing:border-box" />
       <div style="font-size:13px;color:var(--muted);font-weight:600">servings</div>
     </div>
-
-    <!-- Photo -->
-    <input type="file" id="mb-photo-input" accept="image/*" style="display:none" onchange="mbPhotoSelected(event)" />
-    <div id="mb-photo-section" style="margin-bottom:16px"></div>
 
     <!-- Macro totals -->
     <div style="background:var(--gold-tint);border-radius:14px;padding:14px 16px;margin-bottom:16px">
