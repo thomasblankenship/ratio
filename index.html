@@ -8800,7 +8800,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-11-d-coachsubtab';
+const RATIO_BUILD = '2026-08-11-f-mbservings';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -12769,6 +12769,10 @@ function openMealBuilder() {
   _mbUrlImportData = null;
   document.getElementById('meal-builder-title').textContent = 'Create Meal';
   document.getElementById('meal-builder-name').value = '';
+  _mbServings = 1;
+  _mbTotalsPerServing = false;
+  const svNew = document.getElementById('mb-servings-input');
+  if (svNew) svNew.value = 1;
   document.getElementById('mb-search-input').value = '';
   document.getElementById('mb-search-results').style.display = 'none';
   document.getElementById('mb-instructions-text').value = '';
@@ -12805,6 +12809,12 @@ function openEditSavedMeal(id) {
   _mbIngredients = JSON.parse(JSON.stringify(meal.ingredients || [])); // deep copy so cancel doesn't mutate the saved version
   document.getElementById('meal-builder-title').textContent = 'Edit Meal';
   document.getElementById('meal-builder-name').value = meal.name || '';
+  // A saved meal's stored macros are PER SERVING, so do not divide again
+  // unless the person changes something.
+  _mbServings = Math.max(1, parseFloat(meal.servings) || 1);
+  _mbTotalsPerServing = true;
+  const svEdit = document.getElementById('mb-servings-input');
+  if (svEdit) svEdit.value = _mbServings;
   document.getElementById('mb-search-input').value = '';
   document.getElementById('mb-search-results').style.display = 'none';
 
@@ -13126,6 +13136,11 @@ async function urlImportSave(data) {
     fiber: Math.round((ing.fiber || 0) / servings * 10) / 10,
     cholesterol: Math.round((ing.cholesterol || 0) / servings)
   }));
+  // The authoritative totals set above are already per serving.
+  _mbServings = Math.max(1, parseFloat(servings) || 1);
+  _mbTotalsPerServing = true;
+  const svImp = document.getElementById('mb-servings-input');
+  if (svImp) svImp.value = _mbServings;
   const noteEl = document.getElementById('mb-servings-note');
   if (noteEl) noteEl.textContent = servings > 1 ? `Recipe makes ${servings} servings — amounts below show the full batch, macros reflect 1 serving` : '';
   document.getElementById('meal-builder-name').value = data.name || '';
@@ -13234,6 +13249,12 @@ function mbAddIngredient() {
   mbUpdateTotals();
 }
 
+// Any ingredient change invalidates an imported/saved whole-dish total.
+function _mbIngredientsEdited() {
+  _mbAuthoritativeTotals = null;
+  _mbTotalsPerServing = false;
+}
+
 function mbRemoveIngredient(idx) {
   _mbIngredients.splice(idx, 1);
   _mbAuthoritativeTotals = null;
@@ -13257,6 +13278,52 @@ function mbRenderIngredients() {
     </div>`).join('');
 }
 
+// How many servings the batch in the builder makes. The ingredient list is
+// always the FULL batch; what gets SAVED (and therefore logged as "1") is one
+// serving of it.
+let _mbServings = 1;
+// True when _mbAuthoritativeTotals is already a per-serving figure (the
+// recipe-import path divides before setting it). Prevents dividing twice.
+let _mbTotalsPerServing = false;
+
+function _mbPerServing(totals) {
+  const n = Math.max(1, parseFloat(_mbServings) || 1);
+  if (n === 1) return totals;
+  return {
+    calories: totals.calories / n,
+    protein: totals.protein / n,
+    carbs: totals.carbs / n,
+    fat: totals.fat / n,
+    fiber: totals.fiber / n,
+    cholesterol: totals.cholesterol / n
+  };
+}
+
+// Single source of truth for "macros for ONE serving", used by both the live
+// totals display and the save path so they can never disagree.
+function _mbFinalTotals() {
+  const summed = _mbIngredients.reduce((acc, ing) => {
+    acc.calories += ing.calories;
+    acc.protein += ing.protein;
+    acc.carbs += ing.carbs;
+    acc.fat += ing.fat;
+    acc.fiber += (ing.fiber || 0);
+    acc.cholesterol += (ing.cholesterol || 0);
+    return acc;
+  }, { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, cholesterol: 0 });
+  if (_mbAuthoritativeTotals && _mbTotalsPerServing) return _mbAuthoritativeTotals;
+  return _mbPerServing(_mbAuthoritativeTotals || summed);
+}
+
+function mbServingsChanged() {
+  const raw = parseFloat(document.getElementById('mb-servings-input').value);
+  _mbServings = (isFinite(raw) && raw > 0) ? raw : 1;
+  // Any edit to servings means a previously-imported per-serving total no
+  // longer describes this batch - fall back to summing the ingredients.
+  if (_mbTotalsPerServing) { _mbAuthoritativeTotals = null; _mbTotalsPerServing = false; }
+  mbUpdateTotals();
+}
+
 function mbUpdateTotals() {
   const summed = _mbIngredients.reduce((acc, ing) => {
     acc.calories += ing.calories;
@@ -13267,7 +13334,17 @@ function mbUpdateTotals() {
     acc.cholesterol += (ing.cholesterol || 0);
     return acc;
   }, { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, cholesterol: 0 });
-  const totals = _mbAuthoritativeTotals || summed;
+  const totals = _mbFinalTotals();
+  const nServ = Math.max(1, parseFloat(_mbServings) || 1);
+  const labelEl = document.getElementById('mb-totals-label');
+  if (labelEl) labelEl.textContent = nServ > 1 ? 'Per serving' : 'Totals';
+  const batchEl = document.getElementById('mb-batch-note');
+  if (batchEl) {
+    batchEl.textContent = nServ > 1
+      ? `Whole batch: ${Math.round(totals.calories * nServ)} kcal, ${Math.round(totals.protein * nServ)}g protein`
+      : '';
+    batchEl.style.display = nServ > 1 ? 'block' : 'none';
+  }
   document.getElementById('mb-total-cals').textContent = Math.round(totals.calories);
   document.getElementById('mb-total-protein').textContent = Math.round(totals.protein * 10) / 10 + 'g';
   document.getElementById('mb-total-carbs').textContent = Math.round(totals.carbs * 10) / 10 + 'g';
@@ -13296,27 +13373,22 @@ async function saveMeal() {
     }
   }
 
-  const summed = _mbIngredients.reduce((acc, ing) => {
-    acc.calories += ing.calories;
-    acc.protein += ing.protein;
-    acc.carbs += ing.carbs;
-    acc.fat += ing.fat;
-    acc.fiber += (ing.fiber || 0);
-    acc.cholesterol += (ing.cholesterol || 0);
-    return acc;
-  }, { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, cholesterol: 0 });
-
-  // If this meal has a known-correct whole-dish total (from an existing
-  // saved record, or a freshly imported recipe) trust that over summing
-  // ingredients — LLM-estimated per-ingredient macros rarely sum back to
-  // exactly match a separately-estimated whole-dish total, and for meals
-  // saved from an AI Coach idea the ingredients are descriptive-only with
-  // no macros at all. This is cleared as soon as the person actually edits
-  // an ingredient, so their edits become the new source of truth from then on.
-  const finalTotals = _mbAuthoritativeTotals || summed;
+  // Macros for ONE serving. _mbFinalTotals() is the same helper the live
+  // totals display uses, so what is saved always matches what was shown.
+  //
+  // It prefers a known-correct whole-dish total (an existing saved record or
+  // a freshly imported recipe) over summing ingredients — LLM-estimated
+  // per-ingredient macros rarely sum back to exactly match a separately
+  // estimated whole-dish total, and meals saved from an AI Coach idea have
+  // descriptive-only ingredients with no macros at all. That authoritative
+  // figure is cleared as soon as the person edits an ingredient or the
+  // servings count, so their edits become the source of truth from then on.
+  const finalTotals = _mbFinalTotals();
+  const servingsVal = Math.max(1, parseFloat(_mbServings) || 1);
 
   const payload = {
     name,
+    servings: servingsVal,
     ingredients: _mbIngredients,
     instructions: document.getElementById('mb-instructions-text').value.trim() || null,
     image_url: imageUrl,
@@ -13328,17 +13400,36 @@ async function saveMeal() {
     cholesterol: Math.round(finalTotals.cholesterol)
   };
 
-  if (_mbEditingMealId) {
-    await fetch(`${SUPABASE_URL}/rest/v1/saved_meals?id=eq.${_mbEditingMealId}`, {
-      method: 'PATCH',
-      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${_authToken || SUPABASE_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    toast(`"${name}" updated ✓`);
-  } else {
-    await dbPost('saved_meals', payload);
-    toast(`"${name}" saved ✓`);
+  // The `servings` column is new. If it has not been added to the database
+  // yet, PostgREST rejects the whole row rather than ignoring the field, so
+  // retry once without it instead of losing the person's meal. Everything
+  // except the servings number still saves correctly.
+  const _saveOnce = async (body) => {
+    if (_mbEditingMealId) {
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/saved_meals?id=eq.${_mbEditingMealId}`, {
+        method: 'PATCH',
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${_authToken || SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      if (!r.ok) throw new Error(await r.text());
+    } else {
+      await dbPost('saved_meals', body);
+    }
+  };
+  try {
+    await _saveOnce(payload);
+  } catch (e) {
+    const msg = String((e && e.message) || e);
+    if (/servings/i.test(msg) && /column|schema|PGRST/i.test(msg)) {
+      console.warn('[meal] saved_meals.servings column missing - saving without it. Run the ALTER TABLE to enable per-serving meals.');
+      const { servings, ...withoutServings } = payload;
+      await _saveOnce(withoutServings);
+      toast('Saved, but servings needs a database update');
+    } else {
+      throw e;
+    }
   }
+  toast(`"${name}" ${_mbEditingMealId ? 'updated' : 'saved'} ✓`);
   _mbEditingMealId = null;
   _mbOrigin = null;
   _mbUrlImportData = null;
@@ -19423,13 +19514,25 @@ if (document.readyState === 'loading') {
     <input type="text" id="meal-builder-name" placeholder="Meal name (e.g. Chicken Rice Bowl)"
       style="width:100%;padding:14px 16px;border:1.5px solid var(--line);border-radius:12px;font-size:16px;outline:none;box-sizing:border-box;margin-bottom:16px;font-weight:600" />
 
+    <!-- How many servings the batch makes. Saved macros are per serving, so
+         logging this meal as "1" logs one serving, not the whole pan. -->
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;padding:12px 16px;border:1.5px solid var(--line);border-radius:12px">
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:600;color:var(--ink)">Makes</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">Macros save per serving</div>
+      </div>
+      <input type="number" min="1" step="0.5" id="mb-servings-input" value="1" onchange="mbServingsChanged()" oninput="mbServingsChanged()"
+        style="width:72px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:16px;font-weight:700;text-align:center;outline:none;box-sizing:border-box" />
+      <div style="font-size:13px;color:var(--muted);font-weight:600">servings</div>
+    </div>
+
     <!-- Photo -->
     <input type="file" id="mb-photo-input" accept="image/*" style="display:none" onchange="mbPhotoSelected(event)" />
     <div id="mb-photo-section" style="margin-bottom:16px"></div>
 
     <!-- Macro totals -->
     <div style="background:var(--gold-tint);border-radius:14px;padding:14px 16px;margin-bottom:16px">
-      <div style="font-size:11px;font-weight:700;color:#CFA13C;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Totals</div>
+      <div id="mb-totals-label" style="font-size:11px;font-weight:700;color:#CFA13C;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Totals</div>
       <div style="display:grid;grid-template-columns:repeat(6,1fr);text-align:center">
         <div>
           <div style="font-size:12px;font-weight:800;color:#CFA13C" id="mb-total-cals">0</div>
@@ -19456,6 +19559,7 @@ if (document.readyState === 'loading') {
           <div style="font-size:8px;color:var(--muted);font-weight:600">Chol</div>
         </div>
       </div>
+      <div id="mb-batch-note" style="display:none;font-size:10px;color:var(--muted);margin-top:8px;text-align:center"></div>
     </div>
 
     <!-- Ingredients list -->
