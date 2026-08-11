@@ -4385,6 +4385,11 @@ async function vlSendToAI(text) {
       body: JSON.stringify({
         transcript: text,
         coach: vlCoachKey(), // so followup/clarify questions come back in character
+        // The worker pre-generates the audio for its own reply to overlap the
+        // two slow calls. When muted the app never asks for that audio, so
+        // telling the worker keeps mute at ZERO Gemini requests and zero cost,
+        // which is the whole point of the mute path.
+        muted: !!_vlMuted,
         history: _vlHistory.slice(0, -1), // prior turns, not including the transcript we just sent above
         forceFinalize,
         context: {
@@ -6838,8 +6843,8 @@ async function _ttsUrl(speaker, text) {
       try {
         const j = await r.json();
         why = ' ' + JSON.stringify(j);
-        if (j && j.status === 429) why += '  <- Gemini rate limit. Free tier is low; enabling billing raises it.';
-        if (j && (j.status === 400 || j.status === 403)) why += '  <- Gemini rejected the API key.';
+        if (j && j.status === 429) why += '  <- Gemini rate limit.';
+        if (j && j.detail) why += '  <- Gemini says: ' + j.detail;
       } catch (e) {}
       console.warn('[tts-timing] /coach-speak FAILED after ' + Math.round(performance.now() - _t0) + 'ms:', r.status + why);
       return null;
@@ -8795,7 +8800,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-09-e-numselect';
+const RATIO_BUILD = '2026-08-11-b-unitconvert';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -12913,8 +12918,7 @@ function mbOpenServingObj(food) {
   // Build unit wheel the same way as food-modal
   const container = document.getElementById('mb-serving-unit-scroll');
   container.innerHTML = '';
-  const units = [...FOOD_ALL_UNITS];
-  if (!units.includes(baseUnit)) units.unshift(baseUnit);
+  const units = unitsCompatibleWith(baseUnit);
   const itemH = 40;
   const top = document.createElement('div'); top.style.minHeight = itemH + 'px'; container.appendChild(top);
   units.forEach(u => {
@@ -13150,17 +13154,44 @@ function mbOpenServing(jsonStr) {
   mbOpenServingObj(JSON.parse(jsonStr));
 }
 
+
+// Opens the converter pre-set to this food's own base unit, and writes the
+// answer straight back into the amount box so the person never does the
+// arithmetic themselves.
+function mbOpenConverterForFood() {
+  const f = _mbActiveFood;
+  if (!f) return;
+  const baseUnit = f.unit || 'g';
+  openUnitConverter({
+    qty: 1,
+    fromUnit: _unitFamily(baseUnit) === 'mass' ? 'cup' : 'g',
+    targetUnit: baseUnit,
+    onApply: (val) => {
+      document.getElementById('mb-serving-qty').value = Math.round(val * 100) / 100;
+      document.getElementById('mb-serving-unit-select').value = baseUnit;
+      const scroll = document.getElementById('mb-serving-unit-scroll');
+      const units = unitsCompatibleWith(baseUnit);
+      const idx = units.indexOf(baseUnit);
+      if (scroll && idx >= 0) scroll.scrollTop = idx * 40;
+      mbUpdateServingPreview();
+    }
+  });
+}
+
 function mbUpdateServingPreview() {
   const qty = parseFloat(document.getElementById('mb-serving-qty').value) || 1;
   const unit = document.getElementById('mb-serving-unit-select')?.value || '';
   const f = _mbActiveFood;
   if (!f) return;
   const baseSize = f.unit_size || 1;
-  let scale;
-  if (unit === f.unit) scale = qty / baseSize;
-  else if (unit === 'oz' && f.unit === 'g') scale = (qty * 28.35) / baseSize;
-  else if (unit === 'g' && f.unit === 'oz') scale = (qty / 28.35) / baseSize;
-  else scale = qty / baseSize;
+  const scale = foodUnitScale(qty, unit, f.unit, baseSize);
+  if (scale == null) {
+    // Cannot convert: show nothing rather than a wrong number.
+    ['cals','protein','carbs','fat'].forEach(k => {
+      const el = document.getElementById('mb-preview-' + k); if (el) el.textContent = '--';
+    });
+    return;
+  }
   const r = v => Math.round(v * scale * 10) / 10;
   document.getElementById('mb-preview-cals').textContent = Math.round(f.calories * scale);
   document.getElementById('mb-preview-protein').textContent = r(f.protein);
@@ -13174,11 +13205,11 @@ function mbAddIngredient() {
   const f = _mbActiveFood;
   if (!f) return;
   const baseSize = f.unit_size || 1;
-  let scale;
-  if (unit === f.unit) scale = qty / baseSize;
-  else if (unit === 'oz' && f.unit === 'g') scale = (qty * 28.35) / baseSize;
-  else if (unit === 'g' && f.unit === 'oz') scale = (qty / 28.35) / baseSize;
-  else scale = qty / baseSize;
+  const scale = foodUnitScale(qty, unit, f.unit, baseSize);
+  if (scale == null) {
+    toast('Pick a unit this food can be measured in, or use Convert.');
+    return;
+  }
   const r = v => Math.round(v * scale * 10) / 10;
   _mbIngredients.push({
     name: f.name,
@@ -13499,7 +13530,216 @@ function getUnitMultiplier(fromUnit, toUnit) {
 
 let _foodModalUnit = 'g';
 const FOOD_COUNT_UNITS = ['each','serving','slice','piece','cup','tbsp','tsp','scoop','packet','bar','can','bottle'];
-const FOOD_ALL_UNITS = ['g','oz','each','slice','piece','serving','cup','tbsp','tsp','scoop'];
+const FOOD_ALL_UNITS = ['g','oz','lb','ml','l','fl oz','cup','tbsp','tsp','each','slice','piece','serving','scoop'];
+
+// ===========================================================================
+// UNIT CONVERSION
+// ---------------------------------------------------------------------------
+// Every unit wheel used to offer all ten units for every food, and the scale
+// maths handled exactly one pair (g<->oz). Everything else silently fell
+// through to `qty / baseSize`, which treats "5 cups" as "5 grams": a 479 g
+// broth previewed 5 cups as 1 kcal. Wrong, plausible-looking, and saved
+// straight into a meal.
+//
+// The honest constraint: converting VOLUME to MASS needs density, which a
+// food record does not carry. 1 cup is 237 g of broth, 340 g of honey and
+// 125 g of flour. So conversions are exact WITHIN a family, and crossing
+// families is only possible when the person tells us the ingredient (see
+// FOOD_DENSITY / the converter tool). Never guess it.
+// ===========================================================================
+
+// grams per millilitre. Used ONLY by the converter tool, where the person has
+// picked the ingredient explicitly.
+const FOOD_DENSITY = {
+  'Water / broth / stock': 1.00,
+  'Milk': 1.03,
+  'Cream (heavy)': 0.99,
+  'Juice': 1.05,
+  'Oil / melted butter': 0.92,
+  'Honey / syrup': 1.42,
+  'Flour (all-purpose)': 0.53,
+  'Flour (bread)': 0.55,
+  'Sugar (granulated)': 0.85,
+  'Sugar (brown, packed)': 0.93,
+  'Powdered sugar': 0.51,
+  'Rice (raw, white)': 0.80,
+  'Rolled oats': 0.36,
+  'Breadcrumbs (panko)': 0.25,
+  'Peanut butter': 1.09,
+  'Yogurt (plain)': 1.03,
+  'Cheese (shredded)': 0.40,
+  'Butter (solid)': 0.96,
+  'Cocoa powder': 0.42,
+  'Protein powder': 0.42,
+  'Salt (table)': 1.22,
+  'Chopped vegetables': 0.60,
+  'Cooked rice / grains': 0.80,
+  'Cooked pasta': 0.60,
+  'Nuts (chopped)': 0.50,
+  'Beans (cooked)': 0.72
+};
+
+// Millilitres per volume unit, grams per mass unit. Anything absent from both
+// (each, slice, piece, serving, scoop) is an opaque count: it only converts to
+// itself, because nothing in the record says how big one is.
+const _VOL_ML = { tsp: 4.92892, tbsp: 14.78676, cup: 236.5882, 'fl oz': 29.5735, ml: 1, l: 1000 };
+const _MASS_G = { g: 1, kg: 1000, oz: 28.34952, lb: 453.5924 };
+
+function _unitFamily(u) {
+  if (_VOL_ML[u] != null) return 'vol';
+  if (_MASS_G[u] != null) return 'mass';
+  return 'count';
+}
+
+// How many BASE units is `qty unit`? Returns null when the conversion is not
+// knowable - callers must treat null as "cannot convert", never as zero.
+function convertUnitQty(qty, fromUnit, toUnit) {
+  const q = parseFloat(qty);
+  if (!isFinite(q)) return null;
+  if (fromUnit === toUnit) return q;
+  const ff = _unitFamily(fromUnit), tf = _unitFamily(toUnit);
+  if (ff !== tf || ff === 'count') return null;
+  if (ff === 'vol') return q * _VOL_ML[fromUnit] / _VOL_ML[toUnit];
+  return q * _MASS_G[fromUnit] / _MASS_G[toUnit];
+}
+
+// The multiplier to apply to a food's stored macros. `baseSize` is how many
+// base units those macros describe (e.g. 80 kcal per 479 g -> baseSize 479).
+// Returns null when the unit cannot be converted, so the UI can say so
+// instead of showing a confidently wrong number.
+function foodUnitScale(qty, unit, baseUnit, baseSize) {
+  const size = parseFloat(baseSize) || 1;
+  const q = parseFloat(qty);
+  if (!isFinite(q)) return null;
+  // "serving" always means one whole defined portion of THIS food, whatever
+  // the base unit happens to be.
+  if (unit === 'serving' && baseUnit !== 'serving') return q;
+  const inBase = convertUnitQty(q, unit, baseUnit);
+  if (inBase == null) return null;
+  return inBase / size;
+}
+
+// Only offer units this food can actually be measured in.
+function unitsCompatibleWith(baseUnit) {
+  const out = FOOD_ALL_UNITS.filter(u => u === baseUnit || foodUnitScale(1, u, baseUnit, 1) != null);
+  if (!out.includes(baseUnit)) out.unshift(baseUnit);
+  return out;
+}
+
+
+// Inverse of foodUnitScale: given a scale (how many stored portions), what
+// number should the amount box show in `toUnit`? Returns null when the unit
+// cannot express it.
+function amountForScale(scale, toUnit, baseUnit, baseSize) {
+  const size = parseFloat(baseSize) || 1;
+  if (!isFinite(scale)) return null;
+  if (toUnit === 'serving' && baseUnit !== 'serving') return scale;
+  return convertUnitQty(scale * size, baseUnit, toUnit);
+}
+
+// ---- converter tool -------------------------------------------------------
+// Opened from the ingredient sheet or Profile -> Tools. Cross-family
+// conversion is unlocked only once an ingredient is chosen, which is the
+// single piece of information the app genuinely does not have.
+let _convOnApply = null;   // callback(gramsOrNull) when opened from a food
+let _convTargetUnit = 'g';
+
+function openUnitConverter(opts) {
+  opts = opts || {};
+  _convOnApply = opts.onApply || null;
+  _convTargetUnit = opts.targetUnit || 'g';
+  const sel = document.getElementById('conv-ingredient');
+  if (sel && !sel.options.length) {
+    Object.keys(FOOD_DENSITY).forEach(k => {
+      const o = document.createElement('option');
+      o.value = k; o.textContent = k + ' (' + Math.round(FOOD_DENSITY[k] * 236.5882) + ' g/cup)';
+      sel.appendChild(o);
+    });
+    const custom = document.createElement('option');
+    custom.value = '__custom'; custom.textContent = 'Something else - enter grams per cup';
+    sel.appendChild(custom);
+  }
+  document.getElementById('conv-from-qty').value = opts.qty || 1;
+  document.getElementById('conv-from-unit').value = opts.fromUnit || 'cup';
+  document.getElementById('conv-to-unit').value = _convTargetUnit;
+  const applyBtn = document.getElementById('conv-apply-btn');
+  if (applyBtn) applyBtn.style.display = _convOnApply ? 'block' : 'none';
+  convRecalc();
+  document.getElementById('unit-converter-modal').style.display = 'flex';
+}
+
+function closeUnitConverter() {
+  document.getElementById('unit-converter-modal').style.display = 'none';
+  _convOnApply = null;
+}
+
+function convIngredientChanged() {
+  const v = document.getElementById('conv-ingredient').value;
+  document.getElementById('conv-custom-wrap').style.display = v === '__custom' ? 'block' : 'none';
+  convRecalc();
+}
+
+function _convGramsPerCup() {
+  const v = document.getElementById('conv-ingredient').value;
+  if (v === '__custom') {
+    const n = parseFloat(document.getElementById('conv-custom-gpc').value);
+    return isFinite(n) && n > 0 ? n : null;
+  }
+  return FOOD_DENSITY[v] != null ? FOOD_DENSITY[v] * 236.5882 : null;
+}
+
+function convRecalc() {
+  const qty = parseFloat(document.getElementById('conv-from-qty').value);
+  const from = document.getElementById('conv-from-unit').value;
+  const to = document.getElementById('conv-to-unit').value;
+  const out = document.getElementById('conv-result');
+  const note = document.getElementById('conv-note');
+  const applyBtn = document.getElementById('conv-apply-btn');
+  if (!isFinite(qty)) { out.textContent = '--'; note.textContent = ''; return; }
+
+  let result = convertUnitQty(qty, from, to);
+  let needsIngredient = false;
+  if (result == null) {
+    const ff = _unitFamily(from), tf = _unitFamily(to);
+    if (ff === 'count' || tf === 'count') {
+      out.textContent = '--';
+      note.textContent = 'There is no fixed size for "' + (ff === 'count' ? from : to) + '", so this cannot be converted.';
+      if (applyBtn) applyBtn.disabled = true;
+      return;
+    }
+    // volume <-> mass: needs the ingredient
+    const gpc = _convGramsPerCup();
+    if (gpc == null) {
+      out.textContent = '--';
+      note.textContent = 'Pick the ingredient below - a cup weighs anywhere from 85 g (oats) to 340 g (honey).';
+      if (applyBtn) applyBtn.disabled = true;
+      return;
+    }
+    needsIngredient = true;
+    const gPerMl = gpc / 236.5882;
+    if (ff === 'vol') {
+      const ml = qty * _VOL_ML[from];
+      result = (ml * gPerMl) / _MASS_G[to];
+    } else {
+      const grams = qty * _MASS_G[from];
+      result = (grams / gPerMl) / _VOL_ML[to];
+    }
+  }
+  const rounded = result >= 100 ? Math.round(result) : Math.round(result * 100) / 100;
+  out.textContent = rounded + ' ' + to;
+  note.textContent = needsIngredient
+    ? 'Using ' + Math.round(_convGramsPerCup()) + ' g per cup. Densities are approximate - a scale is exact.'
+    : 'Exact conversion.';
+  if (applyBtn) applyBtn.disabled = false;
+  _convLastResult = result;
+}
+let _convLastResult = null;
+
+function convApply() {
+  if (_convOnApply && _convLastResult != null) _convOnApply(_convLastResult);
+  closeUnitConverter();
+}
+
 
 // Shared unit-wheel builder used by every manual food/meal entry screen.
 // scrollContainerId: the scrollable div that shows the unit list
@@ -13546,8 +13786,7 @@ function buildUnitWheel(scrollContainerId, hiddenInputId, defaultUnit, onChange)
   if (!container || !hiddenInput) return;
   hiddenInput.value = defaultUnit;
   container.innerHTML = '';
-  const units = [...FOOD_ALL_UNITS];
-  if (!units.includes(defaultUnit)) units.unshift(defaultUnit);
+  const units = unitsCompatibleWith(defaultUnit);
   const itemH = 40;
   const top = document.createElement('div'); top.style.minHeight = itemH + 'px'; container.appendChild(top);
   units.forEach(u => {
@@ -13615,8 +13854,7 @@ function _buildFoodUnitWheel() {
   container.innerHTML = '';
   const itemH = 40;
   const baseUnit = activeFoodForModal?._servingUnit || 'g';
-  const units = [...FOOD_ALL_UNITS];
-  if (!units.includes(baseUnit)) units.unshift(baseUnit);
+  const units = unitsCompatibleWith(baseUnit);
   const top = document.createElement('div'); top.style.minHeight = itemH + 'px'; container.appendChild(top);
   units.forEach(unit => {
     const el = document.createElement('div');
@@ -13642,15 +13880,16 @@ function setFoodModalUnit(newUnit) {
   document.getElementById('food-modal-serving-label').textContent = _foodModalUnit;
   if (document.getElementById('food-modal-unit-select')) document.getElementById('food-modal-unit-select').value = newUnit;
   const sfuQty = activeFoodForModal?._servingQty || 1;
+  const baseUnit = activeFoodForModal?._servingUnit || 'g';
   const currentQty = parseFloat(document.getElementById('food-modal-qty').value) || sfuQty;
-  let grams = currentQty;
-  if (oldUnit === 'oz') grams = currentQty * 28.3495;
-  else if (FOOD_COUNT_UNITS.includes(oldUnit)) grams = sfuQty * currentQty;
-  let newQty;
-  if (newUnit === 'oz') newQty = Math.round(grams / 28.3495 * 10) / 10;
-  else if (FOOD_COUNT_UNITS.includes(newUnit)) newQty = Math.round(grams / sfuQty * 10) / 10;
-  else newQty = Math.round(grams * 10) / 10;
-  document.getElementById('food-modal-qty').value = newQty;
+  // Keep the PHYSICAL amount the same and re-express it in the new unit.
+  // Previously this special-cased 'oz' and treated every other non-count unit
+  // as grams, so a pound would have become a gram.
+  const scale = foodUnitScale(currentQty, oldUnit, baseUnit, sfuQty);
+  const converted = scale == null ? null : amountForScale(scale, newUnit, baseUnit, sfuQty);
+  if (converted != null) {
+    document.getElementById('food-modal-qty').value = Math.round(converted * 100) / 100;
+  }
   updateFoodModalPreview();
 }
 
@@ -13658,11 +13897,14 @@ function updateFoodModalPreview() {
   if (!activeFoodForModal) return;
   const amount = parseFloat(document.getElementById('food-modal-qty').value) || 0;
   const fmServingQty = activeFoodForModal._servingQty || 1;
-  const countUnits3 = ['each','serving','slice','piece','cup','tbsp','tsp','scoop','packet','bar','can','bottle'];
-  let amountInGrams = amount;
-  if (_foodModalUnit === 'oz') amountInGrams = amount * 28.3495;
-  else if (countUnits3.includes(_foodModalUnit)) amountInGrams = amount * fmServingQty;
-  const ratio = fmServingQty > 0 ? amountInGrams / fmServingQty : 0;
+  const fmServingUnit = activeFoodForModal._servingUnit || 'g';
+  const ratio = foodUnitScale(amount, _foodModalUnit, fmServingUnit, fmServingQty);
+  if (ratio == null) {
+    ['modal-cals','modal-protein','modal-carbs','modal-fat','modal-fiber','modal-chol'].forEach(id => {
+      const el = document.getElementById(id); if (el) el.textContent = '--';
+    });
+    return;
+  }
   const calsPerUnit = activeFoodForModal.calories_per_unit || activeFoodForModal.cals_per_unit || 0;
   document.getElementById('modal-cals').textContent = Math.round(calsPerUnit * ratio);
   document.getElementById('modal-protein').textContent = ((activeFoodForModal.protein_per_unit || 0) * ratio).toFixed(1) + 'g';
@@ -17279,11 +17521,13 @@ function emUpdatePreview() {
   if (!f) return;
   const qty = parseFloat(document.getElementById('em-qty').value) || 0;
   const unit = document.getElementById('em-unit-select')?.value || f.unit;
-  let scale;
-  if (unit === f.unit) scale = qty / f.qty;
-  else if (unit === 'oz' && f.unit === 'g') scale = (qty * 28.35) / f.qty;
-  else if (unit === 'g' && f.unit === 'oz') scale = (qty / 28.35) / f.qty;
-  else scale = qty / f.qty;
+  const scale = foodUnitScale(qty, unit, f.unit, f.qty);
+  if (scale == null) {
+    ['cals','protein','carbs','fat'].forEach(k => {
+      const el = document.getElementById('em-preview-' + k); if (el) el.textContent = '--';
+    });
+    return;
+  }
   const r = v => Math.round(v * scale * 10) / 10;
   document.getElementById('em-preview-cals').textContent = Math.round(f.calories * scale);
   document.getElementById('em-preview-protein').textContent = r(f.protein);
@@ -17318,11 +17562,8 @@ async function saveEditedMeal() {
     const f = _emBaseFood;
     const qty = parseFloat(document.getElementById('em-qty').value) || f.qty;
     const unit = document.getElementById('em-unit-select')?.value || f.unit;
-    let scale;
-    if (unit === f.unit) scale = qty / f.qty;
-    else if (unit === 'oz' && f.unit === 'g') scale = (qty * 28.35) / f.qty;
-    else if (unit === 'g' && f.unit === 'oz') scale = (qty / 28.35) / f.qty;
-    else scale = qty / f.qty;
+    const scale = foodUnitScale(qty, unit, f.unit, f.qty);
+    if (scale == null) { toast('Pick a unit this food can be measured in.'); return; }
     const r = v => Math.round(v * scale * 10) / 10;
     updates = {
       name: `${f.baseName} (${qty} ${unit})`,
@@ -19215,8 +19456,9 @@ if (document.readyState === 'loading') {
     <!-- Search -->
     <button onclick="mbOpenManual()" style="background:var(--accent);color:#101512;border:none;border-radius:20px;padding:6px 16px;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:10px">+ Ingredient</button>
     <div style="position:relative;margin-bottom:10px">
-      <input type="text" id="mb-search-input" placeholder="🔍 Search saved foods or database..."
-        style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:16px;outline:none;box-sizing:border-box"
+      <i class="fa-solid fa-magnifying-glass" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:13px;pointer-events:none"></i>
+      <input type="text" id="mb-search-input" placeholder="Search saved foods or database..."
+        style="width:100%;padding:10px 12px 10px 32px;border:1px solid var(--line);border-radius:10px;font-size:16px;outline:none;box-sizing:border-box"
         oninput="mbSearchInput(this.value)" />
     </div>
     <div id="mb-search-results" style="display:none;margin-bottom:12px"></div>
@@ -19238,6 +19480,57 @@ if (document.readyState === 'loading') {
   </div>
 </div>
 
+
+<!-- UNIT CONVERTER -->
+<div id="unit-converter-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:flex-end;justify-content:center">
+  <div style="background:var(--surface);border-radius:20px 20px 0 0;padding:24px;width:100%;max-width:520px;max-height:88vh;overflow-y:auto">
+    <div style="font-size:16px;font-weight:700;color:var(--ink);margin-bottom:16px">Unit Converter</div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+      <div>
+        <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Amount</div>
+        <input type="number" min="0" step="any" id="conv-from-qty" value="1" oninput="convRecalc()"
+          style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:16px;font-weight:600;outline:none;box-sizing:border-box" />
+      </div>
+      <div>
+        <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">From</div>
+        <select id="conv-from-unit" onchange="convRecalc()"
+          style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:16px;font-weight:600;outline:none;box-sizing:border-box;background:var(--surface);color:var(--ink)">
+          <option>cup</option><option>tbsp</option><option>tsp</option><option>fl oz</option><option>ml</option><option>l</option>
+          <option>g</option><option>oz</option><option>lb</option><option>kg</option>
+        </select>
+      </div>
+    </div>
+
+    <div style="margin-bottom:12px">
+      <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">To</div>
+      <select id="conv-to-unit" onchange="convRecalc()"
+        style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:16px;font-weight:600;outline:none;box-sizing:border-box;background:var(--surface);color:var(--ink)">
+        <option>g</option><option>oz</option><option>lb</option><option>kg</option>
+        <option>cup</option><option>tbsp</option><option>tsp</option><option>fl oz</option><option>ml</option><option>l</option>
+      </select>
+    </div>
+
+    <div style="margin-bottom:12px">
+      <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Ingredient (only needed for cups &harr; grams)</div>
+      <select id="conv-ingredient" onchange="convIngredientChanged()"
+        style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:16px;font-weight:600;outline:none;box-sizing:border-box;background:var(--surface);color:var(--ink)"></select>
+      <div id="conv-custom-wrap" style="display:none;margin-top:8px">
+        <input type="number" min="0" step="any" id="conv-custom-gpc" placeholder="grams per cup" oninput="convRecalc()"
+          style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:16px;font-weight:600;outline:none;box-sizing:border-box" />
+      </div>
+    </div>
+
+    <div style="background:var(--gold-tint);border-radius:12px;padding:16px;text-align:center;margin-bottom:8px">
+      <div style="font-size:24px;font-weight:800;color:#CFA13C" id="conv-result">--</div>
+    </div>
+    <div id="conv-note" style="font-size:11px;color:var(--muted);line-height:1.5;margin-bottom:18px;text-align:center"></div>
+
+    <button id="conv-apply-btn" onclick="convApply()" style="display:none;width:100%;background:#CFA13C;color:#101512;border:none;border-radius:12px;padding:12px 0;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px">Use this amount</button>
+    <button onclick="closeUnitConverter()" style="width:100%;background:none;border:1px solid var(--line);border-radius:12px;padding:12px 0;font-size:14px;font-weight:600;color:var(--ink);cursor:pointer">Close</button>
+  </div>
+</div>
+
 <!-- MEAL BUILDER SERVING MODAL -->
 <div id="mb-serving-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:900;align-items:flex-end;justify-content:center">
   <div style="background:var(--surface);border-radius:20px 20px 0 0;padding:24px;width:100%;max-width:520px">
@@ -19255,6 +19548,7 @@ if (document.readyState === 'loading') {
         </div>
         <input type="hidden" id="mb-serving-unit-select" value="serving" />
       </div>
+      <button onclick="mbOpenConverterForFood()" style="margin-top:8px;background:none;border:none;color:#CFA13C;font-size:12px;font-weight:600;cursor:pointer;padding:4px 0;text-decoration:underline">Convert from cups, tbsp, oz...</button>
     </div>
     <div style="background:var(--gold-tint);border-radius:10px;padding:12px;margin-bottom:20px;display:grid;grid-template-columns:repeat(4,1fr);text-align:center">
       <div><div style="font-size:13px;font-weight:700;color:#CFA13C" id="mb-preview-cals">0</div><div style="font-size:8px;color:var(--muted)">kcal</div></div>
