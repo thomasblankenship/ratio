@@ -8800,7 +8800,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-11-b-unitconvert';
+const RATIO_BUILD = '2026-08-11-c-ozfix';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -13499,6 +13499,12 @@ function openFoodModal(id) {
   else servingQtyG = servingQtyRaw;
   activeFoodForModal._servingQty = servingQtyG;
   activeFoodForModal._servingUnit = servingUnit;
+  // _servingQty above is in GRAMS when the label reads in ounces, but
+  // _servingUnit stays 'oz' for display. Record which unit _servingQty is
+  // genuinely expressed in, because the conversion engine needs the two to
+  // agree - reading "3 oz per 85.05 oz" is what made a 120 kcal serving
+  // display as 4.
+  activeFoodForModal._servingBase = (servingUnit === 'oz') ? 'g' : servingUnit;
   document.getElementById('food-modal-name').textContent = activeFoodForModal.name;
   document.getElementById('food-modal-per').textContent = `${calsPerUnit} kcal per ${storedUnit}`;
   document.getElementById('food-modal-qty').value = servingQtyRaw;
@@ -13853,7 +13859,7 @@ function _buildFoodUnitWheel() {
   if (!container) return;
   container.innerHTML = '';
   const itemH = 40;
-  const baseUnit = activeFoodForModal?._servingUnit || 'g';
+  const baseUnit = activeFoodForModal?._servingBase || activeFoodForModal?._servingUnit || 'g';
   const units = unitsCompatibleWith(baseUnit);
   const top = document.createElement('div'); top.style.minHeight = itemH + 'px'; container.appendChild(top);
   units.forEach(unit => {
@@ -13880,7 +13886,7 @@ function setFoodModalUnit(newUnit) {
   document.getElementById('food-modal-serving-label').textContent = _foodModalUnit;
   if (document.getElementById('food-modal-unit-select')) document.getElementById('food-modal-unit-select').value = newUnit;
   const sfuQty = activeFoodForModal?._servingQty || 1;
-  const baseUnit = activeFoodForModal?._servingUnit || 'g';
+  const baseUnit = activeFoodForModal?._servingBase || activeFoodForModal?._servingUnit || 'g';
   const currentQty = parseFloat(document.getElementById('food-modal-qty').value) || sfuQty;
   // Keep the PHYSICAL amount the same and re-express it in the new unit.
   // Previously this special-cased 'oz' and treated every other non-count unit
@@ -13897,7 +13903,7 @@ function updateFoodModalPreview() {
   if (!activeFoodForModal) return;
   const amount = parseFloat(document.getElementById('food-modal-qty').value) || 0;
   const fmServingQty = activeFoodForModal._servingQty || 1;
-  const fmServingUnit = activeFoodForModal._servingUnit || 'g';
+  const fmServingUnit = activeFoodForModal._servingBase || activeFoodForModal._servingUnit || 'g';
   const ratio = foodUnitScale(amount, _foodModalUnit, fmServingUnit, fmServingQty);
   if (ratio == null) {
     ['modal-cals','modal-protein','modal-carbs','modal-fat','modal-fiber','modal-chol'].forEach(id => {
