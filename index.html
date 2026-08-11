@@ -8800,7 +8800,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-11-c-ozfix';
+const RATIO_BUILD = '2026-08-11-d-coachsubtab';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -10663,7 +10663,11 @@ function switchCoachSubTab(tab) {
   // rather than showing an empty tab.
   const panels = { meals: 'coach-subtab-meals', workouts: 'coach-subtab-workouts' };
   const btns = { meals: 'coach-subtab-btn-meals', workouts: 'coach-subtab-btn-workouts' };
-  if (!panels[which]) which = 'meals';
+  // Guard against a stale/unknown tab key. This read a bare `which`, an
+  // identifier that does not exist here (the parameter is `tab`), so it
+  // threw ReferenceError on EVERY call and killed the rest of the
+  // function - the sub-tab panels never switched.
+  if (!panels[tab]) tab = 'meals';
   Object.keys(panels).forEach(key => {
     document.getElementById(panels[key]).style.display = key === tab ? 'block' : 'none';
     const btn = document.getElementById(btns[key]);
