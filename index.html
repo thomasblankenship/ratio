@@ -3574,6 +3574,21 @@ async function syncHealthKitWorkouts(showToast) {
     for (const w of workouts) {
       const dateStr = w.startDate.slice(0, 10);
       try {
+        // Same real-world session already logged set-by-set in the app? Fill in
+        // what only the Watch knows instead of creating a second row for it.
+        const mergeId = await _wsFindMergeTarget(w, dateStr);
+        if (mergeId) {
+          await dbPatch('workouts', mergeId, {
+            healthkit_id: w.id,
+            calories: w.calories,
+            total_calories: w.totalCalories ?? null,
+            avg_heart_rate: w.avgHeartRate ?? null,
+            heart_rate_series: w.heartRateSeries ?? null,
+            duration_seconds: w.durationSeconds ?? null
+          });
+          importedCount++;
+          continue;
+        }
         await dbUpsert('workouts', {
           date: dateStr,
           name: hkActivityName(w.type),
@@ -8920,7 +8935,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-13-a-tokenrefresh';
+const RATIO_BUILD = '2026-08-13-b-setlogging';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -12375,6 +12390,7 @@ function renderPlanDayEditorInner(i, day) {
           </div>`;
         }).join('')}
         </div>
+        <button type="button" onclick="wsStartSession(${i})" style="width:100%;margin-top:12px;background:var(--accent);color:#101512;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer">Start workout</button>
       </div>` : (configCollapsed && !day.is_rest_day ? `
       <div style="padding:16px 4px;text-align:center">
         <div style="font-size:12px;color:var(--muted);margin-bottom:10px">No exercises generated for this day yet.</div>
@@ -13691,6 +13707,309 @@ async function saveMealFromForm() {
   });
   savedMeals = await dbGet('saved_meals', 'order=created_at.desc') || [];
   toast(`"${name}" saved to My Meals ✓`);
+}
+
+
+// ===========================================================================
+// STRENGTH SET LOGGING
+// ---------------------------------------------------------------------------
+// Sets live in their own `workout_sets` table, one row per set. Everything
+// downstream - per-exercise history, personal records, muscle-group volume -
+// reads from that one table, which is why its shape matters more than this UI.
+//
+// The `workouts` row is created lazily on the first logged set (see
+// _wsEnsureWorkout). Opening a session and walking away leaves nothing behind.
+// ===========================================================================
+
+let _wsSession = null;      // { dayIdx, exercises:[], workoutId, startedAt }
+let _wsActiveEx = null;     // index into _wsSession.exercises
+let _wsSetsToday = [];      // rows already logged in this session
+let _wsHistory = {};        // exerciseName -> { lastSets:[], best:{} }
+
+function _wsToday() { return new Date().toLocaleDateString('en-CA'); }
+
+async function wsStartSession(dayIdx) {
+  const plan = (typeof weeklyPlan !== 'undefined' ? weeklyPlan : [])[dayIdx];
+  if (!plan || !(plan.exercises || []).length) { toast('No exercises for that day yet'); return; }
+  // Strength movements only - a "30 min run" row has no sets to log.
+  const exercises = plan.exercises.filter(ex => !ex.duration_min);
+  if (!exercises.length) { toast('That day has no strength exercises'); return; }
+
+  _wsSession = { dayIdx, exercises, workoutId: null, startedAt: new Date().toISOString(),
+                 name: DAY_NAMES_FULL[dayIdx] + ' workout' };
+  _wsSetsToday = [];
+  _wsHistory = {};
+
+  // Anything already logged today for these movements belongs to this session -
+  // reopening after a phone lock must not start the set count from zero again.
+  try {
+    const existing = await dbGet('workout_sets', `date=eq.${_wsToday()}&order=created_at.asc`);
+    _wsSetsToday = existing || [];
+    if (_wsSetsToday.length && _wsSetsToday[0].workout_id) _wsSession.workoutId = _wsSetsToday[0].workout_id;
+  } catch (e) {}
+
+  document.getElementById('ws-session-panel').style.display = 'flex';
+  wsRenderSession();
+  // History for every exercise up front, so tapping one is instant rather than
+  // showing a spinner between sets.
+  exercises.forEach(ex => _wsLoadHistory(ex.name));
+}
+
+function wsCloseSession() {
+  document.getElementById('ws-session-panel').style.display = 'none';
+  _wsSession = null;
+  if (typeof renderWeeklyPlanList === 'function') { try { renderWeeklyPlanList(); } catch (e) {} }
+}
+
+// Pull every past set for one movement, newest first, and derive two things:
+// what happened LAST time (for prefill) and the all-time best at each weight
+// (for PR detection).
+async function _wsLoadHistory(name) {
+  if (_wsHistory[name]) return _wsHistory[name];
+  let rows = [];
+  try {
+    rows = await dbGet('workout_sets', `exercise_name=eq.${encodeURIComponent(name)}&order=date.desc`) || [];
+  } catch (e) {}
+  const today = _wsToday();
+  const past = rows.filter(r => r.date !== today);
+  const lastDate = past.length ? past[0].date : null;
+  const lastSets = lastDate ? past.filter(r => r.date === lastDate)
+    .sort((a, b) => (a.set_number || 0) - (b.set_number || 0)) : [];
+  // bestAt[weight] = most reps ever done at that weight.
+  const bestAt = {};
+  for (const r of past) {
+    const w = +r.weight || 0, reps = +r.reps || 0;
+    if (!bestAt[w] || reps > bestAt[w].reps) bestAt[w] = { reps, date: r.date };
+  }
+  _wsHistory[name] = { lastSets, lastDate, bestAt };
+  if (_wsSession) wsRenderSession();
+  return _wsHistory[name];
+}
+
+function _wsSetsFor(name) {
+  return _wsSetsToday.filter(r => r.exercise_name === name)
+    .sort((a, b) => (a.set_number || 0) - (b.set_number || 0));
+}
+
+function _wsFmtSets(rows) {
+  return rows.map(r => `${(+r.weight || 0)}&times;${(+r.reps || 0)}`).join(' &nbsp; ');
+}
+
+function wsRenderSession() {
+  if (!_wsSession) return;
+  const el = document.getElementById('ws-session-body');
+  if (!el) return;
+  const rows = _wsSession.exercises.map((ex, i) => {
+    const done = _wsSetsFor(ex.name);
+    const target = +ex.sets || 0;
+    const hist = _wsHistory[ex.name];
+    const complete = target && done.length >= target;
+    const started = done.length > 0;
+    const countColor = complete ? '#4ADE80' : started ? '#CFA13C' : 'var(--dim)';
+    const nameColor = started ? 'var(--ink)' : 'var(--muted)';
+    let sub;
+    if (done.length) sub = `<span style="font-family:ui-monospace,monospace">${_wsFmtSets(done)}</span>`;
+    else if (hist && hist.lastSets.length) sub = `Last time &middot; ${_wsFmtSets(hist.lastSets)}`;
+    else if (hist) sub = 'First time logging this';
+    else sub = '&nbsp;';
+    return `
+    <div onclick="wsOpenSet(${i})" style="padding:12px 0;border-bottom:1px solid var(--gray-100);cursor:pointer">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px">
+        <div style="font-size:14px;font-weight:600;color:${nameColor}">${_weEscHtml(ex.name)}</div>
+        <div style="font-size:11px;font-weight:700;color:${countColor};flex-shrink:0">${complete ? '&#10003; ' : ''}${done.length}/${target || '&ndash;'}</div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">${sub}</div>
+    </div>`;
+  }).join('');
+  const totalSets = _wsSetsToday.length;
+  el.innerHTML = rows + `
+    <div style="margin-top:18px;font-size:11px;color:var(--muted);text-align:center">
+      ${totalSets ? totalSets + ' set' + (totalSets === 1 ? '' : 's') + ' logged' : 'Tap an exercise to log your first set'}
+    </div>`;
+}
+
+// Minimal escaper - exercise names come from the library and the AI, so they
+// are not trusted markup.
+function _weEscHtml(t) {
+  return String(t == null ? '' : t).replace(/[&<>"']/g, c => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+async function wsOpenSet(i) {
+  _wsActiveEx = i;
+  const ex = _wsSession.exercises[i];
+  await _wsLoadHistory(ex.name);
+  const done = _wsSetsFor(ex.name);
+  const hist = _wsHistory[ex.name] || { lastSets: [], bestAt: {} };
+  // Prefill: repeat what you just did this session, else mirror the matching
+  // set from last time, else the last set of last time, else blank.
+  let w = '', reps = '';
+  if (done.length) { w = done[done.length - 1].weight; reps = done[done.length - 1].reps; }
+  else if (hist.lastSets.length) {
+    const match = hist.lastSets[Math.min(done.length, hist.lastSets.length - 1)];
+    w = match.weight; reps = match.reps;
+  }
+  document.getElementById('ws-set-title').textContent = ex.name;
+  document.getElementById('ws-set-sub').textContent =
+    (ex.group || '') + (ex.sets ? ` \u00b7 set ${done.length + 1} of ${ex.sets}` : ` \u00b7 set ${done.length + 1}`);
+  const lastEl = document.getElementById('ws-set-last');
+  if (hist.lastSets.length) {
+    lastEl.style.display = 'block';
+    lastEl.innerHTML = `<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px">Last session &middot; ${_wsFmtDate(hist.lastDate)}</div>
+      <div style="font-size:13px;color:var(--ink-2);font-family:ui-monospace,monospace">${_wsFmtSets(hist.lastSets)}</div>`;
+  } else { lastEl.style.display = 'none'; }
+  document.getElementById('ws-weight').value = w;
+  document.getElementById('ws-reps').value = reps;
+  document.getElementById('ws-log-btn').textContent = `Log set ${done.length + 1}`;
+  wsCheckPr();
+  document.getElementById('ws-set-sheet').style.display = 'flex';
+}
+
+function _wsFmtDate(d) {
+  if (!d) return '';
+  return new Date(d + 'T12:00:00').toLocaleDateString([], { month: 'short', day: 'numeric' });
+}
+
+function wsCloseSet() { document.getElementById('ws-set-sheet').style.display = 'none'; }
+
+function wsStep(field, delta) {
+  const el = document.getElementById(field === 'weight' ? 'ws-weight' : 'ws-reps');
+  const cur = parseFloat(el.value) || 0;
+  el.value = Math.max(0, Math.round((cur + delta) * 10) / 10);
+  wsCheckPr();
+}
+
+// "Beats your best at 190 lbs" is more useful than a bare "new record" - it
+// says exactly what the number is being compared against.
+function wsCheckPr() {
+  const box = document.getElementById('ws-pr');
+  if (!box || _wsActiveEx == null || !_wsSession) return;
+  const ex = _wsSession.exercises[_wsActiveEx];
+  const hist = _wsHistory[ex.name];
+  const w = parseFloat(document.getElementById('ws-weight').value);
+  const reps = parseFloat(document.getElementById('ws-reps').value);
+  if (!hist || !isFinite(w) || !isFinite(reps) || reps <= 0) { box.style.display = 'none'; return; }
+  const prev = hist.bestAt[w];
+  const everLifted = Object.keys(hist.bestAt).map(Number);
+  const heaviestEver = everLifted.length ? Math.max(...everLifted) : null;
+  let msg = null;
+  if (heaviestEver != null && w > heaviestEver) msg = `Heaviest you've logged for this \u2014 previous best ${heaviestEver} lbs`;
+  else if (prev && reps > prev.reps) msg = `Beats your best at ${w} lbs \u2014 ${prev.reps} reps on ${_wsFmtDate(prev.date)}`;
+  if (!msg) { box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  box.innerHTML = `&#127942; ${msg}`;
+}
+
+// The workouts row is created here, on the first set - never on session open.
+async function _wsEnsureWorkout() {
+  if (_wsSession.workoutId) return _wsSession.workoutId;
+  const now = new Date();
+  const row = await dbPost('workouts', {
+    date: _wsToday(),
+    name: _wsSession.name,
+    duration: 0,
+    started_at: _wsSession.startedAt,
+    ended_at: now.toISOString(),
+    time: new Date(_wsSession.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  });
+  _wsSession.workoutId = Array.isArray(row) ? row[0]?.id : row?.id;
+  return _wsSession.workoutId;
+}
+
+async function wsLogSet() {
+  if (!_wsSession || _wsActiveEx == null) return;
+  const ex = _wsSession.exercises[_wsActiveEx];
+  const weight = parseFloat(document.getElementById('ws-weight').value);
+  const reps = parseFloat(document.getElementById('ws-reps').value);
+  if (!isFinite(reps) || reps <= 0) { toast('Enter how many reps you did'); return; }
+  const btn = document.getElementById('ws-log-btn');
+  btn.disabled = true;
+  try {
+    const workoutId = await _wsEnsureWorkout();
+    const setNumber = _wsSetsFor(ex.name).length + 1;
+    const saved = await dbPost('workout_sets', {
+      workout_id: workoutId,
+      date: _wsToday(),
+      exercise_name: ex.name,
+      muscle_group: ex.group || null,
+      set_number: setNumber,
+      weight: isFinite(weight) ? weight : null,
+      reps: reps
+    });
+    const row = Array.isArray(saved) ? saved[0] : saved;
+    _wsSetsToday.push(row || { exercise_name: ex.name, set_number: setNumber, weight, reps, workout_id: workoutId });
+    // Keep the session's end time moving so the HealthKit merge below has a
+    // real window to match against.
+    _wsTouchEnd(workoutId);
+    wsCloseSet();
+    wsRenderSession();
+  } catch (e) {
+    console.error('[ws] log set failed', e);
+    toast('Could not save that set');
+  } finally { btn.disabled = false; }
+}
+
+let _wsTouchTimer = null;
+function _wsTouchEnd(workoutId) {
+  clearTimeout(_wsTouchTimer);
+  _wsTouchTimer = setTimeout(async () => {
+    try {
+      const started = new Date(_wsSession?.startedAt || Date.now());
+      const mins = Math.max(1, Math.round((Date.now() - started.getTime()) / 60000));
+      await dbPatch('workouts', workoutId, { ended_at: new Date().toISOString(), duration: mins });
+    } catch (e) {}
+  }, 1500);
+}
+
+// Undo a mis-tapped set - the most recent one for the open exercise.
+async function wsUndoLastSet() {
+  if (!_wsSession || _wsActiveEx == null) return;
+  const ex = _wsSession.exercises[_wsActiveEx];
+  const done = _wsSetsFor(ex.name);
+  const last = done[done.length - 1];
+  if (!last || !last.id) { toast('Nothing to undo'); return; }
+  try {
+    await dbDelete('workout_sets', last.id);
+    _wsSetsToday = _wsSetsToday.filter(r => r.id !== last.id);
+    wsCloseSet();
+    wsRenderSession();
+  } catch (e) { toast('Could not undo that set'); }
+}
+
+
+// Find an app-logged strength session that is the SAME real-world workout as
+// this HealthKit one, so the two become one row instead of two.
+//
+// Matching is same-day AND overlapping time window - never date-only, because
+// two sessions in a day would otherwise fuse into one. Returns the row id to
+// merge into, or null to insert normally.
+async function _wsFindMergeTarget(hkWorkout, dateStr) {
+  try {
+    if (!hkWorkout || !hkWorkout.startDate) return null;
+    // Only strength-type HealthKit workouts can be a match; a run is never the
+    // same event as a bench session.
+    const type = String(hkWorkout.type || '').toLowerCase();
+    if (!/strength|weight|functional|core|cross ?training/.test(type)) return null;
+
+    const hkStart = new Date(hkWorkout.startDate).getTime();
+    const hkEnd = hkStart + (+hkWorkout.durationMinutes || 0) * 60000;
+
+    const rows = await dbGet('workouts', `date=eq.${dateStr}&healthkit_id=is.null&order=created_at.asc`) || [];
+    for (const r of rows) {
+      if (!r.started_at) continue;
+      const aStart = new Date(r.started_at).getTime();
+      const aEnd = r.ended_at ? new Date(r.ended_at).getTime() : aStart;
+      const overlap = Math.min(aEnd, hkEnd) - Math.max(aStart, hkStart);
+      const shorter = Math.max(1, Math.min(aEnd - aStart, hkEnd - hkStart));
+      // Overlap at least half the shorter session, or start within 20 minutes -
+      // the second case covers a session logged set-by-set over a long window.
+      if (overlap > shorter * 0.5 || Math.abs(aStart - hkStart) < 20 * 60000) {
+        console.log('[ws] merging HealthKit workout into logged session', r.id);
+        return r.id;
+      }
+    }
+  } catch (e) { console.error('[ws] merge lookup failed', e && e.message); }
+  return null;
 }
 
 // Food modal
@@ -19745,6 +20064,59 @@ if (document.readyState === 'loading') {
   </div>
 </div>
 
+
+
+<div id="ws-session-panel" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:900;flex-direction:column">
+  <div style="padding:14px 16px;border-bottom:1px solid var(--gray-100);display:flex;align-items:center;gap:12px;flex-shrink:0">
+    <button type="button" onclick="wsCloseSession()" aria-label="Close workout" style="background:none;border:none;color:var(--ink);font-size:20px;cursor:pointer;padding:0;width:28px">&#8592;</button>
+    <div style="flex:1;min-width:0">
+      <div id="ws-session-title" style="font-size:16px;font-weight:700;color:var(--ink)">Workout</div>
+      <div style="font-size:11px;color:var(--muted)">Tap an exercise to log a set</div>
+    </div>
+  </div>
+  <div id="ws-session-body" style="flex:1;overflow-y:auto;padding:12px 16px 40px"></div>
+</div>
+
+<div id="ws-set-sheet" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:flex-end;justify-content:center">
+  <div style="background:var(--surface);border-radius:20px 20px 0 0;padding:20px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto">
+    <div id="ws-set-title" style="font-size:16px;font-weight:700;color:var(--ink)"></div>
+    <div id="ws-set-sub" style="font-size:11px;color:var(--muted);margin-top:3px"></div>
+
+    <div id="ws-set-last" style="display:none;background:var(--surface-2);border-radius:10px;padding:11px 13px;margin-top:14px"></div>
+
+    <div style="display:flex;gap:10px;margin-top:14px">
+      <div style="flex:1;background:var(--surface-2);border-radius:10px;padding:12px 8px;text-align:center">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px">Weight</div>
+        <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:6px">
+          <button type="button" onclick="wsStep('weight',-5)" aria-label="Less weight" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;width:28px;padding:0">&minus;</button>
+          <input type="number" id="ws-weight" inputmode="decimal" step="any" min="0" oninput="wsCheckPr()"
+            style="width:74px;background:none;border:none;outline:none;text-align:center;font-size:25px;font-weight:800;color:var(--accent);padding:0" />
+          <button type="button" onclick="wsStep('weight',5)" aria-label="More weight" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;width:28px;padding:0">+</button>
+        </div>
+        <div style="font-size:10px;color:var(--dim);margin-top:3px">lbs</div>
+      </div>
+      <div style="flex:1;background:var(--surface-2);border-radius:10px;padding:12px 8px;text-align:center">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px">Reps</div>
+        <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:6px">
+          <button type="button" onclick="wsStep('reps',-1)" aria-label="Fewer reps" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;width:28px;padding:0">&minus;</button>
+          <input type="number" id="ws-reps" inputmode="numeric" step="1" min="0" oninput="wsCheckPr()"
+            style="width:60px;background:none;border:none;outline:none;text-align:center;font-size:25px;font-weight:800;color:var(--accent);padding:0" />
+          <button type="button" onclick="wsStep('reps',1)" aria-label="More reps" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;width:28px;padding:0">+</button>
+        </div>
+        <div style="font-size:10px;color:var(--dim);margin-top:3px">&nbsp;</div>
+      </div>
+    </div>
+
+    <div id="ws-pr" style="display:none;background:rgba(74,222,128,0.10);border-radius:8px;padding:8px 11px;margin-top:12px;font-size:11px;color:#4ADE80"></div>
+
+    <button type="button" id="ws-log-btn" onclick="wsLogSet()" style="width:100%;margin-top:12px;background:var(--accent);color:#101512;border:none;border-radius:12px;padding:13px;font-size:14px;font-weight:700;cursor:pointer">Log set</button>
+
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button type="button" onclick="wsUndoLastSet()" style="flex:1;background:none;border:1px solid var(--line);border-radius:8px;padding:9px;font-size:11px;color:var(--muted);cursor:pointer">Undo last set</button>
+      <button type="button" onclick="wsCloseSet()" style="flex:1;background:none;border:1px solid var(--line);border-radius:8px;padding:9px;font-size:11px;color:var(--muted);cursor:pointer">Done</button>
+    </div>
+  </div>
+</div>
 
 <!-- UNIT CONVERTER -->
 <div id="unit-converter-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:flex-end;justify-content:center">
