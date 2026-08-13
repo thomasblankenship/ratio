@@ -5653,15 +5653,55 @@ let selectedPhotoFile = null;
 
 
 // API helpers
+// iOS freezes all JS in the background, so a token that was valid when the app
+// was backgrounded can be long dead by the time it resumes. Refresh it from
+// the stored refresh_token and hand back whether we now have a usable token.
+//
+// Concurrent callers share ONE in-flight refresh: the resume path fires
+// several fetches at once, and without this each would kick off its own
+// refresh, racing to overwrite _authToken with tokens from parallel requests.
+let _sbRefreshInFlight = null;
+async function _sbRefreshAuth() {
+  if (_sbRefreshInFlight) return _sbRefreshInFlight;
+  _sbRefreshInFlight = (async () => {
+    try {
+      const raw = localStorage.getItem('sb_session');
+      if (!raw) return false;
+      const session = JSON.parse(raw);
+      if (!session || !session.refresh_token) return false;
+      const refreshed = await refreshSession(session.refresh_token);
+      if (refreshed) console.log('[auth] token refreshed');
+      return !!refreshed;
+    } catch (e) {
+      console.error('[auth] refresh failed:', (e && e.message) || e);
+      return false;
+    } finally {
+      // Cleared on the next tick so callers awaiting this same promise all
+      // see the result before a new refresh can start.
+      setTimeout(() => { _sbRefreshInFlight = null; }, 0);
+    }
+  })();
+  return _sbRefreshInFlight;
+}
+
 async function dbGet(table, filters = '', skipUserFilter = false) {
   try {
     const orderParam = filters.includes('order=') ? '' : '&order=created_at.asc';
     // Always filter by user_id if logged in (belt-and-suspenders on top of RLS) —
     // unless skipUserFilter is set, for tables meant to be shared across all accounts
     const userFilter = (!skipUserFilter && _currentUser?.id && !filters.includes('user_id=')) ? `&user_id=eq.${_currentUser.id}` : '';
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${filters}${orderParam}${userFilter}`, {
+    const url = `${SUPABASE_URL}/rest/v1/${table}?${filters}${orderParam}${userFilter}`;
+    const send = () => fetch(url, {
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${_authToken || SUPABASE_KEY}` }
     });
+    let res = await send();
+    // 401 after being backgrounded means an expired token, not missing data.
+    // Without this retry the catch below returns [] and the UI renders a
+    // confident "0 eaten" - silently wrong, which is worse than an error.
+    if (res.status === 401 && _currentUser) {
+      console.warn('[auth] 401 on', table, '- refreshing token and retrying');
+      if (await _sbRefreshAuth()) res = await send();
+    }
     if (!res.ok) { console.error('dbGet failed:', table, res.status); return []; }
     const data = await res.json();
     return Array.isArray(data) ? data : [];
@@ -5704,11 +5744,18 @@ async function loadSetting(key) {
 async function dbPost(table, data) {
   // Auto-inject user_id if logged in
   if (_currentUser?.id && !data.user_id) data = { ...data, user_id: _currentUser.id };
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+  const send = () => fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
     method: 'POST',
     headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${_authToken || SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
     body: JSON.stringify(data)
   });
+  let res = await send();
+  // A write losing to an expired token is worse than a read - the person
+  // thinks their meal saved. Same refresh-and-retry.
+  if (res.status === 401 && _currentUser) {
+    console.warn('[auth] 401 writing', table, '- refreshing token and retrying');
+    if (await _sbRefreshAuth()) res = await send();
+  }
   const result = await res.json();
   if (!res.ok) throw new Error(JSON.stringify(result));
   return result;
@@ -8873,7 +8920,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-12-b-novoiceout';
+const RATIO_BUILD = '2026-08-13-a-tokenrefresh';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -18869,6 +18916,11 @@ function checkAwayGap() {
   const gap = Date.now() - _lastActiveTick;
   _lastActiveTick = Date.now();
   if (gap >= 20 * 1000) console.log('[Ratio] away ' + Math.round(gap / 1000) + 's');
+  // Anything beyond a couple of minutes frozen and the access token may well
+  // have expired. Refresh FIRST so the refetch below does not spend a
+  // round-trip on a request that is going to 401. dbGet/dbPost still retry on
+  // their own - this just avoids the wasted trip in the common case.
+  if (gap >= 2 * 60 * 1000 && _currentUser) _sbRefreshAuth();
   if (gap >= RESUME_RESET_MS) {
     resetToTodayHome();
     return true;
