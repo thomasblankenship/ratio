@@ -1484,6 +1484,14 @@
             <div id="todo-notif-toggle-knob" style="position:absolute;top:3px;right:3px;width:16px;height:16px;border-radius:50%;background:var(--surface);transition:all 0.2s"></div>
           </div>
         </div>
+        <!-- The ONLY way back after using the email's unsubscribe link, which
+             otherwise sets weekly_email_enabled=false permanently. -->
+        <div class="mp-row" style="cursor:default">
+          <div class="mp-row-label">Weekly Report Email</div>
+          <div onclick="toggleWeeklyEmailEnabled()" id="wkemail-toggle-track" style="cursor:pointer;width:40px;height:22px;border-radius:11px;background:var(--accent);position:relative;transition:background 0.2s;flex-shrink:0">
+            <div id="wkemail-toggle-knob" style="position:absolute;top:3px;right:3px;width:16px;height:16px;border-radius:50%;background:var(--surface);transition:all 0.2s"></div>
+          </div>
+        </div>
         <!-- ⚠️ PRE-LAUNCH: QA ONLY — hide before public release. See LAUNCH-CHECKLIST.md -->
         <div class="mp-row qa-only" onclick="sendTestTodoNotification()">
           <div class="mp-row-label">Test Reminder</div>
@@ -3467,6 +3475,34 @@ function _setTodoNotifToggleUI(on) {
   knob.style.right = on ? '3px' : 'auto';
   knob.style.left = on ? 'auto' : '3px';
 }
+
+// Weekly report email. Default ON, so `!== false` everywhere - the setting is
+// absent until someone changes it. This toggle is also the re-subscribe path
+// for anyone who used the unsubscribe link in the email itself.
+function _setWeeklyEmailToggleUI(on) {
+  const track = document.getElementById('wkemail-toggle-track');
+  const knob = document.getElementById('wkemail-toggle-knob');
+  if (!track || !knob) return;
+  track.style.background = on ? 'var(--accent)' : 'var(--line)';
+  knob.style.right = on ? '3px' : 'auto';
+  knob.style.left = on ? 'auto' : '3px';
+}
+async function loadWeeklyEmailToggle() {
+  const enabled = (await loadSetting('weekly_email_enabled')) !== false;
+  _setWeeklyEmailToggleUI(enabled);
+}
+async function toggleWeeklyEmailEnabled() {
+  const cur = (await loadSetting('weekly_email_enabled')) !== false;
+  const next = !cur;
+  await saveSetting('weekly_email_enabled', next);
+  // Turning it back on also clears the dormancy streak, so someone
+  // re-subscribing gets next Sunday's email rather than being counted as
+  // still-dormant from before.
+  if (next) { try { await saveSetting('weekly_email_empty_streak', 0); } catch (e) {} }
+  _setWeeklyEmailToggleUI(next);
+  toast(next ? 'Weekly report email on \u2713' : 'Weekly report email off');
+}
+
 async function loadTodoNotificationsToggle() {
   const enabled = (await loadSetting('todo_notifications_enabled')) !== false;
   _setTodoNotifToggleUI(enabled);
@@ -4954,7 +4990,7 @@ function switchTab(tab) {
   if (tab === 'profile-allergies') loadFoodAllergiesPage();
   if (tab === 'profile-targets') loadDailyTargetsPage();
   if (tab === 'profile-report') loadWeeklyReportPage();
-  if (tab === 'profile-settings') { loadNotificationsToggle(); loadTodoNotificationsToggle(); refreshAppearanceValue(); }
+  if (tab === 'profile-settings') { loadNotificationsToggle(); loadTodoNotificationsToggle(); loadWeeklyEmailToggle(); refreshAppearanceValue(); }
   if (tab === 'profile-appearance') refreshAppearanceValue();
   if (tab === 'aicoach') {
     const badge = document.getElementById('ai-coach-new-badge');
@@ -8800,7 +8836,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-11-g-mblayout';
+const RATIO_BUILD = '2026-08-12-a-emailtoggle';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
