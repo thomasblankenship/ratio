@@ -1814,7 +1814,7 @@
         <div style="flex:1"></div>
         <span id="vl-coach-name" style="display:none"></span>
         <img id="vl-coach-avatar" style="display:none" alt="">
-        <button id="vl-mute" onclick="vlToggleMute()" aria-label="Coach voice on or off" style="background:none;border:none;color:#CFA13C;font-size:17px;cursor:pointer;padding:6px;width:36px"><i class="fa-solid fa-volume-high"></i></button>
+        <button id="vl-mute" onclick="vlToggleMute()" aria-label="Coach voice on or off" style="display:none;background:none;border:none;color:#CFA13C;font-size:17px;cursor:pointer;padding:6px;width:36px"><i class="fa-solid fa-volume-high"></i></button>
       </div>
 
       <!-- The scrolling container. Previously the thread had no scroller of
@@ -3948,6 +3948,22 @@ function _vlThreadTyping(on) {
 // Coach voice in the log, same treatment as onboarding: speaks by default,
 // muteable from the header, choice persists.
 let _vlSpeechReported = false;
+// ===========================================================================
+// COACH VOICE OUTPUT - OFF
+// ---------------------------------------------------------------------------
+// Voice INPUT (the mic, speech-to-text) is unaffected and still works.
+// Only the coach SPEAKING is disabled.
+//
+// Why: Gemini TTS took ~30s to generate ~15s of audio, the voices were not
+// good enough, and an app used at a gym or a restaurant should not read your
+// food log out loud. Text replies are faster and more private.
+//
+// TO RE-ENABLE when TTS is good enough: set this to true. Nothing was
+// deleted - the whole speech path is intact behind this flag. Also
+// re-enable the Gemini API key on the worker, and un-hide the speaker
+// buttons (search VOICE_OUTPUT_ENABLED for the display:none guards).
+const VOICE_OUTPUT_ENABLED = false;
+
 let _vlMuted = false;
 try { _vlMuted = localStorage.getItem('obchat_muted') === '1'; } catch (e) {}
 function vlToggleMute() {
@@ -3964,7 +3980,7 @@ function _vlSyncMuteBtn() {
   btn.style.color = _vlMuted ? 'var(--muted)' : '#CFA13C';
 }
 function _vlSpeak(text) {
-  if (_vlMuted) return;
+  if (!VOICE_OUTPUT_ENABLED || _vlMuted) return;
   const who = vlCoachKey();
   coachAudioTryPlay(who, text)
     .then(played => played || ratioSpeak(who, text))
@@ -3972,7 +3988,7 @@ function _vlSpeak(text) {
 }
 function _vlSpeakDevice(text) {
   try {
-    if (!window.speechSynthesis || _vlMuted || _ttsSuppressed) return;
+    if (!VOICE_OUTPUT_ENABLED || !window.speechSynthesis || _vlMuted || _ttsSuppressed) return;
     // Stop BOTH engines, not just our own. cancel() alone let this voice talk
     // over a Gemini clip that was still playing from the previous line —
     // that is the two-voices-at-once bug, verbatim from the console.
@@ -4425,7 +4441,9 @@ async function vlSendToAI(text) {
         // two slow calls. When muted the app never asks for that audio, so
         // telling the worker keeps mute at ZERO Gemini requests and zero cost,
         // which is the whole point of the mute path.
-        muted: !!_vlMuted,
+        // Voice output off means the app will never request audio, so the
+        // worker must not pre-generate any. Keeps Gemini spend at zero.
+        muted: !VOICE_OUTPUT_ENABLED || !!_vlMuted,
         history: _vlHistory.slice(0, -1), // prior turns, not including the transcript we just sent above
         forceFinalize,
         context: {
@@ -6946,7 +6964,7 @@ function _logGeminiVoice(speaker, got) {
 function ratioPrefetch(speaker, text) {
   // Muted means FREE: the speaking paths already skip fetching when muted,
   // but prefetches used to fire anyway — generating audio nobody would hear.
-  if (_ocMuted) return;
+  if (!VOICE_OUTPUT_ENABLED || _ocMuted) return;
   try { _ttsUrl(speaker, text).catch(() => {}); } catch (e) {}
 }
 
@@ -6956,6 +6974,14 @@ function ratioPrefetch(speaker, text) {
 let _ttsSeq = 0;
 async function ratioSpeak(speaker, text, opts) {
   opts = opts || {};
+  if (!VOICE_OUTPUT_ENABLED) {
+    // 'stale' is truthy, which is exactly what callers treat as "handled,
+    // do not fall back to the device voice". Returning false here would make
+    // the phone start talking in its own robot voice instead - the opposite
+    // of what turning this off is for.
+    if (opts.onEnd) { try { opts.onEnd(); } catch (e) {} }
+    return 'stale';
+  }
   if (_ttsSuppressed) return false;          // mic already open — do not start
   // Sequence guard. Generation can take 20+ seconds, and a request that
   // resolves AFTER a newer line has started must not play — that is how
@@ -7303,7 +7329,9 @@ function _ocSpeakAndReveal(text, bubble, opts2) {
     if (_spokenFired) return; _spokenFired = true;
     try { if (opts2 && opts2.onSpoken) opts2.onSpoken(); } catch (e) {}
   };
-  if (_ocMuted || !text) {
+  // Voice off routes through the MUTED branch on purpose: it already
+  // reveals the text and fires spoken(), which is what advances onboarding.
+  if (!VOICE_OUTPUT_ENABLED || _ocMuted || !text) {
     bubble.textContent = text || '';
     setTimeout(spoken, 600);   // muted still advances, at reading pace
     return;
@@ -7353,7 +7381,7 @@ function _ocSpeakAndReveal(text, bubble, opts2) {
 
 function _ocRevealDeviceVoice(text, bubble, onSpoken) {
   const showAll = () => { bubble.textContent = text; if (onSpoken) onSpoken(); };
-  if (_ocMuted || _ttsSuppressed || !window.speechSynthesis) { showAll(); return; }
+  if (!VOICE_OUTPUT_ENABLED || _ocMuted || _ttsSuppressed || !window.speechSynthesis) { showAll(); return; }
   let done = false;
   let timer = null;
   const finish = () => { if (!done) { done = true; if (timer) clearInterval(timer); showAll(); } };
@@ -7481,6 +7509,15 @@ function obChatToggleMute() {
   _ocSyncMuteBtn();
 }
 function _ocSyncMuteBtn() {
+  // Nothing to mute when the coach never speaks - hide rather than show a
+  // control that does nothing.
+  if (!VOICE_OUTPUT_ENABLED) {
+    ['obchat-mute', 'obchat-mute-intro'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
+    return;
+  }
   const icon = _ocMuted ? '<i class="fa-solid fa-volume-xmark"></i>' : '<i class="fa-solid fa-volume-high"></i>';
   ['obchat-mute', 'obchat-mute-intro'].forEach(id => {
     const btn = document.getElementById(id);
@@ -8836,7 +8873,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-12-a-emailtoggle';
+const RATIO_BUILD = '2026-08-12-b-novoiceout';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
