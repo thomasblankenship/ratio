@@ -8935,7 +8935,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-13-b-setlogging';
+const RATIO_BUILD = '2026-08-13-c-plancards';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -12253,32 +12253,53 @@ function togglePlanDayExpand(i) {
 function renderWeeklyPlanList() {
   const el = document.getElementById('weekly-plan-list');
   if (!el) return;
+  const todayIdx = new Date().getDay();
   el.innerHTML = weeklyPlan.map((day, i) => {
     const expanded = expandedPlanDay === i;
     const groups = day.muscle_groups || [];
     const exerciseCount = (day.exercises || []).length;
     const checkedCount = (day.checked_off || []).length;
-    let summaryText;
-    if (day.is_rest_day) summaryText = 'Rest day';
-    else if (exerciseCount) summaryText = `${checkedCount}/${exerciseCount} done — ${groups.join(', ')}`;
-    else if (groups.length) summaryText = groups.join(', ');
-    else summaryText = 'Not set yet';
-    const isLast = i === weeklyPlan.length - 1;
+    const isToday = i === todayIdx;
+    // "Unset" means genuinely nothing chosen - not a rest day, no muscle
+    // groups, no exercises. These get their own look and a direct "Set up"
+    // rather than the same affordance as a configured day.
+    const isUnset = !day.is_rest_day && !groups.length && !exerciseCount;
     const canExpand = editingPlanDayConfig.has(i) || !(day.is_rest_day && savedPlanDays.has(i));
 
+    let summaryText;
+    if (day.is_rest_day) summaryText = 'Rest day';
+    else if (isUnset) summaryText = 'Nothing planned';
+    else if (exerciseCount) summaryText = `${groups.join(', ')} \u00b7 ${exerciseCount} exercise${exerciseCount === 1 ? '' : 's'}`;
+    else summaryText = groups.join(', ');
+
+    // Card styling carries the state, so a rest day, an empty day and a full
+    // session are distinguishable at a glance instead of three identical rows.
+    let cardStyle = 'background:var(--surface-2);border:1px solid transparent';
+    if (isToday && !day.is_rest_day) cardStyle = 'background:var(--surface-2);border:1px solid var(--accent)';
+    else if (isUnset) cardStyle = 'background:var(--surface-2);border:1px dashed var(--line)';
+    const dim = day.is_rest_day ? 'opacity:0.6;' : '';
+
+    const progress = (!day.is_rest_day && exerciseCount) ? `
+      <div style="height:4px;background:var(--gray-100);border-radius:2px;margin-top:11px;overflow:hidden">
+        <div style="width:${Math.round((checkedCount / exerciseCount) * 100)}%;height:4px;background:var(--accent);border-radius:2px"></div>
+      </div>
+      <div style="font-size:10px;color:var(--muted);margin-top:5px">${checkedCount} of ${exerciseCount} done</div>` : '';
+
     return `
-    <div style="${isLast ? '' : 'border-bottom:1px solid var(--gray-100)'}">
-      <div ${canExpand ? `onclick="togglePlanDayExpand(${i})"` : ''} style="width:100%;display:flex;justify-content:space-between;align-items:center;text-align:left;background:none;border:none;cursor:${canExpand ? 'pointer' : 'default'};padding:13px 14px;box-sizing:border-box">
+    <div style="${cardStyle};${dim}border-radius:12px;margin-bottom:8px;overflow:hidden">
+      <div ${canExpand ? `onclick="togglePlanDayExpand(${i})"` : ''} style="width:100%;display:flex;justify-content:space-between;align-items:center;text-align:left;cursor:${canExpand ? 'pointer' : 'default'};padding:13px 14px;box-sizing:border-box">
         <div style="flex:1;min-width:0">
-          <div style="font-size:14px;font-weight:800;color:var(--ink)">${DAY_NAMES_FULL[i]}</div>
-          <div style="font-size:12px;color:${day.is_rest_day ? 'var(--muted)' : 'var(--muted)'};margin-top:2px">${summaryText}</div>
+          <div style="font-size:14px;font-weight:800;color:${isUnset ? 'var(--muted)' : 'var(--ink)'}">${DAY_NAMES_FULL[i]}${isToday ? ' <span style="font-size:10px;font-weight:700;color:#CFA13C;background:var(--gold-tint);padding:2px 7px;border-radius:20px;margin-left:5px">Today</span>' : ''}</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:4px">${summaryText}</div>
         </div>
-        <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;margin-left:8px">
-          <button type="button" onclick="event.stopPropagation(); editPlanDayConfig(${i})" style="background:none;border:none;color:#CFA13C;font-size:12px;font-weight:700;cursor:pointer;padding:2px"><i class="fa-solid fa-pen" style="font-size:0.85em"></i> Edit</button>
-          <span style="color:var(--dim);font-size:16px;transform:rotate(${expanded ? '90deg' : '0deg'});transition:transform 0.15s;visibility:${canExpand ? 'visible' : 'hidden'}">›</span>
+        <div style="flex-shrink:0;margin-left:8px">
+          ${isUnset
+            ? `<button type="button" onclick="event.stopPropagation(); editPlanDayConfig(${i})" style="background:none;border:none;color:#CFA13C;font-size:12px;font-weight:700;cursor:pointer;padding:2px">Set up</button>`
+            : `<span style="color:var(--dim);font-size:16px;display:inline-block;transform:rotate(${expanded ? '90deg' : '0deg'});transition:transform 0.15s;visibility:${canExpand ? 'visible' : 'hidden'}">\u203a</span>`}
         </div>
       </div>
-      ${expanded && canExpand ? renderPlanDayEditorInner(i, day) : ''}
+      ${!expanded ? `<div style="padding:0 14px ${progress ? '13px' : '2px'}">${progress}</div>` : ''}
+      ${expanded && canExpand ? `<div style="padding:0 14px 14px">${renderPlanDayEditorInner(i, day)}</div>` : ''}
     </div>`;
   }).join('');
 }
@@ -12372,7 +12393,10 @@ function renderPlanDayEditorInner(i, day) {
       <div style="margin-top:${configCollapsed ? '4px' : '16px'};padding-top:14px;${configCollapsed ? '' : 'border-top:1px solid var(--gray-100);'}background:var(--surface)">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
           <div style="font-size:12px;font-weight:700;color:var(--muted)">TODAY'S EXERCISES</div>
-          <button type="button" onclick="generateDayWorkout(${i})" ${isGenerating ? 'disabled' : ''} style="font-size:11px;font-weight:700;color:var(--accent);background:none;border:none;cursor:pointer">${isGenerating ? '✨ Building...' : '🔄 Regenerate'}</button>
+          <div style="display:flex;gap:14px;align-items:center">
+            <button type="button" onclick="generateDayWorkout(${i})" ${isGenerating ? 'disabled' : ''} style="font-size:11px;font-weight:700;color:var(--accent);background:none;border:none;cursor:pointer">${isGenerating ? '✨ Building...' : '🔄 Regenerate'}</button>
+            <button type="button" onclick="editPlanDayConfig(${i})" style="font-size:11px;font-weight:700;color:var(--muted);background:none;border:none;cursor:pointer">Edit setup</button>
+          </div>
         </div>
         <div style="background:var(--surface)">
         ${day.exercises.map((ex, exIdx) => {
@@ -12390,7 +12414,7 @@ function renderPlanDayEditorInner(i, day) {
           </div>`;
         }).join('')}
         </div>
-        <button type="button" onclick="wsStartSession(${i})" style="width:100%;margin-top:12px;background:var(--accent);color:#101512;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer">Start workout</button>
+        <button type="button" onclick="wsStartSession(${i})" style="width:100%;margin-top:12px;background:var(--accent);color:#101512;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer">${(day.checked_off || []).length ? 'Continue workout' : 'Start workout'}</button>
       </div>` : (configCollapsed && !day.is_rest_day ? `
       <div style="padding:16px 4px;text-align:center">
         <div style="font-size:12px;color:var(--muted);margin-bottom:10px">No exercises generated for this day yet.</div>
