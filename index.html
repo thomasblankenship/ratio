@@ -479,7 +479,7 @@
          data-tab, and it must never take the active highlight. -->
     <button class="bottom-nav-btn" onclick="openVoiceLog()" aria-label="Log by voice" style="position:relative">
       <span style="display:flex;align-items:center;justify-content:center;width:46px;height:46px;border-radius:50%;background:var(--accent);margin-top:-14px;box-shadow:0 4px 12px rgba(207,161,60,0.35)">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#101512" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>
+        <i class="fa-solid fa-microphone" style="color:#101512;font-size:19px"></i>
       </span>
     </button>
     <button class="bottom-nav-btn" data-tab="progress" onclick="switchTab('progress')">
@@ -492,7 +492,6 @@
     </button>
   </div>
 
-  <button class="vl-fab" onclick="openVoiceLog()" aria-label="Voice Log"><i class="fa-solid fa-microphone"></i></button>
 
   <div class="content">
     <!-- TODAY -->
@@ -8985,7 +8984,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-14-a-navrestructure';
+const RATIO_BUILD = '2026-08-14-b-navfixes';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -14099,7 +14098,9 @@ async function _wsFindMergeTarget(hkWorkout, dateStr) {
 // listener and id intact.
 // ===========================================================================
 
-let _progOpenCard = 'goals';   // Goals opens by default - it's the summary view
+// All cards start CLOSED - Semmes wants to choose what to open rather than
+// land on one already expanded.
+let _progOpenCard = null;
 
 function toggleProgCard(key) {
   const open = _progOpenCard === key;
