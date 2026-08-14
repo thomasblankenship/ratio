@@ -478,9 +478,12 @@
          slot the thumb reaches first. It is an ACTION, not a tab - no
          data-tab, and it must never take the active highlight. -->
     <button class="bottom-nav-btn" onclick="openVoiceLog()" aria-label="Log by voice" style="position:relative">
-      <span style="display:flex;align-items:center;justify-content:center;width:46px;height:46px;border-radius:50%;background:var(--accent);margin-top:-14px;box-shadow:0 4px 12px rgba(207,161,60,0.35)">
+      <span style="display:flex;align-items:center;justify-content:center;width:46px;height:46px;border-radius:50%;background:var(--accent);box-shadow:0 4px 12px rgba(207,161,60,0.35)">
         <i class="fa-solid fa-microphone" style="color:#101512;font-size:19px"></i>
       </span>
+      <!-- Invisible label. The other tabs each have one, so without it this
+           button's content box is shorter and the icon sits high. -->
+      <span style="visibility:hidden">Log</span>
     </button>
     <button class="bottom-nav-btn" data-tab="progress" onclick="switchTab('progress')">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
@@ -8984,7 +8987,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-14-b-navfixes';
+const RATIO_BUILD = '2026-08-14-c-planload';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -14115,6 +14118,14 @@ function toggleProgCard(key) {
   // Charts inside a display:none parent measure 0x0 and render blank, so any
   // chart in the card that just opened has to be told to redraw.
   if (_progOpenCard) setTimeout(() => { try { window.dispatchEvent(new Event('resize')); } catch (e) {} }, 60);
+  // The weekly plan used to load on Coach-tab open. That tab no longer exists,
+  // so the plan days never rendered - load them when this card opens.
+  if (_progOpenCard === 'workouts') {
+    try {
+      if (typeof weeklyPlanLoaded !== 'undefined' && !weeklyPlanLoaded) loadWeeklyPlan();
+      else if (typeof checkPlanWeekRollover === 'function') checkPlanWeekRollover();
+    } catch (e) { console.error('[nav] weekly plan load failed', e); }
+  }
 }
 
 function _relocateCoachPanels() {
