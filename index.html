@@ -251,7 +251,7 @@
     .profile-row { width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border: none; border-bottom: 1px solid var(--surface-2); background: none; color: var(--ink); font-size: 15px; font-weight: 500; font-family: inherit; text-align: left; cursor: pointer; }
     .profile-row > span { display: flex; align-items: center; gap: 12px; }
     .profile-row-icon { width: 20px; text-align: center; color: #CFA13C; font-size: 15px; }
-    .profile-row > i.fa-chevron-right { color: var(--muted-2); font-size: 13px; }
+    .profile-row > i.fa-chevron-right { color: #CFA13C; font-size: 13px; }
     /* Progress cards deliberately borrow the Profile menu's metrics - same row
        height, same 15px/500 label, same 20px gold icon gutter, same chevron.
        Two lists in one app that are almost-but-not-quite alike read as sloppy. */
@@ -266,15 +266,19 @@
     .prog-card-icon { width: 20px; text-align: center; color: #CFA13C; font-size: 15px; flex-shrink: 0; }
     .prog-card-title { font-size: 15px; font-weight: 500; color: var(--ink); }
     .prog-card-sub { font-size: 12px; color: var(--muted); margin-top: 3px; }
-    .prog-card-chev { color: var(--muted-2); font-size: 13px; flex-shrink: 0; display: inline-block; transition: transform 0.15s; }
+    .prog-card-chev { color: #CFA13C; font-size: 13px; flex-shrink: 0; display: inline-block; transition: transform 0.15s; }
     .prog-card-body { display: none; padding: 0 16px 14px; }
     /* Sub-cards are rows too - the same hairline-divider list as the outer
        group, one level in. Boxes inside boxes read as clutter. */
     .subcard { border-bottom: 1px solid var(--surface-2); }
     .subcard:last-child { border-bottom: none; }
-    .subcard-head { display: flex; align-items: center; justify-content: space-between; padding: 13px 2px; cursor: pointer; gap: 12px; }
+    /* Indented one level under the parent row: 16px of extra left padding,
+       then the same icon-gutter construction the parent rows use. */
+    .subcard-head { display: flex; align-items: center; justify-content: space-between; padding: 13px 2px 13px 16px; cursor: pointer; gap: 12px; }
+    .subcard-head > span:first-child { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .subcard-icon { width: 18px; text-align: center; color: #CFA13C; font-size: 13px; flex-shrink: 0; }
     .subcard-title { font-size: 14px; font-weight: 500; color: var(--ink); }
-    .subcard-chev { color: var(--muted-2); font-size: 12px; flex-shrink: 0; display: inline-block; transition: transform 0.15s; }
+    .subcard-chev { color: #CFA13C; font-size: 12px; flex-shrink: 0; display: inline-block; transition: transform 0.15s; }
     .subcard-body { display: none; padding: 0 0 12px; }
     .profile-subpage-header { display: flex; align-items: center; justify-content: space-between; position: sticky; top: -16px; z-index: 90; background: var(--gray-50); margin: -16px -16px 12px; padding: 12px 16px; box-sizing: border-box; }
     .profile-back-btn { background: var(--surface-2); border: none; border-radius: 10px; width: 36px; height: 36px; font-size: 16px; color: var(--ink); cursor: pointer; }
@@ -824,7 +828,7 @@
       <div class="prog-card" id="progcard-goals">
         <div onclick="toggleProgCard('goals')" class="prog-card-head">
           <span>
-            <i class="fa-solid fa-weight-scale prog-card-icon"></i>
+            <i class="fa-solid fa-bullseye prog-card-icon"></i>
             <span style="min-width:0">
               <span class="prog-card-title">Goals</span>
               <span class="prog-card-sub" style="display:block">Weight, body composition and log history</span>
@@ -9022,7 +9026,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-15-f-micdown';
+const RATIO_BUILD = '2026-08-15-g-goldrows';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -14199,15 +14203,19 @@ function toggleProgCard(key) {
 // builder below and by the Workouts builder, so both produce identical chrome
 // - two card styles sitting next to each other in the same list would read as
 // a bug. onOpen fires only on expand, for anything that has to render late.
-function _makeSubCard(title, onOpen) {
+function _makeSubCard(title, onOpen, icon) {
   const wrap = document.createElement('div');
   wrap.className = 'subcard';
   const head = document.createElement('div');
   head.className = 'subcard-head';
-  head.innerHTML = '<span class="subcard-title"></span><i class="fa-solid fa-chevron-right subcard-chev"></i>';
+  head.innerHTML = '<span><i class="subcard-icon"></i><span class="subcard-title"></span></span><i class="fa-solid fa-chevron-right subcard-chev"></i>';
+  const iconEl = head.querySelector('.subcard-icon');
+  // icon names come only from our own constant tables below, never from data.
+  if (icon) iconEl.className = 'fa-solid ' + icon + ' subcard-icon';
+  else iconEl.style.display = 'none';
   // textContent, not string concatenation - a title is data, and building it
   // into innerHTML is how an apostrophe or an ampersand breaks a card later.
-  head.firstElementChild.textContent = title;
+  head.querySelector('.subcard-title').textContent = title;
   const inner = document.createElement('div');
   inner.className = 'subcard-body';
   head.onclick = () => {
@@ -14243,8 +14251,11 @@ function _buildSubCards(bodyId, titles) {
   const cards = Array.from(body.children).filter(el => el.classList && el.classList.contains('card'));
   if (!cards.length) return;
   cards.forEach((card, i) => {
-    const title = titles[i] || ('Section ' + (i + 1));
-    const sub = _makeSubCard(title);
+    // Entries are either 'Title' or ['Title', 'fa-icon-name'].
+    const entry = titles[i];
+    const title = (Array.isArray(entry) ? entry[0] : entry) || ('Section ' + (i + 1));
+    const icon = Array.isArray(entry) ? entry[1] : null;
+    const sub = _makeSubCard(title, null, icon);
     body.insertBefore(sub.wrap, card);
     _flattenIntoSubCard(card);
     sub.inner.appendChild(card);
@@ -14256,7 +14267,13 @@ function _buildSubCards(bodyId, titles) {
 // photo panels already carry their own titles, so wrapping them stacked one
 // header on top of another and hid the content behind an extra tap.
 const _SUBCARD_TITLES = {
-  'progbody-goals': ['Weight', 'BMI', 'Body Fat %', 'Skeletal Muscle Mass', 'Log History']
+  'progbody-goals': [
+    ['Weight', 'fa-weight-scale'],
+    ['BMI', 'fa-calculator'],
+    ['Body Fat %', 'fa-percent'],
+    ['Skeletal Muscle Mass', 'fa-hand-fist'],
+    ['Log History', 'fa-clock-rotate-left']
+  ]
 };
 
 // ---------------------------------------------------------------------------
@@ -14285,14 +14302,14 @@ function _buildWorkoutSubCards() {
   const nav = document.getElementById('workouts-subtab-btn-plan');
   if (nav && nav.parentElement) nav.parentElement.style.display = 'none';
 
-  const subLogged = _makeSubCard("Today's Logged Workouts");
+  const subLogged = _makeSubCard("Today's Logged Workouts", null, 'fa-list-check');
   body.insertBefore(subLogged.wrap, logged);
   _flattenIntoSubCard(logged);
   subLogged.inner.appendChild(logged);
 
   // The toggle left one of these two at display:none. The sub-card wrapper
   // owns visibility now, so both are cleared back to their natural display.
-  const subPlan = _makeSubCard("This Week's Plan");
+  const subPlan = _makeSubCard("This Week's Plan", null, 'fa-calendar-days');
   body.appendChild(subPlan.wrap);
   plan.style.display = '';
   subPlan.inner.appendChild(plan);
@@ -14302,7 +14319,7 @@ function _buildWorkoutSubCards() {
   // exactly how the weekly plan ended up rendering empty - so render on expand.
   const subBrowse = _makeSubCard('Browse Exercises', () => {
     if (typeof renderExerciseMuscleList === 'function') renderExerciseMuscleList();
-  });
+  }, 'fa-magnifying-glass');
   body.appendChild(subBrowse.wrap);
   browse.style.display = '';
   subBrowse.inner.appendChild(browse);
