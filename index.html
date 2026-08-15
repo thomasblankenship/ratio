@@ -144,9 +144,16 @@
 
     /* CONTENT */
     .content { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 16px; order: 2; }
-    .bottom-nav { flex-shrink: 0; order: 3; display: flex; justify-content: space-around; align-items: center; background: var(--white); border-top: 1px solid var(--gray-200); padding: 8px 4px calc(8px + env(safe-area-inset-bottom)); z-index: 200; }
+    .bottom-nav { flex-shrink: 0; order: 3; display: flex; justify-content: space-around; align-items: flex-end; background: var(--white); border-top: 1px solid var(--gray-200); padding: 8px 4px calc(8px + env(safe-area-inset-bottom)); z-index: 200; }
     .bottom-nav-btn { display: flex; flex-direction: column; align-items: center; gap: 3px; background: none; border: none; cursor: pointer; color: var(--gray-400); padding: 6px 14px; border-radius: 14px; transition: all 0.15s; -webkit-tap-highlight-color: transparent; }
-    .bottom-nav-btn span { font-size: 11px; font-weight: 500; }
+    /* Fixed line-height: the mic circle's vertical position is computed from
+       this number, so it cannot be left to the platform's default. */
+    .bottom-nav-btn span { font-size: 11px; font-weight: 500; line-height: 13px; }
+    /* flex-end aligns every button's bottom edge; 10px of bottom padding puts
+       the 46px circle's centre at 33px - exactly the 22px icons' centre line
+       (6 pad + 13 label + 3 gap + 11). Centres aligned, labels aligned, and
+       the circle rises evenly above the row instead of drifting. */
+    .nav-mic-btn { padding: 6px 14px 10px; }
     .bottom-nav-btn.active { color: var(--accent); background: rgba(207,161,60,0.14); }
 
     /* CARDS */
@@ -260,12 +267,14 @@
     .prog-card-sub { font-size: 12px; color: var(--muted); margin-top: 3px; }
     .prog-card-chev { color: var(--muted-2); font-size: 13px; flex-shrink: 0; display: inline-block; transition: transform 0.15s; }
     .prog-card-body { display: none; padding: 0 16px 14px; }
-    .subcard { padding: 0; margin-bottom: 10px; overflow: hidden; }
-    .subcard:last-child { margin-bottom: 0; }
-    .subcard-head { display: flex; align-items: center; justify-content: space-between; padding: 13px 14px; cursor: pointer; gap: 12px; }
+    /* Sub-cards are rows too - the same hairline-divider list as the outer
+       group, one level in. Boxes inside boxes read as clutter. */
+    .subcard { border-bottom: 1px solid var(--surface-2); }
+    .subcard:last-child { border-bottom: none; }
+    .subcard-head { display: flex; align-items: center; justify-content: space-between; padding: 13px 2px; cursor: pointer; gap: 12px; }
     .subcard-title { font-size: 14px; font-weight: 500; color: var(--ink); }
     .subcard-chev { color: var(--muted-2); font-size: 12px; flex-shrink: 0; display: inline-block; transition: transform 0.15s; }
-    .subcard-body { display: none; padding: 0 12px 12px; }
+    .subcard-body { display: none; padding: 0 0 12px; }
     .profile-subpage-header { display: flex; align-items: center; justify-content: space-between; position: sticky; top: -16px; z-index: 90; background: var(--gray-50); margin: -16px -16px 12px; padding: 12px 16px; box-sizing: border-box; }
     .profile-back-btn { background: var(--surface-2); border: none; border-radius: 10px; width: 36px; height: 36px; font-size: 16px; color: var(--ink); cursor: pointer; }
     .profile-subpage-title { font-size: 17px; font-weight: 700; color: var(--ink); }
@@ -499,13 +508,10 @@
     <!-- Voice logging is the fastest way into the app, so it takes the centre
          slot the thumb reaches first. It is an ACTION, not a tab - no
          data-tab, and it must never take the active highlight. -->
-    <button class="bottom-nav-btn" onclick="openVoiceLog()" aria-label="Log by voice" style="position:relative">
+    <button class="bottom-nav-btn nav-mic-btn" onclick="openVoiceLog()" aria-label="Log by voice">
       <span style="display:flex;align-items:center;justify-content:center;width:46px;height:46px;border-radius:50%;background:var(--accent);box-shadow:0 4px 12px rgba(207,161,60,0.35)">
         <i class="fa-solid fa-microphone" style="color:#101512;font-size:19px"></i>
       </span>
-      <!-- Invisible label. The other tabs each have one, so without it this
-           button's content box is shorter and the icon sits high. -->
-      <span style="visibility:hidden">Log</span>
     </button>
     <button class="bottom-nav-btn" data-tab="progress" onclick="switchTab('progress')">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
@@ -9015,7 +9021,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-15-d-photoflat';
+const RATIO_BUILD = '2026-08-15-e-navrows';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -14194,7 +14200,7 @@ function toggleProgCard(key) {
 // a bug. onOpen fires only on expand, for anything that has to render late.
 function _makeSubCard(title, onOpen) {
   const wrap = document.createElement('div');
-  wrap.className = 'card subcard';
+  wrap.className = 'subcard';
   const head = document.createElement('div');
   head.className = 'subcard-head';
   head.innerHTML = '<span class="subcard-title"></span><i class="fa-solid fa-chevron-right subcard-chev"></i>';
