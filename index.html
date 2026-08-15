@@ -1130,7 +1130,7 @@
         <div id="progbody-workouts" class="prog-card-body">
       <div class="card">
         <div style="display:flex;align-items:center;gap:8px;cursor:pointer" onclick="toggleWorkoutCalendar()">
-          <span class="card-title" style="color:#CFA13C;margin:0" id="workout-date-label">Today's Logged Workouts</span>
+          <span class="card-title" style="color:#CFA13C;margin:0" id="workout-date-label">Today</span>
           <i class="fa-solid fa-chevron-down" id="workout-cal-chevron" style="color:#CFA13C;font-size:12px;transition:transform 0.2s"></i>
           <span style="font-size:11px;color:var(--muted)" id="workout-date-sub"></span>
         </div>
@@ -1159,10 +1159,17 @@
           </div>
         </div>
 
+        <!-- Exercise-first: today's lifting, one row per movement with its
+             sets inline, exactly how a paper training log reads. Tapping a row
+             reopens the set sheet for that movement. -->
+        <div id="ws-today-strength"></div>
+        <button type="button" onclick="wsAddExercise()" id="ws-add-exercise-btn" class="btn" style="margin-bottom:14px">+ Log Exercise</button>
+
+        <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px">Cardio &amp; Other</div>
         <div id="workouts-list"><div class="empty">No workouts logged yet</div></div>
 
         <div style="margin-top:12px">
-          <button onclick="toggleWorkoutForm()" id="add-workout-btn" class="btn">+ Add Workout</button>
+          <button onclick="toggleWorkoutForm()" id="add-workout-btn" class="btn" style="background:var(--surface-2);color:var(--ink)">+ Log Cardio / Other</button>
         </div>
         <div id="workout-form" style="display:none;margin-top:12px;background:var(--bg-deep);border-radius:12px;padding:14px">
           <!-- Recent workouts quick-fill -->
@@ -2080,6 +2087,7 @@
       </div>
       <div style="display:flex;gap:6px;margin-bottom:16px" id="exercise-detail-badges"></div>
       <div id="exercise-detail-muscles" style="margin-bottom:18px"></div>
+      <button type="button" onclick="wsLogFromDetail()" class="btn" style="margin-bottom:18px">+ Log a set</button>
       <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px">How To</div>
       <ol id="exercise-detail-steps" style="padding-left:20px;display:flex;flex-direction:column;gap:10px;font-size:14px;color:var(--ink-2);line-height:1.5;margin:0"></ol>
     </div>
@@ -9026,7 +9034,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-15-g-goldrows';
+const RATIO_BUILD = '2026-08-15-h-exfirst';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -9506,6 +9514,58 @@ async function loadProgressWorkouts() {
   if (progressWorkoutDate() !== forDate) return; // stale
   progressWorkouts = rows;
   renderWorkouts();
+  // The strength list for the same date - sets, not diary rows.
+  try {
+    const sets = await dbGet('workout_sets', `date=eq.${forDate}&order=created_at.asc`) || [];
+    if (progressWorkoutDate() !== forDate) return; // stale
+    progressSets = sets;
+  } catch (e) { progressSets = []; }
+  renderTodayStrength();
+}
+
+let progressSets = [];
+
+// One row per movement, sets inline, in the order they were first logged.
+function renderTodayStrength() {
+  const el = document.getElementById('ws-today-strength');
+  if (!el) return;
+  const forDate = progressWorkoutDate();
+  const isToday = forDate === _wsToday();
+  const addBtn = document.getElementById('ws-add-exercise-btn');
+  if (addBtn) addBtn.style.display = isToday ? '' : 'none';
+  const order = [];
+  const byEx = {};
+  for (const r of progressSets) {
+    const n = r.exercise_name || 'Exercise';
+    if (!byEx[n]) { byEx[n] = []; order.push(n); }
+    byEx[n].push(r);
+  }
+  if (!order.length) {
+    el.innerHTML = isToday
+      ? '<div style="font-size:12px;color:var(--muted);padding:6px 0 10px">No lifts logged yet \u2014 add an exercise to start.</div>'
+      : '<div style="font-size:12px;color:var(--muted);padding:6px 0 10px">No lifts logged this day.</div>';
+    return;
+  }
+  el.innerHTML = order.map(n => {
+    const rows = byEx[n].slice().sort((a, b) => (a.set_number || 0) - (b.set_number || 0));
+    const group = rows[0].muscle_group || '';
+    const tap = isToday ? `onclick="wsQuickLog('${_wsEscAttr(n)}','${_wsEscAttr(group)}')" style="cursor:pointer"` : '';
+    return `
+    <div ${tap} class="ws-strength-row" style="padding:10px 0;border-bottom:1px solid var(--gray-100)${isToday ? ';cursor:pointer' : ''}">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+        <div style="font-size:14px;font-weight:600;color:var(--ink);min-width:0">${_weEscHtml(n)}</div>
+        ${isToday ? '<i class="fa-solid fa-chevron-right" style="color:#CFA13C;font-size:11px;flex-shrink:0"></i>' : ''}
+      </div>
+      <div style="font-size:12px;color:var(--muted);margin-top:3px;font-family:ui-monospace,monospace">${_wsFmtSets(rows)}</div>
+    </div>`;
+  }).join('') + '<div style="height:12px"></div>';
+}
+
+// Single quotes and backslashes escaped for inline onclick attributes. Names
+// come from the exercise library and past rows, but "Farmer's Walk" alone
+// would break the handler without this.
+function _wsEscAttr(t) {
+  return String(t == null ? '' : t).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
 }
 
 // Reload whatever the Progress tab is showing — after an edit or delete, so the
@@ -9767,7 +9827,7 @@ function updateWorkoutDateLabel() {
   const yStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth()+1).padStart(2,'0')}-${String(yesterday.getDate()).padStart(2,'0')}`;
   const isToday = dateStr === todayStr;
   const isYesterday = dateStr === yStr;
-  const label = isToday ? "Today's Logged Workouts" : isYesterday ? "Yesterday's Workouts" : d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) + ' Workouts';
+  const label = isToday ? 'Today' : isYesterday ? 'Yesterday' : d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   const sub = isToday ? '' : d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   const labelEl = document.getElementById('workout-date-label');
   const subEl = document.getElementById('workout-date-sub');
@@ -13873,6 +13933,46 @@ async function wsStartSession(dayIdx) {
   exercises.forEach(ex => _wsLoadHistory(ex.name));
 }
 
+// Log any movement WITHOUT a plan-day session - the exercise-first front
+// door. Joins today's existing sets so set numbers continue, creates the
+// workouts row lazily exactly like a plan session (first set, never before).
+async function wsQuickLog(name, group) {
+  if (!name) return;
+  if (!_wsSession) {
+    _wsSession = { adhoc: true, exercises: [], workoutId: null,
+                   startedAt: new Date().toISOString(), name: 'Workout' };
+    _wsSetsToday = [];
+    try {
+      const existing = await dbGet('workout_sets', `date=eq.${_wsToday()}&order=created_at.asc`);
+      _wsSetsToday = existing || [];
+      if (_wsSetsToday.length && _wsSetsToday[0].workout_id) _wsSession.workoutId = _wsSetsToday[0].workout_id;
+    } catch (e) {}
+  }
+  let i = _wsSession.exercises.findIndex(e => e.name === name);
+  if (i < 0) { _wsSession.exercises.push({ name: name, group: group || null }); i = _wsSession.exercises.length - 1; }
+  wsOpenSet(i);
+}
+
+// "+ Log Exercise" - the picker already exists: it's the Browse sub-card.
+function wsAddExercise() {
+  try {
+    _buildWorkoutSubCards();
+    const s = window._wsBrowseSub;
+    if (s) {
+      if (s.inner.style.display !== 'block') s.head.onclick();
+      setTimeout(() => { try { s.wrap.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) {} }, 80);
+    }
+  } catch (e) { console.error('[ws] add exercise failed', e); }
+}
+
+// From the exercise detail page (Browse) straight into logging a set.
+function wsLogFromDetail() {
+  const d = _currentExerciseDetail;
+  if (!d) return;
+  const ex = (EXERCISE_LIBRARY[d.group] || []).find(e => e.name === d.name);
+  wsQuickLog(d.name, (ex && ex.primaryMuscle) || d.group || null);
+}
+
 function wsCloseSession() {
   document.getElementById('ws-session-panel').style.display = 'none';
   _wsSession = null;
@@ -13899,9 +13999,65 @@ async function _wsLoadHistory(name) {
     const w = +r.weight || 0, reps = +r.reps || 0;
     if (!bestAt[w] || reps > bestAt[w].reps) bestAt[w] = { reps, date: r.date };
   }
-  _wsHistory[name] = { lastSets, lastDate, bestAt };
+  // repMax[reps] = most weight ever lifted for that rep count - the actual
+  // rep-max table lifters compare. Estimated 1RM is Epley, w*(1+reps/30),
+  // ignoring sets over 12 reps where the formula turns to fiction.
+  const repMax = {};
+  let est1rm = null;
+  for (const r of past) {
+    const w = +r.weight || 0, reps = +r.reps || 0;
+    if (!w || !reps) continue;
+    if (!repMax[reps] || w > repMax[reps].weight) repMax[reps] = { weight: w, date: r.date };
+    if (reps <= 12) {
+      const e = w * (1 + reps / 30);
+      if (est1rm == null || e > est1rm) est1rm = e;
+    }
+  }
+  // Recent distinct sessions, newest first, for the history panel.
+  const sessions = [];
+  for (const r of past) {
+    let s = sessions.find(x => x.date === r.date);
+    if (!s) { if (sessions.length >= 3) continue; s = { date: r.date, sets: [] }; sessions.push(s); }
+    s.sets.push(r);
+  }
+  sessions.forEach(s => s.sets.sort((a, b) => (a.set_number || 0) - (b.set_number || 0)));
+  _wsHistory[name] = { lastSets, lastDate, bestAt, repMax, est1rm, sessions };
   if (_wsSession) wsRenderSession();
   return _wsHistory[name];
+}
+
+// Fill the Records & History panel inside the set sheet for one movement.
+function _wsRenderStats(name) {
+  const el = document.getElementById('ws-set-stats');
+  if (!el) return;
+  const hist = _wsHistory[name];
+  if (!hist) { el.innerHTML = ''; return; }
+  const repCounts = Object.keys(hist.repMax || {}).map(Number).sort((a, b) => a - b).slice(0, 8);
+  const prRows = repCounts.map(rc => {
+    const m = hist.repMax[rc];
+    return `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--gray-100)">
+      <span style="font-size:12px;color:var(--muted)">${rc}RM</span>
+      <span style="font-size:12px;color:var(--ink);font-family:ui-monospace,monospace">${m.weight} lbs <span style="color:var(--dim)">&middot; ${_wsFmtDate(m.date)}</span></span>
+    </div>`;
+  }).join('');
+  const sessRows = (hist.sessions || []).map(s => `
+    <div style="padding:6px 0;border-bottom:1px solid var(--gray-100)">
+      <div style="font-size:11px;color:var(--muted)">${_wsFmtDate(s.date)}</div>
+      <div style="font-size:12px;color:var(--ink-2);font-family:ui-monospace,monospace;margin-top:2px">${_wsFmtSets(s.sets)}</div>
+    </div>`).join('');
+  el.innerHTML =
+    (prRows ? `<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Personal records</div>${prRows}` : '') +
+    (sessRows ? `<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin:12px 0 4px">Recent sessions</div>${sessRows}` : '') +
+    (!prRows && !sessRows ? '<div style="font-size:12px;color:var(--muted)">Nothing logged for this exercise yet.</div>' : '');
+}
+
+function wsToggleStats() {
+  const el = document.getElementById('ws-set-stats');
+  const chev = document.getElementById('ws-stats-chev');
+  if (!el) return;
+  const open = el.style.display === 'block';
+  el.style.display = open ? 'none' : 'block';
+  if (chev) chev.style.transform = open ? 'rotate(0deg)' : 'rotate(90deg)';
 }
 
 function _wsSetsFor(name) {
@@ -13968,6 +14124,21 @@ async function wsOpenSet(i) {
     w = match.weight; reps = match.reps;
   }
   document.getElementById('ws-set-title').textContent = ex.name;
+  // Best-ever line: heaviest single + estimated 1RM. Blank until history loads.
+  const bestEl = document.getElementById('ws-set-best');
+  if (bestEl) {
+    const weights = Object.keys(hist.bestAt || {}).map(Number).filter(x => x > 0);
+    const heaviest = weights.length ? Math.max(...weights) : null;
+    const parts = [];
+    if (heaviest != null) parts.push(`Best ${heaviest} lbs \u00d7 ${hist.bestAt[heaviest].reps}`);
+    if (hist.est1rm) parts.push(`Est. 1RM ${Math.round(hist.est1rm)}`);
+    bestEl.textContent = parts.join(' \u00b7 ');
+    bestEl.style.display = parts.length ? 'block' : 'none';
+  }
+  const statsEl = document.getElementById('ws-set-stats');
+  const statsChev = document.getElementById('ws-stats-chev');
+  if (statsEl) { statsEl.style.display = 'none'; _wsRenderStats(ex.name); }
+  if (statsChev) statsChev.style.transform = 'rotate(0deg)';
   document.getElementById('ws-set-sub').textContent =
     (ex.group || '') + (ex.sets ? ` \u00b7 set ${done.length + 1} of ${ex.sets}` : ` \u00b7 set ${done.length + 1}`);
   const lastEl = document.getElementById('ws-set-last');
@@ -14061,6 +14232,7 @@ async function wsLogSet() {
     _wsTouchEnd(workoutId);
     wsCloseSet();
     wsRenderSession();
+    try { if (typeof loadProgressWorkouts === 'function') loadProgressWorkouts(); } catch (e2) {}
   } catch (e) {
     console.error('[ws] log set failed', e);
     toast('Could not save that set');
@@ -14091,6 +14263,7 @@ async function wsUndoLastSet() {
     _wsSetsToday = _wsSetsToday.filter(r => r.id !== last.id);
     wsCloseSet();
     wsRenderSession();
+    try { if (typeof loadProgressWorkouts === 'function') loadProgressWorkouts(); } catch (e2) {}
   } catch (e) { toast('Could not undo that set'); }
 }
 
@@ -14320,6 +14493,7 @@ function _buildWorkoutSubCards() {
   const subBrowse = _makeSubCard('Browse Exercises', () => {
     if (typeof renderExerciseMuscleList === 'function') renderExerciseMuscleList();
   }, 'fa-magnifying-glass');
+  window._wsBrowseSub = subBrowse;   // "+ Log Exercise" jumps here
   body.appendChild(subBrowse.wrap);
   browse.style.display = '';
   subBrowse.inner.appendChild(browse);
@@ -20443,8 +20617,15 @@ if (document.readyState === 'loading') {
   <div style="background:var(--surface);border-radius:20px 20px 0 0;padding:20px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto">
     <div id="ws-set-title" style="font-size:16px;font-weight:700;color:var(--ink)"></div>
     <div id="ws-set-sub" style="font-size:11px;color:var(--muted);margin-top:3px"></div>
+    <div id="ws-set-best" style="display:none;font-size:11px;color:#CFA13C;margin-top:5px">&#127942;</div>
 
     <div id="ws-set-last" style="display:none;background:var(--surface-2);border-radius:10px;padding:11px 13px;margin-top:14px"></div>
+
+    <div onclick="wsToggleStats()" style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;cursor:pointer">
+      <span style="font-size:12px;font-weight:700;color:var(--ink)">Records &amp; History</span>
+      <i id="ws-stats-chev" class="fa-solid fa-chevron-right" style="color:#CFA13C;font-size:11px;display:inline-block;transition:transform 0.15s"></i>
+    </div>
+    <div id="ws-set-stats" style="display:none;margin-top:6px;max-height:220px;overflow-y:auto"></div>
 
     <div style="display:flex;gap:10px;margin-top:14px">
       <div style="flex:1;background:var(--surface-2);border-radius:10px;padding:12px 8px;text-align:center">
