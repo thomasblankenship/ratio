@@ -244,6 +244,23 @@
     .profile-row > span { display: flex; align-items: center; gap: 12px; }
     .profile-row-icon { width: 20px; text-align: center; color: #CFA13C; font-size: 15px; }
     .profile-row > i.fa-chevron-right { color: var(--muted-2); font-size: 13px; }
+    /* Progress cards deliberately borrow the Profile menu's metrics - same row
+       height, same 15px/500 label, same 20px gold icon gutter, same chevron.
+       Two lists in one app that are almost-but-not-quite alike read as sloppy. */
+    .prog-card { padding: 0; margin-bottom: 12px; overflow: hidden; }
+    .prog-card-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; cursor: pointer; gap: 12px; }
+    .prog-card-head > span { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .prog-card-icon { width: 20px; text-align: center; color: #CFA13C; font-size: 15px; flex-shrink: 0; }
+    .prog-card-title { font-size: 15px; font-weight: 500; color: var(--ink); }
+    .prog-card-sub { font-size: 12px; color: var(--muted); margin-top: 3px; }
+    .prog-card-chev { color: var(--muted-2); font-size: 13px; flex-shrink: 0; display: inline-block; transition: transform 0.15s; }
+    .prog-card-body { display: none; padding: 0 12px 12px; }
+    .subcard { padding: 0; margin-bottom: 10px; overflow: hidden; }
+    .subcard:last-child { margin-bottom: 0; }
+    .subcard-head { display: flex; align-items: center; justify-content: space-between; padding: 13px 14px; cursor: pointer; gap: 12px; }
+    .subcard-title { font-size: 14px; font-weight: 500; color: var(--ink); }
+    .subcard-chev { color: var(--muted-2); font-size: 12px; flex-shrink: 0; display: inline-block; transition: transform 0.15s; }
+    .subcard-body { display: none; padding: 0 12px 12px; }
     .profile-subpage-header { display: flex; align-items: center; justify-content: space-between; position: sticky; top: -16px; z-index: 90; background: var(--gray-50); margin: -16px -16px 12px; padding: 12px 16px; box-sizing: border-box; }
     .profile-back-btn { background: var(--surface-2); border: none; border-radius: 10px; width: 36px; height: 36px; font-size: 16px; color: var(--ink); cursor: pointer; }
     .profile-subpage-title { font-size: 17px; font-weight: 700; color: var(--ink); }
@@ -791,15 +808,18 @@
 
       <!-- SECTION NAV -->
       <div id="progress-section-goals"></div>
-      <div class="card" style="padding:0;margin-bottom:10px;overflow:hidden">
-        <div onclick="toggleProgCard('goals')" style="display:flex;justify-content:space-between;align-items:center;padding:14px;cursor:pointer">
-          <div style="min-width:0">
-            <div style="font-size:14px;font-weight:800;color:var(--ink)">Goals</div>
-            <div style="font-size:11px;color:var(--muted);margin-top:3px">Weight, body composition and log history</div>
-          </div>
-          <span id="progchev-goals" style="color:var(--dim);font-size:16px;display:inline-block;transition:transform 0.15s">›</span>
+      <div class="card prog-card" id="progcard-goals">
+        <div onclick="toggleProgCard('goals')" class="prog-card-head">
+          <span>
+            <i class="fa-solid fa-weight-scale prog-card-icon"></i>
+            <span style="min-width:0">
+              <span class="prog-card-title">Goals</span>
+              <span class="prog-card-sub" style="display:block">Weight, body composition and log history</span>
+            </span>
+          </span>
+          <i id="progchev-goals" class="fa-solid fa-chevron-right prog-card-chev"></i>
         </div>
-        <div id="progbody-goals" style="display:none;padding:0 12px 12px">
+        <div id="progbody-goals" class="prog-card-body">
       <!-- WEIGHT CHART CARD -->
       <div class="card" style="padding:16px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
@@ -1079,15 +1099,18 @@
         </div>
       </div>
       <div id="progress-section-workouts"></div>
-      <div class="card" style="padding:0;margin-bottom:10px;overflow:hidden">
-        <div onclick="toggleProgCard('workouts')" style="display:flex;justify-content:space-between;align-items:center;padding:14px;cursor:pointer">
-          <div style="min-width:0">
-            <div style="font-size:14px;font-weight:800;color:var(--ink)">Workouts</div>
-            <div style="font-size:11px;color:var(--muted);margin-top:3px">Your plan, sessions and history</div>
-          </div>
-          <span id="progchev-workouts" style="color:var(--dim);font-size:16px;display:inline-block;transition:transform 0.15s">›</span>
+      <div class="card prog-card" id="progcard-workouts">
+        <div onclick="toggleProgCard('workouts')" class="prog-card-head">
+          <span>
+            <i class="fa-solid fa-dumbbell prog-card-icon"></i>
+            <span style="min-width:0">
+              <span class="prog-card-title">Workouts</span>
+              <span class="prog-card-sub" style="display:block">Your plan, sessions and history</span>
+            </span>
+          </span>
+          <i id="progchev-workouts" class="fa-solid fa-chevron-right prog-card-chev"></i>
         </div>
-        <div id="progbody-workouts" style="display:none;padding:0 12px 12px">
+        <div id="progbody-workouts" class="prog-card-body">
       <div class="card">
         <div style="display:flex;align-items:center;gap:8px;cursor:pointer" onclick="toggleWorkoutCalendar()">
           <span class="card-title" style="color:#CFA13C;margin:0" id="workout-date-label">Today's Logged Workouts</span>
@@ -1151,15 +1174,18 @@
         </div>
       </div>
       <div id="progress-section-steps"></div>
-      <div class="card" style="padding:0;margin-bottom:10px;overflow:hidden">
-        <div onclick="toggleProgCard('steps')" style="display:flex;justify-content:space-between;align-items:center;padding:14px;cursor:pointer">
-          <div style="min-width:0">
-            <div style="font-size:14px;font-weight:800;color:var(--ink)">Steps</div>
-            <div style="font-size:11px;color:var(--muted);margin-top:3px">Daily step count against your goal</div>
-          </div>
-          <span id="progchev-steps" style="color:var(--dim);font-size:16px;display:inline-block;transition:transform 0.15s">›</span>
+      <div class="card prog-card" id="progcard-steps">
+        <div onclick="toggleProgCard('steps')" class="prog-card-head">
+          <span>
+            <i class="fa-solid fa-shoe-prints prog-card-icon"></i>
+            <span style="min-width:0">
+              <span class="prog-card-title">Steps</span>
+              <span class="prog-card-sub" style="display:block">Daily step count against your goal</span>
+            </span>
+          </span>
+          <i id="progchev-steps" class="fa-solid fa-chevron-right prog-card-chev"></i>
         </div>
-        <div id="progbody-steps" style="display:none;padding:0 12px 12px">
+        <div id="progbody-steps" class="prog-card-body">
       <div class="card" id="steps-card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
           <div class="card-title" style="color:#CFA13C;margin-bottom:0">Steps</div>
@@ -1201,39 +1227,34 @@
         </div>
       </div>
       <div id="progress-section-photos"></div>
-      <div class="card" style="padding:0;margin-bottom:10px;overflow:hidden">
-        <div onclick="switchTab('photos')" style="display:flex;justify-content:space-between;align-items:center;padding:14px;cursor:pointer">
-          <div style="min-width:0">
-            <div style="font-size:14px;font-weight:800;color:var(--ink)">Progress Photos</div>
-            <div style="font-size:11px;color:var(--muted);margin-top:3px">Side-by-side over time</div>
-          </div>
-          <span style="color:var(--dim);font-size:16px">›</span>
+      <div class="card prog-card" id="progcard-photos">
+        <div onclick="toggleProgCard('photos')" class="prog-card-head">
+          <span>
+            <i class="fa-solid fa-camera prog-card-icon"></i>
+            <span style="min-width:0">
+              <span class="prog-card-title">Progress Photos</span>
+              <span class="prog-card-sub" style="display:block">Side-by-side over time</span>
+            </span>
+          </span>
+          <i id="progchev-photos" class="fa-solid fa-chevron-right prog-card-chev"></i>
         </div>
-        <div id="progbody-photos" style="display:none;padding:0 12px 12px">
-      <button onclick="switchTab('photos')" style="width:100%;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px;cursor:pointer;text-align:left">
-        <div style="width:36px;height:36px;border-radius:10px;background:var(--surface-2);display:flex;align-items:center;justify-content:center;flex-shrink:0">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#CFA13C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-        </div>
-        <div style="flex:1">
-          <div style="font-size:14px;font-weight:700;color:#CFA13C">Progress Photos</div>
-          <div style="font-size:11px;color:var(--muted)">Upload and compare over time</div>
-        </div>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8A8880" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-      </button>
-
+        <div id="progbody-photos" class="prog-card-body">
       <!-- NUTRITION -->
         </div>
       </div>
       <div id="progress-section-nutrition"></div>
-      <div class="card" style="padding:0;margin-bottom:10px;overflow:hidden">
-        <div onclick="toggleProgCard('nutrition')" style="display:flex;justify-content:space-between;align-items:center;padding:14px;cursor:pointer">
-          <div style="min-width:0">
-            <div style="font-size:14px;font-weight:800;color:var(--ink)">Nutrition</div>
-            <div style="font-size:11px;color:var(--muted);margin-top:3px">Recent days and macro trends</div>
-          </div>
-          <span id="progchev-nutrition" style="color:var(--dim);font-size:16px;display:inline-block;transition:transform 0.15s">›</span>
+      <div class="card prog-card" id="progcard-nutrition">
+        <div onclick="toggleProgCard('nutrition')" class="prog-card-head">
+          <span>
+            <i class="fa-solid fa-chart-pie prog-card-icon"></i>
+            <span style="min-width:0">
+              <span class="prog-card-title">Nutrition</span>
+              <span class="prog-card-sub" style="display:block">Recent days and macro trends</span>
+            </span>
+          </span>
+          <i id="progchev-nutrition" class="fa-solid fa-chevron-right prog-card-chev"></i>
         </div>
-        <div id="progbody-nutrition" style="display:none;padding:0 12px 12px">
+        <div id="progbody-nutrition" class="prog-card-body">
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
           <div class="card-title" style="color:#CFA13C;margin-bottom:0">Nutrition</div>
@@ -8987,7 +9008,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-15-a-wosubcards';
+const RATIO_BUILD = '2026-08-15-b-progpolish';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -14108,6 +14129,19 @@ async function _wsFindMergeTarget(hkWorkout, dateStr) {
 // land on one already expanded.
 let _progOpenCard = null;
 
+// Closing a card resets every sub-card inside it. Leaving them expanded meant
+// reopening a card dumped you back into a fully unfolded list - closing it is
+// how you tidy up, so it has to actually tidy up.
+function _collapseSubCards(body) {
+  if (!body) return;
+  body.querySelectorAll('.subcard').forEach(wrap => {
+    const inner = wrap.querySelector('.subcard-body');
+    const chev = wrap.querySelector('.subcard-chev');
+    if (inner) inner.style.display = 'none';
+    if (chev) chev.style.transform = 'rotate(0deg)';
+  });
+}
+
 function toggleProgCard(key) {
   const open = _progOpenCard === key;
   _progOpenCard = open ? null : key;
@@ -14117,6 +14151,7 @@ function toggleProgCard(key) {
     const isOpen = _progOpenCard === k;
     if (body) body.style.display = isOpen ? 'block' : 'none';
     if (chev) chev.style.transform = isOpen ? 'rotate(90deg)' : 'rotate(0deg)';
+    if (!isOpen) _collapseSubCards(body);
   });
   // Charts inside a display:none parent measure 0x0 and render blank, so any
   // chart in the card that just opened has to be told to redraw.
@@ -14126,6 +14161,11 @@ function toggleProgCard(key) {
   if (_progOpenCard) {
     const t = _SUBCARD_TITLES['progbody-' + _progOpenCard];
     if (t) _buildSubCards('progbody-' + _progOpenCard, t);
+  }
+  if (_progOpenCard === 'photos') {
+    // Refresh on open rather than trusting the copy appInit rendered - a photo
+    // uploaded inside this card should be in the list when you reopen it.
+    try { if (typeof loadPhotos === 'function') loadPhotos(); } catch (e) { console.error('[nav] photo load failed', e); }
   }
   if (_progOpenCard === 'workouts') {
     _buildWorkoutSubCards();
@@ -14147,16 +14187,17 @@ function toggleProgCard(key) {
 // a bug. onOpen fires only on expand, for anything that has to render late.
 function _makeSubCard(title, onOpen) {
   const wrap = document.createElement('div');
-  wrap.className = 'card';
-  wrap.style.cssText = 'padding:0;margin-bottom:10px;overflow:hidden';
+  wrap.className = 'card subcard';
   const head = document.createElement('div');
-  head.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:13px 14px;cursor:pointer';
-  head.innerHTML = '<div style="font-size:13px;font-weight:800;color:var(--ink)">' + title +
-    '</div><span style="color:var(--dim);font-size:15px;display:inline-block;transition:transform 0.15s">\u203a</span>';
+  head.className = 'subcard-head';
+  head.innerHTML = '<span class="subcard-title"></span><i class="fa-solid fa-chevron-right subcard-chev"></i>';
+  // textContent, not string concatenation - a title is data, and building it
+  // into innerHTML is how an apostrophe or an ampersand breaks a card later.
+  head.firstElementChild.textContent = title;
   const inner = document.createElement('div');
-  inner.style.cssText = 'display:none;padding:0 12px 12px';
+  inner.className = 'subcard-body';
   head.onclick = () => {
-    const open = inner.style.display !== 'none';
+    const open = inner.style.display === 'block';
     inner.style.display = open ? 'none' : 'block';
     head.lastElementChild.style.transform = open ? 'rotate(0deg)' : 'rotate(90deg)';
     if (!open) {
@@ -14198,7 +14239,8 @@ function _buildSubCards(bodyId, titles) {
 }
 
 const _SUBCARD_TITLES = {
-  'progbody-goals': ['Weight', 'BMI', 'Body Fat %', 'Skeletal Muscle Mass', 'Log History']
+  'progbody-goals': ['Weight', 'BMI', 'Body Fat %', 'Skeletal Muscle Mass', 'Log History'],
+  'progbody-photos': ['Upload Progress Photo', 'Compare Two Dates', 'All Photos']
 };
 
 // ---------------------------------------------------------------------------
@@ -14261,6 +14303,19 @@ function _relocateCoachPanels() {
       workoutsBody.appendChild(workoutPanel);
     }
   } catch (e) { console.error('[nav] could not relocate coach panels', e); }
+  // Progress Photos was the odd one out: every other Progress card expanded in
+  // place while this one navigated to a separate tab with a back button. Its
+  // three cards move into the card body the same way - live nodes, so the
+  // pinch-to-align listeners and the upload input survive the move.
+  try {
+    const photoTab = document.getElementById('tab-photos');
+    const photosBody = document.getElementById('progbody-photos');
+    if (photoTab && photosBody) {
+      Array.from(photoTab.children)
+        .filter(el => el.classList && el.classList.contains('card'))
+        .forEach(card => photosBody.appendChild(card));
+    }
+  } catch (e) { console.error('[nav] could not relocate photo panels', e); }
   // Open the default card once the panels are in place.
   try { const k = _progOpenCard; _progOpenCard = null; if (k) toggleProgCard(k); } catch (e) {}
 }
@@ -16132,6 +16187,10 @@ function applyStepsVisibility() {
   if (toggle) toggle.textContent = on ? 'On' : 'Off';
   const card = document.getElementById('steps-card');
   if (card && !on) card.style.display = 'none';
+  // Hiding only the inner card left the Steps header sitting in the Progress
+  // list, opening onto nothing. Hide the whole card for anyone opted out.
+  const outer = document.getElementById('progcard-steps');
+  if (outer) outer.style.display = on ? '' : 'none';
 }
 
 let _stepsChartRendering = false;
