@@ -8987,7 +8987,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-14-e-subcards';
+const RATIO_BUILD = '2026-08-15-a-wosubcards';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -9360,15 +9360,14 @@ async function appInit() {
     }
   });
   const lastView = getRecentLastView();
-  const restoreTab = lastView?.tab || 'today';
+  let restoreTab = lastView?.tab || 'today';
+  // The Coach tab is retired. Anyone who was last on it before the restructure
+  // still has 'aicoach' saved, and restoring it opened an empty tab and then
+  // called switchWorkoutsSubTab, blanking a panel the Workouts card now owns.
+  if (restoreTab === 'aicoach') restoreTab = 'progress';
   switchTab(restoreTab);
   if (lastView) {
     if (restoreTab === 'meals' && lastView.mealsSub) switchMealsSubTab(lastView.mealsSub);
-    if (restoreTab === 'aicoach' && lastView.coachSub) {
-      switchCoachSubTab(lastView.coachSub);
-      if (lastView.coachSub === 'workouts' && lastView.workoutsSub) switchWorkoutsSubTab(lastView.workoutsSub);
-      if (lastView.coachSub === 'meals' && lastView.mealIdeasSub) switchMealIdeasSubTab(lastView.mealIdeasSub);
-    }
   }
   const todayDateEl = document.getElementById('today-date');
   if (todayDateEl) todayDateEl.textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
@@ -10865,6 +10864,10 @@ function switchCoachSubTab(tab) {
 }
 
 function switchWorkoutsSubTab(sub) {
+  // The plan/browse toggle is retired - both panels are sub-cards now and the
+  // sub-card wrapper owns their display. A stale call here would blank one.
+  const wbody = document.getElementById('progbody-workouts');
+  if (wbody && wbody.dataset.wsubcarded === '1') return;
   saveLastView({ workoutsSub: sub });
   const panels = { plan: 'workouts-subtab-plan', browse: 'workouts-subtab-browse' };
   const btns = { plan: 'workouts-subtab-btn-plan', browse: 'workouts-subtab-btn-browse' };
@@ -14125,6 +14128,7 @@ function toggleProgCard(key) {
     if (t) _buildSubCards('progbody-' + _progOpenCard, t);
   }
   if (_progOpenCard === 'workouts') {
+    _buildWorkoutSubCards();
     try {
       if (typeof weeklyPlanLoaded !== 'undefined' && !weeklyPlanLoaded) loadWeeklyPlan();
       else if (typeof checkPlanWeekRollover === 'function') checkPlanWeekRollover();
@@ -14137,6 +14141,47 @@ function toggleProgCard(key) {
 // sub-card. Done at runtime deliberately: the cards already exist with their
 // charts and listeners wired, so moving the live nodes is far safer than
 // cutting and re-pasting several hundred lines of markup.
+// Build one collapsible sub-card shell. Shared by the generic child-scanning
+// builder below and by the Workouts builder, so both produce identical chrome
+// - two card styles sitting next to each other in the same list would read as
+// a bug. onOpen fires only on expand, for anything that has to render late.
+function _makeSubCard(title, onOpen) {
+  const wrap = document.createElement('div');
+  wrap.className = 'card';
+  wrap.style.cssText = 'padding:0;margin-bottom:10px;overflow:hidden';
+  const head = document.createElement('div');
+  head.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:13px 14px;cursor:pointer';
+  head.innerHTML = '<div style="font-size:13px;font-weight:800;color:var(--ink)">' + title +
+    '</div><span style="color:var(--dim);font-size:15px;display:inline-block;transition:transform 0.15s">\u203a</span>';
+  const inner = document.createElement('div');
+  inner.style.cssText = 'display:none;padding:0 12px 12px';
+  head.onclick = () => {
+    const open = inner.style.display !== 'none';
+    inner.style.display = open ? 'none' : 'block';
+    head.lastElementChild.style.transform = open ? 'rotate(0deg)' : 'rotate(90deg)';
+    if (!open) {
+      if (typeof onOpen === 'function') { try { onOpen(); } catch (e) { console.error('[nav] sub-card open hook failed', e); } }
+      // Charts measure 0x0 while hidden, so nudge them once revealed.
+      setTimeout(() => { try { window.dispatchEvent(new Event('resize')); } catch (e) {} }, 60);
+    }
+  };
+  wrap.appendChild(head);
+  wrap.appendChild(inner);
+  return { wrap, head, inner };
+}
+
+// Strip the outer chrome from a card that is about to sit inside a sub-card,
+// so the two borders and backgrounds do not double up.
+function _flattenIntoSubCard(node) {
+  node.style.margin = '0';
+  node.style.border = 'none';
+  node.style.background = 'transparent';
+}
+
+// Wrap each direct .card child of a progress card body in its own collapsible
+// sub-card. Done at runtime deliberately: the cards already exist with their
+// charts and listeners wired, so moving the live nodes is far safer than
+// cutting and re-pasting several hundred lines of markup.
 function _buildSubCards(bodyId, titles) {
   const body = document.getElementById(bodyId);
   if (!body || body.dataset.subcarded === '1') return;
@@ -14144,32 +14189,10 @@ function _buildSubCards(bodyId, titles) {
   if (!cards.length) return;
   cards.forEach((card, i) => {
     const title = titles[i] || ('Section ' + (i + 1));
-    const key = bodyId + '-sub' + i;
-    const wrap = document.createElement('div');
-    wrap.className = 'card';
-    wrap.style.cssText = 'padding:0;margin-bottom:10px;overflow:hidden';
-    const head = document.createElement('div');
-    head.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:13px 14px;cursor:pointer';
-    head.innerHTML = '<div style="font-size:13px;font-weight:800;color:var(--ink)">' + title +
-      '</div><span style="color:var(--dim);font-size:15px;display:inline-block;transition:transform 0.15s">\u203a</span>';
-    const inner = document.createElement('div');
-    inner.style.cssText = 'display:none;padding:0 12px 12px';
-    head.onclick = () => {
-      const open = inner.style.display !== 'none';
-      inner.style.display = open ? 'none' : 'block';
-      head.lastElementChild.style.transform = open ? 'rotate(0deg)' : 'rotate(90deg)';
-      // Charts measure 0x0 while hidden, so nudge them once revealed.
-      if (!open) setTimeout(() => { try { window.dispatchEvent(new Event('resize')); } catch (e) {} }, 60);
-    };
-    body.insertBefore(wrap, card);
-    // The original card keeps its own styling inside the wrapper, minus the
-    // outer chrome that would double up.
-    card.style.margin = '0';
-    card.style.border = 'none';
-    card.style.background = 'transparent';
-    inner.appendChild(card);
-    wrap.appendChild(head);
-    wrap.appendChild(inner);
+    const sub = _makeSubCard(title);
+    body.insertBefore(sub.wrap, card);
+    _flattenIntoSubCard(card);
+    sub.inner.appendChild(card);
   });
   body.dataset.subcarded = '1';
 }
@@ -14177,6 +14200,57 @@ function _buildSubCards(bodyId, titles) {
 const _SUBCARD_TITLES = {
   'progbody-goals': ['Weight', 'BMI', 'Body Fat %', 'Skeletal Muscle Mass', 'Log History']
 };
+
+// ---------------------------------------------------------------------------
+// Workouts sub-cards.
+//
+// The generic builder above scans for direct .card children and cannot be used
+// here. After the Coach panels are relocated, progbody-workouts holds exactly
+// ONE .card (Today's Logged Workouts) plus #coach-subtab-workouts - a plain
+// div, not a .card, whose own plan/browse toggle hides two panels that each
+// contain a .card one level deeper.
+//
+// So this builder reaches for those two panels BY ID and promotes them to
+// sibling sub-cards, and the toggle bar that used to switch between them is
+// hidden. Three sub-cards, one pattern, no nested toggle.
+// ---------------------------------------------------------------------------
+function _buildWorkoutSubCards() {
+  const body = document.getElementById('progbody-workouts');
+  if (!body || body.dataset.wsubcarded === '1') return;
+  const logged = Array.from(body.children).find(el => el.classList && el.classList.contains('card'));
+  const plan = document.getElementById('workouts-subtab-plan');
+  const browse = document.getElementById('workouts-subtab-browse');
+  // Bail WITHOUT setting the flag if the Coach panel has not been relocated
+  // yet, so the next card open retries rather than leaving a half-built list.
+  if (!logged || !plan || !browse || !body.contains(plan)) return;
+
+  const nav = document.getElementById('workouts-subtab-btn-plan');
+  if (nav && nav.parentElement) nav.parentElement.style.display = 'none';
+
+  const subLogged = _makeSubCard("Today's Logged Workouts");
+  body.insertBefore(subLogged.wrap, logged);
+  _flattenIntoSubCard(logged);
+  subLogged.inner.appendChild(logged);
+
+  // The toggle left one of these two at display:none. The sub-card wrapper
+  // owns visibility now, so both are cleared back to their natural display.
+  const subPlan = _makeSubCard("This Week's Plan");
+  body.appendChild(subPlan.wrap);
+  plan.style.display = '';
+  subPlan.inner.appendChild(plan);
+
+  // Browse's muscle list was rendered by switchWorkoutsSubTab('browse') and by
+  // appInit. Retiring the toggle removes one of those two callers, which is
+  // exactly how the weekly plan ended up rendering empty - so render on expand.
+  const subBrowse = _makeSubCard('Browse Exercises', () => {
+    if (typeof renderExerciseMuscleList === 'function') renderExerciseMuscleList();
+  });
+  body.appendChild(subBrowse.wrap);
+  browse.style.display = '';
+  subBrowse.inner.appendChild(browse);
+
+  body.dataset.wsubcarded = '1';
+}
 
 function _relocateCoachPanels() {
   try {
