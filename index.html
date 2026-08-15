@@ -362,6 +362,13 @@
     @keyframes vlPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(207,161,60,0.5); } 50% { box-shadow: 0 0 0 18px rgba(207,161,60,0); } }
     .vl-spinner { width: 36px; height: 36px; border-radius: 50%; border: 3px solid var(--line); border-top-color: #CFA13C; margin: 0 auto; animation: vlSpin 0.8s linear infinite; }
     @keyframes vlSpin { to { transform: rotate(360deg); } }
+    /* Week strip: horizontal scroll, snap to cell edges, no scrollbar.
+       A partially cut-off cell at the screen edge is the scroll affordance. */
+    #ws-week-strip { display:flex; gap:6px; overflow-x:auto; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
+    #ws-week-strip::-webkit-scrollbar { display:none; }
+    .ws-day-cell { min-width:96px; flex-shrink:0; scroll-snap-align:start; padding:9px 10px; border-radius:10px; background:var(--surface-2); cursor:pointer; }
+    .ws-day-cell.sel { background:var(--accent); }
+    .ws-day-cell.today-ring { border:1px solid var(--accent); }
     .progress-nav-chip { flex: 1; padding: 8px 4px; border: none; border-radius: 9px; background: transparent; color: var(--muted); font-size: 12px; font-weight: 700; font-family: inherit; cursor: pointer; white-space: nowrap; transition: all 0.15s; }
     .progress-nav-chip.active { background: var(--gold-tint); color: #CFA13C; }
     .legal-doc { font-size: 14px; line-height: 1.6; color: var(--ink-2); padding-bottom: 20px; }
@@ -539,7 +546,20 @@
     <!-- WORKOUTS - the body content is relocated in at runtime from the old
          Progress card, live nodes with their listeners intact. -->
     <div id="tab-workouts" style="display:none">
-      <div style="font-size:20px;font-weight:700;color:#CFA13C;margin-bottom:14px">Workouts</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div style="font-size:20px;font-weight:700;color:#CFA13C">Workouts</div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <button type="button" onclick="wsShiftWeek(-1)" style="background:none;border:none;cursor:pointer;padding:4px 6px"><i class="fa-solid fa-chevron-left" style="color:#CFA13C;font-size:13px"></i></button>
+          <span id="ws-week-label" style="font-size:12px;font-weight:700;color:var(--muted);min-width:76px;text-align:center">This Week</span>
+          <button type="button" onclick="wsShiftWeek(1)" id="ws-week-fwd" style="background:none;border:none;cursor:pointer;padding:4px 6px"><i class="fa-solid fa-chevron-right" style="color:var(--dim);font-size:13px"></i></button>
+        </div>
+      </div>
+      <div id="ws-week-strip"></div>
+      <!-- position hint: which half of the week the strip is resting on -->
+      <div style="display:flex;justify-content:center;gap:4px;margin:6px 0 10px">
+        <span id="ws-strip-dot-0" style="width:14px;height:3px;border-radius:2px;background:var(--accent)"></span>
+        <span id="ws-strip-dot-1" style="width:14px;height:3px;border-radius:2px;background:var(--line)"></span>
+      </div>
     </div>
 
     <!-- TODAY -->
@@ -1141,10 +1161,19 @@
         </div>
         <div id="progbody-workouts" class="prog-card-body">
       <div class="card">
-        <div style="display:flex;align-items:center;gap:8px;cursor:pointer" onclick="toggleWorkoutCalendar()">
-          <span class="card-title" style="color:#CFA13C;margin:0" id="workout-date-label">Today</span>
-          <i class="fa-solid fa-chevron-down" id="workout-cal-chevron" style="color:#CFA13C;font-size:12px;transition:transform 0.2s"></i>
-          <span style="font-size:11px;color:var(--muted)" id="workout-date-sub"></span>
+        <!-- Day sheet header: paging arrows either side, date + the day's plan
+             in the middle. Tapping the date still opens the calendar for long
+             jumps; the pencil opens this weekday's plan editor. -->
+        <div style="display:flex;align-items:center;gap:6px">
+          <button type="button" onclick="wsShiftDay(-1)" style="background:none;border:none;cursor:pointer;padding:6px"><i class="fa-solid fa-chevron-left" style="color:var(--dim);font-size:14px"></i></button>
+          <div style="flex:1;text-align:center;cursor:pointer" onclick="toggleWorkoutCalendar()">
+            <span class="card-title" style="color:#CFA13C;margin:0" id="workout-date-label">Today</span>
+            <i class="fa-solid fa-chevron-down" id="workout-cal-chevron" style="color:#CFA13C;font-size:12px;transition:transform 0.2s"></i>
+            <button type="button" onclick="event.stopPropagation();editPlanDayForDate()" style="background:none;border:none;cursor:pointer;padding:2px 4px"><i class="fa-solid fa-pencil" style="color:var(--dim);font-size:11px"></i></button>
+            <span style="display:none;font-size:11px;color:var(--muted)" id="workout-date-sub"></span>
+            <div id="ws-sheet-plan-line" style="font-size:11px;color:#CFA13C;margin-top:3px"></div>
+          </div>
+          <button type="button" onclick="wsShiftDay(1)" id="ws-day-fwd" style="background:none;border:none;cursor:pointer;padding:6px"><i class="fa-solid fa-chevron-right" style="color:var(--dim);font-size:14px"></i></button>
         </div>
 
         <!-- Workout date calendar. Replaces a hidden <input type="date"> that used
@@ -1177,7 +1206,7 @@
         <div id="ws-today-strength"></div>
         <button type="button" onclick="wsAddExercise()" id="ws-add-exercise-btn" class="btn" style="margin-bottom:14px">+ Log Exercise</button>
 
-        <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px">Cardio &amp; Other</div>
+        <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px">Completed Workouts</div>
         <div id="workouts-list"><div class="empty">No workouts logged yet</div></div>
 
         <div style="margin-top:12px">
@@ -5191,6 +5220,10 @@ function updateProgressNavHighlight() {
   });
 }
 document.querySelector('.content').addEventListener('scroll', updateProgressNavHighlight, { passive: true });
+(function () {
+  const strip = document.getElementById('ws-week-strip');
+  if (strip) strip.addEventListener('scroll', _wsUpdateStripDots, { passive: true });
+})();
 document.querySelector('.content').addEventListener('touchmove', updateProgressNavHighlight, { passive: true });
 
 function toggleTodayCalendarDropdown() {
@@ -9055,7 +9088,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-15-i-wotab';
+const RATIO_BUILD = '2026-08-15-j-weekstrip';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -9559,7 +9592,10 @@ function _setBackedIds() {
 
 let progressSets = [];
 
-// One row per movement, sets inline, in the order they were first logged.
+// The day sheet's exercise list: LOGGED movements first with their sets and a
+// gold check when they were planned, then the rest of the plan greyed with
+// its targets. One list, plan and log in the same rows - the plan is a
+// checklist that fills in as you train, not a separate document.
 function renderTodayStrength() {
   const el = document.getElementById('ws-today-strength');
   if (!el) return;
@@ -9567,6 +9603,7 @@ function renderTodayStrength() {
   const isToday = forDate === _wsToday();
   const addBtn = document.getElementById('ws-add-exercise-btn');
   if (addBtn) addBtn.style.display = isToday ? '' : 'none';
+
   const order = [];
   const byEx = {};
   for (const r of progressSets) {
@@ -9574,25 +9611,61 @@ function renderTodayStrength() {
     if (!byEx[n]) { byEx[n] = []; order.push(n); }
     byEx[n].push(r);
   }
-  if (!order.length) {
+
+  const dayIdx = new Date(forDate + 'T12:00:00').getDay();
+  const planDay = (typeof weeklyPlan !== 'undefined' && weeklyPlan[dayIdx]) ? weeklyPlan[dayIdx] : null;
+  const planned = (planDay && !planDay.is_rest_day && Array.isArray(planDay.exercises)) ? planDay.exercises : [];
+  const plannedNames = new Set(planned.map(p => p.name));
+  const remaining = planned.filter(p => !byEx[p.name]);
+  const doneCount = planned.length - remaining.length;
+
+  // Progress fraction joins the plan line under the date.
+  const planLine = document.getElementById('ws-sheet-plan-line');
+  if (planLine && planned.length) {
+    const base = _wsDaySummary(planDay);
+    planLine.textContent = `${base} \u00b7 ${doneCount} of ${planned.length} done`;
+  }
+
+  let html = order.map(n => {
+    const rows = byEx[n].slice().sort((a, b) => (a.set_number || 0) - (b.set_number || 0));
+    const group = rows[0].muscle_group || '';
+    const tap = isToday ? `onclick="wsQuickLog('${_wsEscAttr(n)}','${_wsEscAttr(group)}')" style="cursor:pointer"` : '';
+    const mark = plannedNames.has(n)
+      ? '<i class="fa-solid fa-circle-check" style="color:#CFA13C;font-size:13px;flex-shrink:0"></i>'
+      : (isToday ? '<i class="fa-solid fa-chevron-right" style="color:#CFA13C;font-size:11px;flex-shrink:0"></i>' : '');
+    return `
+    <div ${tap} class="ws-strength-row" style="padding:10px 0;border-bottom:1px solid var(--gray-100)${isToday ? ';cursor:pointer' : ''}">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+        <div style="font-size:14px;font-weight:600;color:var(--ink);min-width:0">${_weEscHtml(n)}</div>
+        ${mark}
+      </div>
+      <div style="font-size:12px;color:var(--muted);margin-top:3px;font-family:ui-monospace,monospace">${_wsFmtSets(rows)}</div>
+    </div>`;
+  }).join('');
+
+  // Unlogged plan rows: grey, showing targets. Tappable into the set sheet
+  // only when the sheet is today's - logging always writes to today, so a
+  // tap from a past or future page would lie about where the set went.
+  html += remaining.map(p => {
+    const target = (p.sets && p.reps) ? `planned \u00b7 ${p.sets}\u00d7${p.reps}` : 'planned';
+    const tap = isToday ? `onclick="wsQuickLog('${_wsEscAttr(p.name)}','${_wsEscAttr(p.group || '')}')" style="cursor:pointer"` : '';
+    return `
+    <div ${tap} class="ws-strength-row ws-planned-row" style="padding:10px 0;border-bottom:1px solid var(--gray-100)${isToday ? ';cursor:pointer' : ''}">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+        <div style="font-size:14px;font-weight:600;color:var(--dim);min-width:0">${_weEscHtml(p.name)}</div>
+        ${isToday ? '<i class="fa-solid fa-chevron-right" style="color:var(--dim);font-size:11px;flex-shrink:0"></i>' : ''}
+      </div>
+      <div style="font-size:12px;color:var(--dim);margin-top:3px">${target}</div>
+    </div>`;
+  }).join('');
+
+  if (!html) {
     el.innerHTML = isToday
       ? '<div style="font-size:12px;color:var(--muted);padding:6px 0 10px">No lifts logged yet \u2014 add an exercise to start.</div>'
       : '<div style="font-size:12px;color:var(--muted);padding:6px 0 10px">No lifts logged this day.</div>';
     return;
   }
-  el.innerHTML = order.map(n => {
-    const rows = byEx[n].slice().sort((a, b) => (a.set_number || 0) - (b.set_number || 0));
-    const group = rows[0].muscle_group || '';
-    const tap = isToday ? `onclick="wsQuickLog('${_wsEscAttr(n)}','${_wsEscAttr(group)}')" style="cursor:pointer"` : '';
-    return `
-    <div ${tap} class="ws-strength-row" style="padding:10px 0;border-bottom:1px solid var(--gray-100)${isToday ? ';cursor:pointer' : ''}">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
-        <div style="font-size:14px;font-weight:600;color:var(--ink);min-width:0">${_weEscHtml(n)}</div>
-        ${isToday ? '<i class="fa-solid fa-chevron-right" style="color:#CFA13C;font-size:11px;flex-shrink:0"></i>' : ''}
-      </div>
-      <div style="font-size:12px;color:var(--muted);margin-top:3px;font-family:ui-monospace,monospace">${_wsFmtSets(rows)}</div>
-    </div>`;
-  }).join('') + '<div style="height:12px"></div>';
+  el.innerHTML = html + '<div style="height:12px"></div>';
 }
 
 // Single quotes and backslashes escaped for inline onclick attributes. Names
@@ -9852,6 +9925,125 @@ async function jumpToWorkoutDate(dateStr) {
   await loadProgressWorkouts();
 }
 
+// ---------------------------------------------------------------------------
+// WEEK STRIP + DAY SHEET NAVIGATION
+// The strip always shows the week CONTAINING the selected date; the sheet
+// below shows that date. Tap a cell, page a day, or page a week - all three
+// move the same selection, so the two levels can never disagree. Forward
+// motion is capped at the current week: the plan is a repeating template, so
+// future weeks would just show identical labels with nothing logged.
+// ---------------------------------------------------------------------------
+function _wsAddDays(dateStr, n) {
+  const d = new Date(dateStr + 'T12:00:00');
+  d.setDate(d.getDate() + n);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function _wsDaySummary(day) {
+  if (!day) return '';
+  if (day.is_rest_day) return 'Rest day';
+  const groups = day.muscle_groups || [];
+  if (groups.length) return groups.join(' \u00b7 ');
+  return 'Nothing planned';
+}
+
+function wsShiftDay(n) {
+  const cur = progressWorkoutDate();
+  const next = _wsAddDays(cur, n);
+  const cap = _wsAddDays(_wrWeekStart(_wsToday()), 6);  // Saturday of the current week
+  if (next > cap) return;
+  jumpToWorkoutDate(next);
+}
+
+function wsShiftWeek(n) {
+  const cur = progressWorkoutDate();
+  const nowWeek = _wrWeekStart(_wsToday());
+  if (n > 0 && _wrWeekStart(cur) >= nowWeek) return;   // already in the current week
+  let next = _wsAddDays(cur, n * 7);
+  if (_wrWeekStart(next) >= nowWeek) next = _wsToday(); // stepping into the present lands on today
+  jumpToWorkoutDate(next);
+}
+
+function renderWeekStrip() {
+  const strip = document.getElementById('ws-week-strip');
+  if (!strip) return;
+  const selected = progressWorkoutDate();
+  const weekStart = _wrWeekStart(selected);
+  const today = _wsToday();
+  const names = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  let html = '';
+  for (let i = 0; i < 7; i++) {
+    const dateStr = _wsAddDays(weekStart, i);
+    const isSel = dateStr === selected;
+    const isToday = dateStr === today;
+    const day = (typeof weeklyPlan !== 'undefined' && weeklyPlan[i]) ? weeklyPlan[i] : null;
+    const summary = _wsDaySummary(day);
+    const cls = 'ws-day-cell' + (isSel ? ' sel' : (isToday ? ' today-ring' : ''));
+    const nameCol = isSel ? '#101512' : 'var(--ink)';
+    const subCol = isSel ? '#3a2f14' : 'var(--muted)';
+    html += `<div class="${cls}" data-wsday="${dateStr}" onclick="jumpToWorkoutDate('${dateStr}')">
+      <div style="font-size:12px;font-weight:${isSel||isToday?'700':'600'};color:${nameCol}">${names[i]}</div>
+      <div style="font-size:10px;color:${subCol};margin-top:3px;line-height:1.3;min-height:13px">${_weEscHtml(summary)}</div>
+    </div>`;
+  }
+  strip.innerHTML = html;
+  // Auto-follow: the selected cell settles centred, neighbours peeking on both
+  // sides - otherwise every Saturday opens with today four swipes off-screen.
+  const cell = strip.querySelector('.ws-day-cell.sel');
+  if (cell) strip.scrollLeft = Math.max(0, cell.offsetLeft - (strip.clientWidth - cell.offsetWidth) / 2);
+  _wsUpdateStripDots();
+
+  // Week pager label: honest about where you are. "This Week" only when true.
+  const label = document.getElementById('ws-week-label');
+  const fwd = document.getElementById('ws-week-fwd');
+  const curWeek = _wrWeekStart(today);
+  if (label) {
+    if (weekStart === curWeek) label.textContent = 'This Week';
+    else {
+      const s = new Date(weekStart + 'T12:00:00');
+      const e = new Date(_wsAddDays(weekStart, 6) + 'T12:00:00');
+      const sTxt = s.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const eTxt = e.toLocaleDateString('en-US', s.getMonth() === e.getMonth() ? { day: 'numeric' } : { month: 'short', day: 'numeric' });
+      label.textContent = `${sTxt} \u2013 ${eTxt}`;
+    }
+  }
+  if (fwd) fwd.style.opacity = weekStart === curWeek ? '0.35' : '1';
+}
+
+function _wsUpdateStripDots() {
+  const strip = document.getElementById('ws-week-strip');
+  const d0 = document.getElementById('ws-strip-dot-0');
+  const d1 = document.getElementById('ws-strip-dot-1');
+  if (!strip || !d0 || !d1) return;
+  const max = strip.scrollWidth - strip.clientWidth;
+  const second = max > 0 && strip.scrollLeft > max / 2;
+  d0.style.background = second ? 'var(--line)' : 'var(--accent)';
+  d1.style.background = second ? 'var(--accent)' : 'var(--line)';
+}
+
+// The plan line under the sheet date: what this day is, and how far through
+// it you are. renderTodayStrength owns the done-count and fills it in.
+function _wsSheetPlanBase() {
+  const el = document.getElementById('ws-sheet-plan-line');
+  if (!el) return;
+  const idx = new Date(progressWorkoutDate() + 'T12:00:00').getDay();
+  const day = (typeof weeklyPlan !== 'undefined' && weeklyPlan[idx]) ? weeklyPlan[idx] : null;
+  el.textContent = _wsDaySummary(day);
+}
+
+// Pencil in the sheet header: open THIS weekday's plan editor down in the
+// Edit Weekly Plan section, expanded and scrolled into view.
+function editPlanDayForDate() {
+  const idx = new Date(progressWorkoutDate() + 'T12:00:00').getDay();
+  try {
+    _buildWorkoutSubCards();
+    const s = window._wsPlanSub;
+    if (s && s.inner.style.display !== 'block') s.head.onclick();
+    if (typeof editPlanDayConfig === 'function' && typeof weeklyPlan !== 'undefined' && weeklyPlan[idx]) editPlanDayConfig(idx);
+    if (s) setTimeout(() => { try { s.wrap.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) {} }, 80);
+  } catch (e) { console.error('[ws] plan editor open failed', e); }
+}
+
 function updateWorkoutDateLabel() {
   const dateStr = progressWorkoutDate();
   const d = new Date(dateStr + 'T12:00:00');
@@ -9867,6 +10059,8 @@ function updateWorkoutDateLabel() {
   const subEl = document.getElementById('workout-date-sub');
   if (labelEl) labelEl.textContent = label;
   if (subEl) subEl.textContent = sub;
+  renderWeekStrip();
+  _wsSheetPlanBase();
 }
 
 // Renders the Progress tab's workout list from progressWorkouts / its own date.
@@ -9879,7 +10073,7 @@ function renderWorkouts() {
   // is already listed above as exercises, and the X here would orphan sets.
   const setIds = _setBackedIds();
   const visible = progressWorkouts.filter(w => !setIds.has(w.id));
-  if (!visible.length) { el.innerHTML = '<div class="empty">No cardio logged yet</div>'; return; }
+  if (!visible.length) { el.innerHTML = '<div class="empty">Nothing synced or logged yet</div>'; return; }
   el.innerHTML = visible.map((w, i) => {
     const hasDetail = !!w.healthkit_id;
     return `
@@ -12327,6 +12521,7 @@ async function loadWeeklyPlan() {
   });
   weeklyPlanLoaded = true;
   renderWeeklyPlanList();
+  try { renderWeekStrip(); _wsSheetPlanBase(); if (typeof renderTodayStrength === 'function') renderTodayStrength(); } catch (e) {}
   checkPlanWeekRollover();
 }
 // ===== WEEKLY PLAN ROLLOVER =====
@@ -14515,7 +14710,8 @@ function _buildWorkoutSubCards() {
   _flattenIntoSubCard(logged);
   logged.style.padding = '0';
 
-  const subPlan = _makeSubCard("This Week's Plan", null, 'fa-calendar-days');
+  const subPlan = _makeSubCard('Edit Weekly Plan', null, 'fa-calendar-days');
+  window._wsPlanSub = subPlan;   // the sheet-header pencil jumps here
   body.appendChild(subPlan.wrap);
   plan.style.display = '';
   subPlan.inner.appendChild(plan);
