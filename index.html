@@ -9256,7 +9256,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-15-p-setvoice';
+const RATIO_BUILD = '2026-08-15-q-planline';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -9901,7 +9901,7 @@ function renderTodayStrength() {
   const doneCount = planned.length - planned.filter(p => !byEx[p.name]).length;
 
   const planLine = document.getElementById('ws-sheet-plan-line');
-  if (planLine && planned.length) {
+  if (planLine && planned.length && forDate >= _wsToday()) {
     planLine.textContent = `${_wsDaySummary(planDay)} \u00b7 ${doneCount} of ${planned.length} done`;
   }
 
@@ -10434,7 +10434,12 @@ function _wsUpdateStripDots() {
 function _wsSheetPlanBase() {
   const el = document.getElementById('ws-sheet-plan-line');
   if (!el) return;
-  const idx = new Date(progressWorkoutDate() + 'T12:00:00').getDay();
+  const forDate = progressWorkoutDate();
+  // Past days describe what HAPPENED (the sheet itself does that); the plan
+  // template only previews days that haven't finished. "All Legs - 0 of 6
+  // done" on an empty page from last week reads like lost data.
+  if (forDate < _wsToday()) { el.textContent = ''; return; }
+  const idx = new Date(forDate + 'T12:00:00').getDay();
   const day = (typeof weeklyPlan !== 'undefined' && weeklyPlan[idx]) ? weeklyPlan[idx] : null;
   el.textContent = _wsDaySummary(day);
 }
