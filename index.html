@@ -497,6 +497,12 @@
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8A8880" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
           <span id="bell-count" style="display:none;position:absolute;top:1px;right:1px;min-width:16px;height:16px;border-radius:8px;background:#EF4444;color:#fff;font-size:10px;font-weight:800;line-height:16px;text-align:center;padding:0 4px;border:1.5px solid var(--surface)"></span>
         </button>
+        <!-- Profile lives up here now. Settings territory, visited a few times
+             a month - it does not earn a bottom-nav slot that Workouts needs
+             every gym day. Gold circle so it reads as "you", not another tool. -->
+        <button onclick="openProfilePage()" aria-label="Profile" style="background:var(--accent);border:none;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%">
+          <i class="fa-solid fa-user" style="font-size:15px;color:#101512"></i>
+        </button>
       </div>
     </div>
   </div>
@@ -518,18 +524,24 @@
         <i class="fa-solid fa-microphone" style="color:#101512;font-size:19px"></i>
       </span>
     </button>
+    <button class="bottom-nav-btn" data-tab="workouts" onclick="switchTab('workouts')">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5h11"/><path d="M6.5 17.5h11"/><rect x="2" y="9" width="4" height="6" rx="1"/><rect x="18" y="9" width="4" height="6" rx="1"/><path d="M6 12h12"/></svg>
+      <span>Workouts</span>
+    </button>
     <button class="bottom-nav-btn" data-tab="progress" onclick="switchTab('progress')">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
       <span>Progress</span>
-    </button>
-    <button class="bottom-nav-btn" data-tab="profile" onclick="openProfilePage()">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-      <span>Profile</span>
     </button>
   </div>
 
 
   <div class="content">
+    <!-- WORKOUTS - the body content is relocated in at runtime from the old
+         Progress card, live nodes with their listeners intact. -->
+    <div id="tab-workouts" style="display:none">
+      <div style="font-size:20px;font-weight:700;color:#CFA13C;margin-bottom:14px">Workouts</div>
+    </div>
+
     <!-- TODAY -->
     <div id="tab-today">
       <!-- TODAY HEADER + CALENDAR DROPDOWN TOGGLE -->
@@ -5101,7 +5113,7 @@ function switchTab(tab) {
   // Idempotent and a no-op on iOS; cheapest place to guarantee the web-disabled
   // states are applied no matter which screen the user reaches first.
   applyPlatformUI();
-  ['today','meals','progress','photos','aicoach','shopping','todo','profile','profile-myprofile','profile-settings','profile-appearance','profile-allergies','profile-devices','profile-targets','profile-report','profile-privacy','profile-help','profile-tos','profile-privacy-policy','voicelog'].forEach(t => {
+  ['today','meals','workouts','progress','photos','aicoach','shopping','todo','profile','profile-myprofile','profile-settings','profile-appearance','profile-allergies','profile-devices','profile-targets','profile-report','profile-privacy','profile-help','profile-tos','profile-privacy-policy','voicelog'].forEach(t => {
     document.getElementById(`tab-${t}`).style.display = t === tab ? 'block' : 'none';
   });
   document.querySelectorAll('.bottom-nav-btn[data-tab]').forEach(btn => {
@@ -5116,7 +5128,16 @@ function switchTab(tab) {
     if (detailEl) detailEl.style.display = 'none';
   }
   if (tab === 'meals') loadMealsTab();
-  if (tab === 'progress') { resetWorkoutDateToToday(); loadProgressWorkouts(); loadGoals().then(() => { loadScans(); updateGoalsDisplay(); }); loadDayTotals(); }
+  if (tab === 'workouts') {
+    _buildWorkoutSubCards();
+    resetWorkoutDateToToday();
+    loadProgressWorkouts();
+    try {
+      if (typeof weeklyPlanLoaded !== 'undefined' && !weeklyPlanLoaded) loadWeeklyPlan();
+      else if (typeof checkPlanWeekRollover === 'function') checkPlanWeekRollover();
+    } catch (e) { console.error('[nav] weekly plan load failed', e); }
+  }
+  if (tab === 'progress') { loadGoals().then(() => { loadScans(); updateGoalsDisplay(); }); loadDayTotals(); }
   if (tab === 'profile') loadCurrentUsername();
   if (tab === 'profile-myprofile') loadMyProfilePage();
   if (tab === 'profile-allergies') loadFoodAllergiesPage();
@@ -5153,7 +5174,7 @@ function updateProgressNavHighlight() {
   const navEl = document.getElementById('progress-section-nav');
   const contentEl = document.querySelector('.content');
   if (!navEl || !contentEl) return;
-  const sections = ['goals', 'workouts', 'steps', 'photos', 'nutrition']
+  const sections = ['goals', 'steps', 'photos', 'nutrition']
     .filter(sec => sec !== 'steps' || stepsTrackingEnabled());
   // Trigger line = vertical midpoint of the visible area below the sticky nav
   const navBottom = navEl.getBoundingClientRect().bottom;
@@ -9034,7 +9055,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-15-h-exfirst';
+const RATIO_BUILD = '2026-08-15-i-wotab';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -9412,6 +9433,9 @@ async function appInit() {
   // still has 'aicoach' saved, and restoring it opened an empty tab and then
   // called switchWorkoutsSubTab, blanking a panel the Workouts card now owns.
   if (restoreTab === 'aicoach') restoreTab = 'progress';
+  // Profile left the bottom nav; restoring into a settings page as the app's
+  // opening screen reads as being lost. Land on Today instead.
+  if (restoreTab === 'profile') restoreTab = 'today';
   switchTab(restoreTab);
   if (lastView) {
     if (restoreTab === 'meals' && lastView.mealsSub) switchMealsSubTab(lastView.mealsSub);
@@ -9520,7 +9544,17 @@ async function loadProgressWorkouts() {
     if (progressWorkoutDate() !== forDate) return; // stale
     progressSets = sets;
   } catch (e) { progressSets = []; }
+  // Diary rows that only exist to anchor sets are not cardio - re-render the
+  // diary now that we know which workout ids the sets point at.
+  renderWorkouts();
   renderTodayStrength();
+}
+
+// workout ids that own at least one set on the viewed date
+function _setBackedIds() {
+  const ids = new Set();
+  for (const r of (progressSets || [])) if (r.workout_id) ids.add(r.workout_id);
+  return ids;
 }
 
 let progressSets = [];
@@ -9841,8 +9875,12 @@ function renderWorkouts() {
   updateWorkoutDateLabel();
   const el = document.getElementById('workouts-list');
   if (!el) return;
-  if (!progressWorkouts.length) { el.innerHTML = '<div class="empty">No workouts logged yet</div>'; return; }
-  el.innerHTML = progressWorkouts.map((w, i) => {
+  // Hide the container rows the set logger creates - the lifting they anchor
+  // is already listed above as exercises, and the X here would orphan sets.
+  const setIds = _setBackedIds();
+  const visible = progressWorkouts.filter(w => !setIds.has(w.id));
+  if (!visible.length) { el.innerHTML = '<div class="empty">No cardio logged yet</div>'; return; }
+  el.innerHTML = visible.map((w, i) => {
     const hasDetail = !!w.healthkit_id;
     return `
     <div class="workout-row" ${hasDetail ? `data-wdetail="${i}" style="cursor:pointer"` : ''}>
@@ -9862,20 +9900,20 @@ function renderWorkouts() {
   }).join('');
   // Tapping a HealthKit-synced workout opens its full detail view; manual entries do nothing extra.
   el.querySelectorAll('[data-wdetail]').forEach(row => {
-    row.addEventListener('click', () => openWorkoutDetailObj(progressWorkouts[+row.dataset.wdetail]));
+    row.addEventListener('click', () => openWorkoutDetailObj(visible[+row.dataset.wdetail]));
   });
   // Attach listeners
   el.querySelectorAll('[data-wedit]').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
-      const w = progressWorkouts[+btn.dataset.wedit];
+      const w = visible[+btn.dataset.wedit];
       openEditWorkoutModal(w.id, w.name, w.duration, w.calories);
     });
   });
   el.querySelectorAll('[data-wdelete]').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       e.stopPropagation();
-      const w = progressWorkouts[+btn.dataset.wdelete];
+      const w = visible[+btn.dataset.wdelete];
       if (!await appConfirm(`Delete "${w.name}"? This cannot be undone.`, { title: 'Delete Workout', yesLabel: 'Yes, Delete' })) return;
       await dbDelete('workouts', w.id);
       await reloadViewedWorkouts();  // stay on the date being viewed
@@ -14066,7 +14104,12 @@ function _wsSetsFor(name) {
 }
 
 function _wsFmtSets(rows) {
-  return rows.map(r => `${(+r.weight || 0)}&times;${(+r.reps || 0)}`).join(' &nbsp; ');
+  // Bodyweight sets have no weight - "15 reps" reads right, "0x15" reads
+  // like a bug.
+  return rows.map(r => {
+    const w = +r.weight || 0, reps = +r.reps || 0;
+    return w ? `${w}&times;${reps}` : `${reps} reps`;
+  }).join(' &nbsp; ');
 }
 
 function wsRenderSession() {
@@ -14336,7 +14379,7 @@ function _collapseSubCards(body) {
 function toggleProgCard(key) {
   const open = _progOpenCard === key;
   _progOpenCard = open ? null : key;
-  ['goals', 'workouts', 'steps', 'photos', 'nutrition'].forEach(k => {
+  ['goals', 'steps', 'photos', 'nutrition'].forEach(k => {
     const body = document.getElementById('progbody-' + k);
     const chev = document.getElementById('progchev-' + k);
     const isOpen = _progOpenCard === k;
@@ -14357,13 +14400,6 @@ function toggleProgCard(key) {
     // Refresh on open rather than trusting the copy appInit rendered - a photo
     // uploaded inside this card should be in the list when you reopen it.
     try { if (typeof loadPhotos === 'function') loadPhotos(); } catch (e) { console.error('[nav] photo load failed', e); }
-  }
-  if (_progOpenCard === 'workouts') {
-    _buildWorkoutSubCards();
-    try {
-      if (typeof weeklyPlanLoaded !== 'undefined' && !weeklyPlanLoaded) loadWeeklyPlan();
-      else if (typeof checkPlanWeekRollover === 'function') checkPlanWeekRollover();
-    } catch (e) { console.error('[nav] weekly plan load failed', e); }
   }
 }
 
@@ -14458,9 +14494,9 @@ const _SUBCARD_TITLES = {
 // div, not a .card, whose own plan/browse toggle hides two panels that each
 // contain a .card one level deeper.
 //
-// So this builder reaches for those two panels BY ID and promotes them to
-// sibling sub-cards, and the toggle bar that used to switch between them is
-// hidden. Three sub-cards, one pattern, no nested toggle.
+// Workouts is a TAB now, so today's log renders FLAT at the top - the tab
+// header does the job the accordion layers were doing. Only Plan and Browse
+// stay as collapsible rows, because both are large and secondary.
 // ---------------------------------------------------------------------------
 function _buildWorkoutSubCards() {
   const body = document.getElementById('progbody-workouts');
@@ -14469,27 +14505,21 @@ function _buildWorkoutSubCards() {
   const plan = document.getElementById('workouts-subtab-plan');
   const browse = document.getElementById('workouts-subtab-browse');
   // Bail WITHOUT setting the flag if the Coach panel has not been relocated
-  // yet, so the next card open retries rather than leaving a half-built list.
+  // yet, so the next tab open retries rather than leaving a half-built page.
   if (!logged || !plan || !browse || !body.contains(plan)) return;
 
   const nav = document.getElementById('workouts-subtab-btn-plan');
   if (nav && nav.parentElement) nav.parentElement.style.display = 'none';
 
-  const subLogged = _makeSubCard("Today's Logged Workouts", null, 'fa-list-check');
-  body.insertBefore(subLogged.wrap, logged);
+  // Today's log stays flat and first - just lose the double card chrome.
   _flattenIntoSubCard(logged);
-  subLogged.inner.appendChild(logged);
+  logged.style.padding = '0';
 
-  // The toggle left one of these two at display:none. The sub-card wrapper
-  // owns visibility now, so both are cleared back to their natural display.
   const subPlan = _makeSubCard("This Week's Plan", null, 'fa-calendar-days');
   body.appendChild(subPlan.wrap);
   plan.style.display = '';
   subPlan.inner.appendChild(plan);
 
-  // Browse's muscle list was rendered by switchWorkoutsSubTab('browse') and by
-  // appInit. Retiring the toggle removes one of those two callers, which is
-  // exactly how the weekly plan ended up rendering empty - so render on expand.
   const subBrowse = _makeSubCard('Browse Exercises', () => {
     if (typeof renderExerciseMuscleList === 'function') renderExerciseMuscleList();
   }, 'fa-magnifying-glass');
@@ -14510,6 +14540,21 @@ function _relocateCoachPanels() {
       workoutsBody.appendChild(workoutPanel);
     }
   } catch (e) { console.error('[nav] could not relocate coach panels', e); }
+  // Workouts is a bottom tab now. Its whole body moves out of the Progress
+  // group into the tab shell, and the old Progress row disappears - same
+  // live-node move as everything else, so listeners and charts survive.
+  try {
+    const wbody = document.getElementById('progbody-workouts');
+    const wtab = document.getElementById('tab-workouts');
+    const wrow = document.getElementById('progcard-workouts');
+    if (wbody && wtab && wbody.parentElement !== wtab) {
+      wtab.appendChild(wbody);
+      wbody.style.display = 'block';
+      wbody.style.padding = '0';
+    }
+    if (wrow) wrow.style.display = 'none';
+    if (typeof _fixProgGroupDividers === 'function') _fixProgGroupDividers();
+  } catch (e) { console.error('[nav] could not relocate workouts body', e); }
   // Progress Photos was the odd one out: every other Progress card expanded in
   // place while this one navigated to a separate tab with a back button. Its
   // three cards move into the card body the same way - live nodes, so the
