@@ -573,6 +573,26 @@
 
 
   <div class="content">
+    <!-- BROWSE EXERCISES - its own page; the library panel is relocated in
+         at runtime. Reached from BROWSE on the sheet or a blank grid row. -->
+    <div id="tab-workouts-browse" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div style="font-size:18px;font-weight:700;color:#CFA13C">Browse Exercises</div>
+        <button onclick="switchTab('workouts')" style="background:var(--surface-2);border:none;border-radius:10px;width:32px;height:32px;font-size:18px;color:var(--muted);cursor:pointer">&times;</button>
+      </div>
+      <div id="ws-browse-page-body"></div>
+    </div>
+
+    <!-- WEEKLY PLAN - its own page; the plan editor panel is relocated in at
+         runtime. Reached from the pencil on the sheet's DATE line. -->
+    <div id="tab-workouts-plan" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div style="font-size:18px;font-weight:700;color:#CFA13C">Weekly Plan</div>
+        <button onclick="switchTab('workouts')" style="background:var(--surface-2);border:none;border-radius:10px;width:32px;height:32px;font-size:18px;color:var(--muted);cursor:pointer">&times;</button>
+      </div>
+      <div id="ws-plan-page-body"></div>
+    </div>
+
     <!-- WORKOUTS - the body content is relocated in at runtime from the old
          Progress card, live nodes with their listeners intact. -->
     <div id="tab-workouts" style="display:none">
@@ -5197,7 +5217,7 @@ function switchTab(tab) {
   // Idempotent and a no-op on iOS; cheapest place to guarantee the web-disabled
   // states are applied no matter which screen the user reaches first.
   applyPlatformUI();
-  ['today','meals','workouts','progress','photos','aicoach','shopping','todo','profile','profile-myprofile','profile-settings','profile-appearance','profile-allergies','profile-devices','profile-targets','profile-report','profile-privacy','profile-help','profile-tos','profile-privacy-policy','voicelog'].forEach(t => {
+  ['today','meals','workouts','workouts-browse','workouts-plan','progress','photos','aicoach','shopping','todo','profile','profile-myprofile','profile-settings','profile-appearance','profile-allergies','profile-devices','profile-targets','profile-report','profile-privacy','profile-help','profile-tos','profile-privacy-policy','voicelog'].forEach(t => {
     document.getElementById(`tab-${t}`).style.display = t === tab ? 'block' : 'none';
   });
   document.querySelectorAll('.bottom-nav-btn[data-tab]').forEach(btn => {
@@ -5213,13 +5233,21 @@ function switchTab(tab) {
   }
   if (tab === 'meals') loadMealsTab();
   if (tab === 'workouts') {
-    _buildWorkoutSubCards();
     resetWorkoutDateToToday();
     loadProgressWorkouts();
     try {
       if (typeof weeklyPlanLoaded !== 'undefined' && !weeklyPlanLoaded) loadWeeklyPlan();
       else if (typeof checkPlanWeekRollover === 'function') checkPlanWeekRollover();
     } catch (e) { console.error('[nav] weekly plan load failed', e); }
+  }
+  if (tab === 'workouts-browse') {
+    try { if (typeof renderExerciseMuscleList === 'function') renderExerciseMuscleList(); } catch (e) {}
+  }
+  if (tab === 'workouts-plan') {
+    try {
+      if (typeof weeklyPlanLoaded !== 'undefined' && !weeklyPlanLoaded) loadWeeklyPlan();
+      else renderWeeklyPlanList();
+    } catch (e) {}
   }
   if (tab === 'progress') { loadGoals().then(() => { loadScans(); updateGoalsDisplay(); }); loadDayTotals(); }
   if (tab === 'profile') loadCurrentUsername();
@@ -9143,7 +9171,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-15-l-notepad';
+const RATIO_BUILD = '2026-08-15-m-pages';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -9524,6 +9552,7 @@ async function appInit() {
   // Profile left the bottom nav; restoring into a settings page as the app's
   // opening screen reads as being lost. Land on Today instead.
   if (restoreTab === 'profile') restoreTab = 'today';
+  if (restoreTab === 'workouts-browse' || restoreTab === 'workouts-plan') restoreTab = 'workouts';
   switchTab(restoreTab);
   if (lastView) {
     if (restoreTab === 'meals' && lastView.mealsSub) switchMealsSubTab(lastView.mealsSub);
@@ -9842,6 +9871,20 @@ function renderTodayStrength() {
     </tbody>`);
   }
 
+  // An empty sheet on a non-rest day is the moment help should appear - the
+  // invitation is printed ON the form, never a popup. It vanishes the moment
+  // the first exercise lands (planned or logged).
+  let invite = '';
+  if (isToday && !order.length && !planned.length && !(planDay && planDay.is_rest_day)) {
+    invite = `<div style="border:1px dashed #999;padding:8px 10px;margin-bottom:6px;text-align:center">
+      <div style="font-size:10px;color:#8a8375;margin-bottom:7px">Nothing planned for today.</div>
+      <div style="display:flex;gap:6px">
+        <button type="button" onclick="wsAddExercise()" style="flex:1;padding:8px 4px;background:none;border:1px solid #2a2a2a;border-radius:4px;font-size:10px;font-weight:700;color:#2a2a2a;cursor:pointer">\u270e FILL IN MY OWN</button>
+        <button type="button" onclick="editPlanDayForDate()" style="flex:1;padding:8px 4px;background:#2a2a2a;border:none;border-radius:4px;font-size:10px;font-weight:700;color:#f7f5f0;cursor:pointer">\u2726 HAVE COACH BUILD IT</button>
+      </div>
+    </div>`;
+  }
+
   // One blank numbered row waits at the end - on today it IS the add-exercise
   // affordance, exactly like the next empty line on the pad.
   num++;
@@ -9851,7 +9894,7 @@ function renderTodayStrength() {
     <tr class="rsolid"><td class="psub" style="border-top:1px dashed #999">WEIGHT</td>${cells([], true)}</tr>
   </tbody>`);
 
-  el.innerHTML = `<table class="pgrid">${head}${bodies.join('')}</table>`;
+  el.innerHTML = invite + `<table class="pgrid">${head}${bodies.join('')}</table>`;
   renderSheetTimes();
 }
 
@@ -10295,12 +10338,10 @@ function _wsSheetPlanBase() {
 // Edit Weekly Plan section, expanded and scrolled into view.
 function editPlanDayForDate() {
   const idx = new Date(progressWorkoutDate() + 'T12:00:00').getDay();
+  switchTab('workouts-plan');
   try {
-    _buildWorkoutSubCards();
-    const s = window._wsPlanSub;
-    if (s && s.inner.style.display !== 'block') s.head.onclick();
+    if (typeof weeklyPlanLoaded !== 'undefined' && !weeklyPlanLoaded) { loadWeeklyPlan(); return; }
     if (typeof editPlanDayConfig === 'function' && typeof weeklyPlan !== 'undefined' && weeklyPlan[idx]) editPlanDayConfig(idx);
-    if (s) setTimeout(() => { try { s.wrap.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) {} }, 80);
   } catch (e) { console.error('[ws] plan editor open failed', e); }
 }
 
@@ -14448,14 +14489,8 @@ async function wsQuickLog(name, group) {
 
 // "+ Log Exercise" - the picker already exists: it's the Browse sub-card.
 function wsAddExercise() {
-  try {
-    _buildWorkoutSubCards();
-    const s = window._wsBrowseSub;
-    if (s) {
-      if (s.inner.style.display !== 'block') s.head.onclick();
-      setTimeout(() => { try { s.wrap.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) {} }, 80);
-    }
-  } catch (e) { console.error('[ws] add exercise failed', e); }
+  switchTab('workouts-browse');
+  try { if (typeof renderExerciseMuscleList === 'function') renderExerciseMuscleList(); } catch (e) {}
 }
 
 // From the exercise detail page (Browse) straight into logging a set.
@@ -14954,37 +14989,9 @@ const _SUBCARD_TITLES = {
 // stay as collapsible rows, because both are large and secondary.
 // ---------------------------------------------------------------------------
 function _buildWorkoutSubCards() {
-  const body = document.getElementById('progbody-workouts');
-  if (!body || body.dataset.wsubcarded === '1') return;
-  const logged = Array.from(body.children).find(el => el.classList && el.classList.contains('card'));
-  const plan = document.getElementById('workouts-subtab-plan');
-  const browse = document.getElementById('workouts-subtab-browse');
-  // Bail WITHOUT setting the flag if the Coach panel has not been relocated
-  // yet, so the next tab open retries rather than leaving a half-built page.
-  if (!logged || !plan || !browse || !body.contains(plan)) return;
-
-  const nav = document.getElementById('workouts-subtab-btn-plan');
-  if (nav && nav.parentElement) nav.parentElement.style.display = 'none';
-
-  // Today's log stays flat and first - just lose the double card chrome.
-  _flattenIntoSubCard(logged);
-  logged.style.padding = '0';
-
-  const subPlan = _makeSubCard('Edit Weekly Plan', null, 'fa-calendar-days');
-  window._wsPlanSub = subPlan;   // the sheet-header pencil jumps here
-  body.appendChild(subPlan.wrap);
-  plan.style.display = '';
-  subPlan.inner.appendChild(plan);
-
-  const subBrowse = _makeSubCard('Browse Exercises', () => {
-    if (typeof renderExerciseMuscleList === 'function') renderExerciseMuscleList();
-  }, 'fa-magnifying-glass');
-  window._wsBrowseSub = subBrowse;   // "+ Log Exercise" jumps here
-  body.appendChild(subBrowse.wrap);
-  browse.style.display = '';
-  subBrowse.inner.appendChild(browse);
-
-  body.dataset.wsubcarded = '1';
+  // Retired (2026-08-15-m): Plan and Browse are full pages now, moved there by
+  // _relocateCoachPanels. Kept as a harmless no-op so old call sites and any
+  // cached onclick handlers can't throw.
 }
 
 function _relocateCoachPanels() {
@@ -15010,6 +15017,22 @@ function _relocateCoachPanels() {
     }
     if (wrow) wrow.style.display = 'none';
     if (typeof _fixProgGroupDividers === 'function') _fixProgGroupDividers();
+    // Plan and Browse leave the Workouts tab entirely - each panel becomes
+    // the body of its own page. The old plan/browse toggle bar retires.
+    const planPanel = document.getElementById('workouts-subtab-plan');
+    const planPage = document.getElementById('ws-plan-page-body');
+    if (planPanel && planPage && planPanel.parentElement !== planPage) {
+      planPage.appendChild(planPanel);
+      planPanel.style.display = '';
+    }
+    const browsePanel = document.getElementById('workouts-subtab-browse');
+    const browsePage = document.getElementById('ws-browse-page-body');
+    if (browsePanel && browsePage && browsePanel.parentElement !== browsePage) {
+      browsePage.appendChild(browsePanel);
+      browsePanel.style.display = '';
+    }
+    const subnav = document.getElementById('workouts-subtab-btn-plan');
+    if (subnav && subnav.parentElement) subnav.parentElement.style.display = 'none';
   } catch (e) { console.error('[nav] could not relocate workouts body', e); }
   // Progress Photos was the odd one out: every other Progress card expanded in
   // place while this one navigated to a separate tab with a back button. Its
