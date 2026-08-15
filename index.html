@@ -2131,11 +2131,11 @@
 
         <div id="workouts-subtab-plan">
           <div class="card" style="background:linear-gradient(160deg,var(--gold-tint),var(--gold-tint-2));border:1px solid var(--gold-line)">
-            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:4px">
-              <div class="card-title" style="margin-bottom:0;color:#CFA13C">This Week's Plan</div>
+            <!-- The page header already says "Weekly Plan" - no second title. -->
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px">
+              <div style="font-size:12px;color:var(--muted)">Tap a day to set muscle groups and where you're training.</div>
               <button type="button" onclick="getWeeklyPlanFeedback()" id="plan-feedback-btn" style="flex-shrink:0;background:var(--surface);color:#CFA13C;border:1px solid var(--gold-line);border-radius:20px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">🧠 Get Feedback</button>
             </div>
-            <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Tap a day to set muscle groups and where you're training.</div>
             <div id="weekly-plan-feedback"></div>
             <div id="weekly-plan-list" style="background:var(--surface);border-radius:14px;overflow:hidden"></div>
           </div>
@@ -2146,7 +2146,7 @@
         <div id="workouts-subtab-browse" style="display:none">
         <div class="card" style="background:linear-gradient(160deg,var(--gold-tint),var(--gold-tint-2));border:1px solid var(--gold-line)">
           <div id="exercise-muscle-list-header">
-            <div class="card-title" style="color:#CFA13C">Browse Exercises</div>
+            <!-- The page header already says "Browse Exercises" - no second title. -->
             <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Not sure what to do at the gym? Pick a muscle group.</div>
           </div>
           <div id="exercise-muscle-list" style="display:flex;flex-direction:column;gap:8px"></div>
@@ -4964,6 +4964,15 @@ function vlRenderConfirm(data) {
     const w = data.logWorkout || {};
     title = 'Log Workout';
     itemsHtml = `<div style="padding:8px 0;display:flex;justify-content:space-between;align-items:center;gap:8px"><div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:500;color:var(--ink)">${w.name || 'Workout'}</div><div style="font-size:11px;color:var(--gray-400);margin-top:2px">${w.durationMinutes || 0} min</div></div><div class="workout-cals">−${Math.round(w.caloriesBurned||0)} cal</div></div>`;
+  } else if (data.action === 'set_week_plan') {
+    const days = data.weekPlan?.days || [];
+    title = 'Set Up Your Week';
+    const DAY_N = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    itemsHtml = days.map(d => {
+      const dn = DAY_N[d.dayOfWeek] || d.dayName || 'Day';
+      const what = d.isRestDay ? 'Rest day' : [d.label, (d.muscleGroups || []).join(', ')].filter(Boolean).join(' \u00b7 ');
+      return `<div style="padding:8px 0;border-bottom:1px solid var(--surface-2)"><div style="font-size:14px;font-weight:500;color:var(--ink)">${dn}</div><div style="font-size:11px;color:var(--muted);margin-top:2px">${what || 'Nothing specified'}</div></div>`;
+    }).join('');
   } else if (data.action === 'add_to_shopping_list') {
     const items = data.shoppingItems || [];
     title = 'Add to Shopping List';
@@ -4983,7 +4992,7 @@ function vlRenderConfirm(data) {
       <div>Total</div><div style="font-weight:600;font-size:12px;margin-top:2px">${nutritionMetaString(totals, data.action === 'save_meal' ? { skipChol: true } : {})}</div>
     </div>` : '';
 
-  const isKnownAction = ['log_food','save_meal','save_food','log_workout','add_to_shopping_list','add_to_todo'].includes(data.action);
+  const isKnownAction = ['log_food','save_meal','save_food','log_workout','set_week_plan','add_to_shopping_list','add_to_todo'].includes(data.action);
   const actionButtonsHtml = isKnownAction ? `
     <button class="btn" onclick="vlConfirmSave()" style="margin-top:16px">Looks good — Log it</button>
     <div style="display:flex;gap:8px;margin-top:8px">
@@ -5067,6 +5076,57 @@ async function vlConfirmSave() {
       });
       savedFoods = await dbGet('saved_foods', 'order=name.asc');
       toast(`"${f.name || 'Food'}" saved to My Foods ✓`);
+    } else if (data.action === 'set_week_plan') {
+      const days = (data.weekPlan?.days || []).filter(d => Number.isInteger(+d.dayOfWeek) && d.dayOfWeek >= 0 && d.dayOfWeek <= 6);
+      if (!days.length) { toast('No days recognized \u2014 try again'); return; }
+      const VALID_GROUPS = ['Chest','Back','Shoulders','Abs','Biceps','Triceps','Cardio','All Legs','Quadriceps','Hamstrings','Glutes','Calves','Adductors','Abductors'];
+      if (typeof weeklyPlanLoaded !== 'undefined' && !weeklyPlanLoaded) { try { await loadWeeklyPlan(); } catch (e) {} }
+      const weekStart = _wrWeekStart(_wsToday());
+      for (const d of days) {
+        const i = +d.dayOfWeek;
+        const groups = (d.muscleGroups || []).filter(g => VALID_GROUPS.includes(g));
+        const rest = !!d.isRestDay;
+        weeklyPlan[i] = {
+          day_of_week: i,
+          location: (weeklyPlan[i] && weeklyPlan[i].location) || 'gym',
+          muscle_groups: rest ? [] : groups,
+          is_rest_day: rest,
+          exercises: [],     // fresh groups -> fresh exercises; generation below
+          checked_off: []
+        };
+        await dbUpsert('workout_plans', {
+          day_of_week: i, location: weeklyPlan[i].location, muscle_groups: weeklyPlan[i].muscle_groups,
+          is_rest_day: rest, exercises: [], checked_off: [], updated_at: new Date().toISOString()
+        }, 'user_id,day_of_week');
+        if (typeof savedPlanDays !== 'undefined') savedPlanDays.add(i);
+        // The spoken day NAME ("Push day") becomes that date's note this week -
+        // notes are what name the days in the strip.
+        const label = (d.label || '').trim();
+        if (label && !rest) {
+          const dateStr = _wsAddDays(weekStart, i);
+          try {
+            await dbUpsert('workout_notes', { date: dateStr, note: label.slice(0, 500), updated_at: new Date().toISOString() }, 'user_id,date');
+            if (_wsWeekMeta[weekStart]) {
+              if (!_wsWeekMeta[weekStart][dateStr]) _wsWeekMeta[weekStart][dateStr] = { note: '', groups: [], wnames: [], hasAny: false };
+              _wsWeekMeta[weekStart][dateStr].note = label;
+            }
+            if (progressWorkoutDate() === dateStr) { _wsNote = label; _wsNoteDate = dateStr; renderDayNote(); }
+          } catch (e) { console.error('[vl] week label save failed', e); }
+        }
+      }
+      try { renderWeeklyPlanList(); renderWeekStrip(); renderTodayStrength(); } catch (e) {}
+      toast('Week set \u2713');
+      // Generate the exercises for each day with muscle groups, one at a time
+      // in the background - the plan and labels are already saved either way.
+      (async () => {
+        for (const d of days) {
+          const i = +d.dayOfWeek;
+          if (weeklyPlan[i] && !weeklyPlan[i].is_rest_day && (weeklyPlan[i].muscle_groups || []).length) {
+            try { await generateDayWorkout(i); } catch (e) { console.error('[vl] generate day', i, 'failed', e); }
+          }
+        }
+        try { renderWeeklyPlanList(); renderTodayStrength(); } catch (e) {}
+      })();
     } else if (data.action === 'log_workout') {
       const w = data.logWorkout || {};
       await dbPost('workouts', {
@@ -9171,7 +9231,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-15-m-pages';
+const RATIO_BUILD = '2026-08-15-o-planvoice';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -9676,10 +9736,12 @@ function _wsPatchWeekMeta(dateStr) {
   const groups = [];
   for (const r of (progressSets || [])) if (r.muscle_group && !groups.includes(r.muscle_group)) groups.push(r.muscle_group);
   const firstW = (progressWorkouts || [])[0];
+  const wnames = [];
+  for (const r of (progressWorkouts || [])) if (r.name && !wnames.includes(r.name)) wnames.push(r.name);
   _wsWeekMeta[wk][dateStr] = {
     note: (typeof _wsNote === 'string' && _wsNoteDate === dateStr) ? _wsNote : ((_wsWeekMeta[wk][dateStr] || {}).note || ''),
     groups,
-    wname: firstW ? (firstW.name || '') : '',
+    wnames,
     hasAny: !!((progressSets || []).length || (progressWorkouts || []).length),
   };
   renderWeekStrip();
@@ -9696,7 +9758,7 @@ async function loadDayNote() {
   _wsNote = ''; _wsNoteDate = forDate;
   renderDayNote();  // paint the placeholder immediately, no flash of stale text
   try {
-    const rows = await dbGet('workout_notes', `date=eq.${forDate}`);
+    const rows = await dbGet('workout_notes', `date=eq.${forDate}&order=date.asc`);
     if (progressWorkoutDate() !== forDate) return; // stale
     _wsNote = (rows && rows[0] && rows[0].note) || '';
   } catch (e) {}
@@ -10226,12 +10288,12 @@ async function loadWeekMeta(weekStart) {
   const range = `date=gte.${weekStart}&date=lte.${endDate}`;
   try {
     const [notes, sets, wos] = await Promise.all([
-      dbGet('workout_notes', range).catch(() => []),
+      dbGet('workout_notes', `${range}&order=date.asc`).catch(() => []),
       dbGet('workout_sets', `${range}&select=date,muscle_group`).catch(() => []),
       dbGet('workouts', `${range}&select=date,name`).catch(() => []),
     ]);
     const meta = {};
-    const entry = (d) => meta[d] || (meta[d] = { note: '', groups: [], wname: '', hasAny: false });
+    const entry = (d) => meta[d] || (meta[d] = { note: '', groups: [], wnames: [], hasAny: false });
     for (const r of (notes || [])) if (r.note) entry(r.date).note = r.note;
     for (const r of (sets || [])) {
       const e = entry(r.date); e.hasAny = true;
@@ -10239,7 +10301,8 @@ async function loadWeekMeta(weekStart) {
     }
     for (const r of (wos || [])) {
       const e = entry(r.date); e.hasAny = true;
-      if (!e.wname) e.wname = r.name || '';
+      if (!e.wnames) e.wnames = [];
+      if (r.name && !e.wnames.includes(r.name)) e.wnames.push(r.name);
     }
     _wsWeekMeta[weekStart] = meta;
   } catch (e) {
@@ -10250,6 +10313,22 @@ async function loadWeekMeta(weekStart) {
   renderWeekStrip();
 }
 
+// Health-synced workout names bucket into categories for the strip - a day
+// of "Walking, Walking, Traditional Strength Training" reads
+// "Cardio, Strength Training", the way the owner of the log would say it.
+function _wsBucketWorkouts(names) {
+  const buckets = [];
+  for (const n of names) {
+    const s = String(n || '').toLowerCase();
+    let b;
+    if (/strength|weight|lifting|functional/.test(s)) b = 'Strength Training';
+    else if (/walk|run|jog|stair|elliptical|cycl|bike|swim|row|hiit|hike|cardio|treadmill/.test(s)) b = 'Cardio';
+    else b = n;
+    if (b && !buckets.includes(b)) buckets.push(b);
+  }
+  return buckets.join(', ');
+}
+
 // note -> what was actually trained -> "Rest day" (past) / plan (today+future)
 function _wsStripLabel(dateStr, dayIdx) {
   const today = _wsToday();
@@ -10258,7 +10337,8 @@ function _wsStripLabel(dateStr, dayIdx) {
   if (meta) {
     if (meta.note) return { text: meta.note, dim: false };
     if (meta.groups.length) return { text: meta.groups.join(' \u00b7 '), dim: false };
-    if (meta.hasAny && meta.wname) return { text: meta.wname, dim: false };
+    const names = meta.wnames || (meta.wname ? [meta.wname] : []);
+    if (meta.hasAny && names.length) return { text: _wsBucketWorkouts(names), dim: false };
     if (dateStr < today) return { text: 'Rest day', dim: true };
   } else if (dateStr < today && _wsWeekMeta[_wrWeekStart(dateStr)]) {
     // week meta loaded, nothing at all for this date
@@ -10336,12 +10416,19 @@ function _wsSheetPlanBase() {
 
 // Pencil in the sheet header: open THIS weekday's plan editor down in the
 // Edit Weekly Plan section, expanded and scrolled into view.
-function editPlanDayForDate() {
+async function editPlanDayForDate() {
   const idx = new Date(progressWorkoutDate() + 'T12:00:00').getDay();
   switchTab('workouts-plan');
   try {
-    if (typeof weeklyPlanLoaded !== 'undefined' && !weeklyPlanLoaded) { loadWeeklyPlan(); return; }
+    if (typeof weeklyPlanLoaded !== 'undefined' && !weeklyPlanLoaded) await loadWeeklyPlan();
     if (typeof editPlanDayConfig === 'function' && typeof weeklyPlan !== 'undefined' && weeklyPlan[idx]) editPlanDayConfig(idx);
+    // Land ON the day, not at the top of the week.
+    setTimeout(() => {
+      try {
+        const card = document.getElementById('plan-day-card-' + idx);
+        if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } catch (e) {}
+    }, 120);
   } catch (e) { console.error('[ws] plan editor open failed', e); }
 }
 
@@ -12974,7 +13061,7 @@ function renderWeeklyPlanList() {
       <div style="font-size:10px;color:var(--muted);margin-top:5px">${checkedCount} of ${exerciseCount} done</div>` : '';
 
     return `
-    <div style="${cardStyle};${dim}border-radius:12px;margin-bottom:8px;overflow:hidden">
+    <div id="plan-day-card-${i}" style="${cardStyle};${dim}border-radius:12px;margin-bottom:8px;overflow:hidden">
       <div ${canExpand ? `onclick="togglePlanDayExpand(${i})"` : ''} style="width:100%;display:flex;justify-content:space-between;align-items:center;text-align:left;cursor:${canExpand ? 'pointer' : 'default'};padding:13px 14px;box-sizing:border-box">
         <div style="flex:1;min-width:0">
           <div style="font-size:14px;font-weight:800;color:${isUnset ? 'var(--muted)' : 'var(--ink)'}">${DAY_NAMES_FULL[i]}${isToday ? ' <span style="font-size:10px;font-weight:700;color:#CFA13C;background:var(--gold-tint);padding:2px 7px;border-radius:20px;margin-left:5px">Today</span>' : ''}</div>
