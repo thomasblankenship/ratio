@@ -149,11 +149,12 @@
     /* Fixed line-height: the mic circle's vertical position is computed from
        this number, so it cannot be left to the platform's default. */
     .bottom-nav-btn span { font-size: 11px; font-weight: 500; line-height: 13px; }
-    /* flex-end aligns every button's bottom edge; 10px of bottom padding puts
-       the 46px circle's centre at 33px - exactly the 22px icons' centre line
-       (6 pad + 13 label + 3 gap + 11). Centres aligned, labels aligned, and
-       the circle rises evenly above the row instead of drifting. */
-    .nav-mic-btn { padding: 6px 14px 10px; }
+    /* flex-end aligns every button's bottom edge. The circle centres on the
+       tab's FULL icon+label unit, not the icon row alone - measured against a
+       device screenshot, the eye reads each tab as one 38px block (22 icon +
+       3 gap + 13 label) centred 25px above the button's bottom edge, so the
+       46px circle's centre goes there too: 2px pad + 23 = 25. */
+    .nav-mic-btn { padding: 6px 14px 2px; }
     .bottom-nav-btn.active { color: var(--accent); background: rgba(207,161,60,0.14); }
 
     /* CARDS */
@@ -9021,7 +9022,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-15-e-navrows';
+const RATIO_BUILD = '2026-08-15-f-micdown';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
