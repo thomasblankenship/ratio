@@ -247,14 +247,19 @@
     /* Progress cards deliberately borrow the Profile menu's metrics - same row
        height, same 15px/500 label, same 20px gold icon gutter, same chevron.
        Two lists in one app that are almost-but-not-quite alike read as sloppy. */
-    .prog-card { padding: 0; margin-bottom: 12px; overflow: hidden; }
+    /* One grouped card with hairline dividers, exactly like the Profile menu -
+       five separate cards left gaps that made the list read as five unrelated
+       things rather than one section. */
+    .prog-group { padding: 4px 0; overflow: hidden; }
+    .prog-card { border-bottom: 1px solid var(--surface-2); }
+    .prog-card:last-child, .prog-card.prog-row-last { border-bottom: none; }
     .prog-card-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; cursor: pointer; gap: 12px; }
     .prog-card-head > span { display: flex; align-items: center; gap: 12px; min-width: 0; }
     .prog-card-icon { width: 20px; text-align: center; color: #CFA13C; font-size: 15px; flex-shrink: 0; }
     .prog-card-title { font-size: 15px; font-weight: 500; color: var(--ink); }
     .prog-card-sub { font-size: 12px; color: var(--muted); margin-top: 3px; }
     .prog-card-chev { color: var(--muted-2); font-size: 13px; flex-shrink: 0; display: inline-block; transition: transform 0.15s; }
-    .prog-card-body { display: none; padding: 0 12px 12px; }
+    .prog-card-body { display: none; padding: 0 16px 14px; }
     .subcard { padding: 0; margin-bottom: 10px; overflow: hidden; }
     .subcard:last-child { margin-bottom: 0; }
     .subcard-head { display: flex; align-items: center; justify-content: space-between; padding: 13px 14px; cursor: pointer; gap: 12px; }
@@ -807,8 +812,9 @@
     <div id="tab-progress" style="display:none">
 
       <!-- SECTION NAV -->
+      <div class="card prog-group">
       <div id="progress-section-goals"></div>
-      <div class="card prog-card" id="progcard-goals">
+      <div class="prog-card" id="progcard-goals">
         <div onclick="toggleProgCard('goals')" class="prog-card-head">
           <span>
             <i class="fa-solid fa-weight-scale prog-card-icon"></i>
@@ -1099,7 +1105,7 @@
         </div>
       </div>
       <div id="progress-section-workouts"></div>
-      <div class="card prog-card" id="progcard-workouts">
+      <div class="prog-card" id="progcard-workouts">
         <div onclick="toggleProgCard('workouts')" class="prog-card-head">
           <span>
             <i class="fa-solid fa-dumbbell prog-card-icon"></i>
@@ -1174,7 +1180,7 @@
         </div>
       </div>
       <div id="progress-section-steps"></div>
-      <div class="card prog-card" id="progcard-steps">
+      <div class="prog-card" id="progcard-steps">
         <div onclick="toggleProgCard('steps')" class="prog-card-head">
           <span>
             <i class="fa-solid fa-shoe-prints prog-card-icon"></i>
@@ -1227,7 +1233,7 @@
         </div>
       </div>
       <div id="progress-section-photos"></div>
-      <div class="card prog-card" id="progcard-photos">
+      <div class="prog-card" id="progcard-photos">
         <div onclick="toggleProgCard('photos')" class="prog-card-head">
           <span>
             <i class="fa-solid fa-camera prog-card-icon"></i>
@@ -1243,7 +1249,7 @@
         </div>
       </div>
       <div id="progress-section-nutrition"></div>
-      <div class="card prog-card" id="progcard-nutrition">
+      <div class="prog-card" id="progcard-nutrition">
         <div onclick="toggleProgCard('nutrition')" class="prog-card-head">
           <span>
             <i class="fa-solid fa-chart-pie prog-card-icon"></i>
@@ -1300,6 +1306,7 @@
       </div>
 
         </div>
+      </div>
       </div>
     </div>
 
@@ -9008,7 +9015,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-15-b-progpolish';
+const RATIO_BUILD = '2026-08-15-d-photoflat';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -14238,9 +14245,11 @@ function _buildSubCards(bodyId, titles) {
   body.dataset.subcarded = '1';
 }
 
+// Only cards whose children are unlabelled chart panels need sub-cards. The
+// photo panels already carry their own titles, so wrapping them stacked one
+// header on top of another and hid the content behind an extra tap.
 const _SUBCARD_TITLES = {
-  'progbody-goals': ['Weight', 'BMI', 'Body Fat %', 'Skeletal Muscle Mass', 'Log History'],
-  'progbody-photos': ['Upload Progress Photo', 'Compare Two Dates', 'All Photos']
+  'progbody-goals': ['Weight', 'BMI', 'Body Fat %', 'Skeletal Muscle Mass', 'Log History']
 };
 
 // ---------------------------------------------------------------------------
@@ -16191,6 +16200,19 @@ function applyStepsVisibility() {
   // list, opening onto nothing. Hide the whole card for anyone opted out.
   const outer = document.getElementById('progcard-steps');
   if (outer) outer.style.display = on ? '' : 'none';
+  _fixProgGroupDividers();
+}
+
+// :last-child does not know about display:none, so a hidden Steps row could
+// leave the grouped card with a hairline under its final visible row.
+function _fixProgGroupDividers() {
+  const rows = Array.from(document.querySelectorAll('.prog-group .prog-card'));
+  const visible = rows.filter(r => r.style.display !== 'none');
+  // A class, not an inline border-bottom shorthand: setting that shorthand to
+  // 'none' is normalised inconsistently, and WKWebView is the wrong place to
+  // find out which way it went.
+  rows.forEach(r => r.classList.remove('prog-row-last'));
+  if (visible.length) visible[visible.length - 1].classList.add('prog-row-last');
 }
 
 let _stepsChartRendering = false;
