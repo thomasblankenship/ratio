@@ -4964,6 +4964,16 @@ function vlRenderConfirm(data) {
     const w = data.logWorkout || {};
     title = 'Log Workout';
     itemsHtml = `<div style="padding:8px 0;display:flex;justify-content:space-between;align-items:center;gap:8px"><div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:500;color:var(--ink)">${w.name || 'Workout'}</div><div style="font-size:11px;color:var(--gray-400);margin-top:2px">${w.durationMinutes || 0} min</div></div><div class="workout-cals">−${Math.round(w.caloriesBurned||0)} cal</div></div>`;
+  } else if (data.action === 'log_set') {
+    const ls = data.logSet || {};
+    const resolved = _wsResolveExercise(ls.exerciseName);
+    title = 'Log Sets';
+    const setLines = (ls.sets || []).map((s, i) => {
+      const w = +s.weight;
+      const txt = (isFinite(w) && w > 0) ? `${w} lbs \u00d7 ${+s.reps || 0}` : `${+s.reps || 0} reps`;
+      return `<div style="font-size:12px;color:var(--muted);font-family:ui-monospace,monospace;margin-top:2px">Set ${i + 1}: ${txt}</div>`;
+    }).join('');
+    itemsHtml = `<div style="padding:8px 0"><div style="font-size:14px;font-weight:500;color:var(--ink)">${resolved.name}</div>${setLines}</div>`;
   } else if (data.action === 'set_week_plan') {
     const days = data.weekPlan?.days || [];
     title = 'Set Up Your Week';
@@ -4992,7 +5002,7 @@ function vlRenderConfirm(data) {
       <div>Total</div><div style="font-weight:600;font-size:12px;margin-top:2px">${nutritionMetaString(totals, data.action === 'save_meal' ? { skipChol: true } : {})}</div>
     </div>` : '';
 
-  const isKnownAction = ['log_food','save_meal','save_food','log_workout','set_week_plan','add_to_shopping_list','add_to_todo'].includes(data.action);
+  const isKnownAction = ['log_food','save_meal','save_food','log_workout','log_set','set_week_plan','add_to_shopping_list','add_to_todo'].includes(data.action);
   const actionButtonsHtml = isKnownAction ? `
     <button class="btn" onclick="vlConfirmSave()" style="margin-top:16px">Looks good — Log it</button>
     <div style="display:flex;gap:8px;margin-top:8px">
@@ -5076,6 +5086,15 @@ async function vlConfirmSave() {
       });
       savedFoods = await dbGet('saved_foods', 'order=name.asc');
       toast(`"${f.name || 'Food'}" saved to My Foods ✓`);
+    } else if (data.action === 'log_set') {
+      const ls = data.logSet || {};
+      const sets = (ls.sets || []).filter(s => isFinite(+s.reps) && +s.reps > 0);
+      if (!ls.exerciseName || !sets.length) { toast('Nothing to log \u2014 try again'); return; }
+      const resolved = _wsResolveExercise(ls.exerciseName);
+      const n = await vlLogSets(resolved.name, resolved.group, sets);
+      if (!n) { toast('Could not save those sets \u2014 try again'); return; }
+      switchTab('workouts');   // watch the ink land on the sheet
+      toast(n === 1 ? 'Set logged \u2713' : `${n} sets logged \u2713`);
     } else if (data.action === 'set_week_plan') {
       const days = (data.weekPlan?.days || []).filter(d => Number.isInteger(+d.dayOfWeek) && d.dayOfWeek >= 0 && d.dayOfWeek <= 6);
       if (!days.length) { toast('No days recognized \u2014 try again'); return; }
@@ -5225,6 +5244,12 @@ function vlEditManually() {
     set('food-fat', f.fat||0);
     set('food-fiber', f.fiber||0);
     set('food-cholesterol', f.cholesterol||0);
+  } else if (data.action === 'log_set') {
+    // Editing spoken sets = the set sheet itself, prefilled from history.
+    const ls = data.logSet || {};
+    const resolved = _wsResolveExercise(ls.exerciseName);
+    switchTab('workouts');
+    wsQuickLog(resolved.name, resolved.group);
   } else if (data.action === 'log_workout') {
     switchTab('today');
     if (document.getElementById('workout-form').style.display === 'none') toggleWorkoutForm();
@@ -9231,7 +9256,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-15-o-planvoice';
+const RATIO_BUILD = '2026-08-15-p-setvoice';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -14552,6 +14577,66 @@ async function wsStartSession(dayIdx) {
   // History for every exercise up front, so tapping one is instant rather than
   // showing a spinner between sets.
   exercises.forEach(ex => _wsLoadHistory(ex.name));
+}
+
+// A spoken lift name maps to the exercise library when it can - "bench" ->
+// "Bench Press" - so voice-logged sets carry the canonical name (which is
+// what plan check-marks and history match on) and a real muscle group.
+function _wsResolveExercise(spoken) {
+  const s = String(spoken || '').trim().toLowerCase();
+  const fallback = { name: String(spoken || '').trim().replace(/\b\w/g, c => c.toUpperCase()), group: null };
+  if (!s || typeof EXERCISE_LIBRARY === 'undefined') return fallback;
+  const partial = [];
+  for (const g of Object.keys(EXERCISE_LIBRARY)) {
+    for (const e of (EXERCISE_LIBRARY[g] || [])) {
+      const n = String(e.name || '').toLowerCase();
+      if (n === s) return { name: e.name, group: e.primaryMuscle || g };
+      if (n.includes(s) || s.includes(n)) partial.push({ name: e.name, group: e.primaryMuscle || g });
+    }
+  }
+  if (partial.length === 1) return partial[0];
+  return fallback;   // zero or ambiguous matches: keep their words, group unknown
+}
+
+// Write spoken sets through the SAME path the set sheet uses - same ad-hoc
+// session bootstrap as wsQuickLog, same anchor workout, same numbering - so a
+// voice-logged set is indistinguishable from a tapped one.
+async function vlLogSets(name, group, sets) {
+  if (!_wsSession) {
+    _wsSession = { adhoc: true, exercises: [], workoutId: null,
+                   startedAt: new Date().toISOString(), name: 'Workout' };
+    _wsSetsToday = [];
+    try {
+      const existing = await dbGet('workout_sets', `date=eq.${_wsToday()}&order=created_at.asc`);
+      _wsSetsToday = existing || [];
+      if (_wsSetsToday.length && _wsSetsToday[0].workout_id) _wsSession.workoutId = _wsSetsToday[0].workout_id;
+    } catch (e) {}
+  }
+  if (!_wsSession.exercises.find(e => e.name === name)) _wsSession.exercises.push({ name: name, group: group || null });
+  const workoutId = await _wsEnsureWorkout();
+  let logged = 0;
+  for (const s of sets) {
+    const reps = +s.reps;
+    if (!isFinite(reps) || reps <= 0) continue;
+    const w = +s.weight;
+    const setNumber = _wsSetsFor(name).length + 1;
+    const saved = await dbPost('workout_sets', {
+      workout_id: workoutId,
+      date: _wsToday(),
+      exercise_name: name,
+      muscle_group: group || null,
+      set_number: setNumber,
+      weight: (isFinite(w) && w > 0) ? w : null,
+      reps: reps
+    });
+    const row = Array.isArray(saved) ? saved[0] : saved;
+    _wsSetsToday.push(row || { exercise_name: name, set_number: setNumber, weight: w, reps: reps, workout_id: workoutId });
+    logged++;
+  }
+  _wsTouchEnd(workoutId);
+  delete _wsHistory[name];   // this exercise's cached history is stale now
+  try { if (typeof loadProgressWorkouts === 'function') loadProgressWorkouts(); } catch (e) {}
+  return logged;
 }
 
 // Log any movement WITHOUT a plan-day session - the exercise-first front
