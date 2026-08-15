@@ -1090,7 +1090,7 @@
         <div id="progbody-workouts" style="display:none;padding:0 12px 12px">
       <div class="card">
         <div style="display:flex;align-items:center;gap:8px;cursor:pointer" onclick="toggleWorkoutCalendar()">
-          <span class="card-title" style="color:#CFA13C;margin:0" id="workout-date-label">Today's Workouts</span>
+          <span class="card-title" style="color:#CFA13C;margin:0" id="workout-date-label">Today's Logged Workouts</span>
           <i class="fa-solid fa-chevron-down" id="workout-cal-chevron" style="color:#CFA13C;font-size:12px;transition:transform 0.2s"></i>
           <span style="font-size:11px;color:var(--muted)" id="workout-date-sub"></span>
         </div>
@@ -1202,12 +1202,12 @@
       </div>
       <div id="progress-section-photos"></div>
       <div class="card" style="padding:0;margin-bottom:10px;overflow:hidden">
-        <div onclick="toggleProgCard('photos')" style="display:flex;justify-content:space-between;align-items:center;padding:14px;cursor:pointer">
+        <div onclick="switchTab('photos')" style="display:flex;justify-content:space-between;align-items:center;padding:14px;cursor:pointer">
           <div style="min-width:0">
             <div style="font-size:14px;font-weight:800;color:var(--ink)">Progress Photos</div>
             <div style="font-size:11px;color:var(--muted);margin-top:3px">Side-by-side over time</div>
           </div>
-          <span id="progchev-photos" style="color:var(--dim);font-size:16px;display:inline-block;transition:transform 0.15s">›</span>
+          <span style="color:var(--dim);font-size:16px">›</span>
         </div>
         <div id="progbody-photos" style="display:none;padding:0 12px 12px">
       <button onclick="switchTab('photos')" style="width:100%;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px;cursor:pointer;text-align:left">
@@ -8987,7 +8987,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-14-c-planload';
+const RATIO_BUILD = '2026-08-14-e-subcards';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -9729,7 +9729,7 @@ function updateWorkoutDateLabel() {
   const yStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth()+1).padStart(2,'0')}-${String(yesterday.getDate()).padStart(2,'0')}`;
   const isToday = dateStr === todayStr;
   const isYesterday = dateStr === yStr;
-  const label = isToday ? "Today's Workouts" : isYesterday ? "Yesterday's Workouts" : d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) + ' Workouts';
+  const label = isToday ? "Today's Logged Workouts" : isYesterday ? "Yesterday's Workouts" : d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) + ' Workouts';
   const sub = isToday ? '' : d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   const labelEl = document.getElementById('workout-date-label');
   const subEl = document.getElementById('workout-date-sub');
@@ -14120,6 +14120,10 @@ function toggleProgCard(key) {
   if (_progOpenCard) setTimeout(() => { try { window.dispatchEvent(new Event('resize')); } catch (e) {} }, 60);
   // The weekly plan used to load on Coach-tab open. That tab no longer exists,
   // so the plan days never rendered - load them when this card opens.
+  if (_progOpenCard) {
+    const t = _SUBCARD_TITLES['progbody-' + _progOpenCard];
+    if (t) _buildSubCards('progbody-' + _progOpenCard, t);
+  }
   if (_progOpenCard === 'workouts') {
     try {
       if (typeof weeklyPlanLoaded !== 'undefined' && !weeklyPlanLoaded) loadWeeklyPlan();
@@ -14127,6 +14131,52 @@ function toggleProgCard(key) {
     } catch (e) { console.error('[nav] weekly plan load failed', e); }
   }
 }
+
+
+// Wrap each direct .card child of a progress card body in its own collapsible
+// sub-card. Done at runtime deliberately: the cards already exist with their
+// charts and listeners wired, so moving the live nodes is far safer than
+// cutting and re-pasting several hundred lines of markup.
+function _buildSubCards(bodyId, titles) {
+  const body = document.getElementById(bodyId);
+  if (!body || body.dataset.subcarded === '1') return;
+  const cards = Array.from(body.children).filter(el => el.classList && el.classList.contains('card'));
+  if (!cards.length) return;
+  cards.forEach((card, i) => {
+    const title = titles[i] || ('Section ' + (i + 1));
+    const key = bodyId + '-sub' + i;
+    const wrap = document.createElement('div');
+    wrap.className = 'card';
+    wrap.style.cssText = 'padding:0;margin-bottom:10px;overflow:hidden';
+    const head = document.createElement('div');
+    head.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:13px 14px;cursor:pointer';
+    head.innerHTML = '<div style="font-size:13px;font-weight:800;color:var(--ink)">' + title +
+      '</div><span style="color:var(--dim);font-size:15px;display:inline-block;transition:transform 0.15s">\u203a</span>';
+    const inner = document.createElement('div');
+    inner.style.cssText = 'display:none;padding:0 12px 12px';
+    head.onclick = () => {
+      const open = inner.style.display !== 'none';
+      inner.style.display = open ? 'none' : 'block';
+      head.lastElementChild.style.transform = open ? 'rotate(0deg)' : 'rotate(90deg)';
+      // Charts measure 0x0 while hidden, so nudge them once revealed.
+      if (!open) setTimeout(() => { try { window.dispatchEvent(new Event('resize')); } catch (e) {} }, 60);
+    };
+    body.insertBefore(wrap, card);
+    // The original card keeps its own styling inside the wrapper, minus the
+    // outer chrome that would double up.
+    card.style.margin = '0';
+    card.style.border = 'none';
+    card.style.background = 'transparent';
+    inner.appendChild(card);
+    wrap.appendChild(head);
+    wrap.appendChild(inner);
+  });
+  body.dataset.subcarded = '1';
+}
+
+const _SUBCARD_TITLES = {
+  'progbody-goals': ['Weight', 'BMI', 'Body Fat %', 'Skeletal Muscle Mass', 'Log History']
+};
 
 function _relocateCoachPanels() {
   try {
