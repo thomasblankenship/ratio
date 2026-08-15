@@ -1233,6 +1233,23 @@
           <button class="btn" onclick="addWorkout()" style="margin-top:4px">Log Workout</button>
           <button class="btn" onclick="toggleWorkoutForm()" style="background:var(--red-tint);color:#EF4444;margin-top:8px">Cancel</button>
         </div>
+
+        <!-- Day notes - the NOTES line at the bottom of the paper sheet.
+             One per date; tap to edit. Hidden on future dates because a note
+             records what happened, and nothing has. -->
+        <div id="ws-notes-block" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--gray-100)">
+          <div id="ws-notes-display" onclick="wsEditNotes()" style="display:flex;align-items:flex-start;gap:8px;cursor:pointer">
+            <i class="fa-solid fa-note-sticky" style="color:#CFA13C;font-size:12px;margin-top:2px;flex-shrink:0"></i>
+            <span id="ws-notes-text" style="font-size:12px;color:var(--muted);line-height:1.5">Add a note&hellip;</span>
+          </div>
+          <div id="ws-notes-edit" style="display:none;margin-top:8px">
+            <textarea id="ws-notes-input" rows="2" maxlength="500" placeholder="How did it go?" style="width:100%;box-sizing:border-box;background:var(--bg-deep);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13px;color:var(--ink);font-family:inherit;resize:vertical"></textarea>
+            <div style="display:flex;gap:8px;margin-top:8px">
+              <button type="button" class="btn" onclick="wsSaveNotes()" style="flex:1;padding:10px">Save</button>
+              <button type="button" class="btn" onclick="wsCancelNotes()" style="flex:1;padding:10px;background:var(--surface-2);color:var(--ink)">Cancel</button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- STEPS -->
@@ -9088,7 +9105,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-15-j-weekstrip';
+const RATIO_BUILD = '2026-08-15-k-notes';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -9581,6 +9598,72 @@ async function loadProgressWorkouts() {
   // diary now that we know which workout ids the sets point at.
   renderWorkouts();
   renderTodayStrength();
+  loadDayNote();
+}
+
+// ---------------------------------------------------------------------------
+// DAY NOTES - one row per (user, date) in workout_notes.
+// ---------------------------------------------------------------------------
+let _wsNote = '';          // note text for the currently viewed date
+let _wsNoteDate = null;    // which date _wsNote belongs to
+
+async function loadDayNote() {
+  const forDate = progressWorkoutDate();
+  _wsNote = ''; _wsNoteDate = forDate;
+  renderDayNote();  // paint the placeholder immediately, no flash of stale text
+  try {
+    const rows = await dbGet('workout_notes', `date=eq.${forDate}`);
+    if (progressWorkoutDate() !== forDate) return; // stale
+    _wsNote = (rows && rows[0] && rows[0].note) || '';
+  } catch (e) {}
+  renderDayNote();
+}
+
+function renderDayNote() {
+  const block = document.getElementById('ws-notes-block');
+  const txt = document.getElementById('ws-notes-text');
+  const disp = document.getElementById('ws-notes-display');
+  const edit = document.getElementById('ws-notes-edit');
+  if (!block || !txt) return;
+  const forDate = progressWorkoutDate();
+  if (forDate > _wsToday()) { block.style.display = 'none'; return; }  // nothing happened yet
+  block.style.display = '';
+  if (disp) disp.style.display = 'flex';
+  if (edit) edit.style.display = 'none';
+  if (_wsNote) {
+    txt.textContent = _wsNote;
+    txt.style.color = 'var(--ink-2)';
+  } else {
+    txt.textContent = 'Add a note\u2026';
+    txt.style.color = 'var(--muted)';
+  }
+}
+
+function wsEditNotes() {
+  const disp = document.getElementById('ws-notes-display');
+  const edit = document.getElementById('ws-notes-edit');
+  const input = document.getElementById('ws-notes-input');
+  if (!edit || !input) return;
+  if (disp) disp.style.display = 'none';
+  edit.style.display = 'block';
+  input.value = _wsNote || '';
+  input.focus();
+}
+
+function wsCancelNotes() { renderDayNote(); }
+
+async function wsSaveNotes() {
+  const input = document.getElementById('ws-notes-input');
+  if (!input) return;
+  const forDate = progressWorkoutDate();
+  const text = input.value.trim().slice(0, 500);
+  try {
+    await dbUpsert('workout_notes', { date: forDate, note: text, updated_at: new Date().toISOString() }, 'user_id,date');
+    if (progressWorkoutDate() === forDate) { _wsNote = text; renderDayNote(); }
+  } catch (e) {
+    console.error('[ws] note save failed', e);
+    toast('Could not save the note');
+  }
 }
 
 // workout ids that own at least one set on the viewed date
@@ -10076,15 +10159,18 @@ function renderWorkouts() {
   if (!visible.length) { el.innerHTML = '<div class="empty">Nothing synced or logged yet</div>'; return; }
   el.innerHTML = visible.map((w, i) => {
     const hasDetail = !!w.healthkit_id;
+    // Synced rows are Apple Health's records, not the user's manual entries:
+    // badge them with the source and drop the edit pencil - editing numbers
+    // the watch measured only makes the app disagree with Health.
     return `
     <div class="workout-row" ${hasDetail ? `data-wdetail="${i}" style="cursor:pointer"` : ''}>
       <div style="flex:1;min-width:0">
         <div style="font-size:14px;font-weight:500;display:flex;align-items:center;gap:4px">
           ${w.name}
           ${hasDetail ? '<i class="fa-solid fa-chevron-right" style="font-size:0.7em;color:#CFA13C"></i>' : ''}
-          <button data-wedit="${i}" style="background:none;border:none;cursor:pointer;font-size:11px;color:var(--muted);padding:0 2px;flex-shrink:0"><i class="fa-solid fa-pen" style="font-size:0.85em"></i></button>
+          ${hasDetail ? '' : `<button data-wedit="${i}" style="background:none;border:none;cursor:pointer;font-size:11px;color:var(--muted);padding:0 2px;flex-shrink:0"><i class="fa-solid fa-pen" style="font-size:0.85em"></i></button>`}
         </div>
-        <div style="font-size:11px;color:var(--gray-400);margin-top:2px">${w.time || ''} | ${w.duration} min</div>
+        <div style="font-size:11px;color:var(--gray-400);margin-top:2px">${w.time || ''} | ${w.duration} min${hasDetail ? ' \u00b7 <i class="fa-solid fa-heart" style="font-size:0.8em;color:#CFA13C"></i> Apple Health' : ''}</div>
       </div>
       <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
         <div class="workout-cals">−${w.calories} cal</div>
