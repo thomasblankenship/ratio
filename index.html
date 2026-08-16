@@ -2785,12 +2785,13 @@
     <!-- Gold totals bar -->
     <div style="background:var(--gold-tint);border-radius:14px;padding:14px 16px;margin-bottom:16px">
       <div style="font-size:11px;font-weight:700;color:#CFA13C;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Totals</div>
-      <div style="display:grid;grid-template-columns:repeat(5,1fr);text-align:center">
+      <div style="display:grid;grid-template-columns:repeat(6,1fr);text-align:center;column-gap:2px">
         <div><div style="font-size:12px;font-weight:800;color:#CFA13C" id="ef-preview-cals">0</div><div style="font-size:8px;color:var(--muted);font-weight:600">kcal</div></div>
         <div><div style="font-size:12px;font-weight:800;color:#CFA13C" id="ef-preview-protein">0g</div><div style="font-size:8px;color:var(--muted);font-weight:600">Protein</div></div>
         <div><div style="font-size:12px;font-weight:800;color:#CFA13C" id="ef-preview-carbs">0g</div><div style="font-size:8px;color:var(--muted);font-weight:600">Carbs</div></div>
         <div><div style="font-size:12px;font-weight:800;color:#CFA13C" id="ef-preview-fat">0g</div><div style="font-size:8px;color:var(--muted);font-weight:600">Fat</div></div>
         <div><div style="font-size:12px;font-weight:800;color:#CFA13C" id="ef-preview-fiber">0g</div><div style="font-size:8px;color:var(--muted);font-weight:600">Fiber</div></div>
+        <div><div style="font-size:12px;font-weight:800;color:#CFA13C" id="ef-preview-chol">0</div><div style="font-size:8px;color:var(--muted);font-weight:600">Chol mg</div></div>
       </div>
     </div>
     <div class="form-row form-group">
@@ -2836,7 +2837,7 @@
         <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Fiber per unit (g)</div>
         <input type="number" id="edit-food-fiber" placeholder="0" min="0" step="0.1" inputmode="decimal" oninput="efUpdatePreview()" />
       <div class="form-group"><div style="font-size:11px;color:var(--muted);margin-bottom:4px;font-weight:600">Cholesterol (mg)</div>
-        <input type="number" id="edit-food-cholesterol" placeholder="0" min="0" step="1" inputmode="decimal" /></div>
+        <input type="number" id="edit-food-cholesterol" placeholder="0" min="0" step="1" inputmode="decimal" oninput="efUpdatePreview()" /></div>
       </div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px">
@@ -9453,7 +9454,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-16-n-cupwheel';
+const RATIO_BUILD = '2026-08-16-o-mealsrow';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -16212,6 +16213,9 @@ function efUpdatePreview() {
   document.getElementById('ef-preview-carbs').textContent = Math.round((+document.getElementById('edit-food-carbs').value || 0) * 10) / 10 + 'g';
   document.getElementById('ef-preview-fat').textContent = Math.round((+document.getElementById('edit-food-fat').value || 0) * 10) / 10 + 'g';
   document.getElementById('ef-preview-fiber').textContent = Math.round((+document.getElementById('edit-food-fiber').value || 0) * 10) / 10 + 'g';
+  const chEl = document.getElementById('ef-preview-chol');
+  const chIn = document.getElementById('edit-food-cholesterol');
+  if (chEl) chEl.textContent = Math.round(+(chIn && chIn.value) || 0);
 }
 
 async function convertFoodToMeal() {
@@ -21913,7 +21917,7 @@ if (document.readyState === 'loading') {
       </div>
       <button onclick="mbOpenConverterForFood()" style="margin-top:8px;background:none;border:none;color:#CFA13C;font-size:12px;font-weight:600;cursor:pointer;padding:4px 0;text-decoration:underline">Convert from cups, tbsp, oz...</button>
     </div>
-    <div style="background:var(--gold-tint);border-radius:10px;padding:12px;margin-bottom:20px;display:grid;grid-template-columns:repeat(4,1fr);text-align:center">
+    <div style="background:var(--gold-tint);border-radius:10px;padding:12px 6px;margin-bottom:20px;display:grid;grid-template-columns:repeat(6,1fr);text-align:center;column-gap:2px">
       <div><div style="font-size:13px;font-weight:700;color:#CFA13C" id="mb-preview-cals">0</div><div style="font-size:8px;color:var(--muted)">kcal</div></div>
       <div><div style="font-size:13px;font-weight:700;color:#CFA13C" id="mb-preview-protein">0</div><div style="font-size:8px;color:var(--muted)">protein</div></div>
       <div><div style="font-size:13px;font-weight:700;color:#CFA13C" id="mb-preview-carbs">0</div><div style="font-size:8px;color:var(--muted)">carbs</div></div>
