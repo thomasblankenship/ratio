@@ -9454,7 +9454,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-16-o-mealsrow';
+const RATIO_BUILD = '2026-08-16-p-labeldensity';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -16543,15 +16543,27 @@ let _labelMealType = null;  // explicit — never inferred
 // amount, flipping units twice would quietly drift the weight.
 let _labelGramsExact = 100;
 
+// Density this label taught us (g/ml), or null. "1 1/4 Tbsp (11.3g)" says a
+// tablespoon of THIS product weighs 9g, not water's 15 - a dry seasoning mix
+// was once inflated 66% (35 kcal shown as 58) by the generic table below.
+let _labelVolDensity = null;
+
 function _labelToGrams(val, unit) {
   const v = parseFloat(val);
   if (!isFinite(v) || v < 0) return 0;
   // A count unit ("2 slices") means multiples of the base serving.
   if (LABEL_COUNT_SET.has(unit)) return v * _labelBaseG;
   if (unit === 'oz')    return v * 28.3495;
-  if (unit === 'fl oz') return v * 29.5735;
-  if (unit === 'tbsp')  return v * 15;
-  if (unit === 'tsp')   return v * 5;
+  // Volume units use the label's own density when it gave one; generic
+  // water-ish weights only as a fallback.
+  const mlPer = unit === 'tbsp' ? 14.78676 : unit === 'tsp' ? 4.92892 : unit === 'fl oz' ? 29.5735 : unit === 'cup' ? 236.5882 : null;
+  if (mlPer != null) {
+    if (_labelVolDensity) return v * mlPer * _labelVolDensity;
+    if (unit === 'fl oz') return v * 29.5735;
+    if (unit === 'tbsp')  return v * 15;
+    if (unit === 'tsp')   return v * 5;
+    if (unit === 'cup')   return v * 236.5882;
+  }
   return v; // g and ml treated 1:1
 }
 
@@ -16744,12 +16756,27 @@ function showLabelResult(data) {
   _labelServingG = _parseServingSizeG(rawServing);
   // Auto-select unit based on what the label says
   const rawStr = String(rawServing).toLowerCase();
+  _labelVolDensity = null;
+  const parenGrams = /\(\s*\d+\.?\d*\s*g\s*\)/.test(rawStr);
+  // "1 1/4" style fractions: parseFloat alone reads 1 and quietly drops the
+  // quarter, shrinking the serving.
+  const fracM = rawStr.match(/^(\d+)\s+(\d+)\s*\/\s*(\d+)/);
+  const soloFracM = rawStr.match(/^(\d+)\s*\/\s*(\d+)/);
+  const leadNum = fracM ? (+fracM[1] + (+fracM[2] / +fracM[3]))
+                : (soloFracM && +soloFracM[2] ? (+soloFracM[1] / +soloFracM[2]) : (parseFloat(rawStr) || 1));
   if (/tbsp|tablespoon/.test(rawStr)) {
     _labelUnit = 'tbsp';
-    _labelServingVal = parseFloat(rawStr) || 1;
+    _labelServingVal = leadNum;
+    // The parentheses told us what THIS product's tablespoon weighs.
+    if (parenGrams && _labelServingG > 0 && _labelServingVal > 0) _labelVolDensity = _labelServingG / (_labelServingVal * 14.78676);
   } else if (/tsp|teaspoon/.test(rawStr)) {
     _labelUnit = 'tsp';
-    _labelServingVal = parseFloat(rawStr) || 1;
+    _labelServingVal = leadNum;
+    if (parenGrams && _labelServingG > 0 && _labelServingVal > 0) _labelVolDensity = _labelServingG / (_labelServingVal * 4.92892);
+  } else if (/\bcup/.test(rawStr)) {
+    _labelUnit = 'cup';
+    _labelServingVal = leadNum;
+    if (parenGrams && _labelServingG > 0 && _labelServingVal > 0) _labelVolDensity = _labelServingG / (_labelServingVal * 236.5882);
   } else if (/\boz\b/.test(rawStr) && !/\(.*g\)/.test(rawStr)) {
     _labelUnit = 'oz';
     _labelServingVal = Math.round(_labelServingG / 28.3495 * 10) / 10;
