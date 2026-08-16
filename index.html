@@ -145,7 +145,10 @@
     /* CONTENT */
     .content { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 16px; order: 2; }
     .bottom-nav { flex-shrink: 0; order: 3; display: flex; justify-content: space-around; align-items: flex-end; background: var(--white); border-top: 1px solid var(--gray-200); padding: 8px 4px calc(8px + env(safe-area-inset-bottom)); z-index: 200; }
-    .bottom-nav-btn { display: flex; flex-direction: column; align-items: center; gap: 3px; background: none; border: none; cursor: pointer; color: var(--gray-400); padding: 6px 14px; border-radius: 14px; transition: all 0.15s; -webkit-tap-highlight-color: transparent; }
+    /* Equal flex columns: with content-sized buttons, "Workouts" being a
+       wider word than "Meals" pushed the whole row and left the mic visibly
+       off-centre. Five equal columns pin the mic to the true middle. */
+    .bottom-nav-btn { display: flex; flex-direction: column; align-items: center; gap: 3px; background: none; border: none; cursor: pointer; color: var(--gray-400); padding: 6px 4px; border-radius: 14px; transition: all 0.15s; -webkit-tap-highlight-color: transparent; flex: 1 1 0; min-width: 0; }
     /* Fixed line-height: the mic circle's vertical position is computed from
        this number, so it cannot be left to the platform's default. */
     .bottom-nav-btn span { font-size: 11px; font-weight: 500; line-height: 13px; }
@@ -335,6 +338,13 @@
     .obchat-card { margin:8px 0 8px 42px; background:var(--bg-deep); border:1px solid var(--line); border-radius:14px; padding:12px 14px; font-size:13px; color:var(--muted); }
     .obchat-card b { color:var(--ink); font-weight:700; }
     .obchat-micbtn.listening { animation: vlPulse 1.4s ease-in-out infinite; background:#CFA13C !important; }
+    /* Live listening bar: iOS-dictation style. Bars are JS-driven every
+       100ms - small idle jitter, big excursions while speech is coming in -
+       so "the mic is ON" is unmissable at arm's length. */
+    #vl-wave { display:flex; align-items:center; justify-content:center; gap:2px; height:32px; flex:1; min-width:0; overflow:hidden; }
+    #vl-wave span { width:3px; border-radius:2px; background:#CFA13C; height:4px; transition:height 90ms linear; flex-shrink:0; }
+    .vl-wave-btn { width:38px; height:38px; border-radius:50%; border:1px solid var(--line); background:var(--surface-2); color:var(--ink); font-size:15px; cursor:pointer; flex-shrink:0; }
+    .vl-wave-btn.ok { background:#CFA13C; border-color:#CFA13C; color:#101512; }
     /* First-screen hint: a soft glow that says "talk to me" without implying
        recording has started. Removed the moment the user does anything. */
     .obchat-micbtn.hint { animation: ocHintPulse 1.8s ease-in-out infinite; }
@@ -2051,9 +2061,14 @@
 
       <!-- LISTENING — visibility of THIS div is checked throughout the vl
            code, so it must keep toggling. Slimmed to a live-transcript strip. -->
-      <div id="vl-state-listening" style="display:none;text-align:center;padding:10px 20px">
+      <div id="vl-state-listening" style="display:none;text-align:center;padding:10px 14px">
         <div id="vl-listening-context" style="display:none;font-size:13px;color:var(--muted);margin-bottom:8px;line-height:1.5"></div>
-        <div style="font-size:13px;font-weight:700;color:#CFA13C"><i class="fa-solid fa-microphone"></i>&nbsp; Listening&hellip; tap the mic to stop</div>
+        <!-- The dictation bar: cancel, live waveform, accept. -->
+        <div style="display:flex;align-items:center;gap:10px">
+          <button type="button" class="vl-wave-btn" onclick="vlCancelListening()" aria-label="Cancel">&times;</button>
+          <div id="vl-wave"></div>
+          <button type="button" class="vl-wave-btn ok" onclick="vlStopListening()" aria-label="Done"><i class="fa-solid fa-check"></i></button>
+        </div>
         <div id="vl-live-transcript" style="font-size:15px;color:var(--ink);margin-top:8px;min-height:22px;line-height:1.5"></div>
       </div>
 
@@ -4281,6 +4296,20 @@ function speechProblemMessage(code) {
   }
 }
 
+// Voice-turn tracking + auto-arm state for the follow-up loop.
+let _vlVoiceTurn = false;   // was the last utterance spoken (vs typed)?
+let _vlAutoArmed = false;   // did the app arm the mic itself (vs a tap)?
+
+// An auto-armed mic that heard nothing goes quietly back to the question -
+// no "didn't catch that" scolding for a person who simply didn't answer yet.
+function _vlBackToFollowup() {
+  if (!_vlAutoArmed) return false;
+  _vlAutoArmed = false;
+  if (!_vlAwaitingFollowup) return false;
+  try { vlShowState('followup'); } catch (e) {}
+  return true;
+}
+
 // The typed draft a mic tap would otherwise destroy. Stashed on tap,
 // restored if the voice session ends unused, discarded once any utterance
 // (spoken or typed) is actually submitted.
@@ -4394,11 +4423,66 @@ function vlShowState(state) {
   _vlThreadTyping(state === 'processing');
   const mic = document.getElementById('vl-bar-mic');
   if (mic) mic.classList.toggle('listening', state === 'listening');
+  // The type box locks while listening - one live input at a time, and a
+  // grayed "Listening..." box is itself a mic-is-on signal. Tap the mic (or
+  // x / check on the bar) to get the keyboard back.
+  const ti = document.getElementById('vl-type-input');
+  if (ti) {
+    ti.disabled = (state === 'listening');
+    ti.style.opacity = (state === 'listening') ? '0.5' : '1';
+    ti.placeholder = (state === 'listening') ? 'Listening\u2026' : 'Ask Coach\u2026';
+  }
+  if (state === 'listening') _vlWaveStart(); else _vlWaveStop();
   if (state === 'confirm') {
     const lines = OB_COACHES[vlCoachKey()].confirmLines;
     _vlThreadBot(lines[Math.floor(Math.random() * lines.length)]);
   }
   _vlThreadScroll();
+}
+
+// -----------------------------------------------------------------------
+// LIVE WAVEFORM. The native recognizer exposes no audio levels, so the bars
+// are animation, honestly labelled: constant small jitter says "mic open",
+// and fresh partial transcripts (_vlLastPartialAt) drive big excursions that
+// track actual speech being heard. Real signal, synthetic amplitude.
+// -----------------------------------------------------------------------
+let _vlWaveTimer = null;
+
+function _vlWaveStart() {
+  const box = document.getElementById('vl-wave');
+  if (!box) return;
+  if (!box.childElementCount) {
+    for (let i = 0; i < 27; i++) box.appendChild(document.createElement('span'));
+  }
+  if (_vlWaveTimer) return;
+  _vlWaveTimer = setInterval(() => {
+    const hot = (Date.now() - (_vlLastPartialAt || 0)) < 900;
+    const amp = hot ? 24 : 6;
+    for (const bar of box.children) {
+      bar.style.height = (3 + Math.random() * amp) + 'px';
+    }
+  }, 100);
+}
+
+function _vlWaveStop() {
+  if (_vlWaveTimer) { clearInterval(_vlWaveTimer); _vlWaveTimer = null; }
+}
+
+// x on the bar: stop WITHOUT submitting - discard whatever was half-heard
+// and return to wherever the conversation actually was: a pending confirm
+// card first, an open follow-up question second, idle otherwise.
+function vlCancelListening() {
+  vlStopListeningQuiet();
+  _vlLiveText = '';
+  _vlAutoArmed = false;
+  const el = document.getElementById('vl-live-transcript');
+  if (el) el.textContent = '';
+  if (_vlParsed && ['log_food','save_meal','save_food','log_workout','log_set','set_week_plan','add_to_shopping_list','add_to_todo'].includes(_vlParsed.action)) {
+    vlShowState('confirm');
+    return;
+  }
+  if (_vlAwaitingFollowup) { vlShowState('followup'); return; }
+  vlResetToIdle();
 }
 
 function vlResetToIdle() {
@@ -4446,6 +4530,7 @@ function vlTypeEngage() {
 }
 
 function vlSubmitTyped() {
+  _vlVoiceTurn = false;
   const input = document.getElementById('vl-type-input');
   const text = input.value.trim();
   if (!text) { toast('Type something first'); return; }
@@ -4547,6 +4632,7 @@ async function vlStartListeningWeb() {
     // 'aborted' means the user tapped stop — that is not a problem worth
     // narrating. Everything else gets explained IN THE CHAT, because a toast
     // vanishes and a silent failure looks like a broken app.
+    if (_vlBackToFollowup()) return;
     if (ev.error !== 'aborted') {
       if (stillListening()) vlResetToIdle();
       _vlThreadBot(speechProblemMessage(ev.error));
@@ -4564,6 +4650,7 @@ async function vlStartListeningWeb() {
     // sat in the listening state forever with the mic still pulsing.
     if (stillListening() && !_vlLiveText && !_vlSpeechReported) {
       _vlClearWatchdog();
+      if (_vlBackToFollowup()) return;
       vlResetToIdle();
       _vlThreadBot(speechProblemMessage('no-speech'));
       vlShowTypeInstead();
@@ -4585,6 +4672,7 @@ async function vlStartListeningWeb() {
 }
 
 async function vlStartListening() {
+  _vlVoiceTurn = true;
   if (_vlStarting) return; // guards against a double-tap starting two concurrent listening sessions
   _vlStarting = true;
 
@@ -4687,13 +4775,40 @@ async function vlStopListening() {
   // without this check both paths could call vlHandleUtterance for the same utterance.
   if (document.getElementById('vl-state-listening').style.display === 'none') return;
   if (_vlLiveText) vlHandleUtterance(_vlLiveText);
-  else vlResetToIdle();
+  else if (!_vlBackToFollowup()) vlResetToIdle();
 }
 
 // Entry point for every finalized utterance, whether it's a fresh command, a typed command,
 // or the answer to a follow-up question. Routes into the (possibly multi-turn) AI conversation.
+// Short spoken approvals of a pending card. Conservative on purpose: six
+// words max, any negation or edit word disqualifies, so "yes but make it
+// lunch" routes as a correction, never a blind save.
+function _vlIsAffirmation(text) {
+  const t = String(text || '').toLowerCase().replace(/[^a-z' ]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!t || t.split(' ').length > 6) return false;
+  if (/\b(no|not|don't|dont|never|wasn't|wasnt|isn't|isnt|wrong|change|actually|instead|but|except|add|remove|make|more|less)\b/.test(t)) return false;
+  return /^(yes|yep|yeah|yup|sure|ok|okay|correct|right|perfect|boom)\b/.test(t)
+      || /\b(looks good|look good|sounds good|sounds right|that's right|thats right|that's good|thats good|that's it|thats it|log it|save it|do it|confirm|go ahead)\b/.test(t);
+}
+
 function vlHandleUtterance(text) {
   _vlDraft = '';   // something real was said or typed - the stashed draft is superseded
+  _vlAutoArmed = false;
+  // A pending confirm card OWNS this conversation. Spoken approval logs it
+  // right here, client-side - the AI must never see a naked "yes": it once
+  // answered one with a cheerful "you're all set!" while the card and the
+  // cottage cheese behind it evaporated unlogged. Anything else said at the
+  // card continues THIS thread as a correction, never a fresh conversation.
+  const confirmPending = document.getElementById('vl-state-confirm')?.style.display !== 'none'
+    && _vlParsed
+    && ['log_food','save_meal','save_food','log_workout','log_set','set_week_plan','add_to_shopping_list','add_to_todo'].includes(_vlParsed.action);
+  if (confirmPending && _vlIsAffirmation(text)) {
+    _vlThreadUser(text);
+    vlStopListeningQuiet();
+    vlConfirmSave();
+    return;
+  }
+  if (confirmPending) _vlAwaitingFollowup = true;
   _vlThreadUser(text);
   _vlCorrecting = false; // the correction (if any) has been captured — the hint is no longer needed
   if (_vlAwaitingFollowup) {
@@ -4776,6 +4891,28 @@ async function vlSendToAI(text) {
       document.getElementById('vl-followup-question').textContent = data.followupQuestion || 'Can you say more?';
       _vlThreadBot(data.followupQuestion || 'Can you say more?');
       vlShowState('followup');
+      // PHASE 0.5: a coach who just asked a question should be listening for
+      // the answer - he was answering questions by tapping the mic again.
+      // Voice turns only (typing at a question keeps the keyboard flow), and
+      // the delay lets the spoken question finish before the mic opens, since
+      // listening mutes TTS. Guards: same session, question still on screen,
+      // sheet still open.
+      if (_vlVoiceTurn) {
+        const q = data.followupQuestion || '';
+        const delay = (!VOICE_OUTPUT_ENABLED || _vlMuted) ? 450 : Math.min(1200 + q.split(/\s+/).length * 320, 6500);
+        const sess = _vlSessionId;
+        setTimeout(() => {
+          try {
+            if (sess !== _vlSessionId) return;
+            if (document.getElementById('vl-state-followup')?.style.display === 'none') return;
+            const p = document.getElementById('tab-voicelog');
+            if (!p || p.style.display === 'none') return;
+            if (document.getElementById('vl-state-listening')?.style.display !== 'none') return;
+            _vlAutoArmed = true;
+            vlStartListening();
+          } catch (e) {}
+        }, delay);
+      }
       return;
     }
 
@@ -9311,7 +9448,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-16-h-typewhilemic';
+const RATIO_BUILD = '2026-08-16-j-wavebar';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
