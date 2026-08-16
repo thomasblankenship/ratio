@@ -9453,7 +9453,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-16-l-convstep';
+const RATIO_BUILD = '2026-08-16-n-cupwheel';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -14208,6 +14208,57 @@ function _mbOpenKey(key) {
   const food = _mbFoodCache[key];
   if (food) mbOpenServingObj(food);
 }
+// Household units belong IN the wheel, not behind a converter link. A cup
+// of onion is not a cup of flour, so cups only appear when the food's name
+// matches a known density; everything else keeps the converter fallback.
+let _mbActiveGPC = null;   // grams per cup for the food on the card, or null
+
+function _mbDensityGPC(name) {
+  const n = ' ' + String(name || '').toLowerCase() + ' ';
+  const has = (...words) => words.some(w => n.includes(w));
+  let label = null;
+  if (has('flour')) label = has('bread flour') ? 'Flour (bread)' : 'Flour (all-purpose)';
+  else if (has('powdered sugar', 'icing sugar', 'confectioner')) label = 'Powdered sugar';
+  else if (has('brown sugar')) label = 'Sugar (brown, packed)';
+  else if (has('sugar')) label = 'Sugar (granulated)';
+  else if (has('oat')) label = 'Rolled oats';
+  else if (has('panko', 'breadcrumb', 'bread crumb')) label = 'Breadcrumbs (panko)';
+  else if (has('peanut butter', 'almond butter', 'nut butter')) label = 'Peanut butter';
+  else if (has('yogurt', 'yoghurt')) label = 'Yogurt (plain)';
+  else if (has('cheese') && has('shredded', 'grated')) label = 'Cheese (shredded)';
+  else if (has('butter') && !has('peanut', 'almond', 'nut')) label = has('melted') ? 'Oil / melted butter' : 'Butter (solid)';
+  else if (has('oil')) label = 'Oil / melted butter';
+  else if (has('honey', 'syrup', 'molasses')) label = 'Honey / syrup';
+  else if (has('milk')) label = 'Milk';
+  else if (has('cream')) label = 'Cream (heavy)';
+  else if (has('juice')) label = 'Juice';
+  else if (has('water', 'broth', 'stock')) label = 'Water / broth / stock';
+  else if (has('cocoa')) label = 'Cocoa powder';
+  else if (has('protein powder', 'whey', 'casein')) label = 'Protein powder';
+  else if (has('salt')) label = 'Salt (table)';
+  else if (has('rice', 'quinoa', 'couscous', 'grain')) label = has('cooked') ? 'Cooked rice / grains' : 'Rice (raw, white)';
+  else if (has('pasta', 'noodle', 'macaroni', 'spaghetti')) label = 'Cooked pasta';
+  else if (has('almond', 'walnut', 'pecan', 'cashew', 'peanut', 'pistachio', 'nut')) label = 'Nuts (chopped)';
+  else if (has('bean', 'lentil', 'chickpea', 'pea ')) label = 'Beans (cooked)';
+  else if (has('onion', 'pepper', 'carrot', 'celery', 'broccoli', 'zucchini', 'mushroom', 'tomato', 'cucumber', 'cabbage', 'spinach', 'kale', 'squash', 'vegetable', 'garlic', 'shallot', 'jalape')) label = 'Chopped vegetables';
+  if (!label || !FOOD_DENSITY[label]) return null;
+  return FOOD_DENSITY[label] * 236.5882;   // g/ml -> g per US cup
+}
+
+// One scale to rule the card: household volume units go through the food's
+// matched density; everything else is the existing unit math.
+function _mbScaleFor(qty, unit, f) {
+  const q = parseFloat(qty);
+  if (_mbActiveGPC && isFinite(q) && (unit === 'cup' || unit === 'tbsp' || unit === 'tsp')) {
+    const gpu = _convGramsPer(f.unit);
+    if (gpu != null) {
+      const grams = q * (unit === 'cup' ? _mbActiveGPC : unit === 'tbsp' ? _mbActiveGPC / 16 : _mbActiveGPC / 48);
+      return grams / (gpu * (parseFloat(f.unit_size) || 1));
+    }
+  }
+  return foodUnitScale(qty, unit, f.unit, parseFloat(f.unit_size) || 1);
+}
+
 function mbOpenServingObj(food) {
   _mbActiveFood = food;
   const baseUnit = food.unit || 'g';
@@ -14220,6 +14271,13 @@ function mbOpenServingObj(food) {
   const container = document.getElementById('mb-serving-unit-scroll');
   container.innerHTML = '';
   const units = unitsCompatibleWith(baseUnit);
+  // Cup and tbsp join the wheel when this food's density is known and its
+  // base unit is gram-expressible - "0.5 cup onion" straight off the recipe.
+  _mbActiveGPC = _mbDensityGPC(food.name);
+  if (_mbActiveGPC && _convGramsPer(baseUnit) != null) {
+    if (!units.includes('cup')) units.push('cup');
+    if (!units.includes('tbsp')) units.push('tbsp');
+  }
   const itemH = 40;
   const top = document.createElement('div'); top.style.minHeight = itemH + 'px'; container.appendChild(top);
   units.forEach(u => {
@@ -14473,7 +14531,11 @@ function mbOpenConverterForFood() {
     fromUnit: _unitFamily(baseUnit) === 'mass' ? 'cup' : 'g',
     targetUnit: baseUnit,
     onApply: (val) => {
-      document.getElementById('mb-serving-qty').value = Math.round(val * 100) / 100;
+      // val arrives in GRAMS. The food's base unit may itself be a gram
+      // multiple ("100g") - divide so qty x baseUnit equals the grams asked
+      // for: 118g of onion with base "100g" is qty 1.18, not qty 118.
+      const gpu = _convGramsPer(baseUnit) || 1;
+      document.getElementById('mb-serving-qty').value = Math.round((val / gpu) * 100) / 100;
       document.getElementById('mb-serving-unit-select').value = baseUnit;
       const scroll = document.getElementById('mb-serving-unit-scroll');
       const units = unitsCompatibleWith(baseUnit);
@@ -14489,11 +14551,10 @@ function mbUpdateServingPreview() {
   const unit = document.getElementById('mb-serving-unit-select')?.value || '';
   const f = _mbActiveFood;
   if (!f) return;
-  const baseSize = f.unit_size || 1;
-  const scale = foodUnitScale(qty, unit, f.unit, baseSize);
+  const scale = _mbScaleFor(qty, unit, f);
   if (scale == null) {
     // Cannot convert: show nothing rather than a wrong number.
-    ['cals','protein','carbs','fat'].forEach(k => {
+    ['cals','protein','carbs','fat','fiber','chol'].forEach(k => {
       const el = document.getElementById('mb-preview-' + k); if (el) el.textContent = '--';
     });
     return;
@@ -14503,6 +14564,8 @@ function mbUpdateServingPreview() {
   document.getElementById('mb-preview-protein').textContent = r(f.protein);
   document.getElementById('mb-preview-carbs').textContent = r(f.carbs);
   document.getElementById('mb-preview-fat').textContent = r(f.fat);
+  const fbEl = document.getElementById('mb-preview-fiber'); if (fbEl) fbEl.textContent = r(f.fiber || 0);
+  const chEl = document.getElementById('mb-preview-chol'); if (chEl) chEl.textContent = Math.round((f.cholesterol || 0) * scale);
 }
 
 function mbAddIngredient() {
@@ -14510,8 +14573,7 @@ function mbAddIngredient() {
   const unit = document.getElementById('mb-serving-unit-select')?.value || _mbActiveFood?.unit || 'serving';
   const f = _mbActiveFood;
   if (!f) return;
-  const baseSize = f.unit_size || 1;
-  const scale = foodUnitScale(qty, unit, f.unit, baseSize);
+  const scale = _mbScaleFor(qty, unit, f);
   if (scale == null) {
     toast('Pick a unit this food can be measured in, or use Convert.');
     return;
@@ -15851,8 +15913,27 @@ function convRecalc() {
 }
 let _convLastResult = null;
 
+// Grams per mass unit - shared by the apply contract and its consumers.
+function _convGramsPer(unit) {
+  const u = String(unit || '').trim().toLowerCase();
+  if (u === 'g') return 1;
+  if (u === 'kg') return 1000;
+  if (u === 'oz') return 28.3495;
+  if (u === 'lb') return 453.592;
+  const m = u.match(/^([\d.]+)\s*g$/);   // "100g", "28.35g"
+  if (m) return parseFloat(m[1]);
+  return null;
+}
+
 function convApply() {
-  if (_convOnApply && _convLastResult != null) _convOnApply(_convLastResult);
+  if (_convOnApply && _convLastResult != null) {
+    // The contract (see _convOnApply) is GRAMS. The person may have the TO
+    // dropdown on oz or kg - convert before handing over. A result 118.29
+    // was once pasted in front of a "100g" base unit and produced an
+    // 11.8-kilogram onion.
+    const gpu = _convGramsPer(document.getElementById('conv-to-unit')?.value);
+    _convOnApply(gpu != null ? _convLastResult * gpu : _convLastResult);
+  }
   closeUnitConverter();
 }
 
@@ -21837,6 +21918,8 @@ if (document.readyState === 'loading') {
       <div><div style="font-size:13px;font-weight:700;color:#CFA13C" id="mb-preview-protein">0</div><div style="font-size:8px;color:var(--muted)">protein</div></div>
       <div><div style="font-size:13px;font-weight:700;color:#CFA13C" id="mb-preview-carbs">0</div><div style="font-size:8px;color:var(--muted)">carbs</div></div>
       <div><div style="font-size:13px;font-weight:700;color:#CFA13C" id="mb-preview-fat">0</div><div style="font-size:8px;color:var(--muted)">fat</div></div>
+      <div><div style="font-size:13px;font-weight:700;color:#CFA13C" id="mb-preview-fiber">0</div><div style="font-size:8px;color:var(--muted)">fiber</div></div>
+      <div><div style="font-size:13px;font-weight:700;color:#CFA13C" id="mb-preview-chol">0</div><div style="font-size:8px;color:var(--muted)">chol mg</div></div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
       <button onclick="document.getElementById('mb-serving-modal').style.display='none'" style="padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2);color:var(--ink);font-size:15px;font-weight:600;cursor:pointer">Cancel</button>
