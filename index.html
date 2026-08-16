@@ -4799,8 +4799,13 @@ function vlHandleUtterance(text) {
   // answered one with a cheerful "you're all set!" while the card and the
   // cottage cheese behind it evaporated unlogged. Anything else said at the
   // card continues THIS thread as a correction, never a fresh conversation.
-  const confirmPending = document.getElementById('vl-state-confirm')?.style.display !== 'none'
-    && _vlParsed
+  // The pending PROPOSAL is the truth, never the pixels: tapping the mic
+  // swaps the visible state to "listening" before the words arrive, so a
+  // DOM-visibility check was false by construction for every spoken
+  // approval - "log it" restarted the conversation and the coach asked
+  // "log what?" at a man staring at the card. _vlParsed only exists while
+  // a card is genuinely pending (nulled on reset, acknowledge, and save).
+  const confirmPending = !!_vlParsed
     && ['log_food','save_meal','save_food','log_workout','log_set','set_week_plan','add_to_shopping_list','add_to_todo'].includes(_vlParsed.action);
   if (confirmPending && _vlIsAffirmation(text)) {
     _vlThreadUser(text);
@@ -9448,7 +9453,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-16-j-wavebar';
+const RATIO_BUILD = '2026-08-16-l-convstep';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -15793,8 +15798,14 @@ function _convGramsPerCup() {
   return FOOD_DENSITY[v] != null ? FOOD_DENSITY[v] * 236.5882 : null;
 }
 
+function convSetQty(v) {
+  const el = document.getElementById('conv-from-qty');
+  if (el) { el.value = v; convRecalc(); }
+}
+
 function convRecalc() {
-  const qty = parseFloat(document.getElementById('conv-from-qty').value);
+  // Comma decimals ("0,5") welcome - some keyboards only offer a comma.
+  const qty = parseFloat(String(document.getElementById('conv-from-qty').value).replace(',', '.'));
   const from = document.getElementById('conv-from-unit').value;
   const to = document.getElementById('conv-to-unit').value;
   const out = document.getElementById('conv-result');
@@ -21754,8 +21765,14 @@ if (document.readyState === 'loading') {
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
       <div>
         <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Amount</div>
-        <input type="number" min="0" step="any" id="conv-from-qty" value="1" oninput="convRecalc()"
+        <input type="text" inputmode="decimal" id="conv-from-qty" value="1" oninput="convRecalc()"
           style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:16px;font-weight:600;outline:none;box-sizing:border-box" />
+        <div style="display:flex;gap:6px;margin-top:6px">
+          <button type="button" onclick="convSetQty('0.25')" style="flex:1;padding:6px 0;background:var(--surface-2);border:none;border-radius:6px;font-size:12px;font-weight:700;color:var(--ink);cursor:pointer">&frac14;</button>
+          <button type="button" onclick="convSetQty('0.5')" style="flex:1;padding:6px 0;background:var(--surface-2);border:none;border-radius:6px;font-size:12px;font-weight:700;color:var(--ink);cursor:pointer">&frac12;</button>
+          <button type="button" onclick="convSetQty('0.75')" style="flex:1;padding:6px 0;background:var(--surface-2);border:none;border-radius:6px;font-size:12px;font-weight:700;color:var(--ink);cursor:pointer">&frac34;</button>
+          <button type="button" onclick="convSetQty('1')" style="flex:1;padding:6px 0;background:var(--surface-2);border:none;border-radius:6px;font-size:12px;font-weight:700;color:var(--ink);cursor:pointer">1</button>
+        </div>
       </div>
       <div>
         <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">From</div>
