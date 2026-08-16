@@ -562,7 +562,7 @@
       </span>
     </button>
     <button class="bottom-nav-btn" data-tab="workouts" onclick="switchTab('workouts')">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5h11"/><path d="M6.5 17.5h11"/><rect x="2" y="9" width="4" height="6" rx="1"/><rect x="18" y="9" width="4" height="6" rx="1"/><path d="M6 12h12"/></svg>
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="7" width="3" height="10" rx="1"/><rect x="1.5" y="9" width="3" height="6" rx="1"/><rect x="16.5" y="7" width="3" height="10" rx="1"/><rect x="19.5" y="9" width="3" height="6" rx="1"/><path d="M7.5 12h9"/></svg>
       <span>Workouts</span>
     </button>
     <button class="bottom-nav-btn" data-tab="progress" onclick="switchTab('progress')">
@@ -5088,7 +5088,8 @@ async function vlConfirmSave() {
       toast(`"${f.name || 'Food'}" saved to My Foods ✓`);
     } else if (data.action === 'log_set') {
       const ls = data.logSet || {};
-      const sets = (ls.sets || []).filter(s => isFinite(+s.reps) && +s.reps > 0);
+      let sets = (ls.sets || []).filter(s => isFinite(+s.reps) && +s.reps > 0);
+      if (sets.length > 10) { sets = sets.slice(0, 10); toast('Capped at 10 sets'); }
       if (!ls.exerciseName || !sets.length) { toast('Nothing to log \u2014 try again'); return; }
       const resolved = _wsResolveExercise(ls.exerciseName);
       const n = await vlLogSets(resolved.name, resolved.group, sets);
@@ -9256,7 +9257,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-15-q-planline';
+const RATIO_BUILD = '2026-08-16-a-sundayfix';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -9780,17 +9781,20 @@ let _wsNoteDate = null;    // which date _wsNote belongs to
 
 async function loadDayNote() {
   const forDate = progressWorkoutDate();
-  _wsNote = ''; _wsNoteDate = forDate;
-  renderDayNote();  // paint the placeholder immediately, no flash of stale text
+  const dateChanged = _wsNoteDate !== forDate;
+  if (dateChanged) { _wsNote = ''; _wsNoteDate = forDate; renderDayNote(); }
+  // Same date refresh: keep showing the current note while the fetch runs -
+  // blanking first made a saved note vanish for a beat (or for good, when a
+  // fetch failed) every time the sheet reloaded.
   try {
     const rows = await dbGet('workout_notes', `date=eq.${forDate}&order=date.asc`);
     if (progressWorkoutDate() !== forDate) return; // stale
     _wsNote = (rows && rows[0] && rows[0].note) || '';
-  } catch (e) {}
+  } catch (e) { if (!dateChanged) return; }
   renderDayNote();
   const wk = _wrWeekStart(forDate);
   if (_wsWeekMeta[wk]) {
-    if (!_wsWeekMeta[wk][forDate]) _wsWeekMeta[wk][forDate] = { note: '', groups: [], wname: '', hasAny: false };
+    if (!_wsWeekMeta[wk][forDate]) _wsWeekMeta[wk][forDate] = { note: '', groups: [], wnames: [], hasAny: false };
     _wsWeekMeta[wk][forDate].note = _wsNote;
     renderWeekStrip();
   }
@@ -9803,11 +9807,13 @@ function renderDayNote() {
   const edit = document.getElementById('ws-notes-edit');
   if (!block || !txt) return;
   block.style.display = '';
+  // An open editor is the person mid-thought. Background re-renders (a set
+  // logged by voice, a HealthKit sync) must NEVER close it and eat the text.
+  if (edit && edit.style.display === 'block' && _wsNoteDate === progressWorkoutDate()) return;
   if (disp) disp.style.display = 'block';
   if (edit) edit.style.display = 'none';
   const forDate = progressWorkoutDate();
   const isPast = forDate < _wsToday();
-  const isFuture = forDate > _wsToday();
   const nothingHappened = !(progressSets || []).length && !(progressWorkouts || []).length;
   txt.className = 'ink';
   txt.style.fontSize = '14px';
@@ -9820,11 +9826,9 @@ function renderDayNote() {
     txt.textContent = 'Rest day';
     txt.style.color = '#8a8375';
     txt.style.fontSize = '11px';
-  } else if (isFuture) {
-    txt.className = '';
-    txt.textContent = '';
-    txt.style.color = '#b9b2a0';
   } else {
+    // Today AND future days invite writing - planning ahead is the point:
+    // a note on next Wednesday names next Wednesday in the strip.
     txt.className = '';
     txt.textContent = 'tap to write\u2026';
     txt.style.color = '#b9b2a0';
@@ -9951,7 +9955,12 @@ function renderTodayStrength() {
     const target = [];
     const tSets = Math.min(+p.sets || 0, nCols);
     for (let c = 0; c < tSets; c++) target.push(+p.reps || '');
-    const tap = isToday ? ` onclick="wsQuickLog('${_wsEscAttr(p.name)}','${_wsEscAttr(p.group || '')}')" style="cursor:pointer"` : '';
+    // Today: tap a planned row to log it. FUTURE: tap opens that day's plan
+    // editor - the ghosts come from the template, so changing them IS a plan
+    // edit, and a dead tap on a visible row reads as "locked".
+    const isFutureDay = forDate > _wsToday();
+    const tap = isToday ? ` onclick="wsQuickLog('${_wsEscAttr(p.name)}','${_wsEscAttr(p.group || '')}')" style="cursor:pointer"`
+              : (isFutureDay ? ` onclick="editPlanDayForDate()" style="cursor:pointer"` : '');
     bodies.push(`<tbody${tap}>
       <tr class="rdash"><td class="pnum" rowspan="2">${num}</td><td class="pname" rowspan="2">${_weEscHtml(p.name)}</td><td class="psub">REPS</td>${cells(target, true)}</tr>
       <tr class="rsolid"><td class="psub" style="border-top:1px dashed #999">WEIGHT</td>${cells([], true)}</tr>
@@ -9972,14 +9981,20 @@ function renderTodayStrength() {
     </div>`;
   }
 
-  // One blank numbered row waits at the end - on today it IS the add-exercise
-  // affordance, exactly like the next empty line on the pad.
-  num++;
-  const addTap = isToday ? ' onclick="wsAddExercise()" style="cursor:pointer"' : '';
-  bodies.push(`<tbody${addTap} id="ws-empty-row">
-    <tr class="rdash"><td class="pnum" rowspan="2">${num}</td><td class="pname" rowspan="2">${isToday ? '<span style="font-size:9px;color:#b9b2a0">tap to add\u2026</span>' : ''}</td><td class="psub">REPS</td>${cells([], true)}</tr>
+  // Blank numbered rows pad the sheet to at least four lines - a pad has
+  // empty lines. On today, tapping one turns it into a real line to write
+  // on: an inline input in the name cell (type it) with BROWSE still up top.
+  const minRows = 4;
+  let blanks = Math.max(1, minRows - num);
+  for (let b = 0; b < blanks; b++) {
+    num++;
+    const first = b === 0;
+    const addTap = isToday ? ` onclick="wsBlankRowTap(this)"` : '';
+    bodies.push(`<tbody${addTap}${isToday ? ' style="cursor:pointer"' : ''}${first ? ' id="ws-empty-row"' : ''} class="ws-blank-row">
+    <tr class="rdash"><td class="pnum" rowspan="2">${num}</td><td class="pname" rowspan="2">${isToday && first ? '<span style="font-size:9px;color:#b9b2a0">tap to add\u2026</span>' : ''}</td><td class="psub">REPS</td>${cells([], true)}</tr>
     <tr class="rsolid"><td class="psub" style="border-top:1px dashed #999">WEIGHT</td>${cells([], true)}</tr>
   </tbody>`);
+  }
 
   el.innerHTML = invite + `<table class="pgrid">${head}${bodies.join('')}</table>`;
   renderSheetTimes();
@@ -10436,11 +10451,12 @@ function _wsSheetPlanBase() {
   if (!el) return;
   const forDate = progressWorkoutDate();
   // Past days describe what HAPPENED (the sheet itself does that); the plan
-  // template only previews days that haven't finished. "All Legs - 0 of 6
-  // done" on an empty page from last week reads like lost data.
+  // template only previews days that haven't finished. And a template "Rest
+  // day" has no business talking over a day with actual sets on it.
   if (forDate < _wsToday()) { el.textContent = ''; return; }
   const idx = new Date(forDate + 'T12:00:00').getDay();
   const day = (typeof weeklyPlan !== 'undefined' && weeklyPlan[idx]) ? weeklyPlan[idx] : null;
+  if (day && day.is_rest_day && (progressSets || []).length) { el.textContent = ''; return; }
   el.textContent = _wsDaySummary(day);
 }
 
@@ -14582,6 +14598,34 @@ async function wsStartSession(dayIdx) {
   // History for every exercise up front, so tapping one is instant rather than
   // showing a spinner between sets.
   exercises.forEach(ex => _wsLoadHistory(ex.name));
+}
+
+// Tap a blank line, write on it. The name cell becomes an input; enter (or
+// the keyboard's Done) resolves against the library and opens the set sheet.
+function wsBlankRowTap(tbody) {
+  if (!tbody || tbody.dataset.editing === '1') return;
+  tbody.dataset.editing = '1';
+  const nameCell = tbody.querySelector('.pname');
+  if (!nameCell) return;
+  nameCell.innerHTML = `<input type="text" placeholder="exercise name\u2026" autocapitalize="words"
+    style="width:100%;box-sizing:border-box;border:none;border-bottom:1px solid #2a2a2a;background:transparent;font-family:'RatioHand','Segoe Script',cursive;font-size:13px;color:#22314d;outline:none;padding:1px 0"
+    onkeydown="if(event.key==='Enter'){this.blur();}"
+    onblur="wsBlankRowCommit(this)">`;
+  const input = nameCell.querySelector('input');
+  if (input) setTimeout(() => { try { input.focus(); } catch (e) {} }, 30);
+}
+
+function wsBlankRowCommit(input) {
+  const t = (input.value || '').trim();
+  const tbody = input.closest('tbody');
+  if (!t) {
+    // wrote nothing - put the blank line back
+    if (tbody) { tbody.dataset.editing = ''; }
+    try { renderTodayStrength(); } catch (e) {}
+    return;
+  }
+  const resolved = _wsResolveExercise(t);
+  wsQuickLog(resolved.name, resolved.group);
 }
 
 // A spoken lift name maps to the exercise library when it can - "bench" ->
@@ -21543,7 +21587,9 @@ if (document.readyState === 'loading') {
 <div id="plan-week-modal" style="display:none;position:fixed;inset:0;z-index:940;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px)">
   <div style="background:var(--surface);border-radius:28px 28px 0 0;padding:32px 24px 48px;width:100%;max-width:520px">
     <div style="text-align:center;margin-bottom:16px">
-      <div style="font-size:48px;line-height:1;margin-bottom:10px">📅</div>
+      <!-- The calendar emoji has "JUL 17" drawn on its face - it read as a
+           date bug every single week. A neutral icon instead. -->
+      <div style="margin-bottom:10px"><i class="fa-solid fa-calendar-week" style="font-size:40px;color:#CFA13C"></i></div>
       <div style="display:inline-block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;padding:4px 14px;border-radius:20px;background:var(--gold-tint);color:#CFA13C">New Week</div>
     </div>
     <div style="font-size:18px;font-weight:700;color:var(--ink);line-height:1.45;text-align:center;margin-bottom:10px">Last week's plan is done. Ready to set up this week?</div>
