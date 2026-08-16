@@ -4280,9 +4280,19 @@ function speechProblemMessage(code) {
   }
 }
 
+// The typed draft a mic tap would otherwise destroy. Stashed on tap,
+// restored if the voice session ends unused, discarded once any utterance
+// (spoken or typed) is actually submitted.
+let _vlDraft = '';
+
 function vlBarMicTap() {
   const listening = document.getElementById('vl-state-listening')?.style.display !== 'none';
-  if (listening) vlStopListening(); else vlStartListening();
+  if (listening) { vlStopListening(); return; }
+  // The send arrow and the mic are neighbours - an accidental mic tap must
+  // be free to undo. Whatever was typed comes back if nothing gets spoken.
+  const ti = document.getElementById('vl-type-input');
+  _vlDraft = (ti && ti.value.trim()) ? ti.value : '';
+  vlStartListening();
 }
 
 // The coach reacts to what was just logged, like a person would. Deterministic
@@ -4340,6 +4350,17 @@ function openVoiceLog() {
     const greets = c.logGreetings(first);
     _vlThreadBot(greets[Math.floor(Date.now() / 86400000) % greets.length]);
   }
+  // PHASE 0 of one-press voice: the nav mic IS the intent to speak, so the
+  // sheet opens already listening - no second tap. The greeting still renders
+  // as a bubble; listening suppresses its audio, which is the right trade
+  // (the person opened this to talk, not to be talked at). Anyone who came
+  // to type taps the mic once to stop - the cost moved to the rarer path.
+  setTimeout(() => {
+    try {
+      const p = document.getElementById('tab-voicelog');
+      if (p && p.style.display !== 'none') vlStartListening();
+    } catch (e) {}
+  }, 250);
 }
 
 async function closeVoiceLog() {
@@ -4386,7 +4407,8 @@ function vlResetToIdle() {
   const typeWrap = document.getElementById('vl-type-instead');
   if (typeWrap) typeWrap.style.display = 'none';
   const typeInput = document.getElementById('vl-type-input');
-  if (typeInput) { typeInput.value = ''; typeInput.placeholder = 'Ask Coach\u2026'; }
+  if (typeInput) { typeInput.value = _vlDraft || ''; typeInput.placeholder = 'Ask Coach\u2026'; }
+  _vlDraft = '';
   const liveEl = document.getElementById('vl-live-transcript');
   if (liveEl) liveEl.textContent = '';
   const ctxEl = document.getElementById('vl-listening-context');
@@ -4647,6 +4669,7 @@ async function vlStopListening() {
 // Entry point for every finalized utterance, whether it's a fresh command, a typed command,
 // or the answer to a follow-up question. Routes into the (possibly multi-turn) AI conversation.
 function vlHandleUtterance(text) {
+  _vlDraft = '';   // something real was said or typed - the stashed draft is superseded
   _vlThreadUser(text);
   _vlCorrecting = false; // the correction (if any) has been captured — the hint is no longer needed
   if (_vlAwaitingFollowup) {
@@ -9264,7 +9287,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-16-d-notesuggest';
+const RATIO_BUILD = '2026-08-16-g-onetap';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -9853,6 +9876,12 @@ function renderDayNote() {
 let _wsNoteSuggestCache = null;
 let _wsNoteHits = [];
 
+// Day-one vocabulary: shown ONLY while the person has never saved a label.
+// The first real label they write replaces these entirely - the pad should
+// end up in their words, not ours. Also the only way a new user learns the
+// chips exist: an empty suggestion row teaches nothing.
+const _WS_STARTER_LABELS = ['Push day', 'Pull day', 'Leg day', 'Upper body', 'Lower body', 'Full body', 'Rest day'];
+
 async function _wsLoadNoteSuggest() {
   if (_wsNoteSuggestCache) return _wsNoteSuggestCache;
   try {
@@ -9866,8 +9895,8 @@ async function _wsLoadNoteSuggest() {
       seen.add(k); out.push(t);
       if (out.length >= 20) break;
     }
-    _wsNoteSuggestCache = out;
-  } catch (e) { _wsNoteSuggestCache = []; }
+    _wsNoteSuggestCache = out.length ? out : _WS_STARTER_LABELS.slice();
+  } catch (e) { _wsNoteSuggestCache = []; }   // a failed fetch shows nothing, not starters
   return _wsNoteSuggestCache;
 }
 
