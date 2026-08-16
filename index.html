@@ -1300,7 +1300,11 @@
             <span id="ws-notes-text" class="ink" style="font-size:14px;line-height:1.35">Add a note&hellip;</span>
           </div>
           <div id="ws-notes-edit" style="display:none;margin-top:4px">
-            <textarea id="ws-notes-input" rows="2" maxlength="500" placeholder="How did it go?" style="width:100%;box-sizing:border-box;background:#fffdf8;border:1px solid #999;border-radius:4px;padding:8px 10px;font-size:14px;color:#22314d;font-family:'RatioHand','Segoe Script',cursive;resize:vertical"></textarea>
+            <!-- Past labels as tappable chips: "P" surfaces Push day / Pull
+                 day. Recognition over recall, and it keeps label spelling
+                 consistent so the strip history doesn't fragment. -->
+            <div id="ws-notes-suggest" style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:6px"></div>
+            <textarea id="ws-notes-input" rows="2" maxlength="500" oninput="wsNoteInput()" placeholder="How did it go? Or name the day \u2014 &quot;Push day&quot; labels it up top" style="width:100%;box-sizing:border-box;background:#fffdf8;border:1px solid #999;border-radius:4px;padding:8px 10px;font-size:14px;color:#22314d;font-family:'RatioHand','Segoe Script',cursive;resize:vertical"></textarea>
             <div style="display:flex;gap:6px;margin-top:6px">
               <button type="button" onclick="wsSaveNotes()" style="flex:1;padding:8px;background:#2a2a2a;color:#f7f5f0;border:none;border-radius:4px;font-size:11px;font-weight:700;cursor:pointer">SAVE</button>
               <button type="button" onclick="wsCancelNotes()" style="flex:1;padding:8px;background:none;color:#555;border:1px solid #999;border-radius:4px;font-size:11px;font-weight:700;cursor:pointer">CANCEL</button>
@@ -2851,7 +2855,10 @@
     <input type="file" id="label-input" accept="image/*" style="display:none" onchange="previewLabel(event)" />
     <div id="label-result" style="display:none;background:var(--gold-tint);border-radius:10px;padding:14px;margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:#CFA13C;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Detected Nutrition</div>
-      <div id="label-result-name" style="font-size:15px;font-weight:700;margin-bottom:10px"></div>
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px">
+        <div id="label-result-name" onclick="renameLabelFood()" style="font-size:15px;font-weight:700;cursor:pointer"></div>
+        <i class="fa-solid fa-pencil" onclick="renameLabelFood()" style="font-size:10px;color:var(--dim);cursor:pointer"></i>
+      </div>
       <div style="display:grid;grid-template-columns:repeat(6,1fr);text-align:center;gap:4px;margin-bottom:14px">
         <div><div style="font-size:12px;font-weight:700;color:#CFA13C" id="label-cals">-</div><div style="font-size:8px;color:var(--muted)">kcal</div></div>
         <div><div style="font-size:12px;font-weight:700;color:#CFA13C" id="label-protein">-</div><div style="font-size:8px;color:var(--muted)">protein</div></div>
@@ -2895,10 +2902,10 @@
     </div>
     <div id="label-loading" style="display:none;text-align:center;padding:16px;color:var(--muted);font-size:13px">🤖 Claude is reading the label...</div>
     <div id="label-actions" style="display:none;display:grid;grid-template-columns:1fr 1fr;gap:8px">
-      <button onclick="closeLabelModal()" style="background:var(--surface-2);color:var(--ink);border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:600;cursor:pointer">Cancel</button>
-      <button id="label-save-food-btn" onclick="saveLabelAsFood()" style="background:var(--surface-2);color:var(--ink);border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:600;cursor:pointer">Save Food</button>
+      <button id="label-log-btn" onclick="logLabelAsFood()" style="background:var(--surface-2);color:var(--ink);border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:600;cursor:pointer">Log Now</button>
       <button id="label-save-meal-btn" onclick="saveLabelAsMeal()" style="background:var(--surface-2);color:var(--ink);border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:600;cursor:pointer">Save as Meal</button>
-      <button onclick="logLabelAsFood()" style="background:#CFA13C;color:#101512;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:600;cursor:pointer">Log Now</button>
+      <button id="label-save-food-btn" onclick="saveLabelAsFood()" style="background:var(--surface-2);color:var(--ink);border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:600;cursor:pointer">Save Food</button>
+      <button onclick="closeLabelModal()" style="background:var(--surface-2);color:var(--ink);border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:600;cursor:pointer">Close</button>
     </div>
     <button id="label-cancel-btn" onclick="closeLabelModal()" style="width:100%;background:var(--surface-2);color:var(--ink);border:none;border-radius:8px;padding:11px;font-size:14px;font-weight:600;cursor:pointer;margin-top:0">Cancel</button>
   </div>
@@ -9257,7 +9264,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-16-b-scannotes';
+const RATIO_BUILD = '2026-08-16-d-notesuggest';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -9838,6 +9845,67 @@ function renderDayNote() {
   }
 }
 
+// -----------------------------------------------------------------------
+// NOTE LABEL SUGGESTIONS - distinct short notes from the past, newest first.
+// Loaded once per session, invalidated on save so a fresh label joins the
+// pool immediately.
+// -----------------------------------------------------------------------
+let _wsNoteSuggestCache = null;
+let _wsNoteHits = [];
+
+async function _wsLoadNoteSuggest() {
+  if (_wsNoteSuggestCache) return _wsNoteSuggestCache;
+  try {
+    const rows = await dbGet('workout_notes', 'select=note,date&order=date.desc&limit=200') || [];
+    const seen = new Set(); const out = [];
+    for (const r of rows) {
+      const t = (r.note || '').trim();
+      if (!t || t.length > 40) continue;   // labels, not essays
+      const k = t.toLowerCase();
+      if (seen.has(k)) continue;
+      seen.add(k); out.push(t);
+      if (out.length >= 20) break;
+    }
+    _wsNoteSuggestCache = out;
+  } catch (e) { _wsNoteSuggestCache = []; }
+  return _wsNoteSuggestCache;
+}
+
+// Prefix matches first, then contains; cap of four; never suggest exactly
+// what is already typed. Empty box shows the most recent labels.
+function _wsNoteMatches(q, list) {
+  q = (q || '').trim().toLowerCase();
+  const pool = list || [];
+  let hits;
+  if (!q) hits = pool.slice(0, 4);
+  else {
+    const starts = pool.filter(n => n.toLowerCase().startsWith(q));
+    const contains = pool.filter(n => !n.toLowerCase().startsWith(q) && n.toLowerCase().includes(q));
+    hits = starts.concat(contains).slice(0, 4);
+  }
+  return hits.filter(n => n.toLowerCase() !== q);
+}
+
+async function wsNoteInput() {
+  const box = document.getElementById('ws-notes-suggest');
+  const input = document.getElementById('ws-notes-input');
+  if (!box || !input) return;
+  const list = await _wsLoadNoteSuggest();
+  _wsNoteHits = _wsNoteMatches(input.value, list);
+  box.innerHTML = _wsNoteHits.map((n, i) =>
+    `<button type="button" onclick="wsPickNoteSuggest(${i})" style="background:#efece5;border:1px solid #c9c1ab;border-radius:12px;padding:4px 10px;font-size:11px;color:#4a4438;cursor:pointer;font-family:'RatioHand','Segoe Script',cursive">${_weEscHtml(n)}</button>`
+  ).join('');
+}
+
+function wsPickNoteSuggest(i) {
+  const input = document.getElementById('ws-notes-input');
+  const n = _wsNoteHits[i];
+  if (!input || n == null) return;
+  input.value = n;
+  wsNoteInput();      // re-filter: the picked label drops out of the chips
+  try { input.focus(); } catch (e) {}
+}
+
 let _wsNoteEditDate = null;   // the date the editor was opened FOR
 
 function wsEditNotes() {
@@ -9849,6 +9917,7 @@ function wsEditNotes() {
   if (disp) disp.style.display = 'none';
   edit.style.display = 'block';
   input.value = _wsNote || '';
+  wsNoteInput();
   input.focus();
 }
 
@@ -9863,6 +9932,7 @@ async function wsSaveNotes() {
   const text = input.value.trim().slice(0, 500);
   try {
     await dbUpsert('workout_notes', { date: forDate, note: text, updated_at: new Date().toISOString() }, 'user_id,date');
+    _wsNoteSuggestCache = null;   // the pool just changed
     if (progressWorkoutDate() === forDate) { _wsNote = text; renderDayNote(); }
     const wk = _wrWeekStart(forDate);
     if (_wsWeekMeta[wk]) {
@@ -9990,6 +10060,13 @@ function renderTodayStrength() {
     </div>`;
   }
 
+  // A planned day that hasn't finished gets an eraser: one tap (plus a
+  // confirm) blanks the day's plan. Past days are history and get nothing.
+  let clearBtn = '';
+  if (planned.length && forDate >= _wsToday()) {
+    clearBtn = `<div style="text-align:right;margin:4px 0 2px"><button type="button" onclick="wsClearDayPlan()" style="background:none;border:none;cursor:pointer;font-size:8.5px;font-weight:700;color:#8a8375;letter-spacing:0.5px;padding:2px 4px">\u2715 CLEAR DAY'S PLAN</button></div>`;
+  }
+
   // Blank numbered rows pad the sheet to at least four lines - a pad has
   // empty lines. On today, tapping one turns it into a real line to write
   // on: an inline input in the name cell (type it) with BROWSE still up top.
@@ -10005,8 +10082,33 @@ function renderTodayStrength() {
   </tbody>`);
   }
 
-  el.innerHTML = invite + `<table class="pgrid">${head}${bodies.join('')}</table>`;
+  el.innerHTML = invite + `<table class="pgrid">${head}${bodies.join('')}</table>` + clearBtn;
   renderSheetTimes();
+}
+
+// Blank the viewed day's plan: no groups, no exercises, not a rest day -
+// just an empty page again. The template row is upserted so it sticks.
+async function wsClearDayPlan() {
+  const forDate = progressWorkoutDate();
+  if (forDate < _wsToday()) return;
+  const idx = new Date(forDate + 'T12:00:00').getDay();
+  if (typeof weeklyPlan === 'undefined' || !weeklyPlan[idx]) return;
+  const dayName = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][idx];
+  if (!await appConfirm(`Clear ${dayName}'s planned exercises?`, { title: 'Clear Day', yesLabel: 'Yes, Clear' })) return;
+  weeklyPlan[idx] = {
+    day_of_week: idx,
+    location: weeklyPlan[idx].location || 'gym',
+    muscle_groups: [], is_rest_day: false, exercises: [], checked_off: []
+  };
+  try {
+    await dbUpsert('workout_plans', {
+      day_of_week: idx, location: weeklyPlan[idx].location, muscle_groups: [],
+      is_rest_day: false, exercises: [], checked_off: [], updated_at: new Date().toISOString()
+    }, 'user_id,day_of_week');
+    if (typeof savedPlanDays !== 'undefined') savedPlanDays.add(idx);
+  } catch (e) { toast('Could not clear the day'); return; }
+  try { renderWeeklyPlanList(); renderWeekStrip(); renderTodayStrength(); _wsSheetPlanBase(); } catch (e) {}
+  toast(`${dayName} cleared`);
 }
 
 // START/FINISH/TOTAL, derived from the day's set timestamps: first set
@@ -16321,6 +16423,26 @@ function _buildUnitWheel() {
   });
 }
 
+// The photo often shows only the nutrition panel - no brand name - so the
+// name is editable: tap it, type, done. Whatever it says is what Save/Log use.
+function renameLabelFood() {
+  const el = document.getElementById('label-result-name');
+  if (!el || el.querySelector('input')) return;
+  const cur = (labelScannedData && labelScannedData.name) || '';
+  el.innerHTML = `<input type="text" value="${_weEscHtml(cur === 'Scanned Food' ? '' : cur).replace(/"/g,'&quot;')}" placeholder="food name\u2026" autocapitalize="words"
+    style="width:100%;box-sizing:border-box;background:var(--bg-deep);border:1px solid var(--line);border-radius:8px;padding:6px 8px;font-size:14px;font-weight:700;color:var(--ink);outline:none"
+    onkeydown="if(event.key==='Enter'){this.blur();}" onblur="commitLabelRename(this)">`;
+  const input = el.querySelector('input');
+  if (input) setTimeout(() => { try { input.focus(); } catch (e) {} }, 30);
+}
+
+function commitLabelRename(input) {
+  const t = (input.value || '').trim();
+  const el = document.getElementById('label-result-name');
+  if (t && labelScannedData) labelScannedData.name = t;
+  if (el) el.textContent = (labelScannedData && labelScannedData.name) || 'Scanned Food';
+}
+
 function showLabelResult(data) {
   document.getElementById('label-loading').style.display = 'none';
   document.getElementById('label-result-name').textContent = data.name || 'Scanned Food';
@@ -16390,7 +16512,9 @@ function showLabelResult(data) {
   const sfBtn = document.getElementById('label-save-food-btn');
   if (sfBtn) { sfBtn.textContent = 'Save Food'; sfBtn.disabled = false; sfBtn.style.opacity = '1'; }
   const smBtn = document.getElementById('label-save-meal-btn');
-  if (smBtn) smBtn.style.display = '';
+  if (smBtn) { smBtn.style.display = ''; smBtn.textContent = 'Save as Meal'; smBtn.disabled = false; smBtn.style.opacity = '1'; }
+  const lgBtn = document.getElementById('label-log-btn');
+  if (lgBtn) { lgBtn.textContent = 'Log Now'; lgBtn.disabled = false; lgBtn.style.opacity = '1'; }
   if (window._scanTarget === 'meal') {
     const fillBtn = document.createElement('button');
     fillBtn.id = 'fill-form-btn';
@@ -16463,8 +16587,11 @@ async function logLabelAsFood() {
       cholesterol: m.cholesterol,
       time: new Date().toTimeString().slice(0, 5)
     });
-    closeLabelModal();
     await loadTodayMeals();
+    // Stay on the sheet - log, then save, then Close when done. The flipped
+    // button stops a double-log.
+    const logBtn = document.getElementById('label-log-btn');
+    if (logBtn) { logBtn.textContent = 'Logged \u2713'; logBtn.disabled = true; logBtn.style.opacity = '0.6'; }
     toast(`Logged to ${_labelMealType} — ${m.calories} kcal ✓`);
   } catch (e) {
     console.error('logLabelAsFood failed', e);
@@ -16525,7 +16652,8 @@ async function saveLabelAsMeal() {
   });
   savedMeals = await dbGet('saved_meals', 'order=created_at.desc') || [];
   renderSavedMeals();
-  closeLabelModal();
+  const smB = document.getElementById('label-save-meal-btn');
+  if (smB) { smB.textContent = 'Saved \u2713'; smB.disabled = true; smB.style.opacity = '0.6'; }
   toast(`${labelScannedData.name} saved to My Meals ✓`);
 }
 
