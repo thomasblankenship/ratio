@@ -2078,6 +2078,7 @@
            inside a scrolling page. -->
       <div style="flex-shrink:0;background:var(--surface);padding:10px 10px calc(10px + env(safe-area-inset-bottom));border-top:1px solid var(--line);display:flex;gap:8px;align-items:center">
         <input id="vl-type-input" type="text" placeholder="Ask Coach&hellip;" autocomplete="off"
+          onfocus="vlTypeEngage()"
           onkeydown="if(event.key==='Enter')vlSubmitTyped()"
           style="flex:1;padding:13px 16px;border:1px solid var(--line);border-radius:24px;background:var(--bg-deep);color:var(--ink);font-size:15px;outline:none;min-width:0">
         <button onclick="vlSubmitTyped()" aria-label="Send" style="width:46px;height:46px;border-radius:50%;background:var(--bg-deep);border:1px solid var(--line);color:var(--ink);cursor:pointer;flex-shrink:0"><i class="fa-solid fa-arrow-up"></i></button>
@@ -4427,12 +4428,35 @@ function vlShowTypeInstead() {
   document.getElementById('vl-type-input')?.focus();
 }
 
+// Touching the keyboard means the mic yields: listening stops silently (no
+// "didn't catch that" bubble, no stray submit) and the field is theirs.
+// Voice and typing are both first-class; whichever is touched last wins.
+function vlTypeEngage() {
+  const listening = document.getElementById('vl-state-listening')?.style.display !== 'none';
+  if (!listening) return;
+  const ti = document.getElementById('vl-type-input');
+  const typed = ti ? ti.value : '';
+  vlStopListeningQuiet();
+  vlShowState('idle');
+  const liveEl = document.getElementById('vl-live-transcript');
+  if (liveEl) liveEl.textContent = '';
+  _vlLiveText = '';
+  // Whatever was in the box (a restored draft, half a thought) stays there.
+  if (ti && ti.value !== typed) ti.value = typed;
+}
+
 function vlSubmitTyped() {
-  const text = document.getElementById('vl-type-input').value.trim();
+  const input = document.getElementById('vl-type-input');
+  const text = input.value.trim();
   if (!text) { toast('Type something first'); return; }
+  // Race belt: if the recognizer is somehow still hot when Enter lands, kill
+  // it quietly BEFORE handling, so a stray half-heard phrase can't submit a
+  // second utterance on top of the typed one.
+  const listening = document.getElementById('vl-state-listening')?.style.display !== 'none';
+  if (listening) { vlStopListeningQuiet(); vlShowState('idle'); }
   const typeWrap = document.getElementById('vl-type-instead');
   if (typeWrap) typeWrap.style.display = 'none';
-  document.getElementById('vl-type-input').value = '';
+  input.value = '';
   _vlLiveText = text;
   vlHandleUtterance(text);
 }
@@ -9287,7 +9311,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-16-g-onetap';
+const RATIO_BUILD = '2026-08-16-h-typewhilemic';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
