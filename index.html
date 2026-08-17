@@ -276,6 +276,14 @@
     .prog-card-title { display: block; font-size: 14px; font-weight: 800; margin-top: 2px; }
     .prog-card-sub { display: block !important; font-size: 10.5px; color: var(--muted); margin-top: 3px; line-height: 1.4; }
     .prog-card-head .prog-chev, .prog-card-head > i:last-child { position: absolute; bottom: 12px; right: 12px; }
+    /* Closed cards use the Meals-card anatomy: icon stacked ABOVE the text,
+       everything flush left, so icons and titles line up across all four
+       cards (his ruler line). Open cards keep the compact row header. */
+    .prog-card:not(.prog-open) .prog-card-head > span:first-child { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; min-width: 0; }
+    .prog-card:not(.prog-open) .prog-card-head > span:first-child > span { display: block; min-width: 0; text-align: left; }
+    .prog-card:not(.prog-open) .prog-card-icon { width: auto !important; margin: 0 !important; text-align: left !important; }
+    .prog-card:not(.prog-open) .prog-card-title, .prog-card:not(.prog-open) .prog-card-sub { text-align: left; }
+    .prog-card.prog-open .prog-card-head > span:first-child { display: flex; align-items: center; gap: 10px; }
     .prog-card.prog-open .prog-card-sub { display: none !important; }
     .prog-card.prog-open .prog-card-head { flex-direction: row; align-items: center; min-height: 0; padding: 14px 16px; }
     .prog-card.prog-open .prog-card-head .prog-chev, .prog-card.prog-open .prog-card-head > i:last-child { bottom: auto; top: 16px; }
@@ -9622,7 +9630,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-17-n-glancefix';
+const RATIO_BUILD = '2026-08-17-o-cardalign';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
