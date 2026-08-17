@@ -402,6 +402,26 @@
     .ws-paper .psff { display:flex; border:1px solid #2a2a2a; margin-bottom:6px; }
     .ws-paper .psff > div { flex:1; padding:3px 6px; border-right:1px solid #2a2a2a; white-space:nowrap; }
     .ws-paper .psff > div:last-child { border-right:none; flex:1.15; }
+    /* DARK THEME PAPER (his call): the sheet takes the gold-tint gradient in
+       dark mode; light mode keeps the cream paper exactly as it was. Dark is
+       the default theme, so these override unless .light-theme is set. */
+    html:not(.light-theme) .ws-paper { background:linear-gradient(160deg,var(--gold-tint),var(--gold-tint-2)); border:1px solid var(--gold-line); color:#c9c2b0; }
+    html:not(.light-theme) .ws-paper .ink { color:#a9c4f0; }
+    html:not(.light-theme) .ws-paper .ink-red { color:#e07777; }
+    html:not(.light-theme) .ws-paper .plabel { color:#b8b09c; }
+    html:not(.light-theme) .ws-paper .pgrid { border-color:#6b6350; }
+    html:not(.light-theme) .ws-paper .pgrid td { border-left-color:#4d4738; }
+    html:not(.light-theme) .ws-paper .phead td { background:rgba(207,161,60,0.15); border-color:#6b6350 !important; color:#c9c2b0; }
+    html:not(.light-theme) .ws-paper .pnum { background:rgba(207,161,60,0.10); border-color:#6b6350 !important; color:#c9c2b0; }
+    html:not(.light-theme) .ws-paper .pname { border-color:#6b6350 !important; color:#c9c2b0; }
+    html:not(.light-theme) .ws-paper .psub { border-left-color:#6b6350 !important; color:#9a927e; }
+    html:not(.light-theme) .ws-paper .pcell { color:#a9c4f0; }
+    html:not(.light-theme) .ws-paper .pghost { color:#6f6754; }
+    html:not(.light-theme) .ws-paper .rdash td { border-bottom-color:#4d4738; }
+    html:not(.light-theme) .ws-paper .rsolid td { border-bottom-color:#6b6350; }
+    html:not(.light-theme) .ws-paper .psff { border-color:#6b6350; }
+    html:not(.light-theme) .ws-paper .psff > div { border-right-color:#6b6350; }
+    html:not(.light-theme) .ws-paper #ws-notes-block { border-color:#6b6350 !important; }
     /* Week strip: horizontal scroll, snap to cell edges, no scrollbar.
        A partially cut-off cell at the screen edge is the scroll affordance. */
     #ws-week-strip { display:flex; gap:6px; overflow-x:auto; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
@@ -873,32 +893,32 @@
       <div id="food-search-results" style="display:none;margin-top:12px"></div>
 
       <div id="meals-recent-wrap" style="display:none">
-        <div style="font-size:10px;font-weight:800;letter-spacing:0.8px;color:var(--muted);margin:14px 2px 6px">RECENT</div>
+        <div style="font-size:10px;font-weight:800;letter-spacing:0.8px;color:var(--muted);margin:14px 2px 6px">QUICK LOG</div>
         <div id="meals-recent-chips" style="display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch"></div>
       </div>
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;margin-bottom:16px">
-        <div onclick="switchTab('meals-foods')" style="background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px 12px;position:relative;cursor:pointer">
+        <div onclick="switchTab('meals-foods')" style="background:linear-gradient(160deg,var(--gold-tint),var(--gold-tint-2));border:1px solid var(--gold-line);border-radius:16px;padding:14px 12px;position:relative;cursor:pointer">
           <div id="meals-count-foods" style="position:absolute;top:10px;right:10px;background:var(--gold-tint);color:#CFA13C;font-size:10px;font-weight:800;border-radius:10px;padding:3px 8px"></div>
           <div style="font-size:22px">🥑</div>
           <div style="font-size:14px;font-weight:800;margin-top:8px">My Foods</div>
           <div style="font-size:10.5px;color:var(--muted);margin-top:3px;line-height:1.4">Single foods you've saved &amp; scanned</div>
           <div style="position:absolute;bottom:12px;right:12px;color:var(--muted);font-size:12px">›</div>
         </div>
-        <div onclick="switchTab('meals-meals')" style="background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px 12px;position:relative;cursor:pointer">
+        <div onclick="switchTab('meals-meals')" style="background:linear-gradient(160deg,var(--gold-tint),var(--gold-tint-2));border:1px solid var(--gold-line);border-radius:16px;padding:14px 12px;position:relative;cursor:pointer">
           <div id="meals-count-meals" style="position:absolute;top:10px;right:10px;background:var(--gold-tint);color:#CFA13C;font-size:10px;font-weight:800;border-radius:10px;padding:3px 8px"></div>
           <div style="font-size:22px">🍽️</div>
           <div style="font-size:14px;font-weight:800;margin-top:8px">My Meals</div>
           <div style="font-size:10.5px;color:var(--muted);margin-top:3px;line-height:1.4">Recipes &amp; full meals, ready to log</div>
           <div style="position:absolute;bottom:12px;right:12px;color:var(--muted);font-size:12px">›</div>
         </div>
-        <div onclick="switchTab('meals-ideas')" style="background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px 12px;position:relative;cursor:pointer">
+        <div onclick="switchTab('meals-ideas')" style="background:linear-gradient(160deg,var(--gold-tint),var(--gold-tint-2));border:1px solid var(--gold-line);border-radius:16px;padding:14px 12px;position:relative;cursor:pointer">
           <div style="font-size:22px">✨</div>
           <div style="font-size:14px;font-weight:800;margin-top:8px">Meal Ideas</div>
           <div style="font-size:10.5px;color:var(--muted);margin-top:3px;line-height:1.4">Coach suggestions from your macros &amp; tastes</div>
           <div style="position:absolute;bottom:12px;right:12px;color:var(--muted);font-size:12px">›</div>
         </div>
-        <div onclick="switchTab('meals-prep')" style="background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px 12px;position:relative;cursor:pointer">
+        <div onclick="switchTab('meals-prep')" style="background:linear-gradient(160deg,var(--gold-tint),var(--gold-tint-2));border:1px solid var(--gold-line);border-radius:16px;padding:14px 12px;position:relative;cursor:pointer">
           <div style="font-size:22px">🥘</div>
           <div style="font-size:14px;font-weight:800;margin-top:8px">Weekly Prep</div>
           <div style="font-size:10.5px;color:var(--muted);margin-top:3px;line-height:1.4">Batch-cooking plans for the week</div>
@@ -1358,7 +1378,7 @@
         <!-- NOTES box, printed on the form. Whatever is written here also
              names the day up in the week strip. A past day with nothing at
              all shows a printed "Rest day" - display only, never saved. -->
-        <div id="ws-notes-block" style="border:1px solid #2a2a2a;padding:3px 6px 5px;min-height:32px;margin-top:6px">
+        <div id="ws-notes-block" style="border:1px solid #2a2a2a;padding:3px 6px 5px;min-height:32px;margin-top:6px"><!-- border themed via CSS above -->
           <div class="plabel" style="font-size:8px">NOTES:</div>
           <div id="ws-notes-display" onclick="wsEditNotes()" style="cursor:pointer">
             <span id="ws-notes-text" class="ink" style="font-size:14px;line-height:1.35">Add a note&hellip;</span>
@@ -9533,7 +9553,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-17-b-mealscards';
+const RATIO_BUILD = '2026-08-17-c-hubpolish';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -11164,6 +11184,9 @@ async function addWorkout() {
 // HISTORY - handled by loadDayTotals() and renderCalendar()
 
 async function showHistoryDetail(date) {
+  // The viewed date exists the moment the view does - it used to be set only
+  // AFTER the fetches below finished, a window where any log targeted today.
+  window._historyDate = date;
   document.getElementById('today-subtab-main').style.display = 'none';
   document.getElementById('today-calendar-dropdown').style.display = 'none';
   document.getElementById('today-calendar-chevron').style.transform = 'rotate(0deg)';
@@ -13748,22 +13771,32 @@ let _recentChipRows = [];
 
 async function loadRecentChips() {
   try {
-    const rows = await dbGet('meals', 'select=name,calories,meal_type,protein,carbs,fat,fiber,cholesterol&order=date.desc&limit=80');
-    const seen = new Set(); const out = [];
+    // FRECENCY, merged per his call: one row serving both "again" cases.
+    // Frequency over the last 30 days ranks first (the daily protein coffee
+    // lives at the front forever), recency breaks ties (last night's one-off
+    // still shows). Top eight.
+    const rows = await dbGet('meals', 'select=name,date,calories,meal_type,protein,carbs,fat,fiber,cholesterol&order=date.desc&limit=300');
+    const byName = new Map();
     for (const r of rows || []) {
       const k = (r.name || '').trim().toLowerCase();
-      if (!k || seen.has(k)) continue;
-      seen.add(k); out.push(r);
-      if (out.length >= 6) break;
+      if (!k) continue;
+      const e = byName.get(k);
+      if (e) { e.count++; }
+      else byName.set(k, { row: r, count: 1, latest: r.date || '' });
     }
-    _recentChipRows = out;
+    const out = [...byName.values()]
+      .sort((a, b) => (b.count - a.count) || (b.latest < a.latest ? -1 : b.latest > a.latest ? 1 : 0))
+      .slice(0, 8);
+    _recentChipRows = out.map(e => e.row);
     const wrap = document.getElementById('meals-recent-wrap');
     const box = document.getElementById('meals-recent-chips');
     if (!wrap || !box) return;
-    if (!out.length) { wrap.style.display = 'none'; return; }
+    if (!_recentChipRows.length) { wrap.style.display = 'none'; return; }
     wrap.style.display = 'block';
-    box.innerHTML = out.map((r, i) =>
-      `<button type="button" onclick="recentChipTap(${i})" style="flex-shrink:0;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:7px 12px;font-size:12px;color:var(--ink);white-space:nowrap;cursor:pointer">${_weEscHtml(r.name)} <span style="color:var(--muted);font-size:10px">${Math.round(r.calories || 0)}</span></button>`
+    // Long recipe names ellipsize - it's a recent item, the start of the
+    // name is enough to recognize it.
+    box.innerHTML = _recentChipRows.map((r, i) =>
+      `<button type="button" onclick="recentChipTap(${i})" style="flex-shrink:0;display:flex;align-items:center;gap:5px;max-width:210px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:7px 12px;font-size:12px;color:var(--ink);cursor:pointer"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0">${_weEscHtml(r.name)}</span><span style="color:var(--muted);font-size:10px;flex-shrink:0">${Math.round(r.calories || 0)}</span></button>`
     ).join('');
   } catch (e) { console.error('[meals] recent chips failed', e); }
 }
@@ -13897,7 +13930,11 @@ let _logMealId = null;
 // and it landed on today because two "+ Log" paths never set the date.
 function _activeLogDate() {
   const hv = document.getElementById('history-detail-view');
-  const visible = hv && hv.style.display !== 'none';
+  const tt = document.getElementById('tab-today');
+  // Both the Today tab AND the day view must be showing - the day view keeps
+  // display:block while hidden behind another tab, which would silently
+  // back-date logs made from the Meals hub.
+  const visible = tt && tt.style.display !== 'none' && hv && hv.style.display !== 'none';
   if (visible && window._historyDate && window._historyDate !== today) return window._historyDate;
   return null;
 }
@@ -13916,6 +13953,7 @@ function openLogMealModal(id) {
   const meal = savedMeals.find(m => m.id === id);
   if (!meal) return;
   window._modalLogDate = _activeLogDate();
+  console.log('[daylog] meal modal target =', window._modalLogDate || today, '(historyDate:', window._historyDate, ')');
   const lmBtn = document.getElementById('log-meal-confirm-btn');
   if (lmBtn) lmBtn.textContent = _logDateLabel(window._modalLogDate);
   _logMealId = id;
@@ -15154,8 +15192,8 @@ function wsBlankRowTap(tbody) {
   tbody.dataset.editing = '1';
   const nameCell = tbody.querySelector('.pname');
   if (!nameCell) return;
-  nameCell.innerHTML = `<input type="text" placeholder="exercise name\u2026" autocapitalize="words"
-    style="width:100%;box-sizing:border-box;border:none;border-bottom:1px solid #2a2a2a;background:transparent;font-family:'RatioHand','Segoe Script',cursive;font-size:13px;color:#22314d;outline:none;padding:1px 0"
+  nameCell.innerHTML = `<input type="text" placeholder="exercise name\u2026" autocapitalize="words" class="ink"
+    style="width:100%;box-sizing:border-box;border:none;border-bottom:1px solid #6b6350;background:transparent;font-size:13px;outline:none;padding:1px 0"
     onkeydown="if(event.key==='Enter'){this.blur();}"
     onblur="wsBlankRowCommit(this)">`;
   const input = nameCell.querySelector('input');
@@ -15833,6 +15871,7 @@ function openFoodModal(id) {
   }
   if (!activeFoodForModal) return;
   window._modalLogDate = _activeLogDate();
+  console.log('[daylog] food modal target =', window._modalLogDate || today, '(historyDate:', window._historyDate, ')');
   const fmBtn = document.getElementById('food-modal-log-btn');
   if (fmBtn) fmBtn.textContent = _logDateLabel(window._modalLogDate);
   const calsPerUnit = activeFoodForModal.calories_per_unit || activeFoodForModal.cals_per_unit || 0;
