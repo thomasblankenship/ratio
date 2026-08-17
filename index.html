@@ -422,6 +422,11 @@
     html:not(.light-theme) .ws-paper .psff { border-color:#6b6350; }
     html:not(.light-theme) .ws-paper .psff > div { border-right-color:#6b6350; }
     html:not(.light-theme) .ws-paper #ws-notes-block { border-color:#6b6350 !important; }
+    /* The empty-day coach invite was invisible in dark mode - light-paper
+       ink on a dark gold page. Themed to his palette. */
+    html:not(.light-theme) .ws-paper .ws-invite { border-color:#6b6350 !important; }
+    html:not(.light-theme) .ws-paper .ws-invite-ghost { border-color:#CFA13C !important; color:#CFA13C !important; }
+    html:not(.light-theme) .ws-paper .ws-invite-solid { background:#CFA13C !important; color:#101210 !important; }
     /* Week strip: horizontal scroll, snap to cell edges, no scrollbar.
        A partially cut-off cell at the screen edge is the scroll affordance. */
     #ws-week-strip { display:flex; gap:6px; overflow-x:auto; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
@@ -640,6 +645,24 @@
         <span id="ws-strip-dot-0" style="width:14px;height:3px;border-radius:2px;background:var(--accent)"></span>
         <span id="ws-strip-dot-1" style="width:14px;height:3px;border-radius:2px;background:var(--line)"></span>
       </div>
+
+      <!-- Workouts hub cards (Meals-hub pattern). The sheet body is
+           appendChild'd into this tab at boot, so the relocation re-appends
+           this wrapper afterwards to keep the cards UNDER the sheet. -->
+      <div id="wk-hub-cards" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;margin-bottom:16px">
+        <div onclick="switchTab('workouts-plan')" style="background:linear-gradient(160deg,var(--gold-tint),var(--gold-tint-2));border:1px solid var(--gold-line);border-radius:16px;padding:14px 12px;position:relative;cursor:pointer">
+          <div style="font-size:22px">📋</div>
+          <div style="font-size:14px;font-weight:800;margin-top:8px">Weekly Plan</div>
+          <div id="wk-card-plan-sub" style="font-size:10.5px;color:var(--muted);margin-top:3px;line-height:1.4"></div>
+          <div style="position:absolute;bottom:12px;right:12px;color:var(--muted);font-size:12px">›</div>
+        </div>
+        <div onclick="switchTab('workouts-browse')" style="background:linear-gradient(160deg,var(--gold-tint),var(--gold-tint-2));border:1px solid var(--gold-line);border-radius:16px;padding:14px 12px;position:relative;cursor:pointer">
+          <div style="font-size:22px">📖</div>
+          <div style="font-size:14px;font-weight:800;margin-top:8px">Exercise Library</div>
+          <div id="wk-card-browse-sub" style="font-size:10.5px;color:var(--muted);margin-top:3px;line-height:1.4"></div>
+          <div style="position:absolute;bottom:12px;right:12px;color:var(--muted);font-size:12px">›</div>
+        </div>
+      </div>
     </div>
 
     <!-- TODAY -->
@@ -770,7 +793,9 @@
         <div class="card-title" style="color:#CFA13C">Meals</div>
         <div id="meals-list"><div class="empty">No meals logged yet</div></div>
         <div style="margin-top:12px">
-          <button onclick="toggleMealForm()" id="add-meal-btn" class="btn">+ Add Meal</button>
+          <!-- "+ Add Meal" retired (his call): the per-section + on
+               BREAKFAST/LUNCH/DINNER/SNACKS is where everyone actually taps,
+               and the giant duplicate below the list just pushed content up. -->
         </div>
         <div id="meal-form" style="display:none;margin-top:12px;background:var(--bg-deep);border-radius:12px;padding:14px">
           <!-- Quick lookup buttons -->
@@ -798,8 +823,8 @@
             <div id="meal-nutrition-fields"></div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px">
-            <button class="btn" onclick="saveFoodFromForm()" style="background:var(--gray-100);color:var(--black)">Save Food</button>
-            <button class="btn" onclick="saveMealFromForm()" style="background:var(--gray-100);color:var(--black)">Save as Meal</button>
+            <button class="btn" onclick="saveFoodFromForm()" style="background:var(--gray-100);color:var(--black)">Save to My Foods</button>
+            <button class="btn" onclick="saveMealFromForm()" style="background:var(--gray-100);color:var(--black)">Save to My Meals</button>
           </div>
           <button class="btn" id="dash-log-food-btn" onclick="addMeal()" style="margin-top:8px">Log Today</button>
           <button class="btn" onclick="toggleMealForm()" style="background:var(--red-tint);color:#EF4444;margin-top:8px">Cancel</button>
@@ -943,7 +968,7 @@
       <div class="card">
         <div id="add-food-form" style="display:none;background:var(--gold-tint);border-radius:10px;padding:14px;margin-bottom:12px">
           <div id="add-food-form-fields"></div>
-          <button class="btn" onclick="saveFood()" style="margin-top:14px">Save Food</button>
+          <button class="btn" onclick="saveFood()" style="margin-top:14px">Save</button>
           <button class="btn" onclick="toggleAddFood()" style="background:var(--red-tint);color:#EF4444;margin-top:8px">Cancel</button>
         </div>
         <div id="saved-foods-list"><div class="loading">Loading...</div></div>
@@ -3011,8 +3036,8 @@
     <div id="label-loading" style="display:none;text-align:center;padding:16px;color:var(--muted);font-size:13px">🤖 Claude is reading the label...</div>
     <div id="label-actions" style="display:none;display:grid;grid-template-columns:1fr 1fr;gap:8px">
       <button id="label-log-btn" onclick="logLabelAsFood()" style="background:var(--surface-2);color:var(--ink);border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:600;cursor:pointer">Log Now</button>
-      <button id="label-save-meal-btn" onclick="saveLabelAsMeal()" style="background:var(--surface-2);color:var(--ink);border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:600;cursor:pointer">Save as Meal</button>
-      <button id="label-save-food-btn" onclick="saveLabelAsFood()" style="background:var(--surface-2);color:var(--ink);border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:600;cursor:pointer">Save Food</button>
+      <button id="label-save-meal-btn" onclick="saveLabelAsMeal()" style="background:var(--surface-2);color:var(--ink);border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:600;cursor:pointer">Save to My Meals</button>
+      <button id="label-save-food-btn" onclick="saveLabelAsFood()" style="background:var(--surface-2);color:var(--ink);border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:600;cursor:pointer">Save to My Foods</button>
       <button onclick="closeLabelModal()" style="background:var(--surface-2);color:var(--ink);border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:600;cursor:pointer">Close</button>
     </div>
     <button id="label-cancel-btn" onclick="closeLabelModal()" style="width:100%;background:var(--surface-2);color:var(--ink);border:none;border-radius:8px;padding:11px;font-size:14px;font-weight:600;cursor:pointer;margin-top:0">Cancel</button>
@@ -9598,7 +9623,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-17-g-loglabels';
+const RATIO_BUILD = '2026-08-17-h-fivepolish';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -10394,11 +10419,11 @@ function renderTodayStrength() {
   // the first exercise lands (planned or logged).
   let invite = '';
   if (isToday && !order.length && !planned.length && !(planDay && planDay.is_rest_day)) {
-    invite = `<div style="border:1px dashed #999;padding:8px 10px;margin-bottom:6px;text-align:center">
+    invite = `<div class="ws-invite" style="border:1px dashed #999;padding:8px 10px;margin-bottom:6px;text-align:center">
       <div style="font-size:10px;color:#8a8375;margin-bottom:7px">Nothing planned for today.</div>
       <div style="display:flex;gap:6px">
-        <button type="button" onclick="wsAddExercise()" style="flex:1;padding:8px 4px;background:none;border:1px solid #2a2a2a;border-radius:4px;font-size:10px;font-weight:700;color:#2a2a2a;cursor:pointer">\u270e FILL IN MY OWN</button>
-        <button type="button" onclick="editPlanDayForDate()" style="flex:1;padding:8px 4px;background:#2a2a2a;border:none;border-radius:4px;font-size:10px;font-weight:700;color:#f7f5f0;cursor:pointer">\u2726 HAVE COACH BUILD IT</button>
+        <button type="button" class="ws-invite-ghost" onclick="wsAddExercise()" style="flex:1;padding:8px 4px;background:none;border:1px solid #2a2a2a;border-radius:4px;font-size:10px;font-weight:700;color:#2a2a2a;cursor:pointer">\u270e FILL IN MY OWN</button>
+        <button type="button" class="ws-invite-solid" onclick="editPlanDayForDate()" style="flex:1;padding:8px 4px;background:#2a2a2a;border:none;border-radius:4px;font-size:10px;font-weight:700;color:#f7f5f0;cursor:pointer">\u2726 HAVE COACH BUILD IT</button>
       </div>
     </div>`;
   }
@@ -10427,6 +10452,27 @@ function renderTodayStrength() {
 
   el.innerHTML = invite + `<table class="pgrid">${head}${bodies.join('')}</table>` + clearBtn;
   renderSheetTimes();
+  try { _wkUpdateHubCards(); } catch (e) {}
+}
+
+// Glanceable hub cards under the sheet - the Meals-hub pattern he asked to
+// bring over. The info line means most visits don't need the tap at all.
+function _wkUpdateHubCards() {
+  const planEl = document.getElementById('wk-card-plan-sub');
+  if (planEl && typeof weeklyPlan !== 'undefined') {
+    let training = 0, rest = 0;
+    for (let i = 0; i < 7; i++) {
+      const d = weeklyPlan[i];
+      if (!d) continue;
+      if (d.is_rest_day) rest++;
+      else if ((d.muscle_groups || []).length || (d.exercises || []).length) training++;
+    }
+    planEl.textContent = training || rest ? `${training} training day${training === 1 ? '' : 's'} \u00b7 ${rest} rest` : 'Nothing planned yet \u2014 tap to build your week';
+  }
+  const libEl = document.getElementById('wk-card-browse-sub');
+  if (libEl && typeof EXERCISE_LIBRARY !== 'undefined') {
+    libEl.textContent = `${EXERCISE_LIBRARY.length} exercises \u00b7 search by muscle group`;
+  }
 }
 
 // Blank the viewed day's plan: no groups, no exercises, not a rest day -
@@ -14393,7 +14439,7 @@ function openMealBuilder() {
   mbRenderPhotoSection();
   const noteEl = document.getElementById('mb-servings-note');
   if (noteEl) noteEl.textContent = '';
-  const convertBtn = document.getElementById('mb-convert-to-food-btn');
+  const convertBtn = document.getElementById('mb-header-action');
   if (convertBtn) convertBtn.style.display = 'none';
   document.getElementById('meal-builder-modal').style.display = 'flex';
 }
@@ -14445,8 +14491,8 @@ function openEditSavedMeal(id) {
   mbRenderPhotoSection();
   const editNoteEl = document.getElementById('mb-servings-note');
   if (editNoteEl) editNoteEl.textContent = '';
-  const convertBtn = document.getElementById('mb-convert-to-food-btn');
-  if (convertBtn) convertBtn.style.display = 'block';
+  const convertBtn = document.getElementById('mb-header-action');
+  if (convertBtn) convertBtn.style.display = '';
   document.getElementById('meal-builder-modal').style.display = 'flex';
 }
 
@@ -14831,7 +14877,7 @@ async function urlImportSave(data) {
   mbRenderIngredients();
   mbUpdateTotals();
   mbRenderPhotoSection();
-  const convertBtn2 = document.getElementById('mb-convert-to-food-btn');
+  const convertBtn2 = document.getElementById('mb-header-action');
   if (convertBtn2) convertBtn2.style.display = 'none';
   document.getElementById('meal-builder-modal').style.display = 'flex';
 }
@@ -15927,6 +15973,8 @@ function _relocateCoachPanels() {
       wtab.appendChild(wbody);
       wbody.style.display = 'block';
       wbody.style.padding = '0';
+      const hub = document.getElementById('wk-hub-cards');
+      if (hub) wtab.appendChild(hub);   // cards stay UNDER the sheet
     }
     if (wrow) wrow.style.display = 'none';
     if (typeof _fixProgGroupDividers === 'function') _fixProgGroupDividers();
@@ -17150,9 +17198,9 @@ function showLabelResult(data) {
   // Fresh sheet, fresh buttons: re-arm Save Food after a previous "Saved",
   // and show the grid's Save as Meal unless the meals-tab flow replaces it.
   const sfBtn = document.getElementById('label-save-food-btn');
-  if (sfBtn) { sfBtn.textContent = 'Save Food'; sfBtn.disabled = false; sfBtn.style.opacity = '1'; }
+  if (sfBtn) { sfBtn.textContent = 'Save to My Foods'; sfBtn.disabled = false; sfBtn.style.opacity = '1'; }
   const smBtn = document.getElementById('label-save-meal-btn');
-  if (smBtn) { smBtn.style.display = ''; smBtn.textContent = 'Save as Meal'; smBtn.disabled = false; smBtn.style.opacity = '1'; }
+  if (smBtn) { smBtn.style.display = ''; smBtn.textContent = 'Save to My Meals'; smBtn.disabled = false; smBtn.style.opacity = '1'; }
   const lgBtn = document.getElementById('label-log-btn');
   if (lgBtn) { lgBtn.textContent = 'Log Now'; lgBtn.disabled = false; lgBtn.style.opacity = '1'; }
   if (window._scanTarget === 'meal') {
@@ -17169,10 +17217,15 @@ function showLabelResult(data) {
     if (smBtn) smBtn.style.display = 'none';
     const saveMealBtn = document.createElement('button');
     saveMealBtn.id = 'fill-form-btn';
-    saveMealBtn.textContent = 'Save as Meal';
+    saveMealBtn.textContent = 'Save to My Meals';
     saveMealBtn.style.cssText = 'background:#CFA13C;color:#101512;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:600;cursor:pointer;grid-column:1/-1;margin-top:4px;width:100%';
     saveMealBtn.onclick = () => saveScannedAsMeal();
-    actions.appendChild(saveMealBtn);
+    // BEFORE Close, not after it: appended last, the gold button sat where
+    // Close belongs and he kept tapping it to leave. Close stays the final
+    // thing on the sheet.
+    const closeBtn = actions.querySelector('button[onclick="closeLabelModal()"]');
+    if (closeBtn) actions.insertBefore(saveMealBtn, closeBtn);
+    else actions.appendChild(saveMealBtn);
   }
 }
 
@@ -22045,7 +22098,7 @@ if (document.readyState === 'loading') {
   <div style="display:flex;align-items:center;justify-content:space-between;padding:calc(16px + env(safe-area-inset-top)) 20px 16px;border-bottom:1px solid var(--surface-2);box-sizing:border-box;flex-shrink:0">
     <button onclick="closeMealBuilder()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--ink);padding:0;flex-shrink:0">←</button>
     <div style="font-size:16px;font-weight:700" id="meal-builder-title">Create Meal</div>
-    <button onclick="saveMeal()" style="background:var(--accent);color:#101512;border:none;border-radius:20px;padding:6px 16px;font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0">Save</button>
+    <button id="mb-header-action" onclick="convertMealToFood()" style="display:none;background:none;border:1px solid var(--line);border-radius:20px;padding:6px 12px;font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;flex-shrink:0">Move to My Foods</button>
   </div>
 
   <div style="flex:1;overflow-y:auto;overflow-x:hidden;padding:20px 20px calc(20px + env(safe-area-inset-bottom));box-sizing:border-box">
@@ -22128,8 +22181,12 @@ if (document.readyState === 'loading') {
         style="width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:10px;font-size:14px;line-height:1.4;outline:none;box-sizing:border-box;resize:vertical;font-family:inherit"
         oninput="updateMbInstructionsCount()"></textarea>
     </div>
-    <div id="mb-convert-to-food-btn" style="display:none;margin-top:12px">
-      <button onclick="convertMealToFood()" style="width:100%;background:var(--gold-tint);border:1px solid #CFA13C;border-radius:12px;font-size:13px;font-weight:600;color:#CFA13C;cursor:pointer;padding:10px 0">Convert to Food</button>
+    <!-- The bottom slot is the COMMIT slot: after writing 13 steps of
+         instructions, the big button at the end must be Save - he kept
+         tapping "Convert to Food" there because that's where a save
+         belongs. Convert moved to the header, renamed to say what it does. -->
+    <div style="margin-top:12px">
+      <button class="btn" onclick="saveMeal()">Save</button>
     </div>
   </div>
   </div>
