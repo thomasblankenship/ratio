@@ -261,12 +261,17 @@
     /* One grouped card with hairline dividers, exactly like the Profile menu -
        five separate cards left gaps that made the list read as five unrelated
        things rather than one section. */
-    /* Progress rows as gold hub cards (the Meals-card look he asked for) -
-       the group shell goes chromeless and each row becomes its own card.
-       Expansion behavior unchanged. */
-    .prog-group { padding: 0; overflow: visible; background: none; border: none; box-shadow: none; }
-    .prog-card { border-bottom: none; background: linear-gradient(160deg, var(--gold-tint), var(--gold-tint-2)); border: 1px solid var(--gold-line); border-radius: 16px; margin-bottom: 10px; overflow: hidden; }
+    /* Progress as a TRUE 2x2 of big gold cards (his spec: "like My Meals").
+       An expanded card spans both columns so its body gets full width -
+       toggleProgCard sets grid-column when it opens. */
+    .prog-group { padding: 0; overflow: visible; background: none; border: none; box-shadow: none; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .prog-card { border-bottom: none; background: linear-gradient(160deg, var(--gold-tint), var(--gold-tint-2)); border: 1px solid var(--gold-line); border-radius: 16px; overflow: hidden; }
     .prog-card:last-child, .prog-card.prog-row-last { border-bottom: none; }
+    .prog-card-head { flex-direction: column; align-items: flex-start; gap: 8px; padding: 14px 12px 30px; position: relative; min-height: 96px; box-sizing: border-box; }
+    .prog-card-icon { font-size: 22px !important; width: auto !important; }
+    .prog-card-title { display: block; font-size: 14px; font-weight: 800; margin-top: 2px; }
+    .prog-card-sub { display: block !important; font-size: 10.5px; color: var(--muted); margin-top: 3px; line-height: 1.4; }
+    .prog-card-head .prog-chev, .prog-card-head > i:last-child { position: absolute; bottom: 12px; right: 12px; }
     .prog-card-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; cursor: pointer; gap: 12px; }
     .prog-card-head > span { display: flex; align-items: center; gap: 12px; min-width: 0; }
     .prog-card-icon { width: 20px; text-align: center; color: #CFA13C; font-size: 15px; flex-shrink: 0; }
@@ -998,8 +1003,8 @@
 
     <!-- QUICK LOG one-off sheet: name, the four meal-type pills (preset to
          the item's usual slot), and a Log button that names the target day. -->
-    <div id="ql-sheet" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:900" onclick="if(event.target===this)qlClose()">
-      <div style="position:absolute;left:12px;right:12px;bottom:24px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px">
+    <div id="ql-sheet" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:1200" onclick="if(event.target===this)qlClose()">
+      <div style="position:absolute;left:12px;right:12px;bottom:calc(24px + env(safe-area-inset-bottom));max-width:496px;margin:0 auto;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px">
         <div style="font-size:16px;font-weight:800;margin-bottom:4px">Log Again</div>
         <div id="ql-name" style="font-size:13px;color:var(--muted);margin-bottom:12px"></div>
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:14px">
@@ -9610,7 +9615,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-17-i-goldprog';
+const RATIO_BUILD = '2026-08-17-k-qlfit';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -13918,6 +13923,12 @@ let _qlRow = null;
 let _qlType = 'snack';
 
 function qlOpen(r) {
+  // The sheet escapes to <body> on first open: an ancestor transform was
+  // trapping its position:fixed in a stacking context UNDER the bottom nav
+  // (Cancel buried on phone), and on desktop it needs the app column's
+  // width, not the window's.
+  const sheetEl = document.getElementById('ql-sheet');
+  if (sheetEl && sheetEl.parentElement !== document.body) document.body.appendChild(sheetEl);
   _qlRow = r;
   _qlType = r.usualType || r.meal_type || 'snack';
   const nameEl = document.getElementById('ql-name');
@@ -14128,7 +14139,10 @@ function openLogMealModal(id) {
   const sb = document.getElementById('log-meal-saveback');
   if (sb) { sb.checked = false; _syncSavebackBox(); }
 
-  const defaultType = window._modalLogDate ? (window._selectedHistMealType || 'breakfast') : (window._selectedMealType || 'breakfast');
+  // One dashboard now: the tapped section + sets _selectedMealType whatever
+  // day is showing. The old _modalLogDate?hist:dash guess read a selector he
+  // never touched and stomped his SNACKS tap with 'breakfast'.
+  const defaultType = window._selectedMealType || 'breakfast';
   document.querySelectorAll('.log-meal-type-btn').forEach(b => {
     const active = b.dataset.type === defaultType;
     b.style.border = active ? '1px solid #CFA13C' : '1px solid var(--line)';
@@ -14371,7 +14385,7 @@ async function confirmLogSavedMeal() {
 async function logSavedMeal(id) {
   const meal = savedMeals.find(m => m.id === id);
   if (!meal) return;
-  const type = window._modalLogDate ? (window._selectedHistMealType || 'breakfast') : (window._selectedMealType || 'breakfast');
+  const type = window._logMealType || window._selectedMealType || 'breakfast';
   const targetDate = window._modalLogDate || today;
   await dbPost('meals', {
     date: targetDate,
@@ -15835,6 +15849,9 @@ function toggleProgCard(key) {
     const isOpen = _progOpenCard === k;
     if (body) body.style.display = isOpen ? 'block' : 'none';
     if (chev) chev.style.transform = isOpen ? 'rotate(90deg)' : 'rotate(0deg)';
+    // In the 2x2 grid, the open card takes the full row for its body.
+    const cardEl = document.getElementById('progcard-' + k);
+    if (cardEl) cardEl.style.gridColumn = isOpen ? '1 / -1' : '';
     if (!isOpen) _collapseSubCards(body);
   });
   // Charts inside a display:none parent measure 0x0 and render blank, so any
@@ -16518,7 +16535,7 @@ async function logFoodFromModal() {
   const calsPerUnit = activeFoodForModal.calories_per_unit || activeFoodForModal.cals_per_unit || 0;
   const servingLabel = `${amount} ${_foodModalUnit}`;
   const targetDate = window._modalLogDate || logDate;
-  const mealType = window._modalLogDate ? (window._selectedHistMealType || 'breakfast') : (window._foodModalType || 'breakfast');
+  const mealType = window._foodModalType || 'breakfast';
   const meal = {
     date: targetDate,
     name: `${activeFoodForModal.name} (${servingLabel})`,
