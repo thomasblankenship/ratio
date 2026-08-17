@@ -276,6 +276,9 @@
     .prog-card-title { display: block; font-size: 14px; font-weight: 800; margin-top: 2px; }
     .prog-card-sub { display: block !important; font-size: 10.5px; color: var(--muted); margin-top: 3px; line-height: 1.4; }
     .prog-card-head .prog-chev, .prog-card-head > i:last-child { position: absolute; bottom: 12px; right: 12px; }
+    .prog-card.prog-open .prog-card-sub { display: none !important; }
+    .prog-card.prog-open .prog-card-head { flex-direction: row; align-items: center; min-height: 0; padding: 14px 16px; }
+    .prog-card.prog-open .prog-card-head .prog-chev, .prog-card.prog-open .prog-card-head > i:last-child { bottom: auto; top: 16px; }
     .prog-card-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; cursor: pointer; gap: 12px; }
     .prog-card-head > span { display: flex; align-items: center; gap: 12px; min-width: 0; }
     .prog-card-icon { width: 20px; text-align: center; color: #CFA13C; font-size: 15px; flex-shrink: 0; }
@@ -5680,7 +5683,7 @@ function switchTab(tab) {
       else renderWeeklyPlanList();
     } catch (e) {}
   }
-  if (tab === 'progress') { loadGoals().then(() => { loadScans(); updateGoalsDisplay(); }); loadDayTotals(); _progHubGlance(); }
+  if (tab === 'progress') { loadGoals().then(async () => { await loadScans(); updateGoalsDisplay(); _progHubGlance(); }); loadDayTotals(); }
   if (tab === 'profile') loadCurrentUsername();
   if (tab === 'profile-myprofile') loadMyProfilePage();
   if (tab === 'profile-allergies') loadFoodAllergiesPage();
@@ -9619,7 +9622,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-17-m-cardglance';
+const RATIO_BUILD = '2026-08-17-n-glancefix';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -15854,9 +15857,14 @@ function toggleProgCard(key) {
     const isOpen = _progOpenCard === k;
     if (body) body.style.display = isOpen ? 'block' : 'none';
     if (chev) chev.style.transform = isOpen ? 'rotate(90deg)' : 'rotate(0deg)';
-    // In the 2x2 grid, the open card takes the full row for its body.
+    // In the 2x2 grid, the open card takes the full row for its body, and
+    // its glance block steps aside (his call - once you're inside, the
+    // teaser is noise).
     const cardEl = document.getElementById('progcard-' + k);
-    if (cardEl) cardEl.style.gridColumn = isOpen ? '1 / -1' : '';
+    if (cardEl) {
+      cardEl.style.gridColumn = isOpen ? '1 / -1' : '';
+      cardEl.classList.toggle('prog-open', isOpen);
+    }
     if (!isOpen) _collapseSubCards(body);
   });
   // Charts inside a display:none parent measure 0x0 and render blank, so any
@@ -17530,9 +17538,14 @@ function _progGoalsGlance() {
 }
 
 // STEPS card (his spec): count / goal, a real bar, distance to goal.
-function _progStepsGlance() {
+async function _progStepsGlance() {
   const el = document.querySelector('#progcard-steps .prog-card-sub');
   if (!el) return;
+  // Cold cache = the Steps section hasn't been opened yet - the card fetches
+  // for itself instead of showing the static line forever.
+  if (typeof dailyStepsCache !== 'undefined' && dailyStepsCache === null && typeof dbGet === 'function') {
+    try { dailyStepsCache = await dbGet('daily_steps', 'order=date.asc'); } catch (e) {}
+  }
   const cache = (typeof dailyStepsCache !== 'undefined' && dailyStepsCache) || [];
   const goal = (typeof userTargets !== 'undefined' && userTargets.steps) || (typeof TARGETS !== 'undefined' && TARGETS.steps) || 10000;
   const now = new Date();
@@ -17554,25 +17567,12 @@ function _progPhotosGlance() {
   if (!el) return;
   const photos = (typeof allPhotos !== 'undefined' && allPhotos) || [];
   if (!photos.length) { el.textContent = 'Side-by-side over time'; return; }
-  const dates = [...new Set(photos.map(p => p.date))].sort();   // asc
+  // His call: no cramped thumbnails - the card answers "when did I last
+  // shoot?" and the page does the comparing.
+  const dates = [...new Set(photos.map(p => p.date))].sort();
   const latest = dates[dates.length - 1];
-  if (dates.length < 2) {
-    el.textContent = `${photos.length} photo${photos.length === 1 ? '' : 's'} \u00b7 ${_progShortDate(latest)}`;
-    return;
-  }
-  // the day closest to 56 days before the latest
-  const latestT = new Date(latest + 'T12:00:00').getTime();
-  const targetT = latestT - 56 * 86400000;
-  let older = dates[0];
-  for (const d of dates.slice(0, -1)) {
-    if (Math.abs(new Date(d + 'T12:00:00').getTime() - targetT) < Math.abs(new Date(older + 'T12:00:00').getTime() - targetT)) older = d;
-  }
-  const weeks = Math.max(1, Math.round((latestT - new Date(older + 'T12:00:00').getTime()) / (7 * 86400000)));
-  const thumbFor = d => { const p = photos.find(x => x.date === d && x.photo_url); return p ? p.photo_url : null; };
-  const tNew = thumbFor(latest), tOld = thumbFor(older);
-  const img = u => u ? `<img src="${u}" style="width:34px;height:34px;object-fit:cover;border-radius:6px;border:1px solid var(--gold-line)">` : '';
-  el.innerHTML = `<div style="font-weight:700;color:#CFA13C">${weeks}-week progress</div>` +
-    `<div style="display:flex;align-items:center;gap:6px;margin-top:5px">${img(tNew)}<span style="color:var(--muted)">${_progShortDate(latest)} \u2190\u2192 ${_progShortDate(older)}</span>${img(tOld)}</div>`;
+  el.innerHTML = `<div style="font-weight:700;color:#CFA13C">Last: ${_progShortDate(latest)}</div>` +
+    `<div style="color:var(--muted)">${photos.length} photo${photos.length === 1 ? '' : 's'} \u00b7 ${dates.length} day${dates.length === 1 ? '' : 's'}</div>`;
 }
 
 function _progShortDate(d) {
@@ -17599,11 +17599,11 @@ async function _progNutritionGlance() {
     const days = Object.values(byDay);
     const avgC = Math.round(days.reduce((a, d) => a + d.cals, 0) / days.length);
     const avgP = Math.round(days.reduce((a, d) => a + d.protein, 0) / days.length);
+    const cTarget = (typeof userTargets !== 'undefined' && userTargets.calories) || 0;
     const pTarget = (typeof userTargets !== 'undefined' && userTargets.protein) || 0;
-    const pHit = pTarget ? days.filter(d => d.protein >= pTarget).length : 0;
-    el.innerHTML = `<div style="font-weight:700;color:#CFA13C">7-day avg: ${avgC.toLocaleString()} kcal \u00b7 ${avgP}g protein</div>` +
-      (pTarget ? `<div>Protein target hit ${pHit} / ${days.length} days</div>` : '') +
-      `<div style="color:var(--muted)">${days.length} day${days.length === 1 ? '' : 's'} logged this week</div>`;
+    el.innerHTML = `<div style="font-weight:700;color:#CFA13C">This week's avg</div>` +
+      `<div>Calories ${avgC.toLocaleString()}${cTarget ? ' / ' + cTarget.toLocaleString() : ''}</div>` +
+      `<div>Protein ${avgP}g${pTarget ? ' / ' + pTarget + 'g' : ''}</div>`;
   } catch (e) { /* keep whatever is showing */ }
 }
 
