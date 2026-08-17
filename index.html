@@ -856,50 +856,71 @@
     <!-- MEALS -->
     <div id="tab-meals" style="display:none">
 
-      <!-- SHARED SCAN / LABEL -->
-      <div class="card" style="background:linear-gradient(160deg,var(--gold-tint),var(--gold-tint-2));border:1px solid var(--gold-line)">
-        <div class="card-title">Quick Add</div>
-        <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Scan a barcode or photograph a nutrition label — then choose to save it as a Food or a Meal.</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
-          <button onclick="openBarcodeScannerFromMealsTab()" style="background:var(--accent);color:#101512;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:600;cursor:pointer">📷 Scan Barcode</button>
-          <button onclick="openLabelModalFromMealsTab()" style="background:var(--accent);color:#101512;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:600;cursor:pointer">🏷️ Photo Label</button>
-        </div>
-        <!-- Food/meal search — always visible regardless of which sub-tab is active -->
-        <div style="position:relative">
+      <!-- MEALS v2: search + scan pinned first (the two daily actions), then
+           RECENT one-tap chips, then the four-room card grid. -->
+      <div style="font-size:22px;font-weight:800;color:#CFA13C;margin:2px 2px 12px">Meals</div>
+
+      <div style="display:flex;gap:8px;align-items:stretch">
+        <div style="position:relative;flex:1;min-width:0">
           <i class="fa-solid fa-magnifying-glass" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:13px;pointer-events:none"></i>
-          <input type="text" id="food-search-input" placeholder="Search foods, meals, or database..."
-            style="width:100%;padding:10px 12px 10px 32px;border:1px solid var(--line);border-radius:10px;font-size:16px;outline:none;box-sizing:border-box"
+          <input type="text" id="food-search-input" placeholder="Search foods &amp; meals…"
+            style="width:100%;height:100%;padding:12px 12px 12px 32px;border:1px solid var(--line);border-radius:12px;font-size:16px;outline:none;box-sizing:border-box"
             oninput="onFoodSearchInput(this.value)" />
         </div>
-        <div id="food-search-results" style="display:none;margin-top:12px"></div>
+        <button onclick="openBarcodeScannerFromMealsTab()" aria-label="Scan barcode" style="width:46px;border-radius:12px;background:var(--surface);border:1px solid var(--line);color:#CFA13C;font-size:17px;cursor:pointer"><i class="fa-solid fa-barcode"></i></button>
+        <button onclick="openLabelModalFromMealsTab()" aria-label="Photo nutrition label" style="width:46px;border-radius:12px;background:var(--accent);border:none;color:#101512;font-size:16px;cursor:pointer"><i class="fa-solid fa-camera"></i></button>
+      </div>
+      <div id="food-search-results" style="display:none;margin-top:12px"></div>
+
+      <div id="meals-recent-wrap" style="display:none">
+        <div style="font-size:10px;font-weight:800;letter-spacing:0.8px;color:var(--muted);margin:14px 2px 6px">RECENT</div>
+        <div id="meals-recent-chips" style="display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch"></div>
       </div>
 
-      <!-- MEALS TAB SUB-NAV -->
-      <div style="display:flex;background:var(--surface-2);border-radius:12px;padding:4px;margin-bottom:16px">
-        <button id="meals-subtab-btn-foods" onclick="switchMealsSubTab('foods')" style="flex:1;padding:10px;border:none;border-radius:9px;background:var(--surface);color:var(--ink);font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,0.08)">My Foods</button>
-        <button id="meals-subtab-btn-meals" onclick="switchMealsSubTab('meals')" style="flex:1;padding:10px;border:none;border-radius:9px;background:transparent;color:var(--muted);font-size:14px;font-weight:700;cursor:pointer">My Meals</button>
-      </div>
-
-      <div id="meals-subtab-meals" style="display:none">
-      <!-- MY MEALS -->
-      <div class="card">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-          <div class="card-title" style="margin-bottom:0;color:#CFA13C">My Meals</div>
-          <div style="display:flex;gap:8px">
-            <button onclick="openUrlImport()" style="background:none;border:1px solid var(--line);border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer">🔗 URL</button>
-            <button onclick="openMealBuilder()" style="background:var(--accent);color:#101512;border:none;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;cursor:pointer">+ Create</button>
-          </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;margin-bottom:16px">
+        <div onclick="switchTab('meals-foods')" style="background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px 12px;position:relative;cursor:pointer">
+          <div id="meals-count-foods" style="position:absolute;top:10px;right:10px;background:var(--gold-tint);color:#CFA13C;font-size:10px;font-weight:800;border-radius:10px;padding:3px 8px"></div>
+          <div style="font-size:22px">🥑</div>
+          <div style="font-size:14px;font-weight:800;margin-top:8px">My Foods</div>
+          <div style="font-size:10.5px;color:var(--muted);margin-top:3px;line-height:1.4">Single foods you've saved &amp; scanned</div>
+          <div style="position:absolute;bottom:12px;right:12px;color:var(--muted);font-size:12px">›</div>
         </div>
-        <div id="saved-meals-list"><div class="loading">Loading...</div></div>
-      </div>
+        <div onclick="switchTab('meals-meals')" style="background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px 12px;position:relative;cursor:pointer">
+          <div id="meals-count-meals" style="position:absolute;top:10px;right:10px;background:var(--gold-tint);color:#CFA13C;font-size:10px;font-weight:800;border-radius:10px;padding:3px 8px"></div>
+          <div style="font-size:22px">🍽️</div>
+          <div style="font-size:14px;font-weight:800;margin-top:8px">My Meals</div>
+          <div style="font-size:10.5px;color:var(--muted);margin-top:3px;line-height:1.4">Recipes &amp; full meals, ready to log</div>
+          <div style="position:absolute;bottom:12px;right:12px;color:var(--muted);font-size:12px">›</div>
+        </div>
+        <div onclick="switchTab('meals-ideas')" style="background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px 12px;position:relative;cursor:pointer">
+          <div style="font-size:22px">✨</div>
+          <div style="font-size:14px;font-weight:800;margin-top:8px">Meal Ideas</div>
+          <div style="font-size:10.5px;color:var(--muted);margin-top:3px;line-height:1.4">Coach suggestions from your macros &amp; tastes</div>
+          <div style="position:absolute;bottom:12px;right:12px;color:var(--muted);font-size:12px">›</div>
+        </div>
+        <div onclick="switchTab('meals-prep')" style="background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px 12px;position:relative;cursor:pointer">
+          <div style="font-size:22px">🥘</div>
+          <div style="font-size:14px;font-weight:800;margin-top:8px">Weekly Prep</div>
+          <div style="font-size:10.5px;color:var(--muted);margin-top:3px;line-height:1.4">Batch-cooking plans for the week</div>
+          <div style="position:absolute;bottom:12px;right:12px;color:var(--muted);font-size:12px">›</div>
+        </div>
       </div>
 
-      <div id="meals-subtab-foods">
+    </div>
+
+    <!-- MEALS SUB-PAGES: same pattern as workouts-browse / workouts-plan -->
+    <div id="tab-meals-foods" style="display:none">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+        <button onclick="switchTab('meals')" aria-label="Back" style="width:34px;height:34px;border-radius:50%;background:var(--surface);border:1px solid var(--line);color:var(--ink);font-size:15px;cursor:pointer">‹</button>
+        <div style="font-size:18px;font-weight:800">My Foods</div>
+        <button onclick="toggleAddFood()" style="margin-left:auto;background:var(--accent);color:#101512;border:none;border-radius:14px;padding:8px 14px;font-size:12px;font-weight:800;cursor:pointer">＋ Add Food</button>
+      </div>
+      <div style="position:relative;margin-bottom:12px">
+        <i class="fa-solid fa-magnifying-glass" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:12px;pointer-events:none"></i>
+        <input type="text" placeholder="Filter my foods…" oninput="filterSavedList('saved-foods-list', this.value)"
+          style="width:100%;padding:9px 12px 9px 32px;border:1px solid var(--line);border-radius:10px;font-size:14px;outline:none;box-sizing:border-box" />
+      </div>
       <div class="card">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-          <div class="card-title" style="margin-bottom:0;color:#CFA13C">My Foods</div>
-          <button onclick="toggleAddFood()" style="background:var(--accent);color:#101512;border:none;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;cursor:pointer">+ Add</button>
-        </div>
         <div id="add-food-form" style="display:none;background:var(--gold-tint);border-radius:10px;padding:14px;margin-bottom:12px">
           <div id="add-food-form-fields"></div>
           <button class="btn" onclick="saveFood()" style="margin-top:14px">Save Food</button>
@@ -907,8 +928,41 @@
         </div>
         <div id="saved-foods-list"><div class="loading">Loading...</div></div>
       </div>
-      </div>
+    </div>
 
+    <div id="tab-meals-meals" style="display:none">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+        <button onclick="switchTab('meals')" aria-label="Back" style="width:34px;height:34px;border-radius:50%;background:var(--surface);border:1px solid var(--line);color:var(--ink);font-size:15px;cursor:pointer">‹</button>
+        <div style="font-size:18px;font-weight:800">My Meals</div>
+        <div style="margin-left:auto;display:flex;gap:8px">
+          <button onclick="openUrlImport()" style="background:none;border:1px solid var(--line);border-radius:14px;padding:8px 12px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer">🔗 URL</button>
+          <button onclick="openMealBuilder()" style="background:var(--accent);color:#101512;border:none;border-radius:14px;padding:8px 14px;font-size:12px;font-weight:800;cursor:pointer">＋ New Meal</button>
+        </div>
+      </div>
+      <div style="position:relative;margin-bottom:12px">
+        <i class="fa-solid fa-magnifying-glass" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:12px;pointer-events:none"></i>
+        <input type="text" placeholder="Filter my meals…" oninput="filterSavedList('saved-meals-list', this.value)"
+          style="width:100%;padding:9px 12px 9px 32px;border:1px solid var(--line);border-radius:10px;font-size:14px;outline:none;box-sizing:border-box" />
+      </div>
+      <div class="card">
+        <div id="saved-meals-list"><div class="loading">Loading...</div></div>
+      </div>
+    </div>
+
+    <div id="tab-meals-ideas" style="display:none">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+        <button onclick="switchTab('meals')" aria-label="Back" style="width:34px;height:34px;border-radius:50%;background:var(--surface);border:1px solid var(--line);color:var(--ink);font-size:15px;cursor:pointer">‹</button>
+        <div style="font-size:18px;font-weight:800">Meal Ideas</div>
+      </div>
+      <div id="meals-ideas-body"></div>
+    </div>
+
+    <div id="tab-meals-prep" style="display:none">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+        <button onclick="switchTab('meals')" aria-label="Back" style="width:34px;height:34px;border-radius:50%;background:var(--surface);border:1px solid var(--line);color:var(--ink);font-size:15px;cursor:pointer">‹</button>
+        <div style="font-size:18px;font-weight:800">Weekly Prep</div>
+      </div>
+      <div id="meals-prep-body"></div>
     </div>
 
     <!-- PROGRESS -->
@@ -5508,7 +5562,7 @@ function switchTab(tab) {
   // Idempotent and a no-op on iOS; cheapest place to guarantee the web-disabled
   // states are applied no matter which screen the user reaches first.
   applyPlatformUI();
-  ['today','meals','workouts','workouts-browse','workouts-plan','progress','photos','aicoach','shopping','todo','profile','profile-myprofile','profile-settings','profile-appearance','profile-allergies','profile-devices','profile-targets','profile-report','profile-privacy','profile-help','profile-tos','profile-privacy-policy','voicelog'].forEach(t => {
+  ['today','meals','meals-foods','meals-meals','meals-ideas','meals-prep','workouts','workouts-browse','workouts-plan','progress','photos','aicoach','shopping','todo','profile','profile-myprofile','profile-settings','profile-appearance','profile-allergies','profile-devices','profile-targets','profile-report','profile-privacy','profile-help','profile-tos','profile-privacy-policy','voicelog'].forEach(t => {
     document.getElementById(`tab-${t}`).style.display = t === tab ? 'block' : 'none';
   });
   document.querySelectorAll('.bottom-nav-btn[data-tab]').forEach(btn => {
@@ -5523,6 +5577,10 @@ function switchTab(tab) {
     if (detailEl) detailEl.style.display = 'none';
   }
   if (tab === 'meals') loadMealsTab();
+  if (tab === 'meals-foods' || tab === 'meals-meals') {
+    // Lists render on every visit; the filter box starts clean.
+    try { if (typeof savedMeals !== 'undefined' && !savedMeals.length && !savedFoods.length) loadMealsTab(); } catch (e) {}
+  }
   if (tab === 'workouts') {
     resetWorkoutDateToToday();
     loadProgressWorkouts();
@@ -9475,7 +9533,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-17-a-daylog';
+const RATIO_BUILD = '2026-08-17-b-mealscards';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -9857,6 +9915,7 @@ async function appInit() {
   // opening screen reads as being lost. Land on Today instead.
   if (restoreTab === 'profile') restoreTab = 'today';
   if (restoreTab === 'workouts-browse' || restoreTab === 'workouts-plan') restoreTab = 'workouts';
+  if (restoreTab && restoreTab.startsWith('meals-')) restoreTab = 'meals';
   switchTab(restoreTab);
   if (lastView) {
     if (restoreTab === 'meals' && lastView.mealsSub) switchMealsSubTab(lastView.mealsSub);
@@ -11903,21 +11962,11 @@ let savedMeals = [];
 // fresh session) threw a ReferenceError. Declare it properly like savedMeals.
 let savedFoods = [];
 
+// Compatibility shim: the foods/meals sub-toggle is gone - each is a full
+// page now. Old callers (voice save_meal/save_food navigation, view restore)
+// land on the right page instead.
 function switchMealsSubTab(tab) {
-  saveLastView({ mealsSub: tab });
-  const foodsPanel = document.getElementById('meals-subtab-foods');
-  const mealsPanel = document.getElementById('meals-subtab-meals');
-  const foodsBtn = document.getElementById('meals-subtab-btn-foods');
-  const mealsBtn = document.getElementById('meals-subtab-btn-meals');
-  const showFoods = tab === 'foods';
-  foodsPanel.style.display = showFoods ? 'block' : 'none';
-  mealsPanel.style.display = showFoods ? 'none' : 'block';
-  foodsBtn.style.background = showFoods ? 'var(--surface)' : 'transparent';
-  foodsBtn.style.color = showFoods ? 'var(--ink)' : 'var(--muted)';
-  foodsBtn.style.boxShadow = showFoods ? '0 1px 3px rgba(0,0,0,0.08)' : 'none';
-  mealsBtn.style.background = showFoods ? 'transparent' : 'var(--surface)';
-  mealsBtn.style.color = showFoods ? 'var(--muted)' : 'var(--ink)';
-  mealsBtn.style.boxShadow = showFoods ? 'none' : '0 1px 3px rgba(0,0,0,0.08)';
+  switchTab(tab === 'foods' ? 'meals-foods' : 'meals-meals');
 }
 
 // ===== AI COACH =====
@@ -13690,7 +13739,85 @@ async function sendCoachChatMessage() {
 
 async function loadMealsTab() {
   await Promise.all([loadSavedMeals(), loadSavedFoods()]);
+  loadRecentChips();
 }
+
+// ---- RECENT: the last-logged distinct items as one-tap chips. Most logging
+// is RE-logging - this is the shortest path in the app.
+let _recentChipRows = [];
+
+async function loadRecentChips() {
+  try {
+    const rows = await dbGet('meals', 'select=name,calories,meal_type,protein,carbs,fat,fiber,cholesterol&order=date.desc&limit=80');
+    const seen = new Set(); const out = [];
+    for (const r of rows || []) {
+      const k = (r.name || '').trim().toLowerCase();
+      if (!k || seen.has(k)) continue;
+      seen.add(k); out.push(r);
+      if (out.length >= 6) break;
+    }
+    _recentChipRows = out;
+    const wrap = document.getElementById('meals-recent-wrap');
+    const box = document.getElementById('meals-recent-chips');
+    if (!wrap || !box) return;
+    if (!out.length) { wrap.style.display = 'none'; return; }
+    wrap.style.display = 'block';
+    box.innerHTML = out.map((r, i) =>
+      `<button type="button" onclick="recentChipTap(${i})" style="flex-shrink:0;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:7px 12px;font-size:12px;color:var(--ink);white-space:nowrap;cursor:pointer">${_weEscHtml(r.name)} <span style="color:var(--muted);font-size:10px">${Math.round(r.calories || 0)}</span></button>`
+    ).join('');
+  } catch (e) { console.error('[meals] recent chips failed', e); }
+}
+
+// Tap = the richest path available for that item: its saved meal, its saved
+// food, or (for one-offs) a straight re-log of the same numbers after a
+// confirm. Always lands on the day being viewed.
+async function recentChipTap(i) {
+  const r = _recentChipRows[i];
+  if (!r) return;
+  const nm = (r.name || '').trim().toLowerCase();
+  const sm = (typeof savedMeals !== 'undefined' ? savedMeals : []).find(m => (m.name || '').trim().toLowerCase() === nm);
+  if (sm) { openLogMealModal(sm.id); return; }
+  const sf = (typeof savedFoods !== 'undefined' ? savedFoods : []).find(f => (f.name || '').trim().toLowerCase() === nm);
+  if (sf) { openFoodModal(sf.id); return; }
+  const target = _activeLogDate() || today;
+  if (!await appConfirm(`Log "${r.name}" (${Math.round(r.calories || 0)} kcal) again${target === today ? '' : ' to ' + _logDateLabel(target).replace('Add to ', '')}?`, { title: 'Log Again', yesLabel: 'Log It' })) return;
+  await dbPost('meals', {
+    date: target, meal_type: r.meal_type || 'snack', name: r.name,
+    calories: r.calories || 0, protein: r.protein || 0, carbs: r.carbs || 0,
+    fat: r.fat || 0, fiber: r.fiber || 0, cholesterol: r.cholesterol || 0,
+    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  });
+  toast(`${r.name} logged \u2713`);
+  loadTodayMeals();
+}
+
+// In-page filter for the drill-in lists - plain textContent match, hides
+// non-matching rows.
+function filterSavedList(listId, q) {
+  const box = document.getElementById(listId);
+  if (!box) return;
+  const needle = String(q || '').trim().toLowerCase();
+  [...box.children].forEach(ch => {
+    ch.style.display = !needle || ch.textContent.toLowerCase().includes(needle) ? '' : 'none';
+  });
+}
+
+// Meal Ideas + Weekly Prep move home from the Coach page - same live-node
+// relocation as _relocateCoachPanels, so their handlers and renderers survive.
+function _relocateMealPanels() {
+  try {
+    const ideas = document.getElementById('meal-ideas-subtab-ideas');
+    const prep = document.getElementById('meal-ideas-subtab-prep');
+    const ideasBody = document.getElementById('meals-ideas-body');
+    const prepBody = document.getElementById('meals-prep-body');
+    if (ideas && ideasBody && ideas.parentElement !== ideasBody) { ideas.style.display = ''; ideasBody.appendChild(ideas); }
+    if (prep && prepBody && prep.parentElement !== prepBody) { prep.style.display = ''; prepBody.appendChild(prep); }
+    const oldToggle = document.getElementById('meal-ideas-subtab-btn-ideas');
+    if (oldToggle && oldToggle.parentElement) oldToggle.parentElement.style.display = 'none';
+  } catch (e) { console.error('[nav] could not relocate meal panels', e); }
+}
+document.addEventListener('DOMContentLoaded', _relocateMealPanels);
+if (document.readyState !== 'loading') setTimeout(_relocateMealPanels, 0);
 
 // ---- MY MEALS ----
 async function loadSavedMeals() {
@@ -13699,6 +13826,8 @@ async function loadSavedMeals() {
 }
 
 function renderSavedMeals() {
+  const cEl = document.getElementById('meals-count-meals');
+  if (cEl) cEl.textContent = (savedMeals || []).length || '';
   const el = document.getElementById('saved-meals-list');
   if (!el) return;
   if (!savedMeals.length) {
@@ -14840,6 +14969,8 @@ async function loadSavedFoods() {
 }
 
 function renderSavedFoods() {
+  const cEl = document.getElementById('meals-count-foods');
+  if (cEl) cEl.textContent = (savedFoods || []).length || '';
   const el = document.getElementById('saved-foods-list');
   if (!savedFoods.length) {
     el.innerHTML = `
