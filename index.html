@@ -261,8 +261,11 @@
     /* One grouped card with hairline dividers, exactly like the Profile menu -
        five separate cards left gaps that made the list read as five unrelated
        things rather than one section. */
-    .prog-group { padding: 4px 0; overflow: hidden; }
-    .prog-card { border-bottom: 1px solid var(--surface-2); }
+    /* Progress rows as gold hub cards (the Meals-card look he asked for) -
+       the group shell goes chromeless and each row becomes its own card.
+       Expansion behavior unchanged. */
+    .prog-group { padding: 0; overflow: visible; background: none; border: none; box-shadow: none; }
+    .prog-card { border-bottom: none; background: linear-gradient(160deg, var(--gold-tint), var(--gold-tint-2)); border: 1px solid var(--gold-line); border-radius: 16px; margin-bottom: 10px; overflow: hidden; }
     .prog-card:last-child, .prog-card.prog-row-last { border-bottom: none; }
     .prog-card-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; cursor: pointer; gap: 12px; }
     .prog-card-head > span { display: flex; align-items: center; gap: 12px; min-width: 0; }
@@ -406,7 +409,7 @@
        dark mode; light mode keeps the cream paper exactly as it was. Dark is
        the default theme, so these override unless .light-theme is set. */
     html:not(.light-theme) .ws-paper { background:linear-gradient(160deg,var(--gold-tint),var(--gold-tint-2)); border:1px solid var(--gold-line); color:#c9c2b0; }
-    html:not(.light-theme) .ws-paper .ink { color:#a9c4f0; }
+    html:not(.light-theme) .ws-paper .ink { color:#E8C978; }
     html:not(.light-theme) .ws-paper .ink-red { color:#e07777; }
     html:not(.light-theme) .ws-paper .plabel { color:#b8b09c; }
     html:not(.light-theme) .ws-paper .pgrid { border-color:#6b6350; }
@@ -415,7 +418,7 @@
     html:not(.light-theme) .ws-paper .pnum { background:rgba(207,161,60,0.10); border-color:#6b6350 !important; color:#c9c2b0; }
     html:not(.light-theme) .ws-paper .pname { border-color:#6b6350 !important; color:#c9c2b0; }
     html:not(.light-theme) .ws-paper .psub { border-left-color:#6b6350 !important; color:#9a927e; }
-    html:not(.light-theme) .ws-paper .pcell { color:#a9c4f0; }
+    html:not(.light-theme) .ws-paper .pcell { color:#E8C978; }
     html:not(.light-theme) .ws-paper .pghost { color:#6f6754; }
     html:not(.light-theme) .ws-paper .rdash td { border-bottom-color:#4d4738; }
     html:not(.light-theme) .ws-paper .rsolid td { border-bottom-color:#6b6350; }
@@ -646,23 +649,6 @@
         <span id="ws-strip-dot-1" style="width:14px;height:3px;border-radius:2px;background:var(--line)"></span>
       </div>
 
-      <!-- Workouts hub cards (Meals-hub pattern). The sheet body is
-           appendChild'd into this tab at boot, so the relocation re-appends
-           this wrapper afterwards to keep the cards UNDER the sheet. -->
-      <div id="wk-hub-cards" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;margin-bottom:16px">
-        <div onclick="switchTab('workouts-plan')" style="background:linear-gradient(160deg,var(--gold-tint),var(--gold-tint-2));border:1px solid var(--gold-line);border-radius:16px;padding:14px 12px;position:relative;cursor:pointer">
-          <div style="font-size:22px">📋</div>
-          <div style="font-size:14px;font-weight:800;margin-top:8px">Weekly Plan</div>
-          <div id="wk-card-plan-sub" style="font-size:10.5px;color:var(--muted);margin-top:3px;line-height:1.4"></div>
-          <div style="position:absolute;bottom:12px;right:12px;color:var(--muted);font-size:12px">›</div>
-        </div>
-        <div onclick="switchTab('workouts-browse')" style="background:linear-gradient(160deg,var(--gold-tint),var(--gold-tint-2));border:1px solid var(--gold-line);border-radius:16px;padding:14px 12px;position:relative;cursor:pointer">
-          <div style="font-size:22px">📖</div>
-          <div style="font-size:14px;font-weight:800;margin-top:8px">Exercise Library</div>
-          <div id="wk-card-browse-sub" style="font-size:10.5px;color:var(--muted);margin-top:3px;line-height:1.4"></div>
-          <div style="position:absolute;bottom:12px;right:12px;color:var(--muted);font-size:12px">›</div>
-        </div>
-      </div>
     </div>
 
     <!-- TODAY -->
@@ -1351,7 +1337,7 @@
             <button type="button" onclick="event.stopPropagation();editPlanDayForDate()" style="background:none;border:none;cursor:pointer;padding:2px 4px"><i class="fa-solid fa-pencil" style="color:#888;font-size:10px"></i></button>
             <span style="display:none" id="workout-date-sub"></span>
           </div>
-          <button type="button" onclick="wsAddExercise()" style="background:none;border:none;cursor:pointer;padding:2px 4px;font-size:9px;font-weight:700;color:#555;letter-spacing:0.5px"><i class="fa-solid fa-magnifying-glass" style="font-size:9px"></i> BROWSE</button>
+          <button type="button" onclick="wsAddExercise()" style="background:none;border:none;cursor:pointer;padding:2px 4px;font-size:9px;font-weight:700;color:#CFA13C;letter-spacing:0.5px"><i class="fa-solid fa-magnifying-glass" style="font-size:9px"></i> EXERCISE LIBRARY</button>
           <button type="button" onclick="wsShiftDay(1)" id="ws-day-fwd" style="background:none;border:none;cursor:pointer;padding:2px 4px"><i class="fa-solid fa-chevron-right" style="color:#999;font-size:12px"></i></button>
         </div>
         <div id="ws-sheet-plan-line" style="font-size:9.5px;color:#8a8375;margin:0 0 6px 26px"></div>
@@ -3035,7 +3021,7 @@
     </div>
     <div id="label-loading" style="display:none;text-align:center;padding:16px;color:var(--muted);font-size:13px">🤖 Claude is reading the label...</div>
     <div id="label-actions" style="display:none;display:grid;grid-template-columns:1fr 1fr;gap:8px">
-      <button id="label-log-btn" onclick="logLabelAsFood()" style="background:var(--surface-2);color:var(--ink);border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:600;cursor:pointer">Log Now</button>
+      <button id="label-log-btn" onclick="logLabelAsFood()" style="background:var(--surface-2);color:var(--ink);border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:600;cursor:pointer">Log Today</button>
       <button id="label-save-meal-btn" onclick="saveLabelAsMeal()" style="background:var(--surface-2);color:var(--ink);border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:600;cursor:pointer">Save to My Meals</button>
       <button id="label-save-food-btn" onclick="saveLabelAsFood()" style="background:var(--surface-2);color:var(--ink);border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:600;cursor:pointer">Save to My Foods</button>
       <button onclick="closeLabelModal()" style="background:var(--surface-2);color:var(--ink);border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:600;cursor:pointer">Close</button>
@@ -3159,10 +3145,11 @@ function openAddMealFor(mealType) {
 
 function toggleMealForm() {
   const form = document.getElementById('meal-form');
-  const btn = document.getElementById('add-meal-btn');
+  const btn = document.getElementById('add-meal-btn');   // retired button - may not exist
+  if (!form) return;
   const isOpen = form.style.display !== 'none';
   form.style.display = isOpen ? 'none' : 'block';
-  btn.style.display = isOpen ? 'block' : 'none';
+  if (btn) btn.style.display = isOpen ? 'block' : 'none';
   if (!isOpen) {
     window._selectedMealType = 'breakfast';
     window._foodModalType = 'breakfast';
@@ -9623,7 +9610,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-17-h-fivepolish';
+const RATIO_BUILD = '2026-08-17-i-goldprog';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -10452,7 +10439,6 @@ function renderTodayStrength() {
 
   el.innerHTML = invite + `<table class="pgrid">${head}${bodies.join('')}</table>` + clearBtn;
   renderSheetTimes();
-  try { _wkUpdateHubCards(); } catch (e) {}
 }
 
 // Glanceable hub cards under the sheet - the Meals-hub pattern he asked to
@@ -10772,6 +10758,7 @@ async function jumpToWorkoutDate(dateStr) {
   if (chev) chev.style.transform = 'rotate(0deg)';
   workoutViewDate = dateStr;
   await loadProgressWorkouts();
+  _wsCenterStripSel();
 }
 
 // ---------------------------------------------------------------------------
@@ -10887,6 +10874,21 @@ function _wsStripLabel(dateStr, dayIdx) {
   return { text: _wsDaySummary(planDay), dim: false };
 }
 
+// Centre the selected day cell - immediately AND on the next frame, because
+// iOS scroll-snap plus a same-frame innerHTML swap sometimes eats the first
+// scrollLeft write (his strip sat on Thu-Fri-Sat after jumping back to
+// today via the calendar).
+function _wsCenterStripSel() {
+  const strip = document.getElementById('ws-week-strip');
+  if (!strip) return;
+  const center = () => {
+    const cell = strip.querySelector('.ws-day-cell.sel');
+    if (cell) strip.scrollLeft = Math.max(0, cell.offsetLeft - (strip.clientWidth - cell.offsetWidth) / 2);
+  };
+  center();
+  requestAnimationFrame(() => requestAnimationFrame(center));
+}
+
 function renderWeekStrip() {
   const strip = document.getElementById('ws-week-strip');
   if (!strip) return;
@@ -10912,8 +10914,7 @@ function renderWeekStrip() {
   strip.innerHTML = html;
   // Auto-follow: the selected cell settles centred, neighbours peeking on both
   // sides - otherwise every Saturday opens with today four swipes off-screen.
-  const cell = strip.querySelector('.ws-day-cell.sel');
-  if (cell) strip.scrollLeft = Math.max(0, cell.offsetLeft - (strip.clientWidth - cell.offsetWidth) / 2);
+  _wsCenterStripSel();
   _wsUpdateStripDots();
 
   // Week pager label: honest about where you are. "This Week" only when true.
@@ -15973,8 +15974,6 @@ function _relocateCoachPanels() {
       wtab.appendChild(wbody);
       wbody.style.display = 'block';
       wbody.style.padding = '0';
-      const hub = document.getElementById('wk-hub-cards');
-      if (hub) wtab.appendChild(hub);   // cards stay UNDER the sheet
     }
     if (wrow) wrow.style.display = 'none';
     if (typeof _fixProgGroupDividers === 'function') _fixProgGroupDividers();
@@ -17202,7 +17201,7 @@ function showLabelResult(data) {
   const smBtn = document.getElementById('label-save-meal-btn');
   if (smBtn) { smBtn.style.display = ''; smBtn.textContent = 'Save to My Meals'; smBtn.disabled = false; smBtn.style.opacity = '1'; }
   const lgBtn = document.getElementById('label-log-btn');
-  if (lgBtn) { lgBtn.textContent = 'Log Now'; lgBtn.disabled = false; lgBtn.style.opacity = '1'; }
+  if (lgBtn) { lgBtn.textContent = (typeof _logDateLabel === 'function' ? _logDateLabel(_activeLogDate()) : 'Log Today'); lgBtn.disabled = false; lgBtn.style.opacity = '1'; }
   if (window._scanTarget === 'meal') {
     const fillBtn = document.createElement('button');
     fillBtn.id = 'fill-form-btn';
