@@ -3301,12 +3301,17 @@ function _searchPick(key, ctx) {
   // the manual entry form underneath is no longer needed, so close it now.
   _closeManualForm(ctx);
 
-  // Set up context: history logs use window._historyDate + hist meal type, dashboard uses today
+  // Set up context: history logs use window._historyDate + hist meal type,
+  // dashboard uses today. The explicit flag makes this authoritative: the
+  // modal openers must NOT second-guess a caller that knows its date - the
+  // openers' recompute once overwrote a correct "yesterday" from this very
+  // path with a visibility-based guess, and his pastalaya logged to today.
   if (ctx === 'hist') {
     window._modalLogDate = window._historyDate;
   } else {
     window._modalLogDate = null;
   }
+  window._modalLogDateExplicit = true;
 
   // Saved meal — open confirmation modal (same pattern as saved-food/USDA picks)
   if (d.mealId) {
@@ -9553,7 +9558,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-17-c-hubpolish';
+const RATIO_BUILD = '2026-08-17-d-histdate';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -13928,6 +13933,18 @@ let _logMealId = null;
 // history day if the person is viewing one, otherwise today. Every modal
 // opener resolves this at open time - he paged to yesterday, added a meal,
 // and it landed on today because two "+ Log" paths never set the date.
+// What date should this modal log to? An EXPLICIT date set by the caller
+// (the history search flow) is believed unconditionally and consumed; only
+// callers that said nothing (hub buttons, QUICK LOG chips, saved lists) get
+// the what's-on-screen guess.
+function _resolveModalLogDate() {
+  if (window._modalLogDateExplicit) {
+    window._modalLogDateExplicit = false;
+    return window._modalLogDate || null;
+  }
+  return _activeLogDate();
+}
+
 function _activeLogDate() {
   const hv = document.getElementById('history-detail-view');
   const tt = document.getElementById('tab-today');
@@ -13952,8 +13969,8 @@ function _logDateLabel(d) {
 function openLogMealModal(id) {
   const meal = savedMeals.find(m => m.id === id);
   if (!meal) return;
-  window._modalLogDate = _activeLogDate();
-  console.log('[daylog] meal modal target =', window._modalLogDate || today, '(historyDate:', window._historyDate, ')');
+  window._modalLogDate = _resolveModalLogDate();
+  console.log('[daylog] meal modal target =', window._modalLogDate || today, '(historyDate:', window._historyDate, ', today:', today, ')');
   const lmBtn = document.getElementById('log-meal-confirm-btn');
   if (lmBtn) lmBtn.textContent = _logDateLabel(window._modalLogDate);
   _logMealId = id;
@@ -15870,8 +15887,8 @@ function openFoodModal(id) {
     activeFoodForModal = savedFoods.find(f => f.id === id);
   }
   if (!activeFoodForModal) return;
-  window._modalLogDate = _activeLogDate();
-  console.log('[daylog] food modal target =', window._modalLogDate || today, '(historyDate:', window._historyDate, ')');
+  window._modalLogDate = _resolveModalLogDate();
+  console.log('[daylog] food modal target =', window._modalLogDate || today, '(historyDate:', window._historyDate, ', today:', today, ')');
   const fmBtn = document.getElementById('food-modal-log-btn');
   if (fmBtn) fmBtn.textContent = _logDateLabel(window._modalLogDate);
   const calsPerUnit = activeFoodForModal.calories_per_unit || activeFoodForModal.cals_per_unit || 0;
