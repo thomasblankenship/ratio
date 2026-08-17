@@ -265,6 +265,10 @@
        An expanded card spans both columns so its body gets full width -
        toggleProgCard sets grid-column when it opens. */
     .prog-group { padding: 0; overflow: visible; background: none; border: none; box-shadow: none; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    /* Empty scroll-anchor divs (progress-section-*) sat in the grid stealing
+       cells and scrambled the 2x2. Absolute = out of grid flow, still
+       addressable for scrollIntoView deep-links. */
+    .prog-group > [id^="progress-section-"] { position: absolute; width: 0; height: 0; }
     .prog-card { border-bottom: none; background: linear-gradient(160deg, var(--gold-tint), var(--gold-tint-2)); border: 1px solid var(--gold-line); border-radius: 16px; overflow: hidden; }
     .prog-card:last-child, .prog-card.prog-row-last { border-bottom: none; }
     .prog-card-head { flex-direction: column; align-items: flex-start; gap: 8px; padding: 14px 12px 30px; position: relative; min-height: 96px; box-sizing: border-box; }
@@ -5676,7 +5680,7 @@ function switchTab(tab) {
       else renderWeeklyPlanList();
     } catch (e) {}
   }
-  if (tab === 'progress') { loadGoals().then(() => { loadScans(); updateGoalsDisplay(); }); loadDayTotals(); }
+  if (tab === 'progress') { loadGoals().then(() => { loadScans(); updateGoalsDisplay(); }); loadDayTotals(); _progHubGlance(); }
   if (tab === 'profile') loadCurrentUsername();
   if (tab === 'profile-myprofile') loadMyProfilePage();
   if (tab === 'profile-allergies') loadFoodAllergiesPage();
@@ -9615,7 +9619,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-17-k-qlfit';
+const RATIO_BUILD = '2026-08-17-m-cardglance';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -11548,6 +11552,7 @@ async function loadPhotos() {
   allPhotos = await dbGet('progress_photos', 'order=date.desc');
   renderPhotos();
   updateCompareSelects();
+  try { _progPhotosGlance(); } catch (e) {}
 }
 
 function renderPhotos() {
@@ -17483,6 +17488,133 @@ function syncResolvedTimezone() {
   } catch (e) { /* never block load over this */ }
 }
 
+// The Goals card's glance lines (his spec): on-track count over the goals
+// he has set, then the change-so-far per goal with a direction arrow.
+// "On track" = the change points toward the goal.
+function _progGoalsGlance() {
+  const el = document.querySelector('#progcard-goals .prog-card-sub');
+  if (!el) return;
+  const g = (typeof userGoals !== 'undefined' && userGoals) || {};
+  const scans = (typeof allScans !== 'undefined' && allScans) || [];
+  const rows = [];
+  let onTrack = 0, total = 0;
+
+  const arrow = d => d < 0 ? '\u2193' : '\u2191';
+  const latestW = scans.filter(s => s.weight).slice(-1)[0]?.weight;
+  if (g.weightStart && g.weightGoal) {
+    total++;
+    const cur = latestW != null ? latestW : g.weightStart;
+    const d = cur - g.weightStart;
+    const wantDown = g.weightGoal < g.weightStart;
+    if (d !== 0 && (wantDown ? d < 0 : d > 0)) onTrack++;
+    rows.push(`Weight ${d === 0 ? '\u2014 0 lb' : arrow(d) + ' ' + Math.abs(d).toFixed(1) + ' lb'}`);
+  }
+  const latestBf = scans.filter(s => s.body_fat).slice(-1)[0]?.body_fat;
+  if (g.bfCurrent && g.bfGoal) {
+    total++;
+    const cur = latestBf != null ? latestBf : g.bfCurrent;
+    const d = cur - g.bfCurrent;
+    const wantDown = g.bfGoal < g.bfCurrent;
+    if (d !== 0 && (wantDown ? d < 0 : d > 0)) onTrack++;
+    rows.push(`Body fat ${d === 0 ? '\u2014 0%' : arrow(d) + ' ' + Math.abs(d).toFixed(1) + '%'}`);
+  }
+  if (g.muscleCurrent && g.muscleGoal) {
+    total++;
+    const d = 0; // no live muscle series yet - counts toward total only
+    rows.push(`Muscle \u2014 ${g.muscleCurrent} lb`);
+  }
+
+  if (!total) { el.textContent = 'Weight, body composition and log history'; return; }
+  el.innerHTML = `<div style="font-weight:700;color:#CFA13C">${onTrack} / ${total} on track</div>` +
+    rows.map(r => `<div>${r}</div>`).join('');
+}
+
+// STEPS card (his spec): count / goal, a real bar, distance to goal.
+function _progStepsGlance() {
+  const el = document.querySelector('#progcard-steps .prog-card-sub');
+  if (!el) return;
+  const cache = (typeof dailyStepsCache !== 'undefined' && dailyStepsCache) || [];
+  const goal = (typeof userTargets !== 'undefined' && userTargets.steps) || (typeof TARGETS !== 'undefined' && TARGETS.steps) || 10000;
+  const now = new Date();
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const row = cache.find(s => s.date === todayStr);
+  if (!row) { el.textContent = 'Daily step count against your goal'; return; }
+  const steps = +row.steps || 0;
+  const pct = Math.min(100, Math.round(steps / goal * 100));
+  const toGo = Math.max(0, goal - steps);
+  el.innerHTML = `<div style="font-weight:700;color:#CFA13C">${steps.toLocaleString()} / ${goal.toLocaleString()}</div>` +
+    `<div style="height:6px;border-radius:3px;background:rgba(255,255,255,0.12);margin:5px 0;overflow:hidden"><div style="height:100%;width:${pct}%;background:#CFA13C;border-radius:3px"></div></div>` +
+    `<div>${toGo > 0 ? toGo.toLocaleString() + ' to goal' : 'Goal hit \u2713'} \u00b7 ${pct}%</div>`;
+}
+
+// PHOTOS card (his spec): then-vs-now with tiny thumbnails - the latest
+// photo day against the day closest to 8 weeks earlier.
+function _progPhotosGlance() {
+  const el = document.querySelector('#progcard-photos .prog-card-sub');
+  if (!el) return;
+  const photos = (typeof allPhotos !== 'undefined' && allPhotos) || [];
+  if (!photos.length) { el.textContent = 'Side-by-side over time'; return; }
+  const dates = [...new Set(photos.map(p => p.date))].sort();   // asc
+  const latest = dates[dates.length - 1];
+  if (dates.length < 2) {
+    el.textContent = `${photos.length} photo${photos.length === 1 ? '' : 's'} \u00b7 ${_progShortDate(latest)}`;
+    return;
+  }
+  // the day closest to 56 days before the latest
+  const latestT = new Date(latest + 'T12:00:00').getTime();
+  const targetT = latestT - 56 * 86400000;
+  let older = dates[0];
+  for (const d of dates.slice(0, -1)) {
+    if (Math.abs(new Date(d + 'T12:00:00').getTime() - targetT) < Math.abs(new Date(older + 'T12:00:00').getTime() - targetT)) older = d;
+  }
+  const weeks = Math.max(1, Math.round((latestT - new Date(older + 'T12:00:00').getTime()) / (7 * 86400000)));
+  const thumbFor = d => { const p = photos.find(x => x.date === d && x.photo_url); return p ? p.photo_url : null; };
+  const tNew = thumbFor(latest), tOld = thumbFor(older);
+  const img = u => u ? `<img src="${u}" style="width:34px;height:34px;object-fit:cover;border-radius:6px;border:1px solid var(--gold-line)">` : '';
+  el.innerHTML = `<div style="font-weight:700;color:#CFA13C">${weeks}-week progress</div>` +
+    `<div style="display:flex;align-items:center;gap:6px;margin-top:5px">${img(tNew)}<span style="color:var(--muted)">${_progShortDate(latest)} \u2190\u2192 ${_progShortDate(older)}</span>${img(tOld)}</div>`;
+}
+
+function _progShortDate(d) {
+  return new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+// NUTRITION card: the home page owns TODAY, so this card owns the WEEK -
+// 7-day averages plus how often the protein target was hit.
+async function _progNutritionGlance() {
+  const el = document.querySelector('#progcard-nutrition .prog-card-sub');
+  if (!el) return;
+  try {
+    const now = new Date();
+    const from = new Date(now.getTime() - 6 * 86400000);
+    const fromStr = `${from.getFullYear()}-${String(from.getMonth() + 1).padStart(2, '0')}-${String(from.getDate()).padStart(2, '0')}`;
+    const rows = await dbGet('meals', `select=date,calories,protein&date=gte.${fromStr}&order=date.asc`);
+    if (!rows || !rows.length) { el.textContent = 'Recent days and macro trends'; return; }
+    const byDay = {};
+    rows.forEach(r => {
+      if (!byDay[r.date]) byDay[r.date] = { cals: 0, protein: 0 };
+      byDay[r.date].cals += +r.calories || 0;
+      byDay[r.date].protein += +r.protein || 0;
+    });
+    const days = Object.values(byDay);
+    const avgC = Math.round(days.reduce((a, d) => a + d.cals, 0) / days.length);
+    const avgP = Math.round(days.reduce((a, d) => a + d.protein, 0) / days.length);
+    const pTarget = (typeof userTargets !== 'undefined' && userTargets.protein) || 0;
+    const pHit = pTarget ? days.filter(d => d.protein >= pTarget).length : 0;
+    el.innerHTML = `<div style="font-weight:700;color:#CFA13C">7-day avg: ${avgC.toLocaleString()} kcal \u00b7 ${avgP}g protein</div>` +
+      (pTarget ? `<div>Protein target hit ${pHit} / ${days.length} days</div>` : '') +
+      `<div style="color:var(--muted)">${days.length} day${days.length === 1 ? '' : 's'} logged this week</div>`;
+  } catch (e) { /* keep whatever is showing */ }
+}
+
+// Umbrella: refresh every card's glance from whatever data is loaded.
+function _progHubGlance() {
+  try { _progGoalsGlance(); } catch (e) {}
+  try { _progStepsGlance(); } catch (e) {}
+  try { _progPhotosGlance(); } catch (e) {}
+  try { _progNutritionGlance(); } catch (e) {}
+}
+
 function updateGoalsDisplay() {
   // Update profile display
   if (userProfile) {
@@ -17534,6 +17666,7 @@ function updateGoalsDisplay() {
     bfNoGoal.style.display = 'block';
   }
 
+  try { _progGoalsGlance(); } catch (e) {}
   // Muscle goal
   const muscleGoalCard = document.getElementById('muscle-goal-display');
   const muscleNoGoal = document.getElementById('muscle-no-goal');
@@ -18032,6 +18165,7 @@ async function renderStepsChart() {
 }
 
 async function _renderStepsChartInner() {
+  try { _progStepsGlance(); } catch (e) {}
   const disabledEl = document.getElementById('steps-chart-disabled');
   const contentEl = document.getElementById('steps-chart-content');
   // Opting out hides the card outright rather than showing a "connect Apple
