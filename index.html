@@ -985,6 +985,23 @@
       <div id="meals-prep-body"></div>
     </div>
 
+    <!-- QUICK LOG one-off sheet: name, the four meal-type pills (preset to
+         the item's usual slot), and a Log button that names the target day. -->
+    <div id="ql-sheet" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:900" onclick="if(event.target===this)qlClose()">
+      <div style="position:absolute;left:12px;right:12px;bottom:24px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px">
+        <div style="font-size:16px;font-weight:800;margin-bottom:4px">Log Again</div>
+        <div id="ql-name" style="font-size:13px;color:var(--muted);margin-bottom:12px"></div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:14px">
+          <button type="button" class="ql-type-btn" data-type="breakfast" onclick="qlPickType('breakfast')" style="padding:9px 4px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--muted);font-size:11px;font-weight:600;cursor:pointer">Breakfast</button>
+          <button type="button" class="ql-type-btn" data-type="lunch" onclick="qlPickType('lunch')" style="padding:9px 4px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--muted);font-size:11px;font-weight:600;cursor:pointer">Lunch</button>
+          <button type="button" class="ql-type-btn" data-type="dinner" onclick="qlPickType('dinner')" style="padding:9px 4px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--muted);font-size:11px;font-weight:600;cursor:pointer">Dinner</button>
+          <button type="button" class="ql-type-btn" data-type="snack" onclick="qlPickType('snack')" style="padding:9px 4px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--muted);font-size:11px;font-weight:600;cursor:pointer">Snack</button>
+        </div>
+        <button class="btn" id="ql-log-btn" onclick="qlLog()">Log It</button>
+        <button class="btn" onclick="qlClose()" style="background:var(--surface-2);color:var(--ink);margin-top:8px">Cancel</button>
+      </div>
+    </div>
+
     <!-- PROGRESS -->
     <div id="tab-progress" style="display:none">
 
@@ -3309,7 +3326,9 @@ function _searchPick(key, ctx) {
   if (ctx === 'hist') {
     window._modalLogDate = window._historyDate;
   } else {
-    window._modalLogDate = null;
+    // The dash follows logDate - a dash repointed at yesterday logs to
+    // yesterday, exactly like its manual form always has.
+    window._modalLogDate = (typeof logDate !== 'undefined' && logDate && logDate !== today) ? logDate : null;
   }
   window._modalLogDateExplicit = true;
 
@@ -9558,7 +9577,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-17-d-histdate';
+const RATIO_BUILD = '2026-08-17-e-dashdate';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -13786,13 +13805,19 @@ async function loadRecentChips() {
       const k = (r.name || '').trim().toLowerCase();
       if (!k) continue;
       const e = byName.get(k);
-      if (e) { e.count++; }
-      else byName.set(k, { row: r, count: 1, latest: r.date || '' });
+      if (e) { e.count++; e.types[r.meal_type] = (e.types[r.meal_type] || 0) + 1; }
+      else byName.set(k, { row: r, count: 1, latest: r.date || '', types: { [r.meal_type]: 1 } });
     }
     const out = [...byName.values()]
       .sort((a, b) => (b.count - a.count) || (b.latest < a.latest ? -1 : b.latest > a.latest ? 1 : 0))
       .slice(0, 8);
-    _recentChipRows = out.map(e => e.row);
+    // Each chip remembers its USUAL slot - the mode of its logged meal
+    // types - so the quick sheet opens preset to how he actually eats it.
+    _recentChipRows = out.map(e => {
+      let best = null, bestN = 0;
+      for (const [t, n] of Object.entries(e.types)) { if (t && t !== 'undefined' && n > bestN) { best = t; bestN = n; } }
+      return { ...e.row, usualType: best || e.row.meal_type || 'snack' };
+    });
     const wrap = document.getElementById('meals-recent-wrap');
     const box = document.getElementById('meals-recent-chips');
     if (!wrap || !box) return;
@@ -13807,9 +13832,10 @@ async function loadRecentChips() {
 }
 
 // Tap = the richest path available for that item: its saved meal, its saved
-// food, or (for one-offs) a straight re-log of the same numbers after a
-// confirm. Always lands on the day being viewed.
-async function recentChipTap(i) {
+// food, or (for one-offs) the quick sheet - same numbers, but the meal-type
+// pills are there (preset to the item's USUAL slot), and the Log button
+// names the target day.
+function recentChipTap(i) {
   const r = _recentChipRows[i];
   if (!r) return;
   const nm = (r.name || '').trim().toLowerCase();
@@ -13817,14 +13843,53 @@ async function recentChipTap(i) {
   if (sm) { openLogMealModal(sm.id); return; }
   const sf = (typeof savedFoods !== 'undefined' ? savedFoods : []).find(f => (f.name || '').trim().toLowerCase() === nm);
   if (sf) { openFoodModal(sf.id); return; }
+  qlOpen(r);
+}
+
+let _qlRow = null;
+let _qlType = 'snack';
+
+function qlOpen(r) {
+  _qlRow = r;
+  _qlType = r.usualType || r.meal_type || 'snack';
+  const nameEl = document.getElementById('ql-name');
+  if (nameEl) nameEl.textContent = `${r.name} \u2014 ${Math.round(r.calories || 0)} kcal`;
+  _qlPaint();
+  const btn = document.getElementById('ql-log-btn');
+  if (btn) btn.textContent = _logDateLabel(_activeLogDate()).replace('Add to', 'Log to');
+  const sheet = document.getElementById('ql-sheet');
+  if (sheet) sheet.style.display = 'block';
+}
+
+function qlPickType(t) { _qlType = t; _qlPaint(); }
+
+function _qlPaint() {
+  document.querySelectorAll('.ql-type-btn').forEach(b => {
+    const active = b.dataset.type === _qlType;
+    b.style.border = active ? '1px solid #CFA13C' : '1px solid var(--line)';
+    b.style.background = active ? 'var(--gold-tint)' : 'var(--surface)';
+    b.style.color = active ? '#CFA13C' : 'var(--muted)';
+    b.style.fontWeight = active ? '700' : '600';
+  });
+}
+
+function qlClose() {
+  const sheet = document.getElementById('ql-sheet');
+  if (sheet) sheet.style.display = 'none';
+  _qlRow = null;
+}
+
+async function qlLog() {
+  const r = _qlRow;
+  if (!r) return;
   const target = _activeLogDate() || today;
-  if (!await appConfirm(`Log "${r.name}" (${Math.round(r.calories || 0)} kcal) again${target === today ? '' : ' to ' + _logDateLabel(target).replace('Add to ', '')}?`, { title: 'Log Again', yesLabel: 'Log It' })) return;
   await dbPost('meals', {
-    date: target, meal_type: r.meal_type || 'snack', name: r.name,
+    date: target, meal_type: _qlType, name: r.name,
     calories: r.calories || 0, protein: r.protein || 0, carbs: r.carbs || 0,
     fat: r.fat || 0, fiber: r.fiber || 0, cholesterol: r.cholesterol || 0,
     time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   });
+  qlClose();
   toast(`${r.name} logged \u2713`);
   loadTodayMeals();
 }
@@ -13946,11 +14011,14 @@ function _resolveModalLogDate() {
 }
 
 function _activeLogDate() {
+  // FIRST truth: the Today dash itself is repointable - the calendar
+  // dropdown moves logDate and the whole main view (and its manual form)
+  // follows. If logDate says yesterday, yesterday is the working day,
+  // whichever tab is on screen.
+  try { if (typeof logDate !== 'undefined' && logDate && logDate !== today) return logDate; } catch (e) {}
+  // SECOND: the read-only history day view, when actually on screen.
   const hv = document.getElementById('history-detail-view');
   const tt = document.getElementById('tab-today');
-  // Both the Today tab AND the day view must be showing - the day view keeps
-  // display:block while hidden behind another tab, which would silently
-  // back-date logs made from the Meals hub.
   const visible = tt && tt.style.display !== 'none' && hv && hv.style.display !== 'none';
   if (visible && window._historyDate && window._historyDate !== today) return window._historyDate;
   return null;
@@ -13970,7 +14038,7 @@ function openLogMealModal(id) {
   const meal = savedMeals.find(m => m.id === id);
   if (!meal) return;
   window._modalLogDate = _resolveModalLogDate();
-  console.log('[daylog] meal modal target =', window._modalLogDate || today, '(historyDate:', window._historyDate, ', today:', today, ')');
+  console.log('[daylog] meal modal target =', window._modalLogDate || today, '(logDate:', typeof logDate !== 'undefined' ? logDate : 'n/a', ', historyDate:', window._historyDate, ', today:', today, ')');
   const lmBtn = document.getElementById('log-meal-confirm-btn');
   if (lmBtn) lmBtn.textContent = _logDateLabel(window._modalLogDate);
   _logMealId = id;
@@ -15888,7 +15956,7 @@ function openFoodModal(id) {
   }
   if (!activeFoodForModal) return;
   window._modalLogDate = _resolveModalLogDate();
-  console.log('[daylog] food modal target =', window._modalLogDate || today, '(historyDate:', window._historyDate, ', today:', today, ')');
+  console.log('[daylog] food modal target =', window._modalLogDate || today, '(logDate:', typeof logDate !== 'undefined' ? logDate : 'n/a', ', historyDate:', window._historyDate, ', today:', today, ')');
   const fmBtn = document.getElementById('food-modal-log-btn');
   if (fmBtn) fmBtn.textContent = _logDateLabel(window._modalLogDate);
   const calsPerUnit = activeFoodForModal.calories_per_unit || activeFoodForModal.cals_per_unit || 0;
