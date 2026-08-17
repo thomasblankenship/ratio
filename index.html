@@ -801,7 +801,7 @@
             <button class="btn" onclick="saveFoodFromForm()" style="background:var(--gray-100);color:var(--black)">Save Food</button>
             <button class="btn" onclick="saveMealFromForm()" style="background:var(--gray-100);color:var(--black)">Save as Meal</button>
           </div>
-          <button class="btn" onclick="addMeal()" style="margin-top:8px">Log Food</button>
+          <button class="btn" id="dash-log-food-btn" onclick="addMeal()" style="margin-top:8px">Log Today</button>
           <button class="btn" onclick="toggleMealForm()" style="background:var(--red-tint);color:#EF4444;margin-top:8px">Cancel</button>
         </div>
       </div>
@@ -3390,6 +3390,23 @@ function toggleWorkoutForm() {
 
 
 
+// Show the modern dash for a given day WITHOUT the dropdown side effects -
+// the landing spot after logging onto any date. This replaced three post-log
+// redirects into the OLD history-detail view (the original dashboard,
+// preserved in the code): they were dormant while _modalLogDate was always
+// null, and the e-dashdate date fixes woke them up - logging onto yesterday
+// suddenly teleported him into a design from months ago.
+function dashShowDate(dateStr) {
+  if (!dateStr || dateStr > today) dateStr = today;
+  logDate = dateStr;
+  recentWorkoutsCache = null;
+  try { document.getElementById('history-detail-view').style.display = 'none'; } catch (e) {}
+  try { document.getElementById('today-subtab-main').style.display = ''; } catch (e) {}
+  updateLogDateDisplay();
+  loadTodayMeals();
+  loadTodayWorkouts();
+}
+
 function jumpToLogDate(dateStr) {
   if (dateStr > today) return;
   logDate = dateStr;
@@ -5731,6 +5748,10 @@ function changeMonth(dir) {
 }
 
 function updateLogDateDisplay() {
+  // The manual form's button follows the viewed day like every other log
+  // button ("Log Today" / "Log Yesterday" / "Log Aug 15").
+  const dlb = document.getElementById('dash-log-food-btn');
+  if (dlb) dlb.textContent = _logDateLabel(logDate === today ? null : logDate);
   const d = new Date(logDate + 'T12:00:00');
   const isToday = logDate === today;
   // Derive from `today` (which tracks midnight rollover), not the load-time
@@ -9577,7 +9598,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-17-e-dashdate';
+const RATIO_BUILD = '2026-08-17-g-loglabels';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -13856,7 +13877,7 @@ function qlOpen(r) {
   if (nameEl) nameEl.textContent = `${r.name} \u2014 ${Math.round(r.calories || 0)} kcal`;
   _qlPaint();
   const btn = document.getElementById('ql-log-btn');
-  if (btn) btn.textContent = _logDateLabel(_activeLogDate()).replace('Add to', 'Log to');
+  if (btn) btn.textContent = _logDateLabel(_activeLogDate());
   const sheet = document.getElementById('ql-sheet');
   if (sheet) sheet.style.display = 'block';
 }
@@ -14024,14 +14045,15 @@ function _activeLogDate() {
   return null;
 }
 
-// "Add to Today" / "Add to Yesterday" / "Add to Aug 16" - the button itself
-// says where the food is going (his suggestion).
+// ONE label grammar for every log button in the app (his spec): "Log Today"
+// / "Log Yesterday" / "Log Aug 15". The old mix - "Add to Today" on modals,
+// bare "Log Food" on the manual form - read like two different apps.
 function _logDateLabel(d) {
-  if (!d || d === today) return 'Add to Today';
+  if (!d || d === today) return 'Log Today';
   const y = new Date(new Date(today + 'T12:00:00').getTime() - 86400000);
   const yStr = `${y.getFullYear()}-${String(y.getMonth() + 1).padStart(2, '0')}-${String(y.getDate()).padStart(2, '0')}`;
-  if (d === yStr) return 'Add to Yesterday';
-  return 'Add to ' + new Date(d + 'T12:00:00').toLocaleDateString([], { month: 'short', day: 'numeric' });
+  if (d === yStr) return 'Log Yesterday';
+  return 'Log ' + new Date(d + 'T12:00:00').toLocaleDateString([], { month: 'short', day: 'numeric' });
 }
 
 function openLogMealModal(id) {
@@ -14292,7 +14314,7 @@ async function confirmLogSavedMeal() {
   if (window._modalLogDate) {
     const d = window._modalLogDate;
     window._modalLogDate = null;
-    showHistoryDetail(d);
+    dashShowDate(d);
     loadDayTotals();
   } else {
     await loadTodayMeals();
@@ -14320,7 +14342,7 @@ async function logSavedMeal(id) {
   if (window._modalLogDate) {
     const d = window._modalLogDate;
     window._modalLogDate = null;
-    showHistoryDetail(d);
+    dashShowDate(d);
     loadDayTotals();
   } else {
     await loadTodayMeals();
@@ -16468,7 +16490,7 @@ async function logFoodFromModal() {
   if (window._modalLogDate) {
     const d = window._modalLogDate;
     window._modalLogDate = null;
-    showHistoryDetail(d);
+    dashShowDate(d);
     loadDayTotals();
   } else {
     await loadTodayMeals();
