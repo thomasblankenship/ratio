@@ -388,6 +388,17 @@
       50%      { box-shadow: 0 0 0 12px rgba(207,161,60,0); transform: scale(1.07); }
     }
     .obchat-micbtn.listening i { color:#101512 !important; }
+    .ob-ck { background:linear-gradient(160deg,var(--gold-tint),rgba(207,161,60,0.04)); border:1px solid var(--gold-line); border-radius:14px; padding:12px; margin:4px 0 10px; }
+    .ob-ck-t { font-size:10px; font-weight:800; letter-spacing:0.8px; color:#CFA13C; margin-bottom:8px; }
+    .ob-ck-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px 10px; }
+    .ob-ck-it { display:flex; align-items:center; gap:7px; font-size:12.5px; color:var(--ink); }
+    .ob-ck-box { width:18px; height:18px; border-radius:6px; border:1.5px solid var(--line); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:900; color:#101512; flex-shrink:0; transition:all .25s; }
+    .ob-ck-it.done .ob-ck-box { background:#CFA13C; border-color:#CFA13C; }
+    .ob-ck-it.done { color:var(--muted); }
+    .ob-ck-it.done .ob-ck-lbl { text-decoration:line-through; text-decoration-color:rgba(207,161,60,0.6); }
+    .ob-ck-ex { font-size:11.5px; color:var(--muted); font-style:italic; margin-top:10px; line-height:1.5; border-top:1px dashed rgba(207,161,60,0.25); padding-top:8px; }
+    .ob-ck-ex b { color:var(--ink); font-style:normal; }
+    .ob-ck-alt { font-size:11px; color:#CFA13C; margin-top:8px; cursor:pointer; font-weight:700; }
 
     .vl-fab { position: fixed; right: 18px; bottom: 90px; width: 56px; height: 56px; border-radius: 50%; background: #CFA13C; border: none; box-shadow: 0 4px 14px rgba(207,161,60,0.4); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 300; }
     /* The app renders as a centered 520px column, but position:fixed anchors
@@ -7887,7 +7898,7 @@ const OB_COACHES = {
     // Sent to the Worker so the AI writes in his voice. Kept short on
     // purpose: personality belongs in the framing, never in the numbers.
     persona: "Coach Ian: a funny, lovable meathead personal trainer. Enthusiastic, thinks protein solves most of life's problems and that leg day is sacred. Calls people 'bro', 'brother' or 'champ' occasionally (not every message). His jokes are about the gym, protein and himself — never about the person. Genuinely kind under the meathead bit, never a drill sergeant, never shames anyone about food or weight. Keeps it brief.",
-    intro: "What's up! I'm Coach Ian — I specialize in gaining lean muscle and dropping body fat. Fair warning: my answer to most of life's problems is protein, and I haven't been wrong yet. So tell me about yourself and what you want to accomplish — age, height, current weight, where you want to end up. Talk to me like we're between sets.",
+    intro: "What's up! I'm Coach Ian — I specialize in gaining lean muscle and dropping body fat. Fair warning: my answer to most of life's problems is protein, and I haven't been wrong yet. Here's everything I need — hit me with it all in one breath, any order. Talk to me like we're between sets.",
     fullImg: 'coach-ian-full.png', headImg: 'coach-ian-head.png',
     logGreetings: (n) => [
       `Hey${n ? ' ' + n : ''}! What are we logging, bro?`,
@@ -7932,7 +7943,7 @@ const OB_COACHES = {
     goals: ['weight_loss', 'maintain'],
     sub: 'Weight loss & maintenance',
     persona: "Coach Olivia: charming, quick-witted and genuinely funny — the friend who makes you laugh while quietly keeping you on track. Warm, a little playful, never saccharine. Light humour about everyday life, never about the person's body, food choices or weight. Encouraging without cheerleading. Keeps it brief.",
-    intro: "Hi! I'm Coach Olivia — weight loss and maintenance are my specialty, which mostly means I do the math so you don't have to. I promise I'm more fun than that sentence makes me sound. Tell me about yourself and what you'd like to accomplish — age, height, where you are now, where you're headed.",
+    intro: "Hi! I'm Coach Olivia — weight loss and maintenance are my specialty, which mostly means I do the math so you don't have to. I promise I'm more fun than that sentence makes me sound. Here's everything I need — say it all in one go, any order:",
     fullImg: 'coach-olivia-full.png', headImg: 'coach-olivia-head.png',
     logGreetings: (n) => [
       `Hi${n ? ' ' + n : ''}! What are we logging today?`,
@@ -8408,6 +8419,7 @@ function _ocIntroduceCoach(coachKey, goalKey) {
     // cover crop cuts their legs off.
     _ocAddBot(c.intro);
     _ocAddHero(c.fullImg || c.img, c.name, { intro: true, reserve: 430, fit: 'contain' });
+    _ocAddChecklist();
   };
   // Lauren speaks BEFORE the coach is assigned, so her line uses her voice.
   _ocAddBot(`I know just the trainer for you — let me introduce you to ${c.name}.`, { onSpoken: enterCoach });
@@ -8465,6 +8477,58 @@ function _ocMissing() {
   return OC_REQUIRED().filter(k => _oc.fields[k] === undefined || _oc.fields[k] === null);
 }
 
+// ---- Interview checklist: the visible answer key. A spoken list of seven
+// things exceeds what anyone holds in their head mid-sentence; a pinned card
+// with one example sentence to mimic gets the whole thing in one breath.
+const OC_FIELD_LABELS = { gender: 'Gender', age: 'Age', height_ft: 'Height', weight_lb: 'Current weight', goal_weight_lb: 'Goal weight', activity: 'Activity level', pace: 'Weekly pace' };
+
+function _ocExampleLine() {
+  if (_obGoalType === 'maintain') return '“I\u2019m a 38-year-old woman, five-six, 140 pounds — on my feet a lot and I train four days a week.”';
+  if (_obGoalType === 'muscle_gain') return '“I\u2019m a 24-year-old guy, five-ten, 160 pounds, want to build to 175 at half a pound a week — desk job but I lift four days.”';
+  return '“I\u2019m a 38-year-old guy, five-ten, 195 pounds, want to get down to 180 at about a pound a week — desk job but I walk every day.”';
+}
+
+function _ocAddChecklist() {
+  const box = document.getElementById('obchat-messages');
+  if (!box || document.getElementById('obchat-checklist')) return;
+  const req = OC_REQUIRED();
+  const items = req.map(k => `<div class="ob-ck-it" id="ob-ck-${k}"><span class="ob-ck-box"></span><span class="ob-ck-lbl">${OC_FIELD_LABELS[k] || k}</span></div>`).join('');
+  const div = document.createElement('div');
+  div.id = 'obchat-checklist';
+  div.className = 'ob-ck';
+  div.innerHTML = `<div class="ob-ck-t">TELL ME THESE ${req.length} THINGS \u2014 ANY ORDER</div>` +
+    `<div class="ob-ck-grid">${items}</div>` +
+    `<div class="ob-ck-ex">Like: <b>${_ocExampleLine()}</b></div>` +
+    `<div class="ob-ck-alt" onclick="obChatUseForms()">Prefer to tap it in instead? \u2192</div>`;
+  box.appendChild(div);
+  _ocRenderChecklist();
+  box.scrollTop = box.scrollHeight;
+}
+
+function _ocRenderChecklist() {
+  if (!_oc || !document.getElementById('obchat-checklist')) return;
+  let delay = 0;
+  OC_REQUIRED().forEach(k => {
+    const el = document.getElementById('ob-ck-' + k);
+    if (!el) return;
+    const done = _oc.fields[k] !== undefined && _oc.fields[k] !== null;
+    if (done && !el.classList.contains('done')) {
+      // Staggered gold ticks - watching the credit land is the moment the
+      // interview feels smart instead of nosy.
+      setTimeout(() => {
+        el.classList.add('done');
+        const b = el.querySelector('.ob-ck-box');
+        if (b) b.textContent = '\u2713';
+      }, delay);
+      delay += 260;
+    } else if (!done && el.classList.contains('done')) {
+      el.classList.remove('done');
+      const b = el.querySelector('.ob-ck-box');
+      if (b) b.textContent = '';
+    }
+  });
+}
+
 function _ocRenderCard() {
   const f = _oc.fields;
   const box = document.getElementById('obchat-messages');
@@ -8507,6 +8571,7 @@ async function _ocTurn(userText) {
     const gotFields = data.fields && Object.keys(data.fields).length > 0;
     if (data.fields) Object.assign(_oc.fields, data.fields);
     if (_oc.fields.height_ft !== undefined && _oc.fields.height_in === undefined) _oc.fields.height_in = 0;
+    _ocRenderChecklist();
     _ocAddBot(data.say || "Sorry — say that again?");
     _ocRenderCard();
     // ---- miss streak ----
@@ -9940,7 +10005,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-18-m-obwave';
+const RATIO_BUILD = '2026-08-18-n-obchecklist';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
