@@ -9902,7 +9902,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-18-j-prepv2';
+const RATIO_BUILD = '2026-08-18-l-preplabels';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -12714,7 +12714,7 @@ function _prepDishCardHtml(d, idx) {
         <span style="font-size:14px;font-weight:800;min-width:0">${name}</span>
         <span style="margin-left:auto;flex-shrink:0;font-size:9px;font-weight:800;background:var(--gold-tint);color:#CFA13C;border-radius:8px;padding:3px 7px">${chosen.length || d.base_servings || 1} PORTIONS</span>
       </div>
-      <div style="font-size:10.5px;color:var(--muted);margin-top:4px">${Math.round(d.calories || 0)} kcal \u00b7 ${Math.round(d.protein || 0)}P \u00b7 ${Math.round(d.carbs || 0)}C \u00b7 ${Math.round(d.fat || 0)}F per serving${mins}${src}</div>
+      <div style="font-size:10.5px;color:var(--muted);margin-top:4px;line-height:1.5">${Math.round(d.calories || 0)} kcal \u00b7 Protein ${Math.round(d.protein || 0)}g \u00b7 Carbs ${Math.round(d.carbs || 0)}g \u00b7 Fat ${Math.round(d.fat || 0)}g${d.fiber != null ? ` \u00b7 Fiber ${Math.round(d.fiber)}g` : ''}${d.cholesterol != null ? ` \u00b7 Chol ${Math.round(d.cholesterol)}mg` : ''} per serving${mins}${src}</div>
       <div style="display:flex;gap:5px;margin-top:8px;align-items:center" onclick="event.stopPropagation()">
         ${_PREP_DSHORT.map((s, dow) => `<span onclick="toggleMealPrepDishDay(${idx}, ${dow})" style="font-size:9.5px;font-weight:800;border-radius:10px;padding:4px 7px;cursor:pointer;${chosen.includes(dow) ? 'background:var(--accent);color:#101512' : 'background:var(--bg-deep);border:1px solid var(--line);color:var(--muted)'}">${s.slice(0, 2)}</span>`).join('')}
         <span style="font-size:9.5px;color:var(--muted);margin-left:auto">${_weEscHtml(d.meal_type || '')}</span>
@@ -12811,30 +12811,33 @@ function renderPrepPage() {
   const header = `
     <div class="card" style="background:linear-gradient(160deg,var(--gold-tint),var(--gold-tint-2));border:1px solid var(--gold-line)">
       <div style="font-size:15px;font-weight:800;color:#CFA13C">${midweek ? 'This week\u2019s prep' : 'This Sunday you cook:'}</div>
-      <div style="font-size:11px;color:var(--muted);margin-top:5px;line-height:1.6">${dishes.length} recipe${dishes.length === 1 ? '' : 's'}${mins ? ` \u00b7 ~${mins} min active` : ''} \u00b7 ${portions} portion${portions === 1 ? '' : 's'}<br>Covers <b style="color:var(--ink)">${covTxt} ${_weEscHtml(types.toLowerCase())}</b> \u00b7 ${avgK} avg kcal \u00b7 ${avgP}g avg protein</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:5px;line-height:1.6">${dishes.length} recipe${dishes.length === 1 ? '' : 's'}${mins ? ` \u00b7 ~${mins} min active` : ''} \u00b7 ${portions} portion${portions === 1 ? '' : 's'}<br>Covers <b style="color:var(--ink)">${covTxt} ${_weEscHtml(types.toLowerCase())}</b> \u00b7 avg ${avgK} kcal \u00b7 ${avgP}g protein per serving</div>
       <div style="font-size:10.5px;color:var(--muted);margin-top:6px"><span onclick="prepCovToggle()" style="color:#CFA13C;font-weight:700;cursor:pointer">Edit coverage</span></div>
       ${_prepCovOpen ? _prepCovGridHtml() : ''}
     </div>`;
 
-  const shopSec = eyebrow(midweek ? 2 : 1, `SHOP \u00b7 ${shopCount} ITEM${shopCount === 1 ? '' : 'S'}`) + `
-    <div style="background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px">
-      <div style="font-size:11.5px;color:var(--muted);line-height:1.5">Merged across all recipes \u2014 pantry staples you likely have were left off. Amounts rescale if you change a dish\u2019s days.</div>
-      <button onclick="switchTab('shopping')" style="width:100%;background:var(--accent);color:#101512;border:none;border-radius:10px;padding:11px;font-size:12.5px;font-weight:800;cursor:pointer;margin-top:10px">\ud83d\uded2 Open Shopping List</button>
-    </div>`;
-
-  const cookSec = eyebrow(midweek ? 3 : 2, 'COOK \u00b7 TAP A RECIPE') +
+  // One fixed order every day of the week (his call \u2014 the page is a
+  // workflow, and the workflow starts with the recipes): 1 RECIPES \u2192
+  // 2 YOUR WEEK \u2192 3 SHOP & COOK. The old Sunday/midweek reshuffle made
+  // the page read backwards and never look the same twice.
+  const recipesSec = eyebrow(1, 'RECIPES \u00b7 TAP TO ADJUST OR SWAP') +
     (mealPrepPlan.summary ? `<div style="font-size:11px;color:var(--muted);margin:0 2px 8px;line-height:1.5">${_weEscHtml(mealPrepPlan.summary)}</div>` : '') +
     dishes.map((d, i) => _prepDishCardHtml(d, i)).join('');
 
-  const eatSec = eyebrow(midweek ? 1 : 3, midweek ? 'EAT \u00b7 YOUR WEEK' : 'EAT \u00b7 WHO EATS WHAT') + _prepEatHtml(todayDow);
+  const weekSec = eyebrow(2, 'YOUR WEEK') + _prepEatHtml(todayDow);
+
+  const shopSec = eyebrow(3, `SHOP & COOK \u00b7 ${shopCount} ITEM${shopCount === 1 ? '' : 'S'}`) + `
+    <div style="background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px">
+      <div style="font-size:11.5px;color:var(--muted);line-height:1.5">Ingredients merged across all recipes \u2014 pantry staples you likely have were left off, and amounts rescale if you change a dish\u2019s days. Cooking steps live inside each recipe card above.</div>
+      <button onclick="switchTab('shopping')" style="width:100%;background:var(--accent);color:#101512;border:none;border-radius:10px;padding:11px;font-size:12.5px;font-weight:800;cursor:pointer;margin-top:10px">\ud83d\uded2 Open Shopping List</button>
+    </div>`;
 
   const footer = `
-    <button onclick="generateMealPrepPlan()" style="width:100%;background:var(--surface);border:1px solid var(--gold-line);color:#CFA13C;border-radius:12px;padding:11px;font-size:12px;font-weight:800;cursor:pointer;margin-top:16px">\u2728 Regenerate \u2014 all new recipes</button>
+    <button onclick="generateMealPrepPlan()" style="width:100%;background:var(--surface);border:1px solid var(--gold-line);color:#CFA13C;border-radius:12px;padding:11px;font-size:12px;font-weight:800;cursor:pointer;margin-top:16px">\u2728 Regenerate \u2014 replaces ALL recipes</button>
+    <div style="font-size:10.5px;color:var(--muted);text-align:center;margin-top:6px;line-height:1.5">Like one but not another? Open the card you don\u2019t like and tap \u21bb Swap \u2014 the rest of your week stays put.</div>
     <div style="text-align:center;margin-top:10px"><span onclick="clearMealPrepPlan()" style="font-size:11px;color:var(--muted);cursor:pointer;text-decoration:underline">Clear this week\u2019s prep</span></div>`;
 
-  el.innerHTML = midweek
-    ? header + eatSec + shopSec + cookSec + footer
-    : header + shopSec + cookSec + eatSec + footer;
+  el.innerHTML = header + recipesSec + weekSec + shopSec + footer;
 }
 
 let mealPrepPlan = null;
