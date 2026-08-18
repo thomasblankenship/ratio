@@ -174,6 +174,12 @@
     .macro-value { font-size: 12px; color: var(--black); font-weight: 600; }
     .macro-track { height: 5px; background: var(--gray-100); border-radius: 3px; overflow: hidden; }
     .macro-fill { height: 100%; border-radius: 3px; transition: width 0.5s ease; }
+    .macro-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+    .macro-grid-2 { grid-template-columns: 1fr 1fr; margin-top: 12px; }
+    .macro-cell { min-width: 0; }
+    .macro-cell .macro-label { display: block; font-size: 10px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; }
+    .macro-cell .macro-value { display: block; font-size: 13px; font-weight: 800; margin-top: 2px; white-space: nowrap; }
+    .macro-cell .macro-track { margin-top: 6px; }
 
     /* REMAINING */
     .remaining-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
@@ -728,9 +734,9 @@
       <div id="today-subtab-main">
 
       <!-- MOTIVATIONAL QUOTE -->
-      <div id="quote-card" style="padding:12px 4px 8px;margin-bottom:4px">
-        <div id="quote-text" style="font-size:16px;font-weight:700;font-style:italic;color:#CFA13C;line-height:1.5;margin-bottom:6px"></div>
-        <div id="quote-author" style="font-size:12px;font-weight:600;color:var(--muted)"></div>
+      <div id="quote-card" style="padding:8px 4px 4px;margin-bottom:4px">
+        <div id="quote-text" style="font-size:11.5px;font-weight:600;font-style:italic;color:var(--muted);line-height:1.5;margin-bottom:2px"></div>
+        <div id="quote-author" style="font-size:10px;font-weight:600;color:var(--muted);opacity:0.75"></div>
       </div>
 
       <!-- CALORIE RING HERO -->
@@ -785,25 +791,34 @@
       <!-- MACROS -->
       <div class="card">
         <div class="card-title" style="color:#CFA13C">Macros</div>
-        <div class="macro-bar">
-          <div class="macro-bar-header"><span class="macro-label">Protein</span><span class="macro-value" id="pro-val">0 / 160g</span></div>
-          <div class="macro-track"><div class="macro-fill" id="pro-bar" style="background:rgb(239,68,68);width:0%"></div></div>
+        <div class="macro-grid">
+          <div class="macro-cell">
+            <span class="macro-label">Protein</span>
+            <span class="macro-value" id="pro-val">0 / 160g</span>
+            <div class="macro-track"><div class="macro-fill" id="pro-bar" style="background:rgb(239,68,68);width:0%"></div></div>
+          </div>
+          <div class="macro-cell">
+            <span class="macro-label">Carbs</span>
+            <span class="macro-value" id="carb-val">0 / 150g</span>
+            <div class="macro-track"><div class="macro-fill" id="carb-bar" style="background:rgb(239,68,68);width:0%"></div></div>
+          </div>
+          <div class="macro-cell">
+            <span class="macro-label">Fat</span>
+            <span class="macro-value" id="fat-val">0 / 65g</span>
+            <div class="macro-track"><div class="macro-fill" id="fat-bar" style="background:rgb(239,68,68);width:0%"></div></div>
+          </div>
         </div>
-        <div class="macro-bar">
-          <div class="macro-bar-header"><span class="macro-label">Carbs</span><span class="macro-value" id="carb-val">0 / 150g</span></div>
-          <div class="macro-track"><div class="macro-fill" id="carb-bar" style="background:rgb(239,68,68);width:0%"></div></div>
-        </div>
-        <div class="macro-bar">
-          <div class="macro-bar-header"><span class="macro-label">Fat</span><span class="macro-value" id="fat-val">0 / 65g</span></div>
-          <div class="macro-track"><div class="macro-fill" id="fat-bar" style="background:rgb(239,68,68);width:0%"></div></div>
-        </div>
-        <div class="macro-bar">
-          <div class="macro-bar-header"><span class="macro-label">Fiber</span><span class="macro-value" id="fiber-val">0 / 30g</span></div>
-          <div class="macro-track"><div class="macro-fill" id="fiber-bar" style="background:rgb(239,68,68);width:0%"></div></div>
-        </div>
-        <div class="macro-bar" style="margin-bottom:0">
-          <div class="macro-bar-header"><span class="macro-label">Cholesterol</span><span class="macro-value" id="chol-val">0 / 300mg</span></div>
-          <div class="macro-track"><div class="macro-fill" id="chol-bar" style="background:rgb(34,197,94);width:0%"></div></div>
+        <div class="macro-grid macro-grid-2">
+          <div class="macro-cell">
+            <span class="macro-label">Fiber</span>
+            <span class="macro-value" id="fiber-val">0 / 30g</span>
+            <div class="macro-track"><div class="macro-fill" id="fiber-bar" style="background:rgb(239,68,68);width:0%"></div></div>
+          </div>
+          <div class="macro-cell">
+            <span class="macro-label">Cholesterol</span>
+            <span class="macro-value" id="chol-val">0 / 300mg</span>
+            <div class="macro-track"><div class="macro-fill" id="chol-bar" style="background:rgb(34,197,94);width:0%"></div></div>
+          </div>
         </div>
         <!-- hidden elements kept for JS compat -->
         <span id="cal-val" style="display:none"></span>
@@ -9793,7 +9808,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-18-e-chevalign';
+const RATIO_BUILD = '2026-08-18-f-todaycompact';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
