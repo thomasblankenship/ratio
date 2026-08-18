@@ -9633,7 +9633,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-17-q-wkpolish';
+const RATIO_BUILD = '2026-08-17-r-libland';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -10905,10 +10905,18 @@ function _wsCenterStripSel() {
   if (!strip) return;
   const center = () => {
     const cell = strip.querySelector('.ws-day-cell.sel');
-    if (cell) strip.scrollLeft = Math.max(0, cell.offsetLeft - (strip.clientWidth - cell.offsetWidth) / 2);
+    if (!cell || !strip.clientWidth) return;
+    // scroll-snap:mandatory swallows programmatic scrollLeft on iOS - the
+    // strip kept waking up on Thu/Fri/Sat no matter how often we wrote it.
+    // Disarm snap for the write, restore a frame later.
+    const prev = strip.style.scrollSnapType;
+    strip.style.scrollSnapType = 'none';
+    strip.scrollLeft = Math.max(0, cell.offsetLeft - (strip.clientWidth - cell.offsetWidth) / 2);
+    requestAnimationFrame(() => { strip.style.scrollSnapType = prev || ''; });
   };
   center();
   requestAnimationFrame(() => requestAnimationFrame(center));
+  setTimeout(center, 200);
 }
 
 function renderWeekStrip() {
@@ -15762,10 +15770,14 @@ async function wsLogSet() {
     wsRenderSession();
     try { if (typeof loadProgressWorkouts === 'function') loadProgressWorkouts(); } catch (e2) {}
     // Logged from the Exercise Library? Straight back to the sheet with the
-    // set inked in - no backing out through detail and list (his flow).
+    // set inked in. The detail view is an OVERLAY that floats above every
+    // tab - switching alone left it parked on top, so it closes too.
     try {
       const browse = document.getElementById('tab-workouts-browse');
-      if (browse && browse.style.display !== 'none') switchTab('workouts');
+      if (browse && browse.style.display !== 'none') {
+        if (typeof closeExerciseDetail === 'function') closeExerciseDetail();
+        switchTab('workouts');
+      }
     } catch (e3) {}
   } catch (e) {
     console.error('[ws] log set failed', e);
