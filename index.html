@@ -279,11 +279,11 @@
     /* Closed cards read as list tiles (his mock): icon and title share the
        TOP ROW, glance lines sit below in the text column - one left edge for
        icons, one for text, consistent across all four cards. */
-    .prog-card:not(.prog-open) .prog-card-head { flex-direction: row; align-items: flex-start; justify-content: flex-start; }
-    .prog-card:not(.prog-open) .prog-card-head > span:first-child { display: flex; flex-direction: row; align-items: flex-start; gap: 10px; min-width: 0; }
-    .prog-card:not(.prog-open) .prog-card-icon { font-size: 17px !important; width: 20px !important; text-align: center !important; margin-top: 2px !important; flex-shrink: 0; }
+    .prog-card:not(.prog-open) .prog-card-head { flex-direction: column; align-items: flex-start; justify-content: flex-start; }
+    .prog-card:not(.prog-open) .prog-card-head > span:first-child { display: flex; flex-direction: column; align-items: flex-start; gap: 0; min-width: 0; }
+    .prog-card:not(.prog-open) .prog-card-icon { font-size: 22px !important; width: auto !important; text-align: left !important; margin-top: 0 !important; flex-shrink: 0; }
     .prog-card:not(.prog-open) .prog-card-head > span:first-child > span { display: block; min-width: 0; text-align: left; }
-    .prog-card:not(.prog-open) .prog-card-title { margin-top: 0; }
+    .prog-card:not(.prog-open) .prog-card-title { margin-top: 8px; }
     .prog-card:not(.prog-open) .prog-card-sub { text-align: left; }
     .prog-card.prog-open .prog-card-head > span:first-child { display: flex; align-items: center; gap: 10px; }
     .prog-card.prog-open .prog-card-sub { display: none !important; }
@@ -292,9 +292,9 @@
     .prog-card-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; cursor: pointer; gap: 12px; }
     .prog-card-head > span { display: flex; align-items: center; gap: 12px; min-width: 0; }
     .prog-card-icon { width: 20px; text-align: center; color: #CFA13C; font-size: 15px; flex-shrink: 0; }
-    .prog-card-title { font-size: 15px; font-weight: 500; color: #CFA13C; }
+    .prog-card-title { font-size: 14px; font-weight: 800; color: #CFA13C; }
     .prog-card-sub { font-size: 12px; color: var(--muted); margin-top: 3px; }
-    .prog-card-chev { color: #CFA13C; font-size: 13px; flex-shrink: 0; display: inline-block; transition: transform 0.15s; }
+    .prog-card-chev { color: #CFA13C; font-size: 12px; flex-shrink: 0; display: inline-block; transition: transform 0.15s; }
     .prog-card-body { display: none; padding: 0 16px 14px; }
     /* Sub-cards are rows too - the same hairline-divider list as the outer
        group, one level in. Boxes inside boxes read as clutter. */
@@ -950,28 +950,28 @@
         <div onclick="switchTab('meals-foods')" style="background:linear-gradient(160deg,var(--gold-tint),var(--gold-tint-2));border:1px solid var(--gold-line);border-radius:16px;padding:14px 12px;position:relative;cursor:pointer">
           <div id="meals-count-foods" style="position:absolute;top:10px;right:10px;background:var(--gold-tint);color:#CFA13C;font-size:10px;font-weight:800;border-radius:10px;padding:3px 8px"></div>
           <div style="font-size:22px">🥑</div>
-          <div style="font-size:14px;font-weight:800;margin-top:8px">My Foods</div>
+          <div style="font-size:14px;font-weight:800;margin-top:8px;color:#CFA13C">My Foods</div>
           <div style="font-size:10.5px;color:var(--muted);margin-top:3px;line-height:1.4">Single foods you've saved &amp; scanned</div>
-          <div style="position:absolute;bottom:12px;right:12px;color:var(--muted);font-size:12px">›</div>
+          <div style="position:absolute;bottom:12px;right:12px;color:#CFA13C;font-size:12px"><i class="fa-solid fa-chevron-right"></i></div>
         </div>
         <div onclick="switchTab('meals-meals')" style="background:linear-gradient(160deg,var(--gold-tint),var(--gold-tint-2));border:1px solid var(--gold-line);border-radius:16px;padding:14px 12px;position:relative;cursor:pointer">
           <div id="meals-count-meals" style="position:absolute;top:10px;right:10px;background:var(--gold-tint);color:#CFA13C;font-size:10px;font-weight:800;border-radius:10px;padding:3px 8px"></div>
           <div style="font-size:22px">🍽️</div>
-          <div style="font-size:14px;font-weight:800;margin-top:8px">My Meals</div>
+          <div style="font-size:14px;font-weight:800;margin-top:8px;color:#CFA13C">My Meals</div>
           <div style="font-size:10.5px;color:var(--muted);margin-top:3px;line-height:1.4">Recipes &amp; full meals, ready to log</div>
-          <div style="position:absolute;bottom:12px;right:12px;color:var(--muted);font-size:12px">›</div>
+          <div style="position:absolute;bottom:12px;right:12px;color:#CFA13C;font-size:12px"><i class="fa-solid fa-chevron-right"></i></div>
         </div>
         <div onclick="switchTab('meals-ideas')" style="background:linear-gradient(160deg,var(--gold-tint),var(--gold-tint-2));border:1px solid var(--gold-line);border-radius:16px;padding:14px 12px;position:relative;cursor:pointer">
           <div style="font-size:22px">✨</div>
-          <div style="font-size:14px;font-weight:800;margin-top:8px">Meal Ideas</div>
+          <div style="font-size:14px;font-weight:800;margin-top:8px;color:#CFA13C">Meal Ideas</div>
           <div style="font-size:10.5px;color:var(--muted);margin-top:3px;line-height:1.4">Coach suggestions from your macros &amp; tastes</div>
-          <div style="position:absolute;bottom:12px;right:12px;color:var(--muted);font-size:12px">›</div>
+          <div style="position:absolute;bottom:12px;right:12px;color:#CFA13C;font-size:12px"><i class="fa-solid fa-chevron-right"></i></div>
         </div>
         <div onclick="switchTab('meals-prep')" style="background:linear-gradient(160deg,var(--gold-tint),var(--gold-tint-2));border:1px solid var(--gold-line);border-radius:16px;padding:14px 12px;position:relative;cursor:pointer">
           <div style="font-size:22px">🥘</div>
-          <div style="font-size:14px;font-weight:800;margin-top:8px">Weekly Prep</div>
+          <div style="font-size:14px;font-weight:800;margin-top:8px;color:#CFA13C">Weekly Prep</div>
           <div style="font-size:10.5px;color:var(--muted);margin-top:3px;line-height:1.4">Batch-cooking plans for the week</div>
-          <div style="position:absolute;bottom:12px;right:12px;color:var(--muted);font-size:12px">›</div>
+          <div style="position:absolute;bottom:12px;right:12px;color:#CFA13C;font-size:12px"><i class="fa-solid fa-chevron-right"></i></div>
         </div>
       </div>
 
@@ -9793,7 +9793,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-18-b-adminx';
+const RATIO_BUILD = '2026-08-18-c-cardmatch';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
