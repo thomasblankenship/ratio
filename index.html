@@ -682,6 +682,7 @@
           <button onclick="renderAdmin()" style="margin-left:auto;background:var(--accent);color:#101512;border:none;border-radius:14px;padding:7px 12px;font-size:11px;font-weight:800;cursor:pointer">↻ Refresh</button>
         </div>
         <div id="admin-summary" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:8px"></div>
+        <div id="admin-explain" style="display:none;background:var(--gold-tint);border:1px dashed var(--gold-line);border-radius:12px;padding:9px 12px;font-size:11px;line-height:1.5;color:var(--ink);margin-bottom:8px"></div>
         <div id="admin-spend" style="margin-bottom:14px"></div>
         <div id="admin-users-head" style="font-size:10px;font-weight:800;letter-spacing:0.8px;color:#CFA13C;margin:4px 2px 6px"></div>
         <div id="admin-users"></div>
@@ -9669,6 +9670,41 @@ function _adminAgo(iso) {
   return { text: days + ' days ago', cls: 'stale' };
 }
 
+// Tap a stat, get the plain-English version. Tap again to dismiss. Written
+// for future-you at 7 AM, not for an analytics conference.
+const _ADMIN_EXPLAINS = {
+  dau: 'TODAY (DAU): how many different people opened the app today. Each person counts once no matter how many times they came back.',
+  wau: '7-DAY (WAU): how many different people opened the app at least once in the last 7 days.',
+  mau: '30-DAY (MAU): how many different people opened the app at least once in the last 30 days \u2014 your whole active audience.',
+  stick: 'STICKINESS: Today \u00f7 30-Day. Of everyone who uses the app at all, what share showed up today. Above 20% is considered a daily-habit product \u2014 people are coming back on their own.',
+  spend: 'AI SPEND: what all users\u2019 AI features (voice logging, coach, label scans, meal ideas) actually cost in Anthropic tokens over the last 30 days, computed from real per-call token counts. CALLS is how many AI requests that was.'
+};
+let _adminExplainKey = null;
+function _adminExplain(key) {
+  const el = document.getElementById('admin-explain');
+  if (!el) return;
+  if (_adminExplainKey === key) { el.style.display = 'none'; _adminExplainKey = null; return; }
+  _adminExplainKey = key;
+  el.textContent = _ADMIN_EXPLAINS[key] || '';
+  el.style.display = '';
+}
+
+// The AI kill-switch. Pause stops their AI spend instantly (data and the
+// rest of the app keep working); Resume turns it back on. Email opens your
+// mail app with their address ready.
+async function _adminToggleSuspend(userId, suspend, username) {
+  const verb = suspend ? 'Pause AI' : 'Resume AI';
+  if (!(await appConfirm(`${verb} for ${username}?${suspend ? ' They keep their data and the app \u2014 only AI features stop.' : ''}`))) return;
+  try {
+    const r = await fetch(`${WORKER_URL}/admin/user-flag`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, suspended: suspend })
+    });
+    if (r.ok) { toast(suspend ? 'AI paused for ' + username : 'AI resumed for ' + username); renderAdmin(); }
+    else toast('Could not update \u2014 check worker build');
+  } catch (e) { toast('Could not update \u2014 connection?'); }
+}
+
 async function renderAdmin() {
   const sEl = document.getElementById('admin-summary');
   const uEl = document.getElementById('admin-users');
@@ -9682,10 +9718,10 @@ async function renderAdmin() {
   } catch (e) {}
   if (!data) { sEl.innerHTML = '<div style="grid-column:1/-1;color:var(--muted);font-size:12px">Could not load stats — check connection and worker build.</div>'; return; }
 
-  const stat = (v, k) => `<div style="background:linear-gradient(160deg,var(--gold-tint),var(--gold-tint-2));border:1px solid var(--gold-line);border-radius:14px;padding:10px 6px;text-align:center"><div style="font-size:17px;font-weight:800;color:#CFA13C">${v}</div><div style="font-size:8.5px;color:var(--muted);font-weight:700;letter-spacing:0.5px;margin-top:2px">${k}</div></div>`;
-  sEl.innerHTML = stat(data.summary.dau, 'TODAY (DAU)') + stat(data.summary.wau, '7-DAY (WAU)') + stat(data.summary.mau, '30-DAY (MAU)') + stat(data.summary.stickiness + '%', 'STICKINESS');
+  const stat = (v, k, key) => `<div onclick="_adminExplain('${key}')" style="background:linear-gradient(160deg,var(--gold-tint),var(--gold-tint-2));border:1px solid var(--gold-line);border-radius:14px;padding:10px 6px;text-align:center;cursor:pointer"><div style="font-size:17px;font-weight:800;color:#CFA13C">${v}</div><div style="font-size:8.5px;color:var(--muted);font-weight:700;letter-spacing:0.5px;margin-top:2px">${k} <span style="opacity:0.6">?</span></div></div>`;
+  sEl.innerHTML = stat(data.summary.dau, 'TODAY (DAU)', 'dau') + stat(data.summary.wau, '7-DAY (WAU)', 'wau') + stat(data.summary.mau, '30-DAY (MAU)', 'mau') + stat(data.summary.stickiness + '%', 'STICKINESS', 'stick');
   document.getElementById('admin-spend').innerHTML =
-    `<div style="background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center">` +
+    `<div onclick="_adminExplain('spend')" style="background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center;cursor:pointer">` +
     `<span style="font-size:11px;color:var(--muted);font-weight:700">AI SPEND · 30 DAYS</span><span style="font-size:15px;font-weight:800;color:#CFA13C">$${(data.summary.monthCostUsd || 0).toFixed(2)}</span>` +
     `<span style="font-size:11px;color:var(--muted);font-weight:700">CALLS</span><span style="font-size:15px;font-weight:800;color:#CFA13C">${data.summary.monthCalls || 0}</span></div>`;
   document.getElementById('admin-users-head').textContent = `USERS · ${data.summary.totalUsers} · SORTED BY LAST SEEN`;
@@ -9702,8 +9738,11 @@ async function renderAdmin() {
       `<span>Workouts: <b style="color:var(--ink)">${u.workouts}</b></span>` +
       `<span>AI 30d: <b style="color:var(--ink)">${u.aiCalls30}</b></span>` +
       `<span style="color:#CFA13C;font-weight:800">$${(u.aiCost30 || 0).toFixed(2)}</span></div>` +
-      `<div style="display:flex;gap:12px;margin-top:3px;font-size:10.5px;color:var(--muted)"><span>Joined ${joined}</span><span>${u.platform || '?'} · ${u.appVersion || 'pre-tracking'}</span></div>` +
-      `</div>`;
+      `<div style="display:flex;gap:12px;margin-top:3px;font-size:10.5px;color:var(--muted)"><span>Joined ${joined}</span><span>${u.platform || '?'} · ${u.appVersion || 'pre-tracking'}</span>${u.aiSuspended ? '<span style="color:#e07777;font-weight:800">AI PAUSED</span>' : ''}</div>` +
+      `<div style="display:flex;gap:8px;margin-top:8px">` +
+      (u.email ? `<a href="mailto:${u.email}" style="flex:1;text-align:center;background:var(--surface-2);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:7px 0;font-size:11px;font-weight:700;text-decoration:none">\u2709 Email</a>` : '') +
+      `<button onclick="_adminToggleSuspend('${u.id}', ${u.aiSuspended ? 'false' : 'true'}, '${(u.username || '').replace(/'/g, '')}')" style="flex:1;background:${u.aiSuspended ? 'var(--accent)' : 'rgba(224,119,119,0.15)'};color:${u.aiSuspended ? '#101512' : '#e07777'};border:1px solid ${u.aiSuspended ? 'var(--accent)' : '#e07777'};border-radius:10px;padding:7px 0;font-size:11px;font-weight:800;cursor:pointer">${u.aiSuspended ? 'Resume AI' : 'Pause AI'}</button>` +
+      `</div></div>`;
   }).join('') || '<div style="color:var(--muted);font-size:12px">No users yet.</div>';
 }
 
@@ -9754,7 +9793,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-18-a-admin';
+const RATIO_BUILD = '2026-08-18-b-adminx';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
