@@ -273,7 +273,7 @@
     .prog-card:last-child, .prog-card.prog-row-last { border-bottom: none; }
     .prog-card-head { flex-direction: column; align-items: flex-start; gap: 8px; padding: 14px 12px 30px; position: relative; min-height: 96px; box-sizing: border-box; }
     .prog-card-icon { font-size: 22px !important; width: auto !important; }
-    .prog-card-title { display: block; font-size: 14px; font-weight: 800; margin-top: 2px; }
+    .prog-card-title { display: block; font-size: 14px; font-weight: 800; margin-top: 2px; color: #CFA13C; }
     .prog-card-sub { display: block !important; font-size: 10.5px; color: var(--muted); margin-top: 3px; line-height: 1.4; }
     .prog-card-head .prog-chev, .prog-card-head > i:last-child { position: absolute; bottom: 12px; right: 12px; }
     /* Closed cards read as list tiles (his mock): icon and title share the
@@ -926,7 +926,7 @@
       <div id="food-search-results" style="display:none;margin-top:12px"></div>
 
       <div id="meals-recent-wrap" style="display:none">
-        <div style="font-size:10px;font-weight:800;letter-spacing:0.8px;color:var(--muted);margin:14px 2px 6px">QUICK LOG</div>
+        <div style="font-size:10px;font-weight:800;letter-spacing:0.8px;color:#CFA13C;margin:14px 2px 6px">QUICK LOG</div>
         <div id="meals-recent-chips" style="display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch"></div>
       </div>
 
@@ -5676,6 +5676,11 @@ function switchTab(tab) {
     // Lists render on every visit; the filter box starts clean.
     try { if (typeof savedMeals !== 'undefined' && !savedMeals.length && !savedFoods.length) loadMealsTab(); } catch (e) {}
   }
+  if (tab === 'meals-prep') {
+    // The day-list loader used to ride the old Coach subtab toggle; the
+    // page loads it for itself now.
+    try { if (typeof mealPrepPlanLoaded !== 'undefined' && !mealPrepPlanLoaded && typeof loadMealPrepPlan === 'function') loadMealPrepPlan(); } catch (e) {}
+  }
   if (tab === 'workouts') {
     try { _wsCenterStripSel(); } catch (e) {}
     resetWorkoutDateToToday();
@@ -9633,7 +9638,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-17-r-libland';
+const RATIO_BUILD = '2026-08-17-t-preppage';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -12571,7 +12576,11 @@ function toggleMealPrepResultsCollapsed() {
 }
 
 async function generateMealPrepPlan() {
-  if (!mealPrepPlan) return;
+  // Never a silent dead button: if the plan hasn't loaded, load it now.
+  if (!mealPrepPlan) {
+    try { if (typeof loadMealPrepPlan === 'function') await loadMealPrepPlan(); } catch (e) {}
+  }
+  if (!mealPrepPlan) { toast('Could not load your prep days \u2014 check your connection and try again'); return; }
   const demand = mealPrepPlan.days
     .filter(d => !d.no_prep && (d.meal_types || []).length)
     .map(d => ({ day_name: DAY_NAMES_FULL[d.day_of_week], meal_types: d.meal_types }));
@@ -14038,7 +14047,8 @@ async function loadSavedMeals() {
 
 function renderSavedMeals() {
   const cEl = document.getElementById('meals-count-meals');
-  if (cEl) cEl.textContent = (savedMeals || []).length || '';
+  const _mn = (savedMeals || []).length;
+  if (cEl) cEl.textContent = _mn ? `${_mn} Meal${_mn === 1 ? '' : 's'}` : '';
   const el = document.getElementById('saved-meals-list');
   if (!el) return;
   if (!savedMeals.length) {
@@ -15205,7 +15215,8 @@ async function loadSavedFoods() {
 
 function renderSavedFoods() {
   const cEl = document.getElementById('meals-count-foods');
-  if (cEl) cEl.textContent = (savedFoods || []).length || '';
+  const _fn = (savedFoods || []).length;
+  if (cEl) cEl.textContent = _fn ? `${_fn} Food${_fn === 1 ? '' : 's'}` : '';
   const el = document.getElementById('saved-foods-list');
   if (!savedFoods.length) {
     el.innerHTML = `
@@ -17564,7 +17575,7 @@ function _progGoalsGlance() {
   }
 
   if (!total) { el.textContent = 'Weight, body composition and log history'; return; }
-  el.innerHTML = `<div style="font-weight:700;color:#CFA13C">${onTrack} / ${total} on track</div>` +
+  el.innerHTML = `<div style="font-weight:700;color:var(--ink)">${onTrack} / ${total} on track</div>` +
     rows.map(r => `<div>${r}</div>`).join('');
 }
 
@@ -17586,7 +17597,7 @@ async function _progStepsGlance() {
   const steps = +row.steps || 0;
   const pct = Math.min(100, Math.round(steps / goal * 100));
   const toGo = Math.max(0, goal - steps);
-  el.innerHTML = `<div style="font-weight:700;color:#CFA13C">${steps.toLocaleString()} / ${goal.toLocaleString()}</div>` +
+  el.innerHTML = `<div style="font-weight:700;color:var(--ink)">${steps.toLocaleString()} / ${goal.toLocaleString()}</div>` +
     `<div style="height:6px;border-radius:3px;background:rgba(255,255,255,0.12);margin:5px 0;overflow:hidden"><div style="height:100%;width:${pct}%;background:#CFA13C;border-radius:3px"></div></div>` +
     `<div>${toGo > 0 ? toGo.toLocaleString() + ' to goal' : 'Goal hit \u2713'} \u00b7 ${pct}%</div>`;
 }
@@ -17602,7 +17613,7 @@ function _progPhotosGlance() {
   // shoot?" and the page does the comparing.
   const dates = [...new Set(photos.map(p => p.date))].sort();
   const latest = dates[dates.length - 1];
-  el.innerHTML = `<div style="font-weight:700;color:#CFA13C">Last: ${_progShortDate(latest)}</div>` +
+  el.innerHTML = `<div style="font-weight:700;color:var(--ink)">Last: ${_progShortDate(latest)}</div>` +
     `<div style="color:var(--muted)">${photos.length} photo${photos.length === 1 ? '' : 's'} \u00b7 ${dates.length} day${dates.length === 1 ? '' : 's'}</div>`;
 }
 
@@ -17632,7 +17643,7 @@ async function _progNutritionGlance() {
     const avgP = Math.round(days.reduce((a, d) => a + d.protein, 0) / days.length);
     const cTarget = (typeof userTargets !== 'undefined' && userTargets.calories) || 0;
     const pTarget = (typeof userTargets !== 'undefined' && userTargets.protein) || 0;
-    el.innerHTML = `<div style="font-weight:700;color:#CFA13C">This week's avg</div>` +
+    el.innerHTML = `<div style="font-weight:700;color:var(--ink)">This week's avg</div>` +
       `<div>Calories ${avgC.toLocaleString()}${cTarget ? ' / ' + cTarget.toLocaleString() : ''}</div>` +
       `<div>Protein ${avgP}g${pTarget ? ' / ' + pTarget + 'g' : ''}</div>`;
   } catch (e) { /* keep whatever is showing */ }
