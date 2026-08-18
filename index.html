@@ -949,26 +949,26 @@
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;margin-bottom:16px">
         <div onclick="switchTab('meals-foods')" style="background:linear-gradient(160deg,var(--gold-tint),var(--gold-tint-2));border:1px solid var(--gold-line);border-radius:16px;padding:14px 12px;position:relative;cursor:pointer">
           <div id="meals-count-foods" style="position:absolute;top:10px;right:10px;background:var(--gold-tint);color:#CFA13C;font-size:10px;font-weight:800;border-radius:10px;padding:3px 8px"></div>
-          <div style="font-size:22px">🥑</div>
+          <div style="font-size:22px;color:#CFA13C"><i class="fa-solid fa-apple-whole"></i></div>
           <div style="font-size:14px;font-weight:800;margin-top:8px;color:#CFA13C">My Foods</div>
           <div style="font-size:10.5px;color:var(--muted);margin-top:3px;line-height:1.4">Single foods you've saved &amp; scanned</div>
           <div style="position:absolute;bottom:12px;right:12px;color:#CFA13C;font-size:12px"><i class="fa-solid fa-chevron-right"></i></div>
         </div>
         <div onclick="switchTab('meals-meals')" style="background:linear-gradient(160deg,var(--gold-tint),var(--gold-tint-2));border:1px solid var(--gold-line);border-radius:16px;padding:14px 12px;position:relative;cursor:pointer">
           <div id="meals-count-meals" style="position:absolute;top:10px;right:10px;background:var(--gold-tint);color:#CFA13C;font-size:10px;font-weight:800;border-radius:10px;padding:3px 8px"></div>
-          <div style="font-size:22px">🍽️</div>
+          <div style="font-size:22px;color:#CFA13C"><i class="fa-solid fa-bowl-food"></i></div>
           <div style="font-size:14px;font-weight:800;margin-top:8px;color:#CFA13C">My Meals</div>
           <div style="font-size:10.5px;color:var(--muted);margin-top:3px;line-height:1.4">Recipes &amp; full meals, ready to log</div>
           <div style="position:absolute;bottom:12px;right:12px;color:#CFA13C;font-size:12px"><i class="fa-solid fa-chevron-right"></i></div>
         </div>
         <div onclick="switchTab('meals-ideas')" style="background:linear-gradient(160deg,var(--gold-tint),var(--gold-tint-2));border:1px solid var(--gold-line);border-radius:16px;padding:14px 12px;position:relative;cursor:pointer">
-          <div style="font-size:22px">✨</div>
+          <div style="font-size:22px;color:#CFA13C"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
           <div style="font-size:14px;font-weight:800;margin-top:8px;color:#CFA13C">Meal Ideas</div>
           <div style="font-size:10.5px;color:var(--muted);margin-top:3px;line-height:1.4">Coach suggestions from your macros &amp; tastes</div>
           <div style="position:absolute;bottom:12px;right:12px;color:#CFA13C;font-size:12px"><i class="fa-solid fa-chevron-right"></i></div>
         </div>
         <div onclick="switchTab('meals-prep')" style="background:linear-gradient(160deg,var(--gold-tint),var(--gold-tint-2));border:1px solid var(--gold-line);border-radius:16px;padding:14px 12px;position:relative;cursor:pointer">
-          <div style="font-size:22px">🥘</div>
+          <div style="font-size:22px;color:#CFA13C"><i class="fa-solid fa-calendar-week"></i></div>
           <div style="font-size:14px;font-weight:800;margin-top:8px;color:#CFA13C">Weekly Prep</div>
           <div style="font-size:10.5px;color:var(--muted);margin-top:3px;line-height:1.4">Batch-cooking plans for the week</div>
           <div style="position:absolute;bottom:12px;right:12px;color:#CFA13C;font-size:12px"><i class="fa-solid fa-chevron-right"></i></div>
@@ -9793,7 +9793,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-18-c-cardmatch';
+const RATIO_BUILD = '2026-08-18-d-cardicons';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
