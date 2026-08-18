@@ -8480,7 +8480,7 @@ function _ocMissing() {
 // ---- Interview checklist: the visible answer key. A spoken list of seven
 // things exceeds what anyone holds in their head mid-sentence; a pinned card
 // with one example sentence to mimic gets the whole thing in one breath.
-const OC_FIELD_LABELS = { gender: 'Gender', age: 'Age', height_ft: 'Height', weight_lb: 'Current weight', goal_weight_lb: 'Goal weight', activity: 'Activity level', pace: 'Weekly pace' };
+const OC_FIELD_LABELS = { gender: 'Biological sex', age: 'Age', height_ft: 'Height', weight_lb: 'Current weight', goal_weight_lb: 'Goal weight', activity: 'Activity level', pace: 'Weekly pace' };
 
 function _ocExampleLine() {
   if (_obGoalType === 'maintain') return '“I\u2019m a 38-year-old woman, five-six, 140 pounds — on my feet a lot and I train four days a week.”';
@@ -10005,7 +10005,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-18-n-obchecklist';
+const RATIO_BUILD = '2026-08-18-o-sexlabel';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
