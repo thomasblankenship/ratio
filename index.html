@@ -8647,9 +8647,27 @@ function obChatSend() {
   _ocDispatch(text);
 }
 
+// Lauren's intro is a fixed, non-scrolling screen built around her full-height
+// portrait. The moment a real conversation starts it is the wrong container:
+// new bubbles land BELOW the portrait and are clipped invisible (a "get
+// healthier" reply vanished exactly this way). First user input converts the
+// screen to a normal scrolling thread: portrait out, header back, bubbles flow.
+function _ocExitIntroMode() {
+  const msgs = document.getElementById('obchat-messages');
+  if (!msgs) return;
+  const hero = document.getElementById('obchat-hero');
+  if (hero) hero.remove();
+  msgs.style.cssText = 'flex:1;overflow-y:auto;padding:14px 18px 8px';
+  const hdr = document.getElementById('obchat-header');
+  if (hdr) hdr.style.display = 'flex';
+  const bar = document.getElementById('obchat-introbar');
+  if (bar) bar.style.display = 'none';
+}
+
 function _ocDispatch(text) {
   document.getElementById('obchat-mic')?.classList.remove('hint');
   if (_oc.stage === 'goal') {
+    _ocExitIntroMode();
     _ocAddUser(text);
     const goal = _ocMatchGoal(text);
     if (goal) {
@@ -10005,7 +10023,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-18-o-sexlabel';
+const RATIO_BUILD = '2026-08-18-p-goalchat';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
