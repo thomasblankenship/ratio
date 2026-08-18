@@ -1356,7 +1356,7 @@
             <span class="plabel">DATE</span>
             <span class="ink" id="workout-date-label" style="border-bottom:1px solid #2a2a2a;padding:0 14px 1px">Today</span>
             <i class="fa-solid fa-chevron-down" id="workout-cal-chevron" style="color:#888;font-size:9px;transition:transform 0.2s"></i>
-            <button type="button" onclick="event.stopPropagation();editPlanDayForDate()" style="background:none;border:none;cursor:pointer;padding:2px 4px"><i class="fa-solid fa-pencil" style="color:#888;font-size:10px"></i></button>
+
             <span style="display:none" id="workout-date-sub"></span>
           </div>
           <button type="button" onclick="wsAddExercise()" style="background:none;border:none;cursor:pointer;padding:2px 4px;font-size:9px;font-weight:700;color:#CFA13C;letter-spacing:0.5px"><i class="fa-solid fa-magnifying-glass" style="font-size:9px"></i> EXERCISE LIBRARY</button>
@@ -5677,6 +5677,7 @@ function switchTab(tab) {
     try { if (typeof savedMeals !== 'undefined' && !savedMeals.length && !savedFoods.length) loadMealsTab(); } catch (e) {}
   }
   if (tab === 'workouts') {
+    try { _wsCenterStripSel(); } catch (e) {}
     resetWorkoutDateToToday();
     loadProgressWorkouts();
     try {
@@ -9632,7 +9633,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-17-p-cardrow';
+const RATIO_BUILD = '2026-08-17-q-wkpolish';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -10429,7 +10430,6 @@ function renderTodayStrength() {
   let invite = '';
   if (isToday && !order.length && !planned.length && !(planDay && planDay.is_rest_day)) {
     invite = `<div class="ws-invite" style="border:1px dashed #999;padding:8px 10px;margin-bottom:6px;text-align:center">
-      <div style="font-size:10px;color:#8a8375;margin-bottom:7px">Nothing planned for today.</div>
       <div style="display:flex;gap:6px">
         <button type="button" class="ws-invite-ghost" onclick="wsAddExercise()" style="flex:1;padding:8px 4px;background:none;border:1px solid #2a2a2a;border-radius:4px;font-size:10px;font-weight:700;color:#2a2a2a;cursor:pointer">\u270e FILL IN MY OWN</button>
         <button type="button" class="ws-invite-solid" onclick="editPlanDayForDate()" style="flex:1;padding:8px 4px;background:#2a2a2a;border:none;border-radius:4px;font-size:10px;font-weight:700;color:#f7f5f0;cursor:pointer">\u2726 HAVE COACH BUILD IT</button>
@@ -10980,7 +10980,10 @@ function _wsSheetPlanBase() {
   const idx = new Date(forDate + 'T12:00:00').getDay();
   const day = (typeof weeklyPlan !== 'undefined' && weeklyPlan[idx]) ? weeklyPlan[idx] : null;
   if (day && day.is_rest_day && (progressSets || []).length) { el.textContent = ''; return; }
-  el.textContent = _wsDaySummary(day);
+  // Same truth chain as the week strip: his note ("Restday") outranks the
+  // plan template - a day with a note is never "Nothing planned".
+  try { el.textContent = _wsStripLabel(forDate, idx).text; }
+  catch (e) { el.textContent = _wsDaySummary(day); }
 }
 
 // Pencil in the sheet header: open THIS weekday's plan editor down in the
@@ -15758,6 +15761,12 @@ async function wsLogSet() {
     wsCloseSet();
     wsRenderSession();
     try { if (typeof loadProgressWorkouts === 'function') loadProgressWorkouts(); } catch (e2) {}
+    // Logged from the Exercise Library? Straight back to the sheet with the
+    // set inked in - no backing out through detail and list (his flow).
+    try {
+      const browse = document.getElementById('tab-workouts-browse');
+      if (browse && browse.style.display !== 'none') switchTab('workouts');
+    } catch (e3) {}
   } catch (e) {
     console.error('[ws] log set failed', e);
     toast('Could not save that set');
