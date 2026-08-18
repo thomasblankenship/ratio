@@ -374,6 +374,10 @@
        so "the mic is ON" is unmissable at arm's length. */
     #vl-wave { display:flex; align-items:center; justify-content:center; gap:2px; height:32px; flex:1; min-width:0; overflow:hidden; }
     #vl-wave span { width:3px; border-radius:2px; background:#CFA13C; height:4px; transition:height 90ms linear; flex-shrink:0; }
+    /* Onboarding mic feedback: same bars, living inside the text box. */
+    #obchat-wave { position:absolute; left:16px; right:16px; top:0; bottom:0; display:none; align-items:center; justify-content:center; gap:2px; overflow:hidden; pointer-events:none; }
+    #obchat-wave span { width:3px; border-radius:2px; background:#CFA13C; height:4px; transition:height 90ms linear; flex-shrink:0; }
+    #obchat-wave.compact { left:auto; right:14px; width:64px; justify-content:flex-end; }
     .vl-wave-btn { width:38px; height:38px; border-radius:50%; border:1px solid var(--line); background:var(--surface-2); color:var(--ink); font-size:15px; cursor:pointer; flex-shrink:0; }
     .vl-wave-btn.ok { background:#CFA13C; border-color:#CFA13C; color:#101512; }
     /* First-screen hint: a soft glow that says "talk to me" without implying
@@ -8609,6 +8613,7 @@ function _ocStopListening() {
   _oc._finishNative = null;
   const btn = document.getElementById('obchat-mic');
   if (btn) btn.classList.remove('listening');
+  _ocWaveStop();
   try { if (_oc.rec) { _oc.rec.stop(); _oc.rec = null; } } catch (e) {}
   // Stop UNCONDITIONALLY. The old code only stopped when _oc.nativeListening
   // said a session was ours, but obStartChat replaces _oc wholesale — so a
@@ -8733,6 +8738,37 @@ async function obChatMicCheck() {
   }
 }
 
+// Same honest waveform as the Voice Log bar, living inside the text box:
+// constant jitter says "mic open", fresh partials drive big excursions. When
+// words start landing in the input, the wave slides to a compact strip on the
+// right so the transcript stays readable — the box shows both "I'm listening"
+// and "here's what I heard" at once.
+let _ocWaveTimer = null;
+function _ocWaveStart() {
+  const box = document.getElementById('obchat-wave');
+  const inp = document.getElementById('obchat-input');
+  if (!box) return;
+  if (!box.childElementCount) for (let i = 0; i < 24; i++) box.appendChild(document.createElement('span'));
+  box.style.display = 'flex';
+  if (inp) inp.placeholder = '';
+  if (_ocWaveTimer) return;
+  _ocWaveTimer = setInterval(() => {
+    const hot = (Date.now() - ((_oc && _oc._lastSpeechAt) || 0)) < 900;
+    const amp = hot ? 24 : 6;
+    for (const bar of box.children) bar.style.height = (3 + Math.random() * amp) + 'px';
+    const hasText = !!(inp && inp.value);
+    box.classList.toggle('compact', hasText);
+    if (inp) inp.style.paddingRight = hasText ? '86px' : '16px';
+  }, 100);
+}
+function _ocWaveStop() {
+  if (_ocWaveTimer) { clearInterval(_ocWaveTimer); _ocWaveTimer = null; }
+  const box = document.getElementById('obchat-wave');
+  if (box) { box.style.display = 'none'; box.classList.remove('compact'); }
+  const inp = document.getElementById('obchat-input');
+  if (inp) { inp.placeholder = 'Type or tap the mic…'; inp.style.paddingRight = '16px'; }
+}
+
 async function obChatMic() {
   if (!_oc || _oc.busy) return;
   document.getElementById('obchat-mic')?.classList.remove('hint');
@@ -8748,6 +8784,7 @@ async function obChatMic() {
   // takes over a second before start() is even called, and during that window
   // the button used to look completely inert.
   if (btn) btn.classList.add('listening');
+  _ocWaveStart();
   const plugin = window.Capacitor?.Plugins?.SpeechRecognition;
   _oc.partial = '';
   _oc.lastInputVoice = true;
@@ -8893,6 +8930,7 @@ async function obChatMic() {
   _oc._lastSpeechAt = 0;
   _oc._listenStartedAt = Date.now();
   btn.classList.add('listening');
+  _ocWaveStart();
   rec.onresult = (ev) => {
     let t = '';
     for (const r of ev.results) t += r[0].transcript;
@@ -9902,7 +9940,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-18-l-preplabels';
+const RATIO_BUILD = '2026-08-18-m-obwave';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -22206,9 +22244,12 @@ if (document.readyState === 'loading') {
   </div>
   <div id="obchat-messages" style="flex:1;overflow-y:auto;padding:16px 18px 8px"></div>
   <div style="flex-shrink:0;padding:10px 14px calc(14px + env(safe-area-inset-bottom));border-top:1px solid var(--line);display:flex;gap:10px;align-items:center">
-    <input id="obchat-input" type="text" placeholder="Type or tap the mic…" autocomplete="off"
-      onkeydown="if(event.key==='Enter')obChatSend()"
-      style="flex:1;padding:13px 16px;border:1px solid var(--line);border-radius:24px;background:var(--bg-deep);color:var(--ink);font-size:15px;outline:none">
+    <div style="flex:1;position:relative;min-width:0">
+      <input id="obchat-input" type="text" placeholder="Type or tap the mic…" autocomplete="off"
+        onkeydown="if(event.key==='Enter')obChatSend()"
+        style="width:100%;box-sizing:border-box;padding:13px 16px;border:1px solid var(--line);border-radius:24px;background:var(--bg-deep);color:var(--ink);font-size:15px;outline:none">
+      <div id="obchat-wave"></div>
+    </div>
     <button id="obchat-send" onclick="obChatSend()" aria-label="Send" style="width:46px;height:46px;border-radius:50%;background:var(--bg-deep);border:1px solid var(--line);color:var(--ink);cursor:pointer;flex-shrink:0"><i class="fa-solid fa-arrow-up"></i></button>
     <button id="obchat-mic" class="obchat-micbtn" onclick="obChatMic()" aria-label="Speak" style="width:46px;height:46px;border-radius:50%;background:var(--gold-tint);border:1px solid #CFA13C;color:#CFA13C;cursor:pointer;flex-shrink:0"><i class="fa-solid fa-microphone"></i></button>
   </div>
