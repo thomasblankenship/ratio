@@ -7532,7 +7532,7 @@ function showAuthTab(tab) {
 const OB_FRONTDESK_ICON = 'app-icon.png';
 // The receptionist. She greets, asks the goal, and hands off to the right
 // coach by name — she never runs the interview herself.
-const OB_LAUREN = { name: 'Lauren', img: 'lauren.jpg' };
+const OB_LAUREN = { name: 'Lauren', img: 'lauren.jpg', headImg: 'lauren-head.png' };
 
 // Full-size character moment in the chat — Lauren at her desk, then the
 // chosen coach's introduction. Scrolls away naturally as the conversation
@@ -8044,15 +8044,34 @@ function _ocSetCoach(key) {
   const img = document.getElementById('obchat-coach-avatar');
   const fb = document.getElementById('obchat-coach-fallback');
   if (!key) {
-    fb.textContent = 'R';
-    img.src = OB_FRONTDESK_ICON;
+    // Lauren is a person you are talking to, so she gets a portrait chip like
+    // the coaches - not the app icon. Wordmark matches the real app header
+    // (.brand-name metrics) and carries NO subtitle: the date line under it
+    // belongs to the dashboard, not to signup.
+    fb.textContent = 'L';
+    img.onerror = null;
+    let laurenHeadTried = !OB_LAUREN.headImg;
+    img.src = OB_LAUREN.headImg || OB_LAUREN.img;
+    img.addEventListener('error', function onErr() {
+      if (!laurenHeadTried) { laurenHeadTried = true; img.src = OB_LAUREN.img; return; }
+      img.removeEventListener('error', onErr);
+      img.style.display = 'none'; fb.style.display = 'flex';
+    });
     img.style.display = 'block';
     img.onload = () => { fb.style.display = 'none'; };
-    img.onerror = () => { img.style.display = 'none'; fb.style.display = 'flex'; };
-    document.getElementById('obchat-coach-name').textContent = 'Ratio Fitness';
-    document.getElementById('obchat-coach-sub').textContent = "Let's get you set up";
+    const nm = document.getElementById('obchat-coach-name');
+    nm.textContent = 'Ratio Fitness';
+    nm.style.cssText = 'font-size:22px;font-weight:700;letter-spacing:-0.5px;color:var(--ink)';
+    const sb = document.getElementById('obchat-coach-sub');
+    sb.textContent = '';
+    sb.style.display = 'none';
     return;
   }
+  // Coach state restores the two-line treatment (name + speciality).
+  const nmEl = document.getElementById('obchat-coach-name');
+  nmEl.style.cssText = 'font-size:16px;font-weight:800;color:var(--ink)';
+  const sbEl = document.getElementById('obchat-coach-sub');
+  sbEl.style.display = 'block';
   const c = OB_COACHES[key];
   fb.textContent = c.initial;
   img.onerror = null;
@@ -10033,7 +10052,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-18-q-ckhints';
+const RATIO_BUILD = '2026-08-18-r-laurenhead';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
