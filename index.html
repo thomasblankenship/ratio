@@ -273,7 +273,7 @@
     .prog-card:last-child, .prog-card.prog-row-last { border-bottom: none; }
     .prog-card-head { flex-direction: column; align-items: flex-start; gap: 8px; padding: 14px 12px 30px; position: relative; min-height: 96px; box-sizing: border-box; }
     .prog-card-icon { font-size: 22px !important; width: auto !important; }
-    .prog-card-title { display: block; font-size: 14px; font-weight: 800; margin-top: 2px; color: #CFA13C; }
+    .prog-card-title { display: block; font-size: 14px; font-weight: 800; margin-top: 2px; }
     .prog-card-sub { display: block !important; font-size: 10.5px; color: var(--muted); margin-top: 3px; line-height: 1.4; }
     .prog-card-head .prog-chev, .prog-card-head > i:last-child { position: absolute; bottom: 12px; right: 12px; }
     /* Closed cards read as list tiles (his mock): icon and title share the
@@ -292,7 +292,7 @@
     .prog-card-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; cursor: pointer; gap: 12px; }
     .prog-card-head > span { display: flex; align-items: center; gap: 12px; min-width: 0; }
     .prog-card-icon { width: 20px; text-align: center; color: #CFA13C; font-size: 15px; flex-shrink: 0; }
-    .prog-card-title { font-size: 15px; font-weight: 500; color: var(--ink); }
+    .prog-card-title { font-size: 15px; font-weight: 500; color: #CFA13C; }
     .prog-card-sub { font-size: 12px; color: var(--muted); margin-top: 3px; }
     .prog-card-chev { color: #CFA13C; font-size: 13px; flex-shrink: 0; display: inline-block; transition: transform 0.15s; }
     .prog-card-body { display: none; padding: 0 16px 14px; }
@@ -9638,7 +9638,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-17-t-preppage';
+const RATIO_BUILD = '2026-08-17-u-titlegold';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
