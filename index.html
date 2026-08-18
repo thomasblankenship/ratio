@@ -399,6 +399,9 @@
     .ob-ck-ex { font-size:11.5px; color:var(--muted); font-style:italic; margin-top:10px; line-height:1.5; border-top:1px dashed rgba(207,161,60,0.25); padding-top:8px; }
     .ob-ck-ex b { color:var(--ink); font-style:normal; }
     .ob-ck-alt { font-size:11px; color:#CFA13C; margin-top:8px; cursor:pointer; font-weight:700; }
+    .ob-ck-hint { display:block; font-size:9.5px; color:var(--muted); font-weight:400; margin-top:1px; line-height:1.3; }
+    .ob-ck-it { align-items:flex-start; }
+    .ob-ck-it .ob-ck-box { margin-top:1px; }
 
     .vl-fab { position: fixed; right: 18px; bottom: 90px; width: 56px; height: 56px; border-radius: 50%; background: #CFA13C; border: none; box-shadow: 0 4px 14px rgba(207,161,60,0.4); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 300; }
     /* The app renders as a centered 520px column, but position:fixed anchors
@@ -8481,6 +8484,13 @@ function _ocMissing() {
 // things exceeds what anyone holds in their head mid-sentence; a pinned card
 // with one example sentence to mimic gets the whole thing in one breath.
 const OC_FIELD_LABELS = { gender: 'Biological sex', age: 'Age', height_ft: 'Height', weight_lb: 'Current weight', goal_weight_lb: 'Goal weight', activity: 'Activity level', pace: 'Weekly pace' };
+// The two invented terms get plain-English hints right on the card - if the
+// app's own creator needed them defined mid-interview, everyone will.
+function _ocFieldHint(k) {
+  if (k === 'activity') return 'desk job? on your feet? training days?';
+  if (k === 'pace') return _obGoalType === 'muscle_gain' ? 'how fast \u2014 like \u00bd lb a week' : 'how fast \u2014 like 1 lb a week';
+  return '';
+}
 
 function _ocExampleLine() {
   if (_obGoalType === 'maintain') return '“I\u2019m a 38-year-old woman, five-six, 140 pounds — on my feet a lot and I train four days a week.”';
@@ -8492,7 +8502,7 @@ function _ocAddChecklist() {
   const box = document.getElementById('obchat-messages');
   if (!box || document.getElementById('obchat-checklist')) return;
   const req = OC_REQUIRED();
-  const items = req.map(k => `<div class="ob-ck-it" id="ob-ck-${k}"><span class="ob-ck-box"></span><span class="ob-ck-lbl">${OC_FIELD_LABELS[k] || k}</span></div>`).join('');
+  const items = req.map(k => { const h = _ocFieldHint(k); return `<div class="ob-ck-it" id="ob-ck-${k}"><span class="ob-ck-box"></span><span class="ob-ck-lbl">${OC_FIELD_LABELS[k] || k}${h ? `<span class=\"ob-ck-hint\">${h}</span>` : ''}</span></div>`; }).join('');
   const div = document.createElement('div');
   div.id = 'obchat-checklist';
   div.className = 'ob-ck';
@@ -10023,7 +10033,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-18-p-goalchat';
+const RATIO_BUILD = '2026-08-18-q-ckhints';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
