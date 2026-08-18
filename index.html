@@ -673,6 +673,21 @@
 
     </div>
 
+    <!-- ADMIN (owners only - the worker enforces the allow-list) -->
+    <div id="tab-profile-admin" style="display:none">
+      <div class="content">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+          <button onclick="switchTab('profile-settings')" style="width:34px;height:34px;border-radius:50%;background:var(--surface);border:1px solid var(--line);color:var(--ink);font-size:16px;cursor:pointer">‹</button>
+          <div style="font-size:18px;font-weight:800">Admin</div>
+          <button onclick="renderAdmin()" style="margin-left:auto;background:var(--accent);color:#101512;border:none;border-radius:14px;padding:7px 12px;font-size:11px;font-weight:800;cursor:pointer">↻ Refresh</button>
+        </div>
+        <div id="admin-summary" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:8px"></div>
+        <div id="admin-spend" style="margin-bottom:14px"></div>
+        <div id="admin-users-head" style="font-size:10px;font-weight:800;letter-spacing:0.8px;color:#CFA13C;margin:4px 2px 6px"></div>
+        <div id="admin-users"></div>
+      </div>
+    </div>
+
     <!-- TODAY -->
     <div id="tab-today">
       <!-- TODAY HEADER + CALENDAR DROPDOWN TOGGLE -->
@@ -1848,6 +1863,10 @@
         <div class="mp-row qa-only" onclick="sendTestTodoNotification()">
           <div class="mp-row-label">Test Reminder</div>
           <div class="mp-row-value" style="color:#CFA13C">Send in 10s</div>
+        </div>
+        <div class="mp-row" id="settings-admin-row" onclick="openAdmin()" style="display:none">
+          <div class="mp-row-label">Admin</div>
+          <div class="mp-row-value" style="color:#CFA13C">Users &amp; usage ›</div>
         </div>
         <div class="mp-row" style="cursor:default">
           <div class="mp-row-label">Feature Announcements</div>
@@ -5657,7 +5676,7 @@ function switchTab(tab) {
   // Idempotent and a no-op on iOS; cheapest place to guarantee the web-disabled
   // states are applied no matter which screen the user reaches first.
   applyPlatformUI();
-  ['today','meals','meals-foods','meals-meals','meals-ideas','meals-prep','workouts','workouts-browse','workouts-plan','progress','photos','aicoach','shopping','todo','profile','profile-myprofile','profile-settings','profile-appearance','profile-allergies','profile-devices','profile-targets','profile-report','profile-privacy','profile-help','profile-tos','profile-privacy-policy','voicelog'].forEach(t => {
+  ['today','meals','meals-foods','meals-meals','meals-ideas','meals-prep','workouts','workouts-browse','workouts-plan','progress','photos','aicoach','shopping','todo','profile','profile-myprofile','profile-settings','profile-admin','profile-appearance','profile-allergies','profile-devices','profile-targets','profile-report','profile-privacy','profile-help','profile-tos','profile-privacy-policy','voicelog'].forEach(t => {
     document.getElementById(`tab-${t}`).style.display = t === tab ? 'block' : 'none';
   });
   document.querySelectorAll('.bottom-nav-btn[data-tab]').forEach(btn => {
@@ -9591,6 +9610,103 @@ function applyPlatformUI() {
 //
 // This is NOT a security boundary — it only decides what UI is shown. Nothing
 // here grants access to anyone else's data.
+// Client-side mirror of the worker's allow-list. This only decides whether
+// the Settings row is VISIBLE - the worker re-checks the verified JWT on
+// /admin/stats, so a curious user editing this list gets a 403, not data.
+const ADMIN_USER_IDS = [
+  '2a9cb3ab-1555-4b1d-b832-171ff650e613', // Semmes
+  // wife's ID goes here when assigned
+];
+
+function _adminMaybeShowRow() {
+  const row = document.getElementById('settings-admin-row');
+  if (row) row.style.display = (_currentUser && ADMIN_USER_IDS.includes(_currentUser.id)) ? '' : 'none';
+}
+
+// ---- launch heartbeat: one user_activity row per day, session-aware.
+// A "session" = first beat after 30+ minutes away. Writes are throttled
+// to one per 5 minutes so backgrounding/foregrounding stays cheap.
+async function _adminHeartbeat() {
+  try {
+    if (!_currentUser || !_authToken) return;
+    const now = Date.now();
+    const last = +localStorage.getItem('hb_last') || 0;
+    const newSession = (now - last) > 30 * 60 * 1000;
+    if (!newSession && (now - last) < 5 * 60 * 1000) return;
+    localStorage.setItem('hb_last', String(now));
+    const d = new Date();
+    const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const platform = (window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform()) ? 'ios' : 'web';
+    const headers = { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${_authToken}`, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' };
+    const q = `user_id=eq.${_currentUser.id}&day=eq.${day}`;
+    const getRes = await fetch(`${SUPABASE_URL}/rest/v1/user_activity?${q}&select=session_count`, { headers });
+    const rows = getRes.ok ? await getRes.json() : [];
+    if (rows.length) {
+      const body = { last_seen: new Date().toISOString(), platform, app_version: RATIO_BUILD };
+      if (newSession) body.session_count = (rows[0].session_count || 0) + 1;
+      await fetch(`${SUPABASE_URL}/rest/v1/user_activity?${q}`, { method: 'PATCH', headers, body: JSON.stringify(body) });
+    } else {
+      await fetch(`${SUPABASE_URL}/rest/v1/user_activity`, { method: 'POST', headers, body: JSON.stringify({ user_id: _currentUser.id, day, platform, app_version: RATIO_BUILD }) });
+    }
+  } catch (e) {}
+}
+
+function openAdmin() {
+  switchTab('profile-admin');
+  renderAdmin();
+}
+
+function _adminAgo(iso) {
+  if (!iso) return { text: 'never', cls: 'stale' };
+  const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+  if (mins < 10) return { text: '● ' + (mins <= 1 ? 'now' : mins + ' min ago'), cls: 'live' };
+  if (mins < 60) return { text: mins + ' min ago', cls: 'today' };
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return { text: hrs + 'h ago', cls: 'today' };
+  const days = Math.round(hrs / 24);
+  if (days === 1) return { text: 'Yesterday', cls: 'today' };
+  if (days <= 7) return { text: days + ' days ago', cls: 'today' };
+  return { text: days + ' days ago', cls: 'stale' };
+}
+
+async function renderAdmin() {
+  const sEl = document.getElementById('admin-summary');
+  const uEl = document.getElementById('admin-users');
+  if (!sEl || !uEl) return;
+  sEl.innerHTML = '<div style="grid-column:1/-1;color:var(--muted);font-size:12px;padding:8px 2px">Loading…</div>';
+  let data = null;
+  try {
+    const r = await fetch(`${WORKER_URL}/admin/stats`);
+    if (r.status === 403) { sEl.innerHTML = '<div style="grid-column:1/-1;color:var(--muted);font-size:12px">Not authorized.</div>'; uEl.innerHTML = ''; return; }
+    if (r.ok) data = await r.json();
+  } catch (e) {}
+  if (!data) { sEl.innerHTML = '<div style="grid-column:1/-1;color:var(--muted);font-size:12px">Could not load stats — check connection and worker build.</div>'; return; }
+
+  const stat = (v, k) => `<div style="background:linear-gradient(160deg,var(--gold-tint),var(--gold-tint-2));border:1px solid var(--gold-line);border-radius:14px;padding:10px 6px;text-align:center"><div style="font-size:17px;font-weight:800;color:#CFA13C">${v}</div><div style="font-size:8.5px;color:var(--muted);font-weight:700;letter-spacing:0.5px;margin-top:2px">${k}</div></div>`;
+  sEl.innerHTML = stat(data.summary.dau, 'TODAY (DAU)') + stat(data.summary.wau, '7-DAY (WAU)') + stat(data.summary.mau, '30-DAY (MAU)') + stat(data.summary.stickiness + '%', 'STICKINESS');
+  document.getElementById('admin-spend').innerHTML =
+    `<div style="background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center">` +
+    `<span style="font-size:11px;color:var(--muted);font-weight:700">AI SPEND · 30 DAYS</span><span style="font-size:15px;font-weight:800;color:#CFA13C">$${(data.summary.monthCostUsd || 0).toFixed(2)}</span>` +
+    `<span style="font-size:11px;color:var(--muted);font-weight:700">CALLS</span><span style="font-size:15px;font-weight:800;color:#CFA13C">${data.summary.monthCalls || 0}</span></div>`;
+  document.getElementById('admin-users-head').textContent = `USERS · ${data.summary.totalUsers} · SORTED BY LAST SEEN`;
+
+  const colors = { live: '#7fc98a', today: 'var(--ink)', stale: '#e07777' };
+  uEl.innerHTML = (data.users || []).map(u => {
+    const ago = _adminAgo(u.lastSeen);
+    const joined = u.joined ? new Date(u.joined).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }) : '?';
+    return `<div style="background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:11px 12px;margin-bottom:8px">` +
+      `<div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:14px;font-weight:700">${u.username}</span><span style="font-size:10.5px;color:${colors[ago.cls]}">${ago.text}</span></div>` +
+      `<div style="display:flex;gap:12px;margin-top:5px;font-size:10.5px;color:var(--muted);flex-wrap:wrap">` +
+      `<span>Logins 7d: <b style="color:var(--ink)">${u.logins7}</b></span>` +
+      `<span>Meals: <b style="color:var(--ink)">${u.meals}</b></span>` +
+      `<span>Workouts: <b style="color:var(--ink)">${u.workouts}</b></span>` +
+      `<span>AI 30d: <b style="color:var(--ink)">${u.aiCalls30}</b></span>` +
+      `<span style="color:#CFA13C;font-weight:800">$${(u.aiCost30 || 0).toFixed(2)}</span></div>` +
+      `<div style="display:flex;gap:12px;margin-top:3px;font-size:10.5px;color:var(--muted)"><span>Joined ${joined}</span><span>${u.platform || '?'} · ${u.appVersion || 'pre-tracking'}</span></div>` +
+      `</div>`;
+  }).join('') || '<div style="color:var(--muted);font-size:12px">No users yet.</div>';
+}
+
 const QA_USER_IDS = [
   // Uncomment to switch debug tools back on for that account. No other change
   // is needed anywhere — the console and the QA rows both key off this list.
@@ -9638,7 +9754,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-17-u-titlegold';
+const RATIO_BUILD = '2026-08-18-a-admin';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -21522,6 +21638,7 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') {
     _appHiddenAt = Date.now();
   } else if (document.visibilityState === 'visible') {
+    try { _adminHeartbeat(); } catch (e) {}
     const away = _appHiddenAt ? Date.now() - _appHiddenAt : 0;
     _appHiddenAt = null;
     if (away >= RESUME_RESET_MS) { resetToTodayHome(); return; }
@@ -21535,6 +21652,11 @@ document.addEventListener('visibilitychange', () => {
 });
 
 // ===== SUSPENSION DETECTION — every wake signal feeds ONE check =====
+// Boot heartbeat: waits out session restore, then stamps today's activity
+// row and reveals the Admin row for allow-listed accounts.
+setTimeout(() => { try { _adminHeartbeat(); _adminMaybeShowRow(); } catch (e) {} }, 4000);
+setTimeout(() => { try { _adminMaybeShowRow(); } catch (e) {} }, 12000);
+
 // History of this bug: visibilitychange alone missed (iOS doesn't reliably
 // deliver it to WKWebView on background/foreground), and a heartbeat alone is
 // too SLOW — it fires up to 15s after resume, so the user reopens, sees the
