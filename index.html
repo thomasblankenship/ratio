@@ -837,16 +837,21 @@
                and the giant duplicate below the list just pushed content up. -->
         </div>
         <div id="meal-form" style="display:none;margin-top:12px;background:var(--bg-deep);border-radius:12px;padding:14px">
-          <!-- Quick lookup buttons -->
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
-            <button onclick="openBarcodeScannerForMeal()" style="background:var(--accent);color:#101512;border:none;border-radius:8px;padding:10px;font-size:12px;font-weight:600;cursor:pointer">📷 Scan Barcode</button>
-            <button onclick="openLabelModalForMeal()" style="background:var(--accent);color:#101512;border:none;border-radius:8px;padding:10px;font-size:12px;font-weight:600;cursor:pointer">🏷️ Photo Label</button>
-          </div>
+          <!-- Quick lookup: search + icon scanners, matched to the Meals hub -->
           <div class="form-group" style="position:relative;margin-bottom:4px">
-            <input type="text" id="meal-name" placeholder="Search my foods, meals, or database..." autocomplete="off"
-              oninput="dashMealSearch(this.value)" onblur="setTimeout(()=>{ document.getElementById('dash-meal-results').style.display='none'; },400)" />
+            <div style="display:flex;gap:8px;height:46px">
+              <input type="text" id="meal-name" placeholder="Search my foods, meals, or database..." autocomplete="off"
+                style="flex:1 1 0%;min-width:0;height:100%;padding:12px;border:1px solid var(--line);border-radius:12px;font-size:16px;outline:none;box-sizing:border-box"
+                oninput="dashMealSearch(this.value)" onblur="setTimeout(()=>{ document.getElementById('dash-meal-results').style.display='none'; },400)" />
+              <button type="button" onclick="openBarcodeScannerForMeal()" aria-label="Scan barcode" style="width:46px;border-radius:12px;background:var(--surface);border:1px solid var(--line);color:#CFA13C;font-size:17px;cursor:pointer;flex-shrink:0"><i class="fa-solid fa-barcode"></i></button>
+              <button type="button" onclick="openLabelModalForMeal()" aria-label="Photo nutrition label" style="width:46px;border-radius:12px;background:var(--accent);border:none;color:#101512;font-size:16px;cursor:pointer;flex-shrink:0"><i class="fa-solid fa-camera"></i></button>
+            </div>
             <div id="dash-meal-results" onmousedown="event.preventDefault()"
               style="display:none;position:absolute;left:0;right:0;top:100%;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.1);z-index:200;max-height:280px;overflow-y:auto;-webkit-overflow-scrolling:touch;margin-top:4px"></div>
+          </div>
+          <div id="dash-recent-wrap" style="display:none;margin-bottom:8px">
+            <div style="font-size:10px;font-weight:800;letter-spacing:0.8px;color:#CFA13C;margin:2px 2px 6px">QUICK LOG</div>
+            <div id="dash-recent-chips" style="display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch"></div>
           </div>
           <div style="text-align:center;font-size:11px;color:var(--muted);margin-bottom:10px">— or type a new name above and fill in below —</div>
           <div class="form-group">
@@ -9808,7 +9813,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-18-f-todaycompact';
+const RATIO_BUILD = '2026-08-18-h-sheetchips';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -14099,16 +14104,25 @@ async function loadRecentChips() {
       for (const [t, n] of Object.entries(e.types)) { if (t && t !== 'undefined' && n > bestN) { best = t; bestN = n; } }
       return { ...e.row, usualType: best || e.row.meal_type || 'snack' };
     });
+    // One chip-maker feeds BOTH homes: the Meals hub and the dash log sheet.
+    const chipHtml = (fn) => _recentChipRows.map((r, i) =>
+      `<button type="button" onclick="${fn}(${i})" style="flex-shrink:0;display:flex;align-items:center;gap:5px;max-width:210px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:7px 12px;font-size:12px;color:var(--ink);cursor:pointer"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0">${_weEscHtml(r.name)}</span><span style="color:var(--muted);font-size:10px;flex-shrink:0">${Math.round(r.calories || 0)}</span></button>`
+    ).join('');
     const wrap = document.getElementById('meals-recent-wrap');
     const box = document.getElementById('meals-recent-chips');
-    if (!wrap || !box) return;
-    if (!_recentChipRows.length) { wrap.style.display = 'none'; return; }
-    wrap.style.display = 'block';
-    // Long recipe names ellipsize - it's a recent item, the start of the
-    // name is enough to recognize it.
-    box.innerHTML = _recentChipRows.map((r, i) =>
-      `<button type="button" onclick="recentChipTap(${i})" style="flex-shrink:0;display:flex;align-items:center;gap:5px;max-width:210px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:7px 12px;font-size:12px;color:var(--ink);cursor:pointer"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0">${_weEscHtml(r.name)}</span><span style="color:var(--muted);font-size:10px;flex-shrink:0">${Math.round(r.calories || 0)}</span></button>`
-    ).join('');
+    if (wrap && box) {
+      if (!_recentChipRows.length) { wrap.style.display = 'none'; }
+      else { wrap.style.display = 'block'; box.innerHTML = chipHtml('recentChipTap'); }
+    }
+    // Same chips inside the dash log sheet (his call: no tab switch for a
+    // quick log). Tap routes through _searchPick, so a chip behaves exactly
+    // like choosing that item from the search results below it.
+    const dWrap = document.getElementById('dash-recent-wrap');
+    const dBox = document.getElementById('dash-recent-chips');
+    if (dWrap && dBox) {
+      if (!_recentChipRows.length) { dWrap.style.display = 'none'; }
+      else { dWrap.style.display = 'block'; dBox.innerHTML = chipHtml('dashChipTap'); }
+    }
   } catch (e) { console.error('[meals] recent chips failed', e); }
 }
 
@@ -14125,6 +14139,21 @@ function recentChipTap(i) {
   const sf = (typeof savedFoods !== 'undefined' ? savedFoods : []).find(f => (f.name || '').trim().toLowerCase() === nm);
   if (sf) { openFoodModal(sf.id); return; }
   qlOpen(r);
+}
+
+// Chip tap from INSIDE the dash log sheet. Routes through _searchPick('dash')
+// - the exact function a search-result tap uses - so the target day is
+// stamped explicitly (logDate contract) and the selected meal pill carries
+// into the confirm view. Saved meal > saved food > flat-macros fallback.
+function dashChipTap(i) {
+  const r = _recentChipRows[i];
+  if (!r) return;
+  const nm = (r.name || '').trim().toLowerCase();
+  const sm = (typeof savedMeals !== 'undefined' ? savedMeals : []).find(m => (m.name || '').trim().toLowerCase() === nm);
+  if (sm) { _searchPick(_dashCache({ mealId: sm.id }), 'dash'); return; }
+  const sf = (typeof savedFoods !== 'undefined' ? savedFoods : []).find(f => (f.name || '').trim().toLowerCase() === nm);
+  if (sf) { _searchPick(_dashCache({ savedFoodId: sf.id }), 'dash'); return; }
+  _searchPick(_dashCache({ name: r.name, cals: r.calories, protein: r.protein, carbs: r.carbs, fat: r.fat, fiber: r.fiber || 0, chol: r.cholesterol || 0 }), 'dash');
 }
 
 let _qlRow = null;
