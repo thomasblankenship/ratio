@@ -10095,7 +10095,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-18-x-goalexamples';
+const RATIO_BUILD = '2026-08-18-y-pasterecipe';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -15497,7 +15497,90 @@ function mbAddManual() {
   mbUpdateTotals();
 }
 
+// The paste tab exists because most home recipes live in a notes app, not on
+// a website. Share -> Copy -> paste here is the shortest real path until a
+// native iOS share extension exists.
+let _impTab = 'url';
+function impSetTab(tab) {
+  _impTab = tab;
+  const on = 'flex:1;padding:9px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;background:var(--accent);color:#101512;border:none';
+  const off = 'flex:1;padding:9px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;background:var(--surface-2);color:var(--ink);border:1px solid var(--line)';
+  document.getElementById('imp-tab-url').style.cssText = tab === 'url' ? on : off;
+  document.getElementById('imp-tab-text').style.cssText = tab === 'text' ? on : off;
+  document.getElementById('imp-pane-url').style.display = tab === 'url' ? 'block' : 'none';
+  document.getElementById('imp-pane-text').style.display = tab === 'text' ? 'block' : 'none';
+  document.getElementById('url-import-result').style.display = 'none';
+  document.getElementById('url-import-status').style.display = 'none';
+  const btn = document.getElementById('url-import-btn');
+  btn.textContent = 'Import';
+  btn.disabled = false;
+  btn.onclick = tab === 'url' ? urlImportFetch : textImportFetch;
+}
+
+async function textImportFetch() {
+  const text = (document.getElementById('text-import-input').value || '').trim();
+  if (text.length < 12) { toast('Paste the recipe first'); return; }
+  const statusEl = document.getElementById('url-import-status');
+  const btn = document.getElementById('url-import-btn');
+  statusEl.textContent = 'Reading your recipe\u2026';
+  statusEl.style.display = 'block';
+  btn.textContent = 'Loading...';
+  btn.disabled = true;
+  try {
+    if (!savedFoods || !savedFoods.length) {
+      try { savedFoods = await dbGet('saved_foods', 'order=name.asc') || []; } catch (e) {}
+    }
+    const res = await fetch(`${WORKER_URL}/recipe-text`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text,
+        // Your own foods win over the generic database when they match.
+        savedFoods: (savedFoods || []).slice(0, 150).map(f => ({
+          name: f.name, unit: f.unit,
+          calories: f.cals_per_unit || f.calories_per_unit || 0,
+          protein: f.protein_per_unit, carbs: f.carbs_per_unit, fat: f.fat_per_unit,
+          fiber: f.fiber_per_unit, cholesterol: f.cholesterol_per_unit
+        }))
+      })
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    document.getElementById('url-import-meal-name').textContent = data.name || 'Imported Recipe';
+    document.getElementById('url-import-macros').textContent = nutritionMetaString(data, { perUnit: 'serving' });
+    const mine = (data.ingredients || []).filter(i => i.from_my_foods).length;
+    const rows = (data.ingredients || []).map(i => {
+      const badge = i.from_my_foods ? ' <span style="color:#CFA13C;font-weight:700">\u2713 your food</span>' : '';
+      const note = i.assumed ? ` <span style="color:#CFA13C">(${_weEscHtml(i.note || 'assumed')})</span>` : '';
+      return `<div>\u2022 ${_weEscHtml(i.name)}${i.amount ? ' \u2014 ' + _weEscHtml(i.amount) : ''}${badge}${note}</div>`;
+    }).join('');
+    const confirm = (data.needs_confirmation || []).length
+      ? `<div style="margin-top:10px;background:var(--gold-tint);border:1px dashed var(--gold-line);border-radius:10px;padding:10px;color:var(--ink);font-size:12.5px;line-height:1.6">
+           <b style="color:#CFA13C">Check these amounts</b><br>${(data.needs_confirmation || []).map(c => '\u2022 ' + _weEscHtml(c)).join('<br>')}
+           <div style="color:var(--muted);margin-top:6px">You can fix them on the next screen.</div>
+         </div>`
+      : '';
+    const mineLine = mine ? `<div style="margin-top:8px;color:#CFA13C;font-size:12px">Matched ${mine} ingredient${mine === 1 ? '' : 's'} to your saved foods</div>` : '';
+    document.getElementById('url-import-ingredients').innerHTML = rows + mineLine + confirm +
+      (data.instructions?.length ? `<div style="margin-top:10px;color:#CFA13C;font-weight:600">\ud83d\udccb ${data.instructions.length} step${data.instructions.length !== 1 ? 's' : ''} \u2014 editable next</div>` : '');
+    document.getElementById('url-import-result').style.display = 'block';
+    statusEl.textContent = `Makes ${data.servings || 1} serving${(data.servings || 1) === 1 ? '' : 's'} \u2014 change that and any amounts on the next screen.`;
+    btn.textContent = 'Continue \u2192';
+    btn.disabled = false;
+    btn.onclick = () => urlImportSave(data);
+  } catch (e) {
+    console.error('[textImportFetch]', e);
+    statusEl.textContent = e.message && e.message !== 'Failed to fetch' ? e.message : 'Could not read that recipe \u2014 try again.';
+    btn.textContent = 'Try Again';
+    btn.disabled = false;
+    btn.onclick = textImportFetch;
+  }
+}
+
 function openUrlImport() {
+  const ta = document.getElementById('text-import-input');
+  if (ta) ta.value = '';
+  impSetTab('url');
   document.getElementById('url-import-input').value = '';
   document.getElementById('url-import-status').style.display = 'none';
   document.getElementById('url-import-result').style.display = 'none';
@@ -23304,10 +23387,21 @@ if (document.readyState === 'loading') {
 <!-- URL RECIPE IMPORT MODAL -->
 <div id="url-import-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:900;align-items:flex-end;justify-content:center">
   <div style="background:var(--surface);border-radius:20px 20px 0 0;padding:24px 20px 40px;width:100%;max-width:480px;max-height:88vh;overflow-y:auto;box-sizing:border-box">
-    <div style="font-size:16px;font-weight:700;margin-bottom:6px">Import Recipe from URL</div>
-    <div style="font-size:13px;color:var(--muted);margin-bottom:16px">Paste a recipe URL and we'll extract the ingredients and nutrition info.</div>
-    <input type="url" id="url-import-input" placeholder="https://..." inputmode="url"
-      style="width:100%;padding:12px 14px;border:1.5px solid var(--line);border-radius:10px;font-size:16px;outline:none;box-sizing:border-box;margin-bottom:10px" />
+    <div style="font-size:16px;font-weight:700;margin-bottom:10px">Import a Recipe</div>
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <button type="button" id="imp-tab-url" onclick="impSetTab('url')" style="flex:1;padding:9px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;background:var(--accent);color:#101512;border:none">\ud83d\udd17 From a link</button>
+      <button type="button" id="imp-tab-text" onclick="impSetTab('text')" style="flex:1;padding:9px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;background:var(--surface-2);color:var(--ink);border:1px solid var(--line)">\ud83d\udcdd Paste it</button>
+    </div>
+    <div id="imp-pane-url">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:12px">Paste a recipe URL and we'll extract the ingredients and nutrition info.</div>
+      <input type="url" id="url-import-input" placeholder="https://..." inputmode="url"
+        style="width:100%;padding:12px 14px;border:1.5px solid var(--line);border-radius:10px;font-size:16px;outline:none;box-sizing:border-box;margin-bottom:10px" />
+    </div>
+    <div id="imp-pane-text" style="display:none">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:12px">Paste any recipe \u2014 from your Notes app, a text, a screenshot you typed out. Amounts help, but we'll ask about anything that's missing.</div>
+      <textarea id="text-import-input" rows="8" placeholder="Salsa verde shredded chicken&#10;&#10;2 lbs thin chicken&#10;1/2 jar (16 oz) salsa verde&#10;4 limes&#10;cilantro, cumin, salt&#10;&#10;Season chicken, pour salsa, cook 4 hours on high, shred."
+        style="width:100%;padding:12px 14px;border:1.5px solid var(--line);border-radius:10px;font-size:15px;line-height:1.5;outline:none;box-sizing:border-box;margin-bottom:10px;resize:vertical;background:var(--bg-deep);color:var(--ink);font-family:inherit"></textarea>
+    </div>
     <div id="url-import-status" style="font-size:13px;color:var(--muted);margin-bottom:12px;display:none"></div>
     <div id="url-import-result" style="display:none;background:var(--surface);border-radius:12px;padding:14px;margin-bottom:14px">
       <div id="url-import-meal-name" style="font-size:15px;font-weight:700;margin-bottom:6px"></div>
