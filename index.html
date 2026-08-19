@@ -8567,6 +8567,26 @@ function _ocExampleLine() {
 //   lean = weight x (1 - bf/100)      goal = lean / (1 - goalBf/100)
 // Real cuts shed a little lean tissue, so the true landing spot is usually a
 // pound or two under this - fine for a progress marker, and editable later.
+// Rough body-fat estimate from height, weight, age and sex (Deurenberg).
+// Sex is the single largest term - which is why the coach asks for it before
+// promising an estimate. Accuracy is roughly +/-4-5 percentage points, so this
+// is ONLY ever used to place a goal-weight marker and is always spoken as an
+// estimate. It is deliberately NOT saved as their measured body fat: inventing
+// a data point they never measured would poison their own progress history.
+function _ocEstimateBodyFat(f) {
+  const w = parseFloat(f.weight_lb), age = parseFloat(f.age);
+  const ft = parseFloat(f.height_ft), inch = parseFloat(f.height_in ?? 0);
+  const male = f.gender === 'male', female = f.gender === 'female';
+  if (!(w > 0) || !(age >= 18) || !(ft > 0) || (!male && !female)) return null;
+  const inches = ft * 12 + (isFinite(inch) ? inch : 0);
+  if (!(inches > 40)) return null;
+  const bmi = 703 * w / (inches * inches);
+  if (!(bmi > 10) || bmi > 70) return null;
+  const bf = 1.20 * bmi + 0.23 * age - 10.8 * (male ? 1 : 0) - 5.4;
+  if (!(bf > 3) || bf > 60) return null;
+  return Math.round(bf);
+}
+
 function _ocDeriveGoalWeight(f) {
   const w = parseFloat(f.weight_lb), bf = parseFloat(f.body_fat_pct), gbf = parseFloat(f.goal_body_fat_pct);
   if (!(w > 0) || !(bf > 0) || !(gbf > 0)) return null;
@@ -8581,10 +8601,30 @@ function _ocDeriveGoalWeight(f) {
 function _ocFillDerivedGoalWeight() {
   if (!_oc || !_oc.fields) return;
   if (_oc.fields.goal_weight_lb !== undefined && _oc.fields.goal_weight_lb !== null) return;
-  const gw = _ocDeriveGoalWeight(_oc.fields);
+  const f = _oc.fields;
+  // They gave a body-fat TARGET but do not know where they are today: estimate
+  // the starting point rather than dead-ending them. Kept out of f.body_fat_pct
+  // on purpose - a guess must never masquerade as a measurement.
+  let usedEstimate = false;
+  let src = f;
+  if (f.goal_body_fat_pct !== undefined && f.body_fat_pct === undefined) {
+    const est = _ocEstimateBodyFat(f);
+    if (est == null) return;
+    src = Object.assign({}, f, { body_fat_pct: est });
+    usedEstimate = true;
+    _oc.bfEstimate = est;
+  }
+  const gw = _ocDeriveGoalWeight(src);
   if (gw == null) return;
   _oc.fields.goal_weight_lb = gw;
   _oc.goalWeightDerived = true;
+  _oc.goalWeightFromEstimate = usedEstimate;
+  // Say it out loud, once. A number nobody typed has to explain where it came
+  // from, and this one rests on an estimate - so it says "roughly".
+  if (usedEstimate && !_oc.bfEstimateAnnounced) {
+    _oc.bfEstimateAnnounced = true;
+    _ocAddBot(`From your height, weight and age you're roughly ${_oc.bfEstimate}% body fat right now \u2014 that puts ${f.goal_body_fat_pct}% at about ${gw} lb. It's an estimate, not a measurement, so change either one whenever you get a real reading.`, { silent: false });
+  }
 }
 
 // ---- FORCED CHOICE ----
@@ -8699,7 +8739,7 @@ function _ocRenderCard() {
   if (f.age !== undefined) rows.push(`Age: <b>${f.age}</b>`);
   if (f.height_ft !== undefined) rows.push(`Height: <b>${f.height_ft}'${f.height_in ?? 0}"</b>`);
   if (f.weight_lb !== undefined) rows.push(`Weight: <b>${f.weight_lb} lb</b>`);
-  if (f.goal_weight_lb !== undefined) rows.push(`Goal: <b>${f.goal_weight_lb} lb</b>` + (_oc.goalWeightDerived ? ` <span style="color:var(--muted);font-weight:400">(from ${f.goal_body_fat_pct}% body fat)</span>` : ''));
+  if (f.goal_weight_lb !== undefined) rows.push(`Goal: <b>${f.goal_weight_lb} lb</b>` + (_oc.goalWeightDerived ? ` <span style="color:var(--muted);font-weight:400">(from ${f.goal_body_fat_pct}% body fat${_oc.goalWeightFromEstimate ? `, est. ${_oc.bfEstimate}% now` : ''})</span>` : ''));
   if (f.body_fat_pct !== undefined) rows.push(`Body fat: <b>${f.body_fat_pct}%</b>`);
   if (f.activity) rows.push(`Activity: <b>${f.activity}</b>`);
   if (f.pace && f.pace !== 'maintain') rows.push(`Pace: <b>${f.pace.replace('lose_05','0.5 lb/wk').replace('lose_15','1.5 lb/wk').replace('lose_1','1 lb/wk').replace('lose_2','2 lb/wk').replace('gain_025','0.25 lb/wk').replace('gain_05','0.5 lb/wk').replace('gain_1','1 lb/wk')}</b>`);
@@ -10231,7 +10271,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-19-h-goalfrombf';
+const RATIO_BUILD = '2026-08-19-i-bfestimate';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
