@@ -8532,10 +8532,11 @@ function _ocMissing() {
 // ---- Interview checklist: the visible answer key. A spoken list of seven
 // things exceeds what anyone holds in their head mid-sentence; a pinned card
 // with one example sentence to mimic gets the whole thing in one breath.
-const OC_FIELD_LABELS = { gender: 'Biological sex', age: 'Age', height_ft: 'Height', weight_lb: 'Current weight', goal_weight_lb: 'Goal weight', activity: 'Activity level', pace: 'Weekly pace' };
+const OC_FIELD_LABELS = { gender: 'Sex at birth', age: 'Age', height_ft: 'Height', weight_lb: 'Current weight', goal_weight_lb: 'Goal weight', activity: 'Activity level', pace: 'Weekly pace' };
 // The two invented terms get plain-English hints right on the card - if the
 // app's own creator needed them defined mid-interview, everyone will.
 function _ocFieldHint(k) {
+  if (k === 'gender') return 'male or female \u2014 a calorie-formula input';
   if (k === 'activity') return 'desk job? on your feet? training days?';
   if (k === 'pace') return _obGoalType === 'muscle_gain' ? 'how fast \u2014 like \u00bd lb a week' : 'how fast \u2014 like 1 lb a week';
   return '';
@@ -10084,7 +10085,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-18-u-ckexample';
+const RATIO_BUILD = '2026-08-18-v-sexbirth';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
