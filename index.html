@@ -8784,19 +8784,31 @@ async function _ocTurn(userText) {
     // Per-field ask counting. The worker names the field each question was
     // about; two asks for a fixed-choice field that is still empty means the
     // conversation is not going to get it.
+    _oc.askCounts = _oc.askCounts || {};
+    const _missing = k => _oc.fields[k] === undefined || _oc.fields[k] === null;
     const askedKey = typeof data.asking === 'string' ? data.asking : '';
-    if (askedKey && OC_CHOICES[askedKey]) {
-      _oc.askCounts = _oc.askCounts || {};
-      const stillMissing = _oc.fields[askedKey] === undefined || _oc.fields[askedKey] === null;
-      if (stillMissing) {
-        _oc.askCounts[askedKey] = (_oc.askCounts[askedKey] || 0) + 1;
-        if (_oc.askCounts[askedKey] >= 2) {
-          _ocRenderCard();
-          _ocForceChoice(askedKey);
-          _oc.busy = false;
-          return;
-        }
+    let forceKey = null;
+    if (askedKey && OC_CHOICES[askedKey] && _missing(askedKey)) {
+      _oc.askCounts[askedKey] = (_oc.askCounts[askedKey] || 0) + 1;
+      if (_oc.askCounts[askedKey] >= 2) forceKey = askedKey;
+    } else if (!gotFields) {
+      // FALLBACK - never let the lock depend on the model naming a field.
+      // An old worker omits the key entirely (that is exactly how this shipped
+      // broken), and a model can always answer with a word we don't recognise.
+      // Nothing new arrived this turn, so if a fixed-choice field is still
+      // empty, treat the turn as another failed run at it. Slower threshold
+      // because this is inference rather than the worker telling us.
+      const stuck = OC_REQUIRED().find(k => OC_CHOICES[k] && _missing(k));
+      if (stuck) {
+        _oc.askCounts[stuck] = (_oc.askCounts[stuck] || 0) + 1;
+        if (_oc.askCounts[stuck] >= 3) forceKey = stuck;
       }
+    }
+    if (forceKey) {
+      _ocRenderCard();
+      _ocForceChoice(forceKey);
+      _oc.busy = false;
+      return;
     }
     let offerTyping = false;
     if (gotFields) {
@@ -9074,6 +9086,18 @@ async function obChatMicCheck() {
 // right so the transcript stays readable — the box shows both "I'm listening"
 // and "here's what I heard" at once.
 let _ocWaveTimer = null;
+// Device capability + permission, resolved once per session.
+let _ocMicCaps = { available: null, granted: false };
+
+// The gap between tapping and the recogniser opening is real (iOS needs its
+// own moment even with our own waits removed), so say so rather than showing
+// a listening animation that is lying.
+function _ocMicWarming(on) {
+  const inp = document.getElementById('obchat-input');
+  if (!inp) return;
+  if (on) { inp.placeholder = 'Starting\u2026'; }
+  else if (inp.placeholder === 'Starting\u2026') { inp.placeholder = ''; }
+}
 function _ocWaveStart() {
   const box = document.getElementById('obchat-wave');
   const inp = document.getElementById('obchat-input');
@@ -9111,11 +9135,12 @@ async function obChatMic() {
     return;
   }
   const btn = document.getElementById('obchat-mic');
-  // Gold on the TAP. Releasing the audio session and resetting the recogniser
-  // takes over a second before start() is even called, and during that window
-  // the button used to look completely inert.
+  // Gold on the TAP so the press registers, but the WAVEBAR is the "talk now"
+  // cue and it must not appear until the recogniser is really running - it was
+  // firing here, seconds early, so people spoke into a mic that wasn't open yet
+  // and lost their first words.
   if (btn) btn.classList.add('listening');
-  _ocWaveStart();
+  _ocMicWarming(true);
   const plugin = window.Capacitor?.Plugins?.SpeechRecognition;
   _oc.partial = '';
   _oc.lastInputVoice = true;
@@ -9127,23 +9152,36 @@ async function obChatMic() {
     // Lauren says it out loud instead, and it goes to the console too.
     const bail = (msg, detail) => {
       console.warn('[obchat] native mic:', detail || msg);
+      _ocMicWarming(false);
       _ocStopListening();
       _ocAddBot(msg);
     };
     try {
-      // Hand the audio session back BEFORE recording — see _ttsRelease.
-      await _ocSpeechIdle();
-      await _ttsRelease();
+      // Hand the audio session back BEFORE recording — see _ttsRelease. With
+      // voice output OFF there is no session to hand back, and these two waits
+      // (a poll plus a fixed 350ms) were pure dead time in front of every tap.
+      if (VOICE_OUTPUT_ENABLED || _ttsBusy()) {
+        await _ocSpeechIdle();
+        await _ttsRelease();
+      }
       // Then clear any recogniser session left running by an earlier attempt.
       // This is the actual cause of "Ongoing speech recognition": the native
       // recogniser outlives the JS state that was tracking it, so one
       // abandoned start() bricks the mic until the app is force-quit.
       await _ocResetRecognizer(plugin);
-      const avail = await plugin.available();
-      if (!avail.available) { bail("Voice isn't available on this device — go ahead and type your answer, that works just as well."); return; }
-      let perm = await plugin.checkPermissions();
-      if (perm.speechRecognition !== 'granted') perm = await plugin.requestPermissions();
-      if (perm.speechRecognition !== 'granted') { bail("I need microphone permission to hear you — you can switch it on in iPhone Settings under Ratio. Typing works in the meantime.", 'permission ' + JSON.stringify(perm)); return; }
+      // Capability and permission cannot change mid-session, so pay for these
+      // two IPC round trips once instead of on every single tap.
+      if (_ocMicCaps.available === null) {
+        const avail = await plugin.available();
+        _ocMicCaps.available = !!(avail && avail.available);
+      }
+      if (!_ocMicCaps.available) { bail("Voice isn't available on this device — go ahead and type your answer, that works just as well."); return; }
+      if (!_ocMicCaps.granted) {
+        let perm = await plugin.checkPermissions();
+        if (perm.speechRecognition !== 'granted') perm = await plugin.requestPermissions();
+        if (perm.speechRecognition !== 'granted') { bail("I need microphone permission to hear you — you can switch it on in iPhone Settings under Ratio. Typing works in the meantime.", 'permission ' + JSON.stringify(perm)); return; }
+        _ocMicCaps.granted = true;
+      }
       _oc.listening = true; _oc.nativeListening = true;
       _oc.partial = '';
       _oc._lastSpeechAt = 0;
@@ -9226,6 +9264,10 @@ async function obChatMic() {
       // If this platform DOES return the transcript from start(), take it and
       // finish now. If it returns undefined — iOS — keep listening; that is
       // the normal case and used to be treated as failure.
+      // NOW it is listening - drop the warming state and raise the wavebar.
+      _ocMicWarming(false);
+      _ocWaveStart();
+      _oc._listenStartedAt = Date.now();   // endpointer counts from real capture
       const direct = ((result && result.matches && result.matches[0]) || '').trim();
       if (direct) { _oc.partial = direct; finishNative('start-result'); }
       else console.log('[obchat] recogniser running; waiting for partialResults');
@@ -10271,7 +10313,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-19-i-bfestimate';
+const RATIO_BUILD = '2026-08-19-k-lockfallback';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
