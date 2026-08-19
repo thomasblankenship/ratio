@@ -8174,6 +8174,12 @@ function _ocAddBot(text, opts) {
 // falls back to a timed reveal at a natural speaking pace where they aren't
 // (Safari has never fired boundary events reliably). Muted or no engine =
 // text appears immediately, because silent karaoke is just a slow app.
+// Conversation pacing. A line that triggers a screen change needs a beat
+// after it or the user never sees what happened.
+const OB_TYPE_MS_PER_WORD = 165;   // muted/voice-off typing speed
+const OB_LINE_DWELL_MS = 1200;     // hold after a typed line finishes
+const OB_HANDOFF_PAUSE_MS = 1800;  // extra hold before a coach walks in
+
 function _ocSpeakAndReveal(text, bubble, opts2) {
   // Fires exactly once, when this line has genuinely finished being spoken —
   // by Gemini, by the device voice, instantly when muted, or by the backstop.
@@ -8187,8 +8193,22 @@ function _ocSpeakAndReveal(text, bubble, opts2) {
   // Voice off routes through the MUTED branch on purpose: it already
   // reveals the text and fires spoken(), which is what advances onboarding.
   if (!VOICE_OUTPUT_ENABLED || _ocMuted || !text) {
-    bubble.textContent = text || '';
-    setTimeout(spoken, 600);   // muted still advances, at reading pace
+    // Muted used to dump the whole line and advance in 600ms - fast enough
+    // that the handoff ("let me introduce you to Ian") was gone before anyone
+    // read it. Type it out at talking pace instead, then hold.
+    if (!text) { setTimeout(spoken, 300); return; }
+    const mw = text.split(/\s+/);
+    let mi = 0;
+    bubble.textContent = '';
+    const mt = setInterval(() => {
+      mi++;
+      bubble.textContent = mw.slice(0, mi).join(' ');
+      _ocScroll();
+      if (mi >= mw.length) {
+        clearInterval(mt);
+        setTimeout(spoken, OB_LINE_DWELL_MS);   // let it land before the next beat
+      }
+    }, OB_TYPE_MS_PER_WORD);
     return;
   }
   setTimeout(spoken, 30000);   // backstop: never wedge a stage forever
@@ -8451,7 +8471,10 @@ function _ocIntroduceCoach(coachKey, goalKey) {
     _ocAddChecklist();
   };
   // Lauren speaks BEFORE the coach is assigned, so her line uses her voice.
-  _ocAddBot(`I know just the trainer for you — let me introduce you to ${c.name}.`, { onSpoken: enterCoach });
+  // The pause is the point: her line has to stay readable AFTER it finishes,
+  // because the screen it explains is about to replace it.
+  _ocAddBot(`I know just the trainer for you — let me introduce you to ${c.name}.`,
+    { onSpoken: () => setTimeout(enterCoach, OB_HANDOFF_PAUSE_MS) });
 }
 
 // Resolves once nothing is being spoken. Bounded, because a wedged speech
@@ -8534,8 +8557,10 @@ function _ocAddChecklist() {
   div.className = 'ob-ck';
   div.innerHTML = `<div class="ob-ck-t">TELL ME THESE ${req.length} THINGS \u2014 ANY ORDER</div>` +
     `<div class="ob-ck-grid">${items}</div>` +
-    `<div class="ob-ck-ex">Like: <b>${_ocExampleLine()}</b></div>` +
-    `<div class="ob-ck-alt" onclick="obChatUseForms()">Prefer to tap it in instead? \u2192</div>`;
+    `<div class="ob-ck-ex">Example: <b>${_ocExampleLine()}</b></div>`;
+  // No "tap it in instead" escape: that routed to the legacy form flow, which
+  // re-asks the goal Lauren already collected. Typing in the box below is the
+  // no-voice path, and it works for every field.
   box.appendChild(div);
   _ocRenderChecklist();
   box.scrollTop = box.scrollHeight;
@@ -10059,7 +10084,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-18-s-laurenchat';
+const RATIO_BUILD = '2026-08-18-u-ckexample';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
