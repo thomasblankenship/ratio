@@ -1502,7 +1502,7 @@
                  day. Recognition over recall, and it keeps label spelling
                  consistent so the strip history doesn't fragment. -->
             <div id="ws-notes-suggest" style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:6px"></div>
-            <textarea id="ws-notes-input" rows="2" maxlength="500" oninput="wsNoteInput()" placeholder="How did it go? Or name the day \u2014 &quot;Push day&quot; labels it up top" style="width:100%;box-sizing:border-box;background:#fffdf8;border:1px solid #999;border-radius:4px;padding:8px 10px;font-size:14px;color:#22314d;font-family:'RatioHand','Segoe Script',cursive;resize:vertical"></textarea>
+            <textarea id="ws-notes-input" rows="2" maxlength="500" oninput="wsNoteInput()" placeholder="How did it go? Or name the day — &quot;Push day&quot; labels it up top" style="width:100%;box-sizing:border-box;background:#fffdf8;border:1px solid #999;border-radius:4px;padding:8px 10px;font-size:14px;color:#22314d;font-family:'RatioHand','Segoe Script',cursive;resize:vertical"></textarea>
             <div style="display:flex;gap:6px;margin-top:6px">
               <button type="button" onclick="wsSaveNotes()" style="flex:1;padding:8px;background:#2a2a2a;color:#f7f5f0;border:none;border-radius:4px;font-size:11px;font-weight:700;cursor:pointer">SAVE</button>
               <button type="button" onclick="wsCancelNotes()" style="flex:1;padding:8px;background:none;color:#555;border:1px solid #999;border-radius:4px;font-size:11px;font-weight:700;cursor:pointer">CANCEL</button>
@@ -10095,7 +10095,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-18-y-pasterecipe';
+const RATIO_BUILD = '2026-08-18-aa-emdash';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -23389,8 +23389,8 @@ if (document.readyState === 'loading') {
   <div style="background:var(--surface);border-radius:20px 20px 0 0;padding:24px 20px 40px;width:100%;max-width:480px;max-height:88vh;overflow-y:auto;box-sizing:border-box">
     <div style="font-size:16px;font-weight:700;margin-bottom:10px">Import a Recipe</div>
     <div style="display:flex;gap:8px;margin-bottom:12px">
-      <button type="button" id="imp-tab-url" onclick="impSetTab('url')" style="flex:1;padding:9px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;background:var(--accent);color:#101512;border:none">\ud83d\udd17 From a link</button>
-      <button type="button" id="imp-tab-text" onclick="impSetTab('text')" style="flex:1;padding:9px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;background:var(--surface-2);color:var(--ink);border:1px solid var(--line)">\ud83d\udcdd Paste it</button>
+      <button type="button" id="imp-tab-url" onclick="impSetTab('url')" style="flex:1;padding:9px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;background:var(--accent);color:#101512;border:none">🔗 From a link</button>
+      <button type="button" id="imp-tab-text" onclick="impSetTab('text')" style="flex:1;padding:9px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;background:var(--surface-2);color:var(--ink);border:1px solid var(--line)">📝 Paste it</button>
     </div>
     <div id="imp-pane-url">
       <div style="font-size:13px;color:var(--muted);margin-bottom:12px">Paste a recipe URL and we'll extract the ingredients and nutrition info.</div>
@@ -23398,7 +23398,7 @@ if (document.readyState === 'loading') {
         style="width:100%;padding:12px 14px;border:1.5px solid var(--line);border-radius:10px;font-size:16px;outline:none;box-sizing:border-box;margin-bottom:10px" />
     </div>
     <div id="imp-pane-text" style="display:none">
-      <div style="font-size:13px;color:var(--muted);margin-bottom:12px">Paste any recipe \u2014 from your Notes app, a text, a screenshot you typed out. Amounts help, but we'll ask about anything that's missing.</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:12px">Paste any recipe — from your Notes app, a text, a screenshot you typed out. Amounts help, but we'll ask about anything that's missing.</div>
       <textarea id="text-import-input" rows="8" placeholder="Salsa verde shredded chicken&#10;&#10;2 lbs thin chicken&#10;1/2 jar (16 oz) salsa verde&#10;4 limes&#10;cilantro, cumin, salt&#10;&#10;Season chicken, pour salsa, cook 4 hours on high, shred."
         style="width:100%;padding:12px 14px;border:1.5px solid var(--line);border-radius:10px;font-size:15px;line-height:1.5;outline:none;box-sizing:border-box;margin-bottom:10px;resize:vertical;background:var(--bg-deep);color:var(--ink);font-family:inherit"></textarea>
     </div>
