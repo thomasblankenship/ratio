@@ -8684,6 +8684,22 @@ async function _ocTurn(userText) {
 
 function _ocComplete() {
   if (_oc.stage === 'done') return;
+  // HARD GATE. Mifflin-St Jeor cannot run without sex at birth, and the old
+  // `f.gender || 'male'` below would have silently computed a MAN'S plan for
+  // someone who never answered - a wrong calorie target they never chose.
+  // The worker's turn cap can also reach here with the field still empty.
+  // So ask once, plainly, with two buttons: no coach, no debate, no default.
+  if (_oc.fields.gender !== 'male' && _oc.fields.gender !== 'female') {
+    const pick = v => { _oc.fields.gender = v; _ocRenderChecklist(); _ocComplete(); };
+    const chips = () => _ocChips([
+      { label: 'Male', action: () => pick('male') },
+      { label: 'Female', action: () => pick('female') }
+    ]);
+    if (_oc.genderAskShown) { chips(); return; }   // re-offer, don't re-lecture
+    _oc.genderAskShown = true;
+    _ocAddBot("One last thing before I can build this: the calorie formula uses sex assigned at birth. Which should I use for the math?", { onSpoken: chips });
+    return;
+  }
   _oc.stage = 'done';
   const f = _oc.fields;
   // Write everything into the classic form fields and globals — obCalcPlan,
@@ -10105,7 +10121,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-19-d-nudgechain';
+const RATIO_BUILD = '2026-08-19-e-genderhardgate';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
