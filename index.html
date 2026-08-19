@@ -8090,7 +8090,11 @@ function _ocSetCoach(key) {
 }
 
 // True while the front desk is on screen — before a coach is assigned.
-function _ocIsIntro() { return !!_oc && !_oc.coach; }
+// Intro mode = the hero portrait is still on screen. Keying this to "no coach
+// assigned" was the bug: after the screen converted to a chat, Lauren still
+// counted as intro, so _ocPlace kept WIPING the previous bubbles — the user's
+// own message vanished the moment her next line arrived.
+function _ocIsIntro() { return !!_oc && !_oc.coach && !!document.getElementById('obchat-hero'); }
 
 // The intro is a single-message slot: each new line REPLACES the last, so the
 // screen always shows exactly the last thing said. Rows go ABOVE the portrait,
@@ -8128,8 +8132,11 @@ function _ocAddBot(text, opts) {
   const box = document.getElementById('obchat-messages');
   const row = document.createElement('div');
   row.className = 'obchat-msg bot';
-  // The front desk shows no avatar — Lauren's words stand alone on the intro.
-  const bare = !c;
+  // On the hero screen Lauren's words stand alone (her full portrait is right
+  // there). Once it converts to a chat she gets a portrait chip beside every
+  // line, exactly like the coaches.
+  const bare = !c && _ocIsIntro();
+  const who = c || { headImg: OB_LAUREN.headImg, img: OB_LAUREN.img, initial: 'L' };
   if (bare) {
     row.innerHTML = `<div class="obchat-bubble" style="max-width:100%"></div>`;
   } else {
@@ -8138,14 +8145,14 @@ function _ocAddBot(text, opts) {
     // Prefer a purpose-made headshot; a full-body shot squeezed into a 34px
     // circle is mostly torso. Falls back to the body shot, then the letter,
     // so this works before the headshots are uploaded.
-    let usedFallback = !c.headImg;
-    img.src = c.headImg || c.img;
+    let usedFallback = !who.headImg;
+    img.src = who.headImg || who.img;
     img.onerror = () => {
-      if (!usedFallback) { usedFallback = true; img.src = c.img; return; }
+      if (!usedFallback) { usedFallback = true; img.src = who.img; return; }
       const d = document.createElement('div');
       d.className = 'obchat-avatar';
       d.style.cssText = 'display:flex;align-items:center;justify-content:center;color:#CFA13C;font-weight:800';
-      d.textContent = c.initial;
+      d.textContent = who.initial;
       img.replaceWith(d);
     };
   }
@@ -10052,7 +10059,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-18-r-laurenhead';
+const RATIO_BUILD = '2026-08-18-s-laurenchat';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
