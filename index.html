@@ -10095,7 +10095,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-18-aa-emdash';
+const RATIO_BUILD = '2026-08-19-a-batchbasis';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -15161,7 +15161,6 @@ function openMealBuilder() {
   document.getElementById('meal-builder-title').textContent = 'Create Meal';
   document.getElementById('meal-builder-name').value = '';
   _mbServings = 1;
-  _mbTotalsPerServing = false;
   const svNew = document.getElementById('mb-servings-input');
   if (svNew) svNew.value = 1;
   document.getElementById('mb-search-input').value = '';
@@ -15189,21 +15188,21 @@ function openEditSavedMeal(id) {
   _mbPhotoUrl = meal.image_url || null;
   _mbOrigin = 'edit';
   _mbUrlImportData = null;
+  // A saved meal's stored macros are PER SERVING; multiply up to the batch so
+  // everything in the builder speaks the same basis (see the ONE BASIS RULE).
+  const mealServings = Math.max(1, parseFloat(meal.servings) || 1);
   _mbAuthoritativeTotals = {
-    calories: meal.calories || 0,
-    protein: meal.protein || 0,
-    carbs: meal.carbs || 0,
-    fat: meal.fat || 0,
-    fiber: meal.fiber || 0,
-    cholesterol: meal.cholesterol || 0
+    calories: (meal.calories || 0) * mealServings,
+    protein: (meal.protein || 0) * mealServings,
+    carbs: (meal.carbs || 0) * mealServings,
+    fat: (meal.fat || 0) * mealServings,
+    fiber: (meal.fiber || 0) * mealServings,
+    cholesterol: (meal.cholesterol || 0) * mealServings
   };
   _mbIngredients = JSON.parse(JSON.stringify(meal.ingredients || [])); // deep copy so cancel doesn't mutate the saved version
   document.getElementById('meal-builder-title').textContent = 'Edit Meal';
   document.getElementById('meal-builder-name').value = meal.name || '';
-  // A saved meal's stored macros are PER SERVING, so do not divide again
-  // unless the person changes something.
-  _mbServings = Math.max(1, parseFloat(meal.servings) || 1);
-  _mbTotalsPerServing = true;
+  _mbServings = mealServings;
   const svEdit = document.getElementById('mb-servings-input');
   if (svEdit) svEdit.value = _mbServings;
   document.getElementById('mb-search-input').value = '';
@@ -15225,8 +15224,7 @@ function openEditSavedMeal(id) {
   mbRenderIngredients();
   mbUpdateTotals();
   mbRenderPhotoSection();
-  const editNoteEl = document.getElementById('mb-servings-note');
-  if (editNoteEl) editNoteEl.textContent = '';
+  _mbRenderServingsNote();
   const convertBtn = document.getElementById('mb-header-action');
   if (convertBtn) convertBtn.style.display = '';
   document.getElementById('meal-builder-modal').style.display = 'flex';
@@ -15490,8 +15488,9 @@ function mbAddManual() {
   const fat = parseFloat(document.getElementById('mb-manual-fat').value) || 0;
   const fiber = parseFloat(document.getElementById('mb-manual-fiber').value) || 0;
   const cholesterol = parseFloat(document.getElementById('mb-manual-cholesterol').value) || 0;
-  _mbIngredients.push({ name, qty, unit, calories: cals, protein, carbs, fat, fiber, cholesterol });
-  _mbAuthoritativeTotals = null;
+  const manualIng = { name, qty, unit, calories: cals, protein, carbs, fat, fiber, cholesterol };
+  _mbIngredients.push(manualIng);
+  _mbShiftAuthoritative(manualIng, 1);
   document.getElementById('mb-manual-modal').style.display = 'none';
   mbRenderIngredients();
   mbUpdateTotals();
@@ -15638,43 +15637,40 @@ async function urlImportSave(data) {
   _mbPhotoUrl = data.image_url || null;
   _mbOrigin = 'urlImport';
   _mbUrlImportData = data;
-  // The worker's top-level totals are already PER SERVING and are the most
-  // reliable figure available (the model reasoned about the whole dish at
-  // once) — treat them as authoritative rather than recomputing from summed
-  // ingredients, since per-ingredient estimates won't necessarily sum back
-  // to exactly match a separately-estimated whole-dish total.
+  // The worker's top-level totals are the most reliable figure available (the
+  // model reasoned about the whole dish at once) — treat them as authoritative
+  // rather than recomputing from summed ingredients, since per-ingredient
+  // estimates won't necessarily sum back to a separately-estimated dish total.
+  // They arrive PER SERVING; store them multiplied up to the BATCH so they obey
+  // the one-basis rule and survive a servings change.
+  const servings = Math.max(1, parseFloat(data.servings) || 1);
   _mbAuthoritativeTotals = {
-    calories: data.calories || 0,
-    protein: data.protein || 0,
-    carbs: data.carbs || 0,
-    fat: data.fat || 0,
-    fiber: data.fiber || 0,
-    cholesterol: data.cholesterol || 0
+    calories: (data.calories || 0) * servings,
+    protein: (data.protein || 0) * servings,
+    carbs: (data.carbs || 0) * servings,
+    fat: (data.fat || 0) * servings,
+    fiber: (data.fiber || 0) * servings,
+    cholesterol: (data.cholesterol || 0) * servings
   };
-  const servings = data.servings || 1;
   // Per-ingredient macros from the worker are for the FULL recipe batch (e.g.
-  // "4 chicken breasts" = macros for all 4). Divide down to a per-serving
-  // figure just for a sane-looking display next to each ingredient — the
-  // actual saved totals come from _mbAuthoritativeTotals above, not from
-  // summing these.
+  // "4 chicken breasts" = macros for all 4), and the AMOUNT shown on each row is
+  // the batch amount too. Keep both as-is: row label and row macros then agree,
+  // and one serving is derived once, at display time.
   _mbIngredients = (data.ingredients || []).map(ing => ({
     name: ing.name,
     qty: 1,
     unit: ing.amount || 'serving',
-    calories: Math.round((ing.calories || 0) / servings),
-    protein: Math.round((ing.protein || 0) / servings * 10) / 10,
-    carbs: Math.round((ing.carbs || 0) / servings * 10) / 10,
-    fat: Math.round((ing.fat || 0) / servings * 10) / 10,
-    fiber: Math.round((ing.fiber || 0) / servings * 10) / 10,
-    cholesterol: Math.round((ing.cholesterol || 0) / servings)
+    calories: Math.round(ing.calories || 0),
+    protein: Math.round((ing.protein || 0) * 10) / 10,
+    carbs: Math.round((ing.carbs || 0) * 10) / 10,
+    fat: Math.round((ing.fat || 0) * 10) / 10,
+    fiber: Math.round((ing.fiber || 0) * 10) / 10,
+    cholesterol: Math.round(ing.cholesterol || 0)
   }));
-  // The authoritative totals set above are already per serving.
-  _mbServings = Math.max(1, parseFloat(servings) || 1);
-  _mbTotalsPerServing = true;
+  _mbServings = servings;
   const svImp = document.getElementById('mb-servings-input');
   if (svImp) svImp.value = _mbServings;
-  const noteEl = document.getElementById('mb-servings-note');
-  if (noteEl) noteEl.textContent = servings > 1 ? `Recipe makes ${servings} servings — amounts below show the full batch, macros reflect 1 serving` : '';
+  _mbRenderServingsNote();
   document.getElementById('meal-builder-name').value = data.name || '';
 
   // Pre-fill instructions (fully editable afterward) and auto-expand since
@@ -15766,7 +15762,7 @@ function mbAddIngredient() {
     return;
   }
   const r = v => Math.round(v * scale * 10) / 10;
-  _mbIngredients.push({
+  const addedIng = {
     name: f.name,
     qty,
     unit,
@@ -15776,8 +15772,9 @@ function mbAddIngredient() {
     fat: r(f.fat),
     fiber: r(f.fiber || 0),
     cholesterol: r(f.cholesterol || 0)
-  });
-  _mbAuthoritativeTotals = null;
+  };
+  _mbIngredients.push(addedIng);
+  _mbShiftAuthoritative(addedIng, 1);
   document.getElementById('mb-serving-modal').style.display = 'none';
   document.getElementById('mb-search-input').value = '';
   document.getElementById('mb-search-results').style.display = 'none';
@@ -15785,15 +15782,28 @@ function mbAddIngredient() {
   mbUpdateTotals();
 }
 
-// Any ingredient change invalidates an imported/saved whole-dish total.
-function _mbIngredientsEdited() {
-  _mbAuthoritativeTotals = null;
-  _mbTotalsPerServing = false;
+// Adding or removing an ingredient does NOT invalidate a known-good whole-dish
+// total - it moves it by that ingredient's own share. Nulling it (the old
+// behaviour) silently swapped the dish-level estimate for the summed-ingredient
+// one, and those two differ by ~15%, so deleting a 30 kcal lime could drop the
+// displayed total by 180 kcal.
+function _mbShiftAuthoritative(ing, sign) {
+  if (!_mbAuthoritativeTotals || !ing) return;
+  const t = _mbAuthoritativeTotals;
+  const mv = (cur, add) => Math.max(0, (cur || 0) + sign * (add || 0));
+  t.calories = mv(t.calories, ing.calories);
+  t.protein = mv(t.protein, ing.protein);
+  t.carbs = mv(t.carbs, ing.carbs);
+  t.fat = mv(t.fat, ing.fat);
+  t.fiber = mv(t.fiber, ing.fiber);
+  t.cholesterol = mv(t.cholesterol, ing.cholesterol);
 }
 
 function mbRemoveIngredient(idx) {
+  const gone = _mbIngredients[idx];
   _mbIngredients.splice(idx, 1);
-  _mbAuthoritativeTotals = null;
+  _mbShiftAuthoritative(gone, -1);
+  if (!_mbIngredients.length) _mbAuthoritativeTotals = null;
   mbRenderIngredients();
   mbUpdateTotals();
 }
@@ -15818,9 +15828,11 @@ function mbRenderIngredients() {
 // always the FULL batch; what gets SAVED (and therefore logged as "1") is one
 // serving of it.
 let _mbServings = 1;
-// True when _mbAuthoritativeTotals is already a per-serving figure (the
-// recipe-import path divides before setting it). Prevents dividing twice.
-let _mbTotalsPerServing = false;
+// ONE BASIS RULE: _mbIngredients AND _mbAuthoritativeTotals are ALWAYS whole-batch
+// figures. Only _mbFinalTotals() divides, and only at the moment of display/save.
+// The old _mbTotalsPerServing flag stored per-serving values here instead and was
+// dropped on the first servings edit, so the already-divided sum got divided a
+// SECOND time (6 servings -> 5 showed 30 kcal instead of 209).
 
 function _mbPerServing(totals) {
   const n = Math.max(1, parseFloat(_mbServings) || 1);
@@ -15847,17 +15859,24 @@ function _mbFinalTotals() {
     acc.cholesterol += (ing.cholesterol || 0);
     return acc;
   }, { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, cholesterol: 0 });
-  if (_mbAuthoritativeTotals && _mbTotalsPerServing) return _mbAuthoritativeTotals;
   return _mbPerServing(_mbAuthoritativeTotals || summed);
 }
 
 function mbServingsChanged() {
   const raw = parseFloat(document.getElementById('mb-servings-input').value);
   _mbServings = (isFinite(raw) && raw > 0) ? raw : 1;
-  // Any edit to servings means a previously-imported per-serving total no
-  // longer describes this batch - fall back to summing the ingredients.
-  if (_mbTotalsPerServing) { _mbAuthoritativeTotals = null; _mbTotalsPerServing = false; }
+  // Slicing the same batch into a different number of servings does not change
+  // the food, so the whole-dish total stays valid - only the division changes.
+  _mbRenderServingsNote();
   mbUpdateTotals();
+}
+
+// One renderer, so the note can never contradict the servings field above it.
+function _mbRenderServingsNote() {
+  const el = document.getElementById('mb-servings-note');
+  if (!el) return;
+  const n = Math.max(1, parseFloat(_mbServings) || 1);
+  el.textContent = n > 1 ? 'Amounts below are the full batch \u2014 macros shown are per serving' : '';
 }
 
 function mbUpdateTotals() {
