@@ -8536,16 +8536,26 @@ const OC_FIELD_LABELS = { gender: 'Sex at birth', age: 'Age', height_ft: 'Height
 // The two invented terms get plain-English hints right on the card - if the
 // app's own creator needed them defined mid-interview, everyone will.
 function _ocFieldHint(k) {
+  // Name the UNIT of the answer, not the topic. The old activity hint asked
+  // three open questions and got adjectives back ("very athletic"), which is
+  // self-image, not training volume - and the wrong rung here swings the
+  // calorie target by hundreds.
   if (k === 'gender') return 'male or female \u2014 a calorie-formula input';
-  if (k === 'activity') return 'desk job? on your feet? training days?';
-  if (k === 'pace') return _obGoalType === 'muscle_gain' ? 'how fast \u2014 like \u00bd lb a week' : 'how fast \u2014 like 1 lb a week';
+  if (k === 'activity') return 'how many days a week you train';
+  if (k === 'pace') return _obGoalType === 'muscle_gain' ? 'pounds per week \u2014 e.g. \u00bd lb' : 'pounds per week \u2014 e.g. 1 lb';
   return '';
 }
 
+// One example per goal. Pace is deliberately ABSENT from the two loss
+// examples: it is the number people most often set too aggressively and
+// regret, so the coach asks for it and frames it (slower sticks) instead of
+// the example anchoring them. Muscle gain keeps its pace, because half a
+// pound a week is the right default and nobody guesses it.
 function _ocExampleLine() {
-  if (_obGoalType === 'maintain') return '“I\u2019m a 38-year-old woman, five-six, 140 pounds — on my feet a lot and I train four days a week.”';
-  if (_obGoalType === 'muscle_gain') return '“I\u2019m a 24-year-old guy, five-ten, 160 pounds, want to build to 175 at half a pound a week — desk job but I lift four days.”';
-  return '“I\u2019m a 38-year-old guy, five-ten, 195 pounds, want to get down to 180 at about a pound a week — desk job but I walk every day.”';
+  if (_obGoalType === 'maintain') return '“I\u2019m a 38-year-old woman, five-six, 140 pounds — I train four days a week.”';
+  if (_obGoalType === 'muscle_gain') return '“I\u2019m a 24-year-old guy, five-ten, 160 pounds, want to build to 175 at half a pound a week — I lift four days a week.”';
+  if (_obGoalType === 'fat_loss') return '“I\u2019m a 38-year-old guy, five-ten, 195 pounds, want to get leaner — down around 180 — and I train three days a week.”';
+  return '“I\u2019m a 45-year-old woman, five-four, 168 pounds, want to get down to 150 — desk job, and I walk two or three days a week.”';
 }
 
 function _ocAddChecklist() {
@@ -10085,7 +10095,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-18-v-sexbirth';
+const RATIO_BUILD = '2026-08-18-x-goalexamples';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
