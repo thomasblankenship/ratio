@@ -8649,14 +8649,17 @@ async function _ocTurn(userText) {
     // ---- miss streak ----
     // A transient failure, or a turn that extracted nothing while fields are
     // still missing, counts as a miss. Extracting anything resets it. At two,
-    // change tactics ONCE: offer typing, focused and blamed on the mic.
+    // change tactics ONCE and offer typing - WITHOUT blaming the mic, which is
+    // often working fine (a declined question or a server hiccup lands here
+    // too, and "mics can be stubborn" after a perfect transcript reads as the
+    // app not listening).
     if (gotFields) {
       _oc.missStreak = 0;
     } else if (data.transient || _ocMissing().length) {
       _oc.missStreak = (_oc.missStreak || 0) + 1;
       if (_oc.missStreak === 2 && !_oc.typeOfferMade) {
         _oc.typeOfferMade = true;
-        _ocAddBot("You know what, mics can be stubborn — feel free to just type it below, I read as well as I listen.", { silent: false });
+        _ocAddBot("If it's easier, you can type it below instead — I read as well as I listen.", { silent: false });
         _ocChips([
           { label: 'Type it instead', action: () => document.getElementById('obchat-input')?.focus() },
           { label: "Keep talking", action: () => {} }
@@ -10095,7 +10098,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-19-b-pasteholder';
+const RATIO_BUILD = '2026-08-19-c-typeoffer';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
