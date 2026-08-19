@@ -8558,6 +8558,94 @@ function _ocExampleLine() {
   return '“I\u2019m a 45-year-old woman, five-four, 168 pounds, want to get down to 150 — desk job, and I walk two or three days a week.”';
 }
 
+// ---- GOAL WEIGHT FROM A BODY-FAT TARGET ----
+// Goal weight is a PROGRESS number, not a calorie input - the plan is built
+// from CURRENT weight. So "I don't care about the scale, I want 12%" should
+// not be a dead end. Lean mass is exactly what a good cut protects, so hold it
+// constant and solve for the weight at which that same lean mass sits at the
+// target body fat:
+//   lean = weight x (1 - bf/100)      goal = lean / (1 - goalBf/100)
+// Real cuts shed a little lean tissue, so the true landing spot is usually a
+// pound or two under this - fine for a progress marker, and editable later.
+function _ocDeriveGoalWeight(f) {
+  const w = parseFloat(f.weight_lb), bf = parseFloat(f.body_fat_pct), gbf = parseFloat(f.goal_body_fat_pct);
+  if (!(w > 0) || !(bf > 0) || !(gbf > 0)) return null;
+  if (bf >= 60 || gbf >= 60) return null;          // nonsense input, don't invent a number
+  if (gbf >= bf) return null;                      // not a fat-loss target; nothing to solve
+  if (_obGoalType === 'muscle_gain') return null;  // lean mass changes by design there
+  const lean = w * (1 - bf / 100);
+  const goal = lean / (1 - gbf / 100);
+  return (goal > 0 && goal < w) ? Math.round(goal) : null;
+}
+
+function _ocFillDerivedGoalWeight() {
+  if (!_oc || !_oc.fields) return;
+  if (_oc.fields.goal_weight_lb !== undefined && _oc.fields.goal_weight_lb !== null) return;
+  const gw = _ocDeriveGoalWeight(_oc.fields);
+  if (gw == null) return;
+  _oc.fields.goal_weight_lb = gw;
+  _oc.goalWeightDerived = true;
+}
+
+// ---- FORCED CHOICE ----
+// Two conversational asks for the same fixed-choice field is enough. After
+// that the app takes over: mic and typing are locked and the only way forward
+// is a button. A two-option question never needed a language model, and a
+// refusal loop on an anonymous pre-signup endpoint is billable forever.
+const OC_CHOICES = {
+  gender: () => [{ label: 'Male', value: 'male' }, { label: 'Female', value: 'female' }],
+  activity: () => [
+    { label: 'Desk job', value: 'sedentary' }, { label: '1-2 days', value: 'light' },
+    { label: '3-4 days', value: 'moderate' }, { label: '5+ days', value: 'active' },
+    { label: 'Twice a day', value: 'athlete' }
+  ],
+  pace: () => (_obGoalType === 'muscle_gain'
+    ? [{ label: '0.25 lb/wk', value: 'gain_025' }, { label: '0.5 lb/wk', value: 'gain_05' }, { label: '1 lb/wk', value: 'gain_1' }]
+    : [{ label: '0.5 lb/wk', value: 'lose_05' }, { label: '1 lb/wk', value: 'lose_1' }, { label: '1.5 lb/wk', value: 'lose_15' }, { label: '2 lb/wk', value: 'lose_2' }])
+};
+const OC_FORCE_LINES = {
+  gender: 'I need this one to build the plan \u2014 the calorie formula uses sex at birth, the same way it uses your height. Pick one to keep going.',
+  activity: 'Pick the closest one and we can move on \u2014 how many days a week you train.',
+  pace: 'Pick a pace and we are set \u2014 you can change it later in Settings.'
+};
+
+function _ocLockInput(locked) {
+  const input = document.getElementById('obchat-input');
+  const mic = document.getElementById('obchat-mic');
+  const send = document.getElementById('obchat-send');
+  if (input) {
+    input.disabled = !!locked;
+    input.placeholder = locked ? 'Choose an option above to continue' : 'Type or tap the mic\u2026';
+    input.style.opacity = locked ? '0.45' : '';
+  }
+  [mic, send].forEach(b => {
+    if (!b) return;
+    b.disabled = !!locked;
+    b.style.opacity = locked ? '0.35' : '';
+    b.style.pointerEvents = locked ? 'none' : '';
+  });
+}
+
+function _ocForceChoice(key) {
+  const build = OC_CHOICES[key];
+  if (!build || _oc.forcedField === key) return;
+  _oc.forcedField = key;
+  try { if (typeof _ocStopListening === 'function') _ocStopListening(); } catch (e) {}
+  _ocLockInput(true);
+  _ocAddBot(OC_FORCE_LINES[key] || 'Pick one to keep going.', {
+    onSpoken: () => _ocChips(build().map(c => ({
+      label: c.label,
+      action: () => {
+        _oc.forcedField = null;
+        _ocLockInput(false);
+        // Route the answer through the normal turn so the checklist, the card
+        // and the coach all react exactly as if it had been spoken.
+        _ocDispatch(c.label);
+      }
+    })))
+  });
+}
+
 function _ocAddChecklist() {
   const box = document.getElementById('obchat-messages');
   if (!box || document.getElementById('obchat-checklist')) return;
@@ -8611,7 +8699,7 @@ function _ocRenderCard() {
   if (f.age !== undefined) rows.push(`Age: <b>${f.age}</b>`);
   if (f.height_ft !== undefined) rows.push(`Height: <b>${f.height_ft}'${f.height_in ?? 0}"</b>`);
   if (f.weight_lb !== undefined) rows.push(`Weight: <b>${f.weight_lb} lb</b>`);
-  if (f.goal_weight_lb !== undefined) rows.push(`Goal: <b>${f.goal_weight_lb} lb</b>`);
+  if (f.goal_weight_lb !== undefined) rows.push(`Goal: <b>${f.goal_weight_lb} lb</b>` + (_oc.goalWeightDerived ? ` <span style="color:var(--muted);font-weight:400">(from ${f.goal_body_fat_pct}% body fat)</span>` : ''));
   if (f.body_fat_pct !== undefined) rows.push(`Body fat: <b>${f.body_fat_pct}%</b>`);
   if (f.activity) rows.push(`Activity: <b>${f.activity}</b>`);
   if (f.pace && f.pace !== 'maintain') rows.push(`Pace: <b>${f.pace.replace('lose_05','0.5 lb/wk').replace('lose_15','1.5 lb/wk').replace('lose_1','1 lb/wk').replace('lose_2','2 lb/wk').replace('gain_025','0.25 lb/wk').replace('gain_05','0.5 lb/wk').replace('gain_1','1 lb/wk')}</b>`);
@@ -8641,8 +8729,11 @@ async function _ocTurn(userText) {
     _ocTyping(false);
     if (data.debug) console.warn('[obchat] server-side turn failure:', data.debug);
     const gotFields = data.fields && Object.keys(data.fields).length > 0;
+    // A goal weight they actually stated always beats a derived one.
+    if (data.fields && data.fields.goal_weight_lb !== undefined && data.fields.goal_weight_lb !== null) _oc.goalWeightDerived = false;
     if (data.fields) Object.assign(_oc.fields, data.fields);
     if (_oc.fields.height_ft !== undefined && _oc.fields.height_in === undefined) _oc.fields.height_in = 0;
+    _ocFillDerivedGoalWeight();
     _ocRenderChecklist();
     // ---- miss streak ----
     // A transient failure, or a turn that extracted nothing while fields are
@@ -8650,6 +8741,23 @@ async function _ocTurn(userText) {
     // Decide BEFORE posting the reply so the nudge can be chained to that
     // line's completion - posting both in the same tick made two bubbles type
     // over each other at once, which is what it looked like on his screen.
+    // Per-field ask counting. The worker names the field each question was
+    // about; two asks for a fixed-choice field that is still empty means the
+    // conversation is not going to get it.
+    const askedKey = typeof data.asking === 'string' ? data.asking : '';
+    if (askedKey && OC_CHOICES[askedKey]) {
+      _oc.askCounts = _oc.askCounts || {};
+      const stillMissing = _oc.fields[askedKey] === undefined || _oc.fields[askedKey] === null;
+      if (stillMissing) {
+        _oc.askCounts[askedKey] = (_oc.askCounts[askedKey] || 0) + 1;
+        if (_oc.askCounts[askedKey] >= 2) {
+          _ocRenderCard();
+          _ocForceChoice(askedKey);
+          _oc.busy = false;
+          return;
+        }
+      }
+    }
     let offerTyping = false;
     if (gotFields) {
       _oc.missStreak = 0;
@@ -8740,6 +8848,7 @@ function obChatSend() {
   const input = document.getElementById('obchat-input');
   const text = (input.value || '').trim();
   if (!text || !_oc || _oc.busy) return;
+  if (_oc.forcedField) return;   // a button is the only way past this point
   input.value = '';
   _oc.lastInputVoice = false;
   _ocDispatch(text);
@@ -8952,6 +9061,7 @@ function _ocWaveStop() {
 
 async function obChatMic() {
   if (!_oc || _oc.busy) return;
+  if (_oc.forcedField) return;   // mic is off until they pick
   document.getElementById('obchat-mic')?.classList.remove('hint');
   if (_oc.listening) {
     // Mid-turn tap = "I'm done", so submit what was heard rather than binning
@@ -10121,7 +10231,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-19-e-genderhardgate';
+const RATIO_BUILD = '2026-08-19-h-goalfrombf';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
