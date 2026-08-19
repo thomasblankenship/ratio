@@ -707,7 +707,8 @@
         </div>
         <div id="admin-summary" style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:8px"></div>
         <div id="admin-explain" style="display:none;background:var(--gold-tint);border:1px dashed var(--gold-line);border-radius:12px;padding:9px 12px;font-size:11px;line-height:1.5;color:var(--ink);margin-bottom:8px"></div>
-        <div id="admin-spend" style="margin-bottom:10px"></div>
+        <div id="admin-spend" style="margin-bottom:6px"></div>
+        <div id="admin-spend-detail" style="margin-bottom:10px"></div>
         <input type="text" id="admin-search" placeholder="Search username or email…" autocomplete="off" oninput="_adminQ=this.value.toLowerCase();_adminRenderRoster()"
           style="width:100%;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:14px;outline:none;box-sizing:border-box;margin-bottom:8px" />
         <div id="admin-segs" style="display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;-webkit-overflow-scrolling:touch"></div>
@@ -3234,6 +3235,10 @@ function toggleMealForm() {
   const btn = document.getElementById('add-meal-btn');   // retired button - may not exist
   if (!form) return;
   const isOpen = form.style.display !== 'none';
+  // Opening it? Make sure QUICK LOG has actually been built. It renders into
+  // this sheet AND the Meals hub, but only switchTab('meals') ever called the
+  // loader - so a straight-to-dashboard morning showed no chips at all.
+  if (!isOpen && !_recentChipRows.length) { try { loadRecentChips(); } catch (e) {} }
   form.style.display = isOpen ? 'none' : 'block';
   if (btn) btn.style.display = isOpen ? 'block' : 'none';
   if (!isOpen) {
@@ -10162,6 +10167,7 @@ async function renderAdmin() {
   const newWk = (data.summary.newThisWeek === undefined) ? '\u2014' : '+' + data.summary.newThisWeek;
   sEl.innerHTML = stat(data.summary.dau, 'TODAY DAU', 'dau') + stat(data.summary.wau, '7-DAY WAU', 'wau') + stat(data.summary.mau, '30-DAY MAU', 'mau') + stat(data.summary.stickiness + '%', 'STICKY', 'stick') + stat(newWk, 'NEW THIS WK', 'newwk');
   const todayCost = (data.summary.todayCostUsd === undefined) ? '\u2014' : '$' + (data.summary.todayCostUsd || 0).toFixed(2);
+  _adminRenderSpend(data.spend);
   document.getElementById('admin-spend').innerHTML =
     `<div onclick="_adminExplain('spend')" style="background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;gap:8px">` +
     `<span style="font-size:11px;color:var(--muted);font-weight:700">AI SPEND</span>` +
@@ -10169,6 +10175,63 @@ async function renderAdmin() {
     `<span style="font-size:13px;font-weight:800;color:#CFA13C">$${(data.summary.monthCostUsd || 0).toFixed(2)} <span style="font-size:9px;color:var(--muted)">30d</span></span>` +
     `<span style="font-size:11px;color:var(--muted);font-weight:700">CALLS <b style="color:#CFA13C">${data.summary.monthCalls || 0}</b></span></div>`;
   _adminRenderRoster();
+}
+
+// ---- WHERE THE MONEY GOES ----
+// The roster answers "who is spending"; it structurally CANNOT answer "what is
+// the money being spent on", because onboarding happens before signup and those
+// rows have no user at all. This panel is that missing half.
+let _adminSpendOpen = false;
+function _adminToggleSpend() {
+  _adminSpendOpen = !_adminSpendOpen;
+  if (_adminData) _adminRenderSpend(_adminData.spend);
+}
+
+function _adminRenderSpend(spend) {
+  const el = document.getElementById('admin-spend-detail');
+  if (!el) return;
+  if (!spend) {   // older worker - say so rather than rendering an empty panel
+    el.innerHTML = `<div style="font-size:10px;color:var(--muted);padding:6px 2px">Spend breakdown needs worker 2026-08-19-g-spendreport or later.</div>`;
+    return;
+  }
+  const money = n => '$' + (+n || 0).toFixed(n >= 1 ? 2 : 4);
+  const head = t => `<div style="font-size:9px;font-weight:800;letter-spacing:0.6px;color:#CFA13C;margin:10px 2px 5px">${t}</div>`;
+  const bar = (v, max) => {
+    const pct = max > 0 ? Math.max(2, Math.round(v / max * 100)) : 0;
+    return `<div style="height:3px;background:var(--line);border-radius:2px;overflow:hidden;margin-top:4px"><div style="width:${pct}%;height:100%;background:#CFA13C"></div></div>`;
+  };
+  const rows = (list, label) => {
+    if (!list || !list.length) return `<div style="font-size:10px;color:var(--muted);padding:4px 2px">Nothing yet.</div>`;
+    const max = list[0].cost || 0;
+    return list.map(r => `<div style="padding:7px 10px;background:var(--surface);border:1px solid var(--line);border-radius:10px;margin-bottom:5px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+        <span style="font-size:12px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_weEscHtml(r.name)}</span>
+        <span style="font-size:12px;font-weight:800;color:#CFA13C;flex-shrink:0">${money(r.cost)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--muted);margin-top:2px">
+        <span>${r.calls} calls${r.callsToday ? ' \u00b7 ' + r.callsToday + ' today' : ''}</span>
+        <span>${money(r.perCall)}/call${r.costToday ? ' \u00b7 ' + money(r.costToday) + ' today' : ''}</span>
+      </div>${bar(r.cost, max)}</div>`).join('');
+  };
+
+  if (!_adminSpendOpen) {
+    el.innerHTML = `<div onclick="_adminToggleSpend()" style="text-align:center;font-size:10px;color:#CFA13C;font-weight:700;padding:6px;cursor:pointer">Where the money goes \u25be</div>`;
+    return;
+  }
+
+  // The headline number for launch: what an unfinished signup costs you.
+  const anon = `<div style="background:var(--gold-tint);border:1px solid var(--gold-line);border-radius:12px;padding:10px 12px;margin-bottom:8px">
+    <div style="font-size:9px;font-weight:800;letter-spacing:0.6px;color:#CFA13C">SIGNUP CHAT \u2014 BEFORE THEY HAVE AN ACCOUNT</div>
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:5px">
+      <span style="font-size:17px;font-weight:800;color:#CFA13C">${money(spend.anonCost)}</span>
+      <span style="font-size:10px;color:var(--muted)">${spend.anonCalls} calls \u00b7 ${money(spend.anonCostToday)} today</span>
+    </div>
+    <div style="font-size:10px;color:var(--muted);margin-top:4px">${spend.signups30} signed up in 30d \u00b7 <b style="color:#CFA13C">${money(spend.costPerSignup)}</b> per signup</div>
+    <div style="font-size:9px;color:var(--muted);margin-top:3px">This spend has no user attached, so it never appears in the roster below.</div>
+  </div>`;
+
+  el.innerHTML = `<div onclick="_adminToggleSpend()" style="text-align:center;font-size:10px;color:#CFA13C;font-weight:700;padding:6px;cursor:pointer">Hide breakdown \u25b4</div>`
+    + anon + head('BY FEATURE') + rows(spend.byEndpoint) + head('BY MODEL') + rows(spend.byModel);
 }
 
 // ---- v3 roster: dense rows, search, sort, segments; tap a row to expand ----
@@ -10313,7 +10376,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-19-k-lockfallback';
+const RATIO_BUILD = '2026-08-19-n-spendreport';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -20239,6 +20302,7 @@ function renderMuscleChart() {
 }
 
 function showSettings() {
+  _adminMaybeShowRow();   // decided here, not by a boot timer that ran pre-login
   document.getElementById('settings-email').textContent = _currentUser?.email || '';
   document.getElementById('settings-reset-msg').style.display = 'none';
   document.getElementById('settings-reset-btn').textContent = '🔑 Reset Password';
