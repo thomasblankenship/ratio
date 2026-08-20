@@ -9357,8 +9357,10 @@ async function obChatMic() {
     _ocAddBot("This browser can't do voice — Chrome, Edge and Safari can. Typing works perfectly well though, go ahead.");
     return;
   }
-  // Mobile Safari shares the same audio session behaviour as the native app.
-  await _ttsRelease();
+  // Mobile Safari shares the same audio session behaviour as the native app -
+  // but with voice output off there is no session to hand back, and this
+  // fixed 350ms wait was the flat +355ms his [vt] logs showed on every tap.
+  if (VOICE_OUTPUT_ENABLED || _ttsBusy()) await _ttsRelease();
   const rec = new Ctor();
   _oc._waveUp = false;
   rec.lang = 'en-US'; rec.interimResults = true;
@@ -10466,7 +10468,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-20-e-webmic';
+const RATIO_BUILD = '2026-08-20-f-webmicfast';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
