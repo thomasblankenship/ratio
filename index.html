@@ -532,6 +532,17 @@
       <div style="font-size:14px;color:var(--muted);margin-bottom:32px">Sign in to your account</div>
       <div id="auth-error" style="font-size:13px;color:#F87171;margin-bottom:12px;min-height:20px;text-align:center"></div>
       <div id="auth-login-form">
+        <div id="auth-provider-btns">
+          <button id="auth-btn-apple" type="button" onclick="obOAuth('apple')"
+            style="width:100%;padding:15px;background:#000;color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px">&#63743; Sign in with Apple</button>
+          <button id="auth-btn-google" type="button" onclick="obOAuth('google')"
+            style="width:100%;padding:15px;background:#fff;color:#1f1f1f;border:1.5px solid var(--line);border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px"><span style="font-weight:800;color:#4285F4">G</span> Continue with Google</button>
+          <div style="display:flex;align-items:center;gap:12px;margin:16px 0">
+            <div style="flex:1;height:1px;background:var(--line)"></div>
+            <div style="font-size:12px;color:var(--muted)">or sign in with your password</div>
+            <div style="flex:1;height:1px;background:var(--line)"></div>
+          </div>
+        </div>
         <div style="margin-bottom:12px"><input id="auth-email" type="text" placeholder="Email or Username" autocomplete="username" autocapitalize="off" autocorrect="off" onfocus="moveCaretToEnd(this)" style="width:100%;padding:14px 16px;border:1.5px solid var(--line);border-radius:12px;font-size:16px;outline:none;box-sizing:border-box" /></div>
         <div style="margin-bottom:20px;position:relative">
           <input id="auth-password" type="password" placeholder="Password" autocomplete="current-password" style="width:100%;padding:14px 48px 14px 16px;border:1.5px solid var(--line);border-radius:12px;font-size:16px;outline:none;box-sizing:border-box" onkeydown="if(event.key==='Enter')handleLogin()" />
@@ -8286,6 +8297,25 @@ async function obClaimContinue() {
   if (btn) { btn.disabled = false; btn.textContent = 'Continue \u2192'; }
 }
 
+if (typeof document !== 'undefined') {
+  const _initLoginProv = () => { try { obLoginInitProviders(); } catch (e) {} };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _initLoginProv);
+  else _initLoginProv();
+}
+function obLoginInitProviders() {
+  const native = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  if (!native) return;
+  const P = window.Capacitor.Plugins || {};
+  if (!P.SignInWithApple) { const b = document.getElementById('auth-btn-apple'); if (b) b.style.display = 'none'; }
+  if (!P.GoogleAuth && !P.SocialLogin) { const b = document.getElementById('auth-btn-google'); if (b) b.style.display = 'none'; }
+  // If BOTH native buttons are gone, drop the "or sign in with your password"
+  // divider too - otherwise the login screen opens with a lonely "or".
+  if (!P.SignInWithApple && !P.GoogleAuth && !P.SocialLogin) {
+    const wrap = document.getElementById('auth-provider-btns');
+    if (wrap) wrap.style.display = 'none';
+  }
+}
+
 function obChatUseForms() {
   _ocStopListening();
   document.getElementById('ob-chat').style.display = 'none';
@@ -10721,7 +10751,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-20-k-signup';
+const RATIO_BUILD = '2026-08-20-l-signinpage';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
