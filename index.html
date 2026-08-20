@@ -9203,6 +9203,8 @@ async function obChatMic() {
   _oc.lastInputVoice = true;
   try { speechSynthesis?.cancel(); } catch (e) {}
 
+  const _vt0 = Date.now();
+  const _vt = (label) => console.log('[vt] ' + label + ' +' + (Date.now() - _vt0) + 'ms');
   if (plugin) {
     // Every failure below used to be a toast() — which renders BEHIND this
     // full-screen panel, so on iPhone a broken mic was completely silent.
@@ -9225,13 +9227,16 @@ async function obChatMic() {
       // This is the actual cause of "Ongoing speech recognition": the native
       // recogniser outlives the JS state that was tracking it, so one
       // abandoned start() bricks the mic until the app is force-quit.
+      _vt('teardown-done');
       await _ocResetRecognizer(plugin);
+      _vt('reset-done');
       // Capability and permission cannot change mid-session, so pay for these
       // two IPC round trips once instead of on every single tap.
       if (_ocMicCaps.available === null) {
         const avail = await plugin.available();
         _ocMicCaps.available = !!(avail && avail.available);
       }
+      _vt('caps-done');
       if (!_ocMicCaps.available) { bail("Voice isn't available on this device — go ahead and type your answer, that works just as well."); return; }
       if (!_ocMicCaps.granted) {
         let perm = await plugin.checkPermissions();
@@ -9239,6 +9244,7 @@ async function obChatMic() {
         if (perm.speechRecognition !== 'granted') { bail("I need microphone permission to hear you — you can switch it on in iPhone Settings under Ratio. Typing works in the meantime.", 'permission ' + JSON.stringify(perm)); return; }
         _ocMicCaps.granted = true;
       }
+      _vt('perm-done');
       _oc.listening = true; _oc.nativeListening = true;
       _oc.partial = '';
       _oc._lastSpeechAt = 0;
@@ -9252,6 +9258,7 @@ async function obChatMic() {
       const partialHandle = await plugin.addListener('partialResults', (d) => {
         const t = ((d && d.matches && d.matches[0]) || '').trim();
         if (t) {
+          if (!_oc.partial) _vt('first-partial: ' + JSON.stringify(t.slice(0, 40)));
           _oc.partial = t;
           _oc._lastSpeechAt = Date.now();
           const inp = document.getElementById('obchat-input'); if (inp) inp.value = t;
@@ -9322,6 +9329,7 @@ async function obChatMic() {
       // finish now. If it returns undefined — iOS — keep listening; that is
       // the normal case and used to be treated as failure.
       // NOW it is listening - drop the warming state and raise the wavebar.
+      _vt('start-resolved');
       _ocMicWarming(false);
       _ocWaveStart();
       _oc._listenStartedAt = Date.now();   // endpointer counts from real capture
@@ -10436,7 +10444,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-20-c-goalstrikes';
+const RATIO_BUILD = '2026-08-20-d-mictiming';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
