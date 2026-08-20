@@ -6725,6 +6725,7 @@ function obShowStep(n) {
   el.style.zIndex = '9999';
   el.style.overflowY = 'hidden';
   _obCurrentStep = n;
+  if (n === 7) { try { obSignupInitProviders(); } catch (e) {} }
   if (n === 8) {
     const dateEl = document.getElementById('ob-photo-date');
     if (dateEl && !dateEl.value) dateEl.value = new Date().toISOString().slice(0,10);
@@ -7193,9 +7194,10 @@ function obBack(step) {
 
 // ONBOARDING NUMPAD
 let _obUsernameCheckTimeout = null;
-function obCheckUsername(value) {
+function obCheckUsername(value, inputId) {
   clearTimeout(_obUsernameCheckTimeout);
-  const statusEl = document.getElementById('ob-signup-username-status');
+  const _uid = inputId || 'ob-signup-username';
+  const statusEl = document.getElementById(_uid + '-status');
   const username = (value || '').trim().toLowerCase();
   window._obUsernameAvailable = null;
   if (!username) { statusEl.style.display = 'none'; return; }
@@ -7213,7 +7215,7 @@ function obCheckUsername(value) {
       const res = await fetch(`${WORKER_URL}/check-username?username=${encodeURIComponent(username)}`);
       const data = await res.json();
       // Ignore stale responses if the field has changed since this check started
-      if (document.getElementById('ob-signup-username').value.trim().toLowerCase() !== username) return;
+      if (document.getElementById(_uid).value.trim().toLowerCase() !== username) return;
       window._obUsernameAvailable = !!data.available;
       if (data.available) {
         statusEl.textContent = '✓ Username available';
@@ -7415,6 +7417,7 @@ async function _sbEnsureFreshToken() {
 }
 
 async function getSession() {
+  if (/access_token=|error=/.test(location.hash || '')) { try { await obOAuthBootCheck(); } catch (e) {} }
   try {
     const stored = localStorage.getItem('sb_session');
     if (!stored) return null;
@@ -8110,6 +8113,177 @@ function obStartChat() {
   // No pill buttons — Lauren just ASKED the question, and the answer is meant
   // to be spoken. The pulsing mic is the hint.
   document.getElementById('obchat-mic')?.classList.add('hint');
+}
+
+// ---- Apple / Google sign-in ----
+// Web: Supabase's hosted OAuth redirect. Native iOS: an ID-token exchange via
+// a Capacitor plugin - until those plugins ship in ratio-ios, the buttons
+// simply hide inside the app and the iPhone stays email-only. The buttons
+// appearing is therefore the signal that each platform's plumbing is live.
+function obSignupShowEmail() {
+  const f = document.getElementById('ob-email-fields');
+  const p = document.getElementById('ob-provider-btns');
+  const b = document.getElementById('ob-signup-btn');
+  if (f) f.style.display = 'block';
+  if (p) p.style.display = 'none';
+  if (b) b.style.display = 'block';
+  document.getElementById('ob-signup-username')?.focus();
+}
+
+function obSignupInitProviders() {
+  // Google inside a WKWebView is BLOCKED by Google (disallowed_useragent),
+  // and Apple's web redirect inside the app is poor - so on native, each
+  // button requires its own plugin or it hides.
+  const native = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  if (!native) return; // web: both buttons stay (Supabase handles the rest)
+  const P = window.Capacitor.Plugins || {};
+  if (!P.SignInWithApple) { const b = document.getElementById('ob-btn-apple'); if (b) b.style.display = 'none'; }
+  if (!P.GoogleAuth && !P.SocialLogin) { const b = document.getElementById('ob-btn-google'); if (b) b.style.display = 'none'; }
+}
+
+async function obOAuth(provider) {
+  // The interview's answers live in ob_progress (localStorage) - saved here so
+  // they survive the redirect and obRestoreProgress refills the form fields.
+  try { obSaveProgress(); } catch (e) {}
+  try { sessionStorage.setItem('ob_oauth_flow', '1'); } catch (e) {}
+  const native = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  if (native) {
+    try {
+      let idToken = null, nonce;
+      if (provider === 'apple' && window.Capacitor.Plugins.SignInWithApple) {
+        const r = await window.Capacitor.Plugins.SignInWithApple.authorize({ scopes: 'email name' });
+        idToken = r && r.response && r.response.identityToken;
+        const nm = r && r.response && [r.response.givenName, r.response.familyName].filter(Boolean).join(' ');
+        if (nm && !window._obName) window._obName = nm;
+      } else if (provider === 'google' && window.Capacitor.Plugins.GoogleAuth) {
+        const r = await window.Capacitor.Plugins.GoogleAuth.signIn();
+        idToken = r && (r.authentication && r.authentication.idToken || r.idToken);
+        if (r && r.name && !window._obName) window._obName = r.name;
+      }
+      if (!idToken) { toast(provider === 'apple' ? 'Apple sign-in was cancelled' : 'Google sign-in was cancelled'); return; }
+      const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=id_token`, {
+        method: 'POST',
+        headers: { 'apikey': SUPABASE_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider, id_token: idToken })
+      });
+      const data = await res.json();
+      if (!res.ok) { console.error('[oauth] id_token exchange failed', data); toast('Sign-in failed - try email instead'); return; }
+      if (data.expires_in && !data.expires_at) data.expires_at = Math.floor(Date.now() / 1000) + data.expires_in;
+      localStorage.setItem('sb_session', JSON.stringify(data));
+      _authToken = data.access_token;
+      _currentUser = data.user;
+      await obOAuthAfterAuth();
+    } catch (e) {
+      console.error('[oauth] native flow failed', e);
+      toast('Sign-in failed - try email instead');
+    }
+    return;
+  }
+  // Web: full-page redirect through Supabase's OAuth endpoint. The provider
+  // must be enabled in the Supabase dashboard first; until then Supabase
+  // bounces back with an error we surface on return.
+  const redirectTo = location.origin + location.pathname;
+  location.href = `${SUPABASE_URL}/auth/v1/authorize?provider=${provider}&redirect_to=${encodeURIComponent(redirectTo)}`;
+}
+
+// Runs at the very start of getSession(): if the URL fragment carries OAuth
+// tokens (the web redirect just landed), adopt them as the session.
+async function obOAuthBootCheck() {
+  try {
+    const h = location.hash || '';
+    if (!/access_token=/.test(h)) {
+      if (/error=/.test(h) && sessionStorage.getItem('ob_oauth_flow')) {
+        const msg = decodeURIComponent((h.match(/error_description=([^&]*)/) || [])[1] || 'Sign-in failed');
+        console.warn('[oauth] provider returned error:', msg);
+        history.replaceState(null, '', location.pathname + location.search);
+        setTimeout(() => toast(msg.replace(/\+/g, ' ')), 800);
+      }
+      return false;
+    }
+    const q = {};
+    h.replace(/^#/, '').split('&').forEach(kv => { const i = kv.indexOf('='); if (i > 0) q[kv.slice(0, i)] = decodeURIComponent(kv.slice(i + 1)); });
+    if (!q.access_token || !q.refresh_token) return false;
+    history.replaceState(null, '', location.pathname + location.search);
+    const ur = await fetch(`${SUPABASE_URL}/auth/v1/user`, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + q.access_token } });
+    const user = await ur.json();
+    if (!ur.ok || !user || !user.id) { console.error('[oauth] token arrived but /user failed', user); return false; }
+    const session = { access_token: q.access_token, refresh_token: q.refresh_token,
+      expires_at: q.expires_at ? parseInt(q.expires_at, 10) : Math.floor(Date.now() / 1000) + (parseInt(q.expires_in, 10) || 3600), user };
+    localStorage.setItem('sb_session', JSON.stringify(session));
+    _authToken = session.access_token;
+    _currentUser = user;
+    console.log('[oauth] web redirect adopted as session. uid:', user.id && user.id.slice(0, 8));
+    await obOAuthAfterAuth();
+    return true;
+  } catch (e) { console.error('[oauth] boot check failed', e); return false; }
+}
+
+// Both OAuth paths land here with a live session. A user with a profile is a
+// RETURNING user signing in - continue to the app. A user without one is
+// mid-SIGNUP - restore the interview's answers and claim a username.
+async function obOAuthAfterAuth() {
+  try { sessionStorage.removeItem('ob_oauth_flow'); } catch (e) {}
+  let hasProfile = false;
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/user_settings?user_id=eq.${_currentUser.id}&key=eq.profile&select=key&limit=1`,
+      { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + _authToken } });
+    const rows = await r.json();
+    hasProfile = Array.isArray(rows) && rows.length > 0;
+  } catch (e) {}
+  if (hasProfile) { console.log('[oauth] returning user - continuing to app'); return; }
+  const meta = (_currentUser && (_currentUser.user_metadata || {})) || {};
+  if (!window._obName) window._obName = meta.full_name || meta.name || (document.getElementById('ob-signup-name')?.value || '').trim() || '';
+  const show = () => {
+    try { obRestoreProgress(); } catch (e) {}
+    obShowClaimUsername();
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', show);
+  else show();
+}
+
+function obShowClaimUsername() {
+  document.querySelectorAll('.ob-screen').forEach(el => { el.style.display = 'none'; });
+  const el = document.getElementById('ob-claim');
+  if (!el) return;
+  el.style.display = 'flex';
+  const t = document.getElementById('ob-claim-title');
+  if (t && window._obName) t.textContent = `Almost there, ${window._obName} - claim your username`;
+  const input = document.getElementById('ob-claim-username');
+  if (input && !input.value) {
+    const base = (window._obName || 'user').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12) || 'user';
+    input.value = base + String(10 + Math.floor(Math.random() * 90));
+    obCheckUsername(input.value, 'ob-claim-username');
+  }
+}
+
+async function obClaimContinue() {
+  const errEl = document.getElementById('ob-claim-error');
+  if (errEl) errEl.style.display = 'none';
+  const val = (document.getElementById('ob-claim-username')?.value || '').trim().toLowerCase();
+  const fail = (m) => { if (errEl) { errEl.textContent = m; errEl.style.display = 'block'; } };
+  if (!/^[a-z0-9._]{3,20}$/.test(val)) return fail('3-20 characters: letters, numbers, periods, underscores only.');
+  if (window._obUsernameAvailable === false) return fail('That username is taken - try another.');
+  window._obUsername = val;
+  // obSaveAndWelcome reads the classic form fields, refilled by
+  // obRestoreProgress. If the snapshot expired the fields are empty - never
+  // let silent defaults compute a plan the person did not give.
+  const age = document.getElementById('ob-age')?.value;
+  const wt = document.getElementById('ob-weight')?.value;
+  if (!age || !wt) {
+    fail('Your setup answers timed out during sign-in - one quick redo and you are in.');
+    setTimeout(() => obShowStep(1), 1600);
+    return;
+  }
+  const btn = document.getElementById('ob-claim-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
+  try {
+    await obSaveAndWelcome();
+    obShowStep(8);
+  } catch (e) {
+    console.error('[claim] save failed', e);
+    fail('Saving failed - check your connection and try again.');
+  }
+  if (btn) { btn.disabled = false; btn.textContent = 'Continue \u2192'; }
 }
 
 function obChatUseForms() {
@@ -10547,7 +10721,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-20-j-backtochat';
+const RATIO_BUILD = '2026-08-20-k-signup';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -23293,6 +23467,23 @@ if (document.readyState === 'loading') {
         <input id="ob-signup-name" type="text" placeholder="First name" autocomplete="given-name"
           style="width:100%;padding:14px 16px;border:1.5px solid var(--line);border-radius:12px;font-size:16px;outline:none;box-sizing:border-box" />
       </div>
+      <!-- Three doors, one username system. Apple + Google skip the password
+           entirely and claim a username after OAuth; email expands the classic
+           fields. Apple rule: offering Google REQUIRES Sign in with Apple. -->
+      <div id="ob-provider-btns">
+        <button id="ob-btn-apple" type="button" onclick="obOAuth('apple')"
+          style="width:100%;padding:15px;background:#000;color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px">&#63743; Sign in with Apple</button>
+        <button id="ob-btn-google" type="button" onclick="obOAuth('google')"
+          style="width:100%;padding:15px;background:#fff;color:#1f1f1f;border:1.5px solid var(--line);border-radius:14px;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px"><span style="font-weight:800;color:#4285F4">G</span> Continue with Google</button>
+        <div style="display:flex;align-items:center;gap:12px;margin:14px 0">
+          <div style="flex:1;height:1px;background:var(--line)"></div>
+          <div style="font-size:12px;color:var(--muted)">or</div>
+          <div style="flex:1;height:1px;background:var(--line)"></div>
+        </div>
+        <button id="ob-btn-email" type="button" onclick="obSignupShowEmail()"
+          style="width:100%;padding:15px;background:var(--surface);color:var(--ink);border:1.5px solid #CFA13C;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:14px">Continue with email</button>
+      </div>
+      <div id="ob-email-fields" style="display:none">
       <div style="margin-bottom:12px">
         <div style="font-size:13px;font-weight:700;color:var(--muted);margin-bottom:6px">Username</div>
         <input id="ob-signup-username" type="text" placeholder="e.g. alexfit22" autocomplete="off" autocapitalize="off" autocorrect="off"
@@ -23324,6 +23515,7 @@ if (document.readyState === 'loading') {
         </div>
       </div>
       <div id="ob-signup-error" style="font-size:13px;color:#F87171;margin-bottom:8px;display:none"></div>
+      </div><!-- /ob-email-fields -->
       <!-- The Terms and Privacy Policy MUST be reachable from here: this is
            where consent is actually captured. They were previously named but
            not linked, which the outside review flagged as the one item
@@ -23333,7 +23525,29 @@ if (document.readyState === 'loading') {
     </div>
     <div style="padding:20px 24px 40px;display:flex;gap:10px">
       <button onclick="obBack(7)" style="padding:16px 20px;border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);font-size:20px;cursor:pointer">←</button>
-      <button id="ob-signup-btn" onclick="obNext(7)" style="flex:1;padding:16px;background:#CFA13C;color:#101512;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer">Next →</button>
+      <button id="ob-signup-btn" onclick="obNext(7)" style="display:none;flex:1;padding:16px;background:#CFA13C;color:#101512;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer">Next →</button>
+    </div>
+  </div>
+
+  <!-- Claim username: shown after an Apple/Google sign-in. One username
+       system for every account type - his call, "username for everyone". -->
+  <div class="ob-screen" id="ob-claim" style="position:fixed;top:0;left:0;right:0;bottom:0;background:var(--surface);display:none;flex-direction:column;z-index:9999;max-width:520px;margin:0 auto">
+    <div style="padding:24px;flex:1;overflow-y:auto;min-height:0">
+      <div style="font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;margin-top:24px">One last thing</div>
+      <div id="ob-claim-title" style="font-size:26px;font-weight:800;color:var(--ink);letter-spacing:-0.5px;margin-bottom:6px">Claim your username</div>
+      <div style="font-size:14px;color:var(--muted);margin-bottom:24px">You can sign in with this anywhere &mdash; no password needed with your linked account.</div>
+      <div style="margin-bottom:12px">
+        <div style="font-size:13px;font-weight:700;color:var(--muted);margin-bottom:6px">Username</div>
+        <input id="ob-claim-username" type="text" placeholder="e.g. alexfit22" autocomplete="off" autocapitalize="off" autocorrect="off"
+          oninput="obCheckUsername(this.value,'ob-claim-username')"
+          style="width:100%;padding:14px 16px;border:1.5px solid var(--line);border-radius:12px;font-size:16px;outline:none;box-sizing:border-box" />
+        <div id="ob-claim-username-status" style="font-size:12px;margin-top:6px;display:none"></div>
+        <div style="font-size:12px;color:var(--muted);margin-top:6px">3-20 characters, letters/numbers/periods/underscores.</div>
+      </div>
+      <div id="ob-claim-error" style="font-size:13px;color:#F87171;margin-bottom:8px;display:none"></div>
+    </div>
+    <div style="padding:20px 24px 40px">
+      <button id="ob-claim-btn" onclick="obClaimContinue()" style="width:100%;padding:16px;background:#CFA13C;color:#101512;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer">Continue &rarr;</button>
     </div>
   </div>
 
