@@ -5031,6 +5031,20 @@ function _vlIsAffirmation(text) {
       || /\b(looks good|look good|sounds good|sounds right|that's right|thats right|that's good|thats good|that's it|thats it|log it|save it|do it|confirm|go ahead)\b/.test(t);
 }
 
+// Contentless on its own: greetings and bare yes/no with nothing pending.
+// Deliberately narrow - anything with a noun in it falls through to the AI.
+function _vlIsBareAck(text) {
+  const t = String(text || '').toLowerCase().replace(/[^a-z' ]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!t || t.split(' ').length > 3) return false;
+  return /^(yes|yep|yeah|yup|sure|ok|okay|k|kk|no|nope|nah|hi|hey|hello|yo|sup|thanks|thank you|cool|nice|alright|all right|sounds good|got it)$/.test(t);
+}
+let _vlAckStrikes = 0;
+const _VL_ACK_LINES = [
+  "Ready when you are \u2014 tell me what to log, like \"two eggs and toast\" or \"bench 225 for 5\".",
+  "Give me something to work with, brother \u2014 a meal, a set, or say \"add chicken to my shopping list\".",
+  "Try it in one breath: \"log a turkey sandwich and a banana for lunch\" \u2014 I'll take it from there."
+];
+
 function vlHandleUtterance(text) {
   _vlDraft = '';   // something real was said or typed - the stashed draft is superseded
   _vlAutoArmed = false;
@@ -5053,6 +5067,18 @@ function vlHandleUtterance(text) {
     vlConfirmSave();
     return;
   }
+  // No card pending, no follow-up question in flight, and the utterance is a
+  // bare acknowledgment: the AI could only ever ask "log what?" back, so
+  // answer that here for free instead of paying per lap of the loop.
+  if (!confirmPending && !_vlAwaitingFollowup && _vlIsBareAck(text)) {
+    _vlThreadUser(text);
+    vlStopListeningQuiet();
+    _vlThreadBot(_VL_ACK_LINES[Math.min(_vlAckStrikes, _VL_ACK_LINES.length - 1)]);
+    _vlAckStrikes++;
+    vlShowState('idle');
+    return;
+  }
+  _vlAckStrikes = 0;
   if (confirmPending) _vlAwaitingFollowup = true;
   _vlThreadUser(text);
   _vlCorrecting = false; // the correction (if any) has been captured — the hint is no longer needed
@@ -8160,6 +8186,9 @@ function _ocScroll() {
   // Nothing to scroll on the intro — it is a fixed screen, and scrolling it
   // is precisely what pushed the top of the text out of view.
   if (!box || _ocIsIntro()) return;
+  // Coach-intro screen: the words must stay on screen WHILE they type, so
+  // the per-word scroll pins to the TOP until the person does something.
+  if (_oc && _oc._pinTop) { box.scrollTop = 0; return; }
   box.scrollTop = box.scrollHeight;
 }
 
@@ -8511,6 +8540,7 @@ function _ocIntroduceCoach(coachKey, goalKey) {
     // Short viewports (phones): the portrait yields height so the words +
     // checklist fit; the words are why this screen exists.
     const shortVp = window.innerHeight < 780;
+    _oc._pinTop = true;   // released on their first input (_ocDispatch)
     _ocAddBot(c.intro, { onSpoken: () => {
       const b = document.getElementById('obchat-messages');
       if (b) requestAnimationFrame(() => { b.scrollTop = 0; });
@@ -8990,6 +9020,7 @@ function _ocExitIntroMode() {
 }
 
 function _ocDispatch(text) {
+  if (_oc) _oc._pinTop = false;   // they acted — normal bottom-follow resumes
   document.getElementById('obchat-mic')?.classList.remove('hint');
   if (_oc.stage === 'goal') {
     _ocExitIntroMode();
@@ -10487,7 +10518,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-20-g-iphonepass';
+const RATIO_BUILD = '2026-08-20-h-coachloop';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
