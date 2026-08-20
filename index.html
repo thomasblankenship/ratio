@@ -8698,6 +8698,24 @@ function _ocLockInput(locked) {
   });
 }
 
+function _ocForceGoalChoice() {
+  if (_oc.forcedField === 'goal') return;
+  _oc.forcedField = 'goal';   // obChatSend/obChatMic hard-return on this
+  try { if (typeof _ocStopListening === 'function') _ocStopListening(); } catch (e) {}
+  _ocLockInput(true);
+  _ocAddBot('Let’s make it easy — just tap the one that fits best. You can tell me more once we’re rolling.', {
+    onSpoken: () => _ocChips(Object.keys(OB_GOAL_LABELS).map(k => ({
+      label: OB_GOAL_LABELS[k],
+      action: () => {
+        _oc.forcedField = null;
+        _oc.goalMisses = 0;
+        _ocLockInput(false);
+        _ocSetGoal(k);
+      }
+    })))
+  });
+}
+
 function _ocForceChoice(key) {
   const build = OC_CHOICES[key];
   if (!build || _oc.forcedField === key) return;
@@ -8969,7 +8987,14 @@ function _ocDispatch(text) {
       _obGoalType = goal;
       _ocIntroduceCoach(OB_COACHES.ian.goals.includes(goal) ? 'ian' : 'olivia', goal);
     } else {
-      _ocAddBot("I didn't quite catch a goal in that — just tell me one of the four: lose body fat, lose weight, gain muscle, or maintain and perform.");
+      _oc.goalMisses = (_oc.goalMisses || 0) + 1;
+      if (_oc.goalMisses >= 3) {
+        _ocForceGoalChoice();
+      } else if (_oc.goalMisses === 2) {
+        _ocAddBot("No rush — it just has to be one of the four so I pair you with the right trainer. One more try, or I'll put the buttons back up.");
+      } else {
+        _ocAddBot("I didn't quite catch a goal in that — just tell me one of the four: lose body fat, lose weight, gain muscle, or maintain and perform.");
+      }
     }
     return;
   }
@@ -10411,7 +10436,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-20-a-hktokenrefresh';
+const RATIO_BUILD = '2026-08-20-c-goalstrikes';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
