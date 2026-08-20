@@ -7173,7 +7173,17 @@ function obBack(step) {
   if (step === 4) { obShowStep(3); return; }
   if (step === 5) { obShowStep(4); return; }
   if (step === 6) { obShowStep(5); return; }
-  if (step === 7) { obShowStep(6); return; }
+  if (step === 7) {
+    // Came here from the coach interview? Back goes to the CHAT, where the
+    // card and "say it again to correct anything" live - never to the
+    // legacy form screens the interview replaced.
+    if (window._oc && _oc.coach) {
+      document.querySelectorAll('.ob-screen').forEach(el => { el.style.display = 'none'; });
+      const chat = document.getElementById('ob-chat');
+      if (chat) { chat.style.display = 'flex'; return; }
+    }
+    obShowStep(6); return;
+  }
   if (step === 8) { obShowStep(7); return; }
   if (step === 9) { obShowStep(8); return; }
   if (step === 10) { obShowStep(9); return; }
@@ -10537,7 +10547,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-20-i-chiplocal';
+const RATIO_BUILD = '2026-08-20-j-backtochat';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
