@@ -4198,6 +4198,13 @@ async function syncHealthKitBody(showToast) {
 }
 
 async function syncHealthKitAll(showToast) {
+  // ONE refresh up front. Without this, a launch with an expired token makes
+  // the first of ~395 writes 401 and the rest fail as "Load failed" before the
+  // per-write refresh lands - a wasted pass every cold start. See _sbEnsureFreshToken.
+  if ((_authToken || _currentUser?.id) && !(await _sbEnsureFreshToken())) {
+    console.warn('[HealthKit] token refresh failed up front — sync deferred to next trigger');
+    return;
+  }
   await syncHealthKitWorkouts(showToast);
   await syncHealthKitSteps(showToast);
   await syncHealthKitBody(showToast);
@@ -7342,6 +7349,25 @@ function obClearCurrentAngle() {
 function obClearPhoto() { obClearCurrentAngle(); }
 
 // AUTH FUNCTIONS
+// Refresh the access token NOW if it is expired or within 5 minutes of it, so
+// a burst of writes doesn't each discover the staleness by failing. Returns
+// true if the token is usable afterwards. Shares _sbRefreshAuth's in-flight
+// guard, so calling it before several syncs only refreshes once.
+async function _sbEnsureFreshToken() {
+  try {
+    const raw = localStorage.getItem('sb_session');
+    if (!raw) return !!_authToken;            // nothing stored; nothing to refresh
+    const session = JSON.parse(raw);
+    if (!session || !session.access_token) return !!_authToken;
+    const soon = session.expires_at && (Date.now() / 1000 > session.expires_at - 300);
+    if (!soon) return true;                   // still valid for >5 min
+    if (!session.refresh_token) return false;
+    return await _sbRefreshAuth();            // refreshes once, updates _authToken
+  } catch (e) {
+    return !!_authToken;                       // never block a sync on a parse error
+  }
+}
+
 async function getSession() {
   try {
     const stored = localStorage.getItem('sb_session');
@@ -10385,7 +10411,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-19-p-hblogin';
+const RATIO_BUILD = '2026-08-20-a-hktokenrefresh';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
