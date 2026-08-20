@@ -4097,10 +4097,15 @@ async function syncHealthKitSteps(showToast) {
   try {
     await Capacitor.Plugins.HealthKit.requestAuthorization();
     const { days } = await Capacitor.Plugins.HealthKit.fetchStepsHistory({ daysBack: 365 });
+    let stepFails = 0;
     for (const d of days || []) {
       try {
         await dbUpsert('daily_steps', { date: d.date, steps: d.steps }, 'user_id,date');
-      } catch (e) { console.error('HealthKit steps import failed for', d.date, e?.message || String(e)); }
+        stepFails = 0;
+      } catch (e) {
+        console.error('HealthKit steps import failed for', d.date, e?.message || String(e));
+        if (++stepFails >= 3) { console.error('[HealthKit] aborting steps import \u2014 3 consecutive failures, next sync will retry'); break; }
+      }
     }
     dailyStepsCache = null;
     if (typeof renderStepsChart === 'function') renderStepsChart();
@@ -4198,6 +4203,7 @@ async function syncHealthKitBody(showToast) {
 }
 
 async function syncHealthKitAll(showToast) {
+  console.log('[HealthKit] sync start uid=' + (_currentUser?.id || 'none') + ' token=' + (_authToken ? 'yes' : 'no'));
   // ONE refresh up front. Without this, a launch with an expired token makes
   // the first of ~395 writes 401 and the rest fail as "Load failed" before the
   // per-write refresh lands - a wasted pass every cold start. See _sbEnsureFreshToken.
@@ -6542,7 +6548,11 @@ async function dbPost(table, data) {
   return result;
 }
 async function dbUpsert(table, data, onConflict) {
-  if (_currentUser?.id && !data.user_id) data = { ...data, user_id: _currentUser.id };
+  // A write on the anon key is a guaranteed RLS rejection (the 42501 wall in
+  // eruda). If auth has gone away mid-run, fail fast and say why - one clear
+  // line beats 365 cryptic ones and skips the doomed network round trip.
+  if (!_authToken || !_currentUser?.id) throw new Error('no auth session \u2014 write to ' + table + ' skipped');
+  if (!data.user_id) data = { ...data, user_id: _currentUser.id };
   const send = () => fetch(`${SUPABASE_URL}/rest/v1/${table}?on_conflict=${onConflict}`, {
     method: 'POST',
     headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${_authToken || SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates,return=representation' },
@@ -7595,7 +7605,7 @@ function _ocAddHero(src, alt, opts) {
   img.style.cssText = fill
     ? `display:block;width:100%;height:100%;object-fit:${fit};object-position:50% ${pos}`
     : intro
-      ? `display:block;width:100%;height:calc(100dvh - ${reserve}px);min-height:280px;object-fit:${fit};object-position:50% ${pos}`
+      ? `display:block;width:100%;height:calc(100dvh - ${reserve}px);min-height:${(opts && opts.minH) || 280}px;object-fit:${fit};object-position:50% ${pos}`
       : 'width:94%;max-height:60vh;object-fit:contain;border-radius:16px';
   img.onerror = () => row.remove(); // asset missing -> no broken frame, chat flows on
   row.appendChild(img);
@@ -8498,8 +8508,14 @@ function _ocIntroduceCoach(coachKey, goalKey) {
     // so the reveal animation starts in the same place on both screens.
     // `contain` rather than `cover`: these are full-body standing shots and a
     // cover crop cuts their legs off.
-    _ocAddBot(c.intro);
-    _ocAddHero(c.fullImg || c.img, c.name, { intro: true, reserve: 430, fit: 'contain' });
+    // Short viewports (phones): the portrait yields height so the words +
+    // checklist fit; the words are why this screen exists.
+    const shortVp = window.innerHeight < 780;
+    _ocAddBot(c.intro, { onSpoken: () => {
+      const b = document.getElementById('obchat-messages');
+      if (b) requestAnimationFrame(() => { b.scrollTop = 0; });
+    } });
+    _ocAddHero(c.fullImg || c.img, c.name, { intro: true, reserve: shortVp ? 560 : 430, minH: shortVp ? 140 : 280, fit: 'contain' });
     _ocAddChecklist();
   };
   // Lauren speaks BEFORE the coach is assigned, so her line uses her voice.
@@ -9219,7 +9235,10 @@ async function obChatMic() {
       // Hand the audio session back BEFORE recording — see _ttsRelease. With
       // voice output OFF there is no session to hand back, and these two waits
       // (a poll plus a fixed 350ms) were pure dead time in front of every tap.
-      if (VOICE_OUTPUT_ENABLED || _ttsBusy()) {
+      // Gate on the flag alone: _ttsBusy() lied here (iOS keeps
+      // speechSynthesis.speaking true after cancel), costing a flat ~470ms
+      // per tap with voice output off - his [vt] teardown-done stamp.
+      if (VOICE_OUTPUT_ENABLED) {
         await _ocSpeechIdle();
         await _ttsRelease();
       }
@@ -9360,7 +9379,7 @@ async function obChatMic() {
   // Mobile Safari shares the same audio session behaviour as the native app -
   // but with voice output off there is no session to hand back, and this
   // fixed 350ms wait was the flat +355ms his [vt] logs showed on every tap.
-  if (VOICE_OUTPUT_ENABLED || _ttsBusy()) await _ttsRelease();
+  if (VOICE_OUTPUT_ENABLED) await _ttsRelease();
   const rec = new Ctor();
   _oc._waveUp = false;
   rec.lang = 'en-US'; rec.interimResults = true;
@@ -10468,7 +10487,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-20-f-webmicfast';
+const RATIO_BUILD = '2026-08-20-g-iphonepass';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
