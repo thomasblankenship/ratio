@@ -7428,7 +7428,7 @@ async function _sbEnsureFreshToken() {
 }
 
 async function getSession() {
-  if (/access_token=|error=/.test(location.hash || '')) { try { await obOAuthBootCheck(); } catch (e) {} }
+  if (/access_token=|error=/.test(location.hash || '') || /[?&](code|error)=/.test(location.search || '')) { try { await obOAuthBootCheck(); } catch (e) {} }
   try {
     const stored = localStorage.getItem('sb_session');
     if (!stored) return null;
@@ -8204,6 +8204,44 @@ async function obOAuth(provider) {
 async function obOAuthBootCheck() {
   try {
     const h = location.hash || '';
+    const search = location.search || '';
+    // PKCE flow (Supabase default): ?code=... in the query string. Exchange it
+    // for a session at the token endpoint, then adopt it the same way as the
+    // implicit (hash) flow below.
+    const codeMatch = search.match(/[?&]code=([^&]+)/);
+    const errMatch = search.match(/[?&]error=([^&]+)/);
+    if (errMatch) {
+      const desc = (search.match(/[?&]error_description=([^&]+)/) || [])[1] || errMatch[1];
+      console.warn('[oauth] provider returned error (query):', decodeURIComponent(desc));
+      history.replaceState(null, '', location.pathname);
+      if (sessionStorage.getItem('ob_oauth_flow')) setTimeout(() => toast(decodeURIComponent(desc).replace(/\+/g, ' ')), 800);
+      return false;
+    }
+    if (codeMatch) {
+      const code = decodeURIComponent(codeMatch[1]);
+      history.replaceState(null, '', location.pathname);
+      console.log('[oauth] PKCE code received, exchanging...');
+      let data = null;
+      try {
+        const verifier = sessionStorage.getItem('sb_pkce_verifier') || localStorage.getItem('sb_pkce_verifier') || undefined;
+        const body = verifier ? { auth_code: code, code_verifier: verifier } : { auth_code: code };
+        const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=pkce`, {
+          method: 'POST',
+          headers: { 'apikey': SUPABASE_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        data = await res.json();
+        if (!res.ok) { console.error('[oauth] PKCE exchange failed', data); if (sessionStorage.getItem('ob_oauth_flow')) setTimeout(() => toast('Sign-in failed - try email instead'), 600); return false; }
+      } catch (e) { console.error('[oauth] PKCE exchange error', e); return false; }
+      if (!data || !data.access_token) { console.error('[oauth] PKCE exchange returned no token', data); return false; }
+      if (data.expires_in && !data.expires_at) data.expires_at = Math.floor(Date.now() / 1000) + data.expires_in;
+      localStorage.setItem('sb_session', JSON.stringify(data));
+      _authToken = data.access_token;
+      _currentUser = data.user;
+      console.log('[oauth] PKCE session adopted. uid:', data.user && data.user.id && data.user.id.slice(0, 8));
+      await obOAuthAfterAuth();
+      return true;
+    }
     if (!/access_token=/.test(h)) {
       if (/error=/.test(h) && sessionStorage.getItem('ob_oauth_flow')) {
         const msg = decodeURIComponent((h.match(/error_description=([^&]*)/) || [])[1] || 'Sign-in failed');
@@ -10782,7 +10820,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-20-p-oauthenter';
+const RATIO_BUILD = '2026-08-20-q-pkce';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
