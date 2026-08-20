@@ -7387,6 +7387,7 @@ async function refreshSession(refreshToken) {
     localStorage.setItem('sb_session', JSON.stringify(session));
     _authToken = session.access_token;
     _currentUser = session.user;
+    try { _adminHeartbeat(); } catch (e) {}   // record presence the moment we know who they are
     return session;
   } catch(e) { return null; }
 }
@@ -9416,6 +9417,7 @@ async function verifyOtpCode() {
     // Success — we're now authenticated as the account we just created.
     _authToken = data.access_token;
     _currentUser = data.user;
+    try { _adminHeartbeat(); } catch (e) {}
     document.getElementById('auth-screen').style.display = 'none';
 
     // The onboarding form values are all still sitting in the DOM exactly as
@@ -10069,9 +10071,16 @@ function _adminMaybeShowRow() {
 // ---- launch heartbeat: one user_activity row per day, session-aware.
 // A "session" = first beat after 30+ minutes away. Writes are throttled
 // to one per 5 minutes so backgrounding/foregrounding stays cheap.
-async function _adminHeartbeat() {
+async function _adminHeartbeat(_retry) {
   try {
-    if (!_currentUser || !_authToken) return;
+    // Called from a boot timer AND right after login; if the user has not
+    // resolved yet, wait and try again a few times instead of silently
+    // giving up (the give-up is why an active user could show "never").
+    if (!_currentUser || !_authToken) {
+      const n = _retry || 0;
+      if (n < 6) setTimeout(() => { try { _adminHeartbeat(n + 1); } catch (e) {} }, 1500);
+      return;
+    }
     const now = Date.now();
     const last = +localStorage.getItem('hb_last') || 0;
     const newSession = (now - last) > 30 * 60 * 1000;
@@ -10376,7 +10385,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-19-n-spendreport';
+const RATIO_BUILD = '2026-08-19-p-hblogin';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
