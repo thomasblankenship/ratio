@@ -8991,7 +8991,7 @@ function _ocDispatch(text) {
       if (_oc.goalMisses >= 3) {
         _ocForceGoalChoice();
       } else if (_oc.goalMisses === 2) {
-        _ocAddBot("No rush — it just has to be one of the four so I pair you with the right trainer. One more try, or I'll put the buttons back up.");
+        _ocAddBot("No rush — it just has to be one of the four so I pair you with the right trainer. One more try, or I'll give you buttons you can tap instead.");
       } else {
         _ocAddBot("I didn't quite catch a goal in that — just tell me one of the four: lose body fat, lose weight, gain muscle, or maintain and perform.");
       }
@@ -9360,6 +9360,7 @@ async function obChatMic() {
   // Mobile Safari shares the same audio session behaviour as the native app.
   await _ttsRelease();
   const rec = new Ctor();
+  _oc._waveUp = false;
   rec.lang = 'en-US'; rec.interimResults = true;
   // Same fix as the Voice Log: we decide when the answer is finished, not the
   // browser. This is the path that cut Semmes off after "43".
@@ -9368,12 +9369,30 @@ async function obChatMic() {
   _oc._lastSpeechAt = 0;
   _oc._listenStartedAt = Date.now();
   btn.classList.add('listening');
-  _ocWaveStart();
+  // Same bug as the native path once had: the wavebar went up HERE, before
+  // rec.start() was even called, inviting people to talk into a closed mic.
+  // Now it waits for the browser to say audio is actually flowing.
+  _ocMicWarming(true);
+  const _raiseWave = () => {
+    if (!_oc || !_oc.listening || _oc._waveUp) return;
+    _oc._waveUp = true;
+    _ocMicWarming(false);
+    _ocWaveStart();
+    _oc._listenStartedAt = Date.now();   // endpointer counts from real capture
+  };
+  rec.onaudiostart = () => { _vt('web-audio-start'); _raiseWave(); };
+  // Safari has been flaky about audiostart; onstart is the fallback cue so
+  // the warming state can never stick forever.
+  rec.onstart = () => { _vt('web-start-event'); setTimeout(_raiseWave, 250); };
   rec.onresult = (ev) => {
     let t = '';
     for (const r of ev.results) t += r[0].transcript;
     t = t.trim();
-    if (t) { _oc.partial = t; _oc._lastSpeechAt = Date.now(); }
+    if (t) {
+      if (!_oc.partial) _vt('web-first-partial: ' + JSON.stringify(t.slice(0, 40)));
+      _raiseWave();
+      _oc.partial = t; _oc._lastSpeechAt = Date.now();
+    }
     const inp = document.getElementById('obchat-input'); if (inp) inp.value = _oc.partial;
   };
   // Three bounds, mirroring the Voice Log watchdog:
@@ -9392,18 +9411,21 @@ async function obChatMic() {
     }
   }, 300);
   rec.onerror = (ev) => {
+    _ocMicWarming(false);
     _ocStopListening();
     _oc._speechReported = true;
     if (ev.error !== 'aborted') _ocMicProblem(ev.error);
   };
   rec.onend = () => {
+    _ocMicWarming(false);
     const finalText = _oc.partial;
     _ocStopListening();
     const inp = document.getElementById('obchat-input'); if (inp) inp.value = '';
     if (finalText) _ocDispatch(finalText);
     else if (!_oc._speechReported) _ocMicProblem('no-speech');
   };
-  try { rec.start(); } catch (e) { _ocStopListening(); _ocAddBot("I couldn't get the microphone started just now. Type your answer and we'll carry on."); }
+  _vt('web-start-called');
+  try { rec.start(); } catch (e) { _ocMicWarming(false); _ocStopListening(); _ocAddBot("I couldn't get the microphone started just now. Type your answer and we'll carry on."); }
 }
 
 // Shows Terms or Privacy over whatever screen you are on — needed because the
@@ -10444,7 +10466,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-20-d-mictiming';
+const RATIO_BUILD = '2026-08-20-e-webmic';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
