@@ -9466,6 +9466,18 @@ async function obChatMic() {
   if (!_oc || _oc.busy) return;
   if (_oc.forcedField) return;   // mic is off until they pick
   document.getElementById('obchat-mic')?.classList.remove('hint');
+  // Preserve anything already typed - starting the mic must never erase it.
+  // Voice appends to the typed text; a joining space only if there's text.
+  if (!_oc.listening) {
+    const _inp0 = document.getElementById('obchat-input');
+    _oc._preText = _inp0 ? (_inp0.value || '') : '';
+  }
+  const _ocCompose = (spoken) => {
+    const pre = (_oc._preText || '');
+    if (!pre) return spoken || '';
+    if (!spoken) return pre;
+    return pre.replace(/\s+$/, '') + ' ' + spoken;
+  };
   if (_oc.listening) {
     // Mid-turn tap = "I'm done", so submit what was heard rather than binning
     // it. _ocStopListening alone would discard the transcript.
@@ -9546,7 +9558,7 @@ async function obChatMic() {
           if (!_oc.partial) _vt('first-partial: ' + JSON.stringify(t.slice(0, 40)));
           _oc.partial = t;
           _oc._lastSpeechAt = Date.now();
-          const inp = document.getElementById('obchat-input'); if (inp) inp.value = t;
+          const inp = document.getElementById('obchat-input'); if (inp) inp.value = _ocCompose(t);
         }
       });
 
@@ -9564,9 +9576,14 @@ async function obChatMic() {
         console.log('[obchat] native mic ended (' + reason + ') after',
                     Date.now() - _oc._listenStartedAt, 'ms; heard:', JSON.stringify(finalText));
         _ocStopListening();
-        const inp = document.getElementById('obchat-input'); if (inp) inp.value = '';
-        if (finalText) _ocDispatch(finalText);
-        else _ocMicProblem('no-speech');
+        const inp = document.getElementById('obchat-input');
+        const combined = _ocCompose(finalText);
+        if (finalText) { if (inp) inp.value = ''; _ocDispatch(combined); }
+        else {
+          // Heard nothing - put their typed text back rather than binning it.
+          if (inp) inp.value = (_oc._preText || '');
+          if (!(_oc._preText || '').trim()) _ocMicProblem('no-speech');
+        }
       };
       // Tapping the mic again should SUBMIT what was said, not throw it away.
       _oc._finishNative = () => { finishNative('tapped'); };
@@ -9680,7 +9697,7 @@ async function obChatMic() {
       _raiseWave();
       _oc.partial = t; _oc._lastSpeechAt = Date.now();
     }
-    const inp = document.getElementById('obchat-input'); if (inp) inp.value = _oc.partial;
+    const inp = document.getElementById('obchat-input'); if (inp) inp.value = _ocCompose(_oc.partial);
   };
   // Three bounds, mirroring the Voice Log watchdog:
   //   a real pause after speech ends the turn,
@@ -9707,9 +9724,13 @@ async function obChatMic() {
     _ocMicWarming(false);
     const finalText = _oc.partial;
     _ocStopListening();
-    const inp = document.getElementById('obchat-input'); if (inp) inp.value = '';
-    if (finalText) _ocDispatch(finalText);
-    else if (!_oc._speechReported) _ocMicProblem('no-speech');
+    const inp = document.getElementById('obchat-input');
+    const combined = _ocCompose(finalText);
+    if (finalText) { if (inp) inp.value = ''; _ocDispatch(combined); }
+    else {
+      if (inp) inp.value = (_oc._preText || '');   // restore typed text on no-speech
+      if (!(_oc._preText || '').trim() && !_oc._speechReported) _ocMicProblem('no-speech');
+    }
   };
   _vt('web-start-called');
   try { rec.start(); } catch (e) { _ocMicWarming(false); _ocStopListening(); _ocAddBot("I couldn't get the microphone started just now. Type your answer and we'll carry on."); }
@@ -10744,7 +10765,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-20-n-backclean';
+const RATIO_BUILD = '2026-08-20-o-mickeeptext';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
