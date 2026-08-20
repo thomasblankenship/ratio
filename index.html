@@ -10820,7 +10820,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-20-q-pkce';
+const RATIO_BUILD = '2026-08-20-r-hashkeep';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -10877,15 +10877,20 @@ async function init() {
     }
   }
 
-  // Parse URL hash for Supabase auth redirects
+  // Parse URL hash for Supabase auth redirects. IMPORTANT: only consume the
+  // hash here when it is an ERROR or a RECOVERY link. A plain #access_token=
+  // (OAuth social sign-in) must be left ON THE URL so obOAuthBootCheck (run
+  // from getSession below) can adopt it. This block used to strip the hash
+  // unconditionally, which silently ate every Google/Apple login token before
+  // the OAuth handler ever saw it - the "bam right back to the start screen".
   const hash = window.location.hash;
   if (hash) {
     const params = new URLSearchParams(hash.replace('#', ''));
     const errorCode = params.get('error_code');
     const accessToken = params.get('access_token');
     const type = params.get('type');
-    history.replaceState(null, '', window.location.pathname);
     if (errorCode) {
+      history.replaceState(null, '', window.location.pathname);
       showAuthScreen();
       if (errorCode === 'otp_expired') {
         document.getElementById('auth-error').textContent = 'Reset link expired — request a new one below.';
@@ -10896,11 +10901,14 @@ async function init() {
       return;
     }
     if (accessToken && type === 'recovery') {
+      history.replaceState(null, '', window.location.pathname);
       _authToken = accessToken;
       showAuthScreen();
       showChangePasswordForm(accessToken);
       return;
     }
+    // Otherwise (OAuth #access_token= with no recovery type): leave the hash
+    // in place; getSession() -> obOAuthBootCheck() will consume it next.
   }
   const session = await getSession();
   if (session) {
