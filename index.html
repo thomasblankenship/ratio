@@ -8774,12 +8774,31 @@ function _ocForceChoice(key) {
       action: () => {
         _oc.forcedField = null;
         _ocLockInput(false);
-        // Route the answer through the normal turn so the checklist, the card
-        // and the coach all react exactly as if it had been spoken.
-        _ocDispatch(c.label);
+        _ocApplyChoice(key, c);
       }
     })))
   });
+}
+
+// A chip's VALUE is authoritative — the app already knows it exactly, so set
+// it locally instead of paying the AI to re-parse the label. This is also
+// what stops the plan bubble from stacking on a "say" line: a chip that
+// completes the profile runs _ocComplete in its OWN chained tick, never in
+// the same synchronous beat as another _ocAddBot.
+function _ocApplyChoice(key, c) {
+  _oc.askCounts = _oc.askCounts || {};
+  _oc.askCounts[key] = 0;
+  _oc.fields[key] = (c.value !== undefined ? c.value : c.label);
+  if (_oc.fields.height_ft !== undefined && _oc.fields.height_in === undefined) _oc.fields.height_in = 0;
+  _ocFillDerivedGoalWeight();
+  _ocRenderChecklist();
+  _ocAddUser(c.label);
+  _ocRenderCard();
+  if (!_ocMissing().length) {
+    // Chain completion to the next frame so the card + user bubble paint
+    // first — never post the plan in the same tick as the choice bubble.
+    requestAnimationFrame(() => _ocComplete());
+  }
 }
 
 function _ocAddChecklist() {
@@ -10518,7 +10537,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-20-h-coachloop';
+const RATIO_BUILD = '2026-08-20-i-chiplocal';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
