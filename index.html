@@ -8243,7 +8243,24 @@ async function obOAuthAfterAuth() {
     const rows = await r.json();
     hasProfile = Array.isArray(rows) && rows.length > 0;
   } catch (e) {}
-  if (hasProfile) { console.log('[oauth] returning user - continuing to app'); return; }
+  console.log('[oauth] afterAuth: hasProfile =', hasProfile, 'uid =', _currentUser && _currentUser.id && _currentUser.id.slice(0,8));
+  if (hasProfile) {
+    // Returning user: show the app ourselves rather than trusting the boot
+    // flow, which may have already decided to show the auth screen.
+    const enter = async () => {
+      try {
+        const authEl = document.getElementById('auth-screen'); if (authEl) authEl.style.display = 'none';
+        const shell = document.getElementById('app-shell'); if (shell) shell.style.display = 'block';
+        obClearProgress();
+        if (typeof appInit === 'function') await appInit();
+        if (typeof startSessionRefreshWatcher === 'function') startSessionRefreshWatcher();
+        console.log('[oauth] returning user - app shown');
+      } catch (e) { console.error('[oauth] enter-app failed', e); }
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', enter);
+    else await enter();
+    return;
+  }
   const meta = (_currentUser && (_currentUser.user_metadata || {})) || {};
   if (!window._obName) window._obName = meta.full_name || meta.name || (document.getElementById('ob-signup-name')?.value || '').trim() || '';
   const show = () => {
@@ -10765,7 +10782,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-20-o-mickeeptext';
+const RATIO_BUILD = '2026-08-20-p-oauthenter';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
