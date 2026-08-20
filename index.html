@@ -7186,15 +7186,15 @@ function obBack(step) {
   if (step === 5) { obShowStep(4); return; }
   if (step === 6) { obShowStep(5); return; }
   if (step === 7) {
-    // Came here from the coach interview? Back goes to the CHAT, where the
-    // card and "say it again to correct anything" live - never to the
-    // legacy form screens the interview replaced.
-    if (window._oc && _oc.coach) {
-      document.querySelectorAll('.ob-screen').forEach(el => { el.style.display = 'none'; });
-      const chat = document.getElementById('ob-chat');
-      if (chat) { chat.style.display = 'flex'; return; }
-    }
-    obShowStep(6); return;
+    // The coach interview REPLACED steps 1-6, so obShowStep(6) is the old
+    // activity page - never a valid back target from Create Account. Back
+    // goes to the live chat if it exists, else the clean auth screen. It
+    // must never land on a legacy step.
+    document.querySelectorAll('.ob-screen').forEach(el => { el.style.display = 'none'; });
+    const chat = document.getElementById('ob-chat');
+    if (window._oc && _oc.coach && chat) { chat.style.display = 'flex'; return; }
+    if (typeof showAuthScreen === 'function') { showAuthScreen(); return; }
+    obShowStep(1); return;
   }
   if (step === 8) { obShowStep(7); return; }
   if (step === 9) { obShowStep(8); return; }
@@ -8153,9 +8153,11 @@ function obSignupInitProviders() {
 }
 
 async function obOAuth(provider) {
-  // The interview's answers live in ob_progress (localStorage) - saved here so
-  // they survive the redirect and obRestoreProgress refills the form fields.
-  try { obSaveProgress(); } catch (e) {}
+  // Save the interview answers so they survive the web redirect - but only
+  // when there IS real progress (a goal, past step 1). A bare step-7 stamp
+  // would re-trap a signed-out reload on Create Account, so we never write one
+  // just because the button was tapped.
+  try { if (_obGoalType) obSaveProgress(); } catch (e) {}
   try { sessionStorage.setItem('ob_oauth_flow', '1'); } catch (e) {}
   const native = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
   if (native) {
@@ -10269,9 +10271,11 @@ function obRestoreProgress() {
       localStorage.removeItem('ob_progress');
       return false;
     }
-    // Only restore if user had actually made meaningful progress:
-    // must have selected a goal AND be past step 1, OR be on step 7+ (account creation)
-    const hasProgress = snap.obGoalType && (snap.step > 1 || snap.step === 7 || snap.step === 8);
+    // Only restore PRE-ACCOUNT steps (1-6). Step 7/8 is account creation:
+    // there is no session yet and auto-landing there on a reload traps the
+    // person on Create Account with no way back to start (the stuck loop).
+    // A signed-out reload at 7+ falls through to the clean auth screen.
+    const hasProgress = snap.obGoalType && snap.step > 1 && snap.step < 7;
     if (!hasProgress) {
       console.log('[ob_progress] snapshot has no meaningful progress, discarding');
       localStorage.removeItem('ob_progress');
@@ -10292,20 +10296,9 @@ function obRestoreProgress() {
     // Onboarding step screens live inside #app-shell — must be visible or they're invisible too
     const shellEl = document.getElementById('app-shell');
     if (shellEl) shellEl.style.display = 'block';
-    const stepToRestore = snap.step >= 8 ? 7 : (snap.step || 1);
-    console.log('[ob_progress] calling obShowStep with', stepToRestore, snap.step === 8 ? '(backed up from 8 — password needs re-entry)' : '');
+    const stepToRestore = snap.step || 1;
+    console.log('[ob_progress] calling obShowStep with', stepToRestore);
     obShowStep(stepToRestore);
-    // If we backed up from step 8, show a hint that password needs re-entering
-    if (snap.step >= 8) {
-      setTimeout(() => {
-        const errEl = document.getElementById('ob-signup-error');
-        if (errEl) {
-          errEl.textContent = 'Welcome back! Just re-enter your password to continue.';
-          errEl.style.color = '#CFA13C';
-          errEl.style.display = 'block';
-        }
-      }, 100);
-    }
     console.log('[ob_progress] obShowStep returned, current display:', document.getElementById('ob-step-' + (snap.step || 1))?.style.display);
     // Restore field values once the right screen is visible
     Object.entries(snap.fields || {}).forEach(([id, val]) => {
@@ -10751,7 +10744,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-20-l-signinpage';
+const RATIO_BUILD = '2026-08-20-n-backclean';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -23477,18 +23470,9 @@ if (document.readyState === 'loading') {
   </div>
 
   <!-- Step 7: Create Your Account -->
-  <div class="ob-screen" id="ob-step-7" style="position:fixed;top:0;left:0;right:0;bottom:0;background:var(--surface);display:none;flex-direction:column;z-index:9999">
+  <div class="ob-screen" id="ob-step-7" style="position:fixed;top:0;left:0;right:0;bottom:0;background:var(--surface);display:none;flex-direction:column;z-index:9999;max-width:520px;margin:0 auto">
     <div style="padding:24px 24px 0;flex:1;overflow-y:auto;min-height:0">
-      <div style="display:flex;gap:4px;margin-bottom:32px">
-        <div style="flex:1;height:4px;background:#CFA13C;border-radius:2px"></div>
-        <div style="flex:1;height:4px;background:#CFA13C;border-radius:2px"></div>
-        <div style="flex:1;height:4px;background:#CFA13C;border-radius:2px"></div>
-        <div style="flex:1;height:4px;background:#CFA13C;border-radius:2px"></div>
-        <div style="flex:1;height:4px;background:#CFA13C;border-radius:2px"></div>
-        <div style="flex:1;height:4px;background:#CFA13C;border-radius:2px"></div>
-        <div style="flex:1;height:4px;background:#CFA13C;border-radius:2px"></div>
-      </div>
-      <div style="font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Almost there</div>
+      <div style="font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;margin-top:8px">Almost there</div>
       <div style="font-size:26px;font-weight:800;color:var(--ink);letter-spacing:-0.5px;margin-bottom:6px">Create your account</div>
       <div style="font-size:14px;color:var(--muted);margin-bottom:24px">Your plan is ready — just need a few details to save it.</div>
 
