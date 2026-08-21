@@ -747,22 +747,29 @@
           <div style="font-size:18px;font-weight:800">Admin</div>
           <button onclick="renderAdmin()" style="margin-left:auto;background:var(--accent);color:#101512;border:none;border-radius:14px;padding:7px 12px;font-size:11px;font-weight:800;cursor:pointer">↻ Refresh</button>
         </div>
-        <div id="admin-summary" style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:8px"></div>
+        <div id="admin-summary" style="margin-bottom:10px"></div>
         <div id="admin-explain" style="display:none;background:var(--gold-tint);border:1px dashed var(--gold-line);border-radius:12px;padding:9px 12px;font-size:11px;line-height:1.5;color:var(--ink);margin-bottom:8px"></div>
-        <div id="admin-spend" style="margin-bottom:6px"></div>
-        <div id="admin-spend-detail" style="margin-bottom:10px"></div>
+        <div style="display:flex;align-items:center;gap:8px;margin:2px 0 8px">
+          <span style="font-size:10px;font-weight:800;letter-spacing:0.6px;color:var(--muted)">USERS</span>
+          <span id="admin-count" style="font-size:10px;color:var(--muted)"></span>
+          <button type="button" onclick="_adminToggleSearch()" style="margin-left:auto;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:5px 10px;color:#CFA13C;cursor:pointer;font-size:10.5px;font-weight:800">Search</button>
+          <button type="button" onclick="_adminToggleFilters()" style="background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:5px 10px;color:#CFA13C;cursor:pointer;font-size:10.5px;font-weight:800">Filter</button>
+        </div>
         <input type="text" id="admin-search" placeholder="Search username or email…" autocomplete="off" oninput="_adminQ=this.value.toLowerCase();_adminRenderRoster()"
-          style="width:100%;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:14px;outline:none;box-sizing:border-box;margin-bottom:8px" />
-        <div id="admin-segs" style="display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;-webkit-overflow-scrolling:touch"></div>
-        <div style="display:flex;align-items:center;gap:8px;margin:4px 0 10px;font-size:11px;color:var(--muted)">Sort
-          <select id="admin-sort" onchange="_adminRenderRoster()" style="background:var(--surface);color:#CFA13C;border:1px solid var(--line);border-radius:10px;padding:6px 8px;font-size:12px;font-weight:700;outline:none">
-            <option value="seen">Last seen</option><option value="spend">AI spend 30d</option><option value="calls">AI calls 30d</option>
-            <option value="meals">Meals</option><option value="workouts">Workouts</option><option value="logins">Logins 7d</option><option value="joined">Newest signup</option>
-          </select>
-          <button type="button" id="admin-dir" onclick="_adminAsc=!_adminAsc;_adminRenderRoster()" style="background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:6px 10px;color:#CFA13C;cursor:pointer;font-weight:800">↓</button>
-          <span id="admin-count" style="margin-left:auto;font-size:10.5px"></span>
+          style="width:100%;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:14px;outline:none;box-sizing:border-box;margin-bottom:8px;display:none" />
+        <div id="admin-filters" style="display:none">
+          <div id="admin-segs" style="display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;-webkit-overflow-scrolling:touch"></div>
+          <div style="display:flex;align-items:center;gap:8px;margin:4px 0 10px;font-size:11px;color:var(--muted)">Sort
+            <select id="admin-sort" onchange="_adminRenderRoster()" style="background:var(--surface);color:#CFA13C;border:1px solid var(--line);border-radius:10px;padding:6px 8px;font-size:12px;font-weight:700;outline:none">
+              <option value="seen">Last seen</option><option value="spend">AI spend 30d</option><option value="calls">AI calls 30d</option>
+              <option value="meals">Meals</option><option value="workouts">Workouts</option><option value="logins">Logins 7d</option><option value="joined">Newest signup</option>
+            </select>
+            <button type="button" id="admin-dir" onclick="_adminAsc=!_adminAsc;_adminRenderRoster()" style="background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:6px 10px;color:#CFA13C;cursor:pointer;font-weight:800">↓</button>
+          </div>
         </div>
         <div id="admin-users"></div>
+        <div id="admin-spend" style="margin-top:10px;margin-bottom:6px"></div>
+        <div id="admin-spend-detail" style="margin-bottom:10px"></div>
       </div>
     </div>
 
@@ -10825,18 +10832,27 @@ async function renderAdmin() {
   if (!data) { sEl.innerHTML = '<div style="grid-column:1/-1;color:var(--muted);font-size:12px">Could not load stats \u2014 check connection and worker build.</div>'; return; }
   _adminData = data;
 
-  const stat = (v, k, key) => `<div onclick="_adminExplain('${key}')" style="background:linear-gradient(160deg,var(--gold-tint),var(--gold-tint-2));border:1px solid var(--gold-line);border-radius:14px;padding:10px 4px;text-align:center;cursor:pointer"><div style="font-size:16px;font-weight:800;color:#CFA13C">${v}</div><div style="font-size:8px;color:var(--muted);font-weight:700;letter-spacing:0.4px;margin-top:2px">${k} <span style="opacity:0.6">?</span></div></div>`;
-  // newThisWeek arrives with worker c-adminv3; an em-dash means the worker is older.
-  const newWk = (data.summary.newThisWeek === undefined) ? '\u2014' : '+' + data.summary.newThisWeek;
-  sEl.innerHTML = stat(data.summary.dau, 'TODAY DAU', 'dau') + stat(data.summary.wau, '7-DAY WAU', 'wau') + stat(data.summary.mau, '30-DAY MAU', 'mau') + stat(data.summary.stickiness + '%', 'STICKY', 'stick') + stat(newWk, 'NEW THIS WK', 'newwk');
+  // Verdict strip: the whole dashboard in one line. The five old tiles
+  // (DAU/WAU/MAU/sticky/new) live behind a tap now - explain('verdict').
+  const s0 = data.summary;
+  const newWk = (s0.newThisWeek === undefined) ? null : s0.newThisWeek;
+  const pausedN = (data.users || []).filter(u => !!u.aiSuspended).length;
+  const mau = s0.mau || 0;
+  _ADMIN_EXPLAINS.verdict = `The one-line dashboard. Today (DAU) ${s0.dau} \u00b7 7-day (WAU) ${s0.wau} \u00b7 30-day (MAU) ${s0.mau} \u00b7 stickiness ${s0.stickiness}%` + (newWk === null ? '' : ` \u00b7 +${newWk} new this week`) + `. Green dot = no paused users and nothing unusual. \u201cActive users\u201d is the 30-day number.`;
+  const statusLine = pausedN
+    ? `<span style="color:#e07777">\u23f8</span> ${pausedN} user${pausedN === 1 ? '' : 's'} paused`
+    : `<span style="color:#7fc98a">\u25cf</span> Nothing needs attention`;
+  sEl.innerHTML = `<div onclick="_adminExplain('verdict')" style="background:var(--gold-tint);border:1px solid var(--gold-line);border-radius:12px;padding:11px 13px;cursor:pointer">` +
+    `<div style="font-size:13.5px;color:var(--ink)"><b style="color:#CFA13C">${mau} active user${mau === 1 ? '' : 's'}</b> \u00b7 $${(s0.monthCostUsd || 0).toFixed(2)} AI spend last 30 days${newWk ? ` \u00b7 <b style=\"color:#CFA13C\">+${newWk} new</b>` : ''}</div>` +
+    `<div style="font-size:11px;color:var(--muted);margin-top:3px">${statusLine} <span style="opacity:0.6">?</span></div></div>`;
   const todayCost = (data.summary.todayCostUsd === undefined) ? '\u2014' : '$' + (data.summary.todayCostUsd || 0).toFixed(2);
   _adminRenderSpend(data.spend);
   document.getElementById('admin-spend').innerHTML =
-    `<div onclick="_adminExplain('spend')" style="background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;gap:8px">` +
+    `<div onclick="_adminToggleSpend()" style="background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;gap:8px">` +
     `<span style="font-size:11px;color:var(--muted);font-weight:700">AI SPEND</span>` +
     `<span style="font-size:13px;font-weight:800;color:#CFA13C">${todayCost} <span style="font-size:9px;color:var(--muted)">today</span></span>` +
     `<span style="font-size:13px;font-weight:800;color:#CFA13C">$${(data.summary.monthCostUsd || 0).toFixed(2)} <span style="font-size:9px;color:var(--muted)">30d</span></span>` +
-    `<span style="font-size:11px;color:var(--muted);font-weight:700">CALLS <b style="color:#CFA13C">${data.summary.monthCalls || 0}</b></span></div>`;
+    `<span id="admin-spend-chev" style="font-size:12px;color:#CFA13C">${_adminSpendOpen ? '\u25b4' : '\u25be'}</span></div>`;
   _adminRenderRoster();
 }
 
@@ -10850,51 +10866,55 @@ function _adminToggleSpend() {
   if (_adminData) _adminRenderSpend(_adminData.spend);
 }
 
+let _adminSpendView = 'feature';
+function _adminSetSpendView(v) { _adminSpendView = v; if (_adminData) _adminRenderSpend(_adminData.spend); }
+function _adminToggleSearch() {
+  const el = document.getElementById('admin-search');
+  if (!el) return;
+  const show = el.style.display === 'none';
+  el.style.display = show ? 'block' : 'none';
+  if (show) el.focus();
+}
+function _adminToggleFilters() {
+  const el = document.getElementById('admin-filters');
+  if (!el) return;
+  el.style.display = (el.style.display === 'none') ? 'block' : 'none';
+}
+
 function _adminRenderSpend(spend) {
   const el = document.getElementById('admin-spend-detail');
   if (!el) return;
+  const chev = document.getElementById('admin-spend-chev');
+  if (chev) chev.textContent = _adminSpendOpen ? '\u25b4' : '\u25be';
   if (!spend) {   // older worker - say so rather than rendering an empty panel
-    el.innerHTML = `<div style="font-size:10px;color:var(--muted);padding:6px 2px">Spend breakdown needs worker 2026-08-19-g-spendreport or later.</div>`;
+    el.innerHTML = _adminSpendOpen ? `<div style="font-size:10px;color:var(--muted);padding:6px 2px">Spend breakdown needs worker 2026-08-19-g-spendreport or later.</div>` : '';
     return;
   }
-  const money = n => '$' + (+n || 0).toFixed(n >= 1 ? 2 : 4);
-  const head = t => `<div style="font-size:9px;font-weight:800;letter-spacing:0.6px;color:#CFA13C;margin:10px 2px 5px">${t}</div>`;
-  const bar = (v, max) => {
-    const pct = max > 0 ? Math.max(2, Math.round(v / max * 100)) : 0;
-    return `<div style="height:3px;background:var(--line);border-radius:2px;overflow:hidden;margin-top:4px"><div style="width:${pct}%;height:100%;background:#CFA13C"></div></div>`;
-  };
-  const rows = (list, label) => {
-    if (!list || !list.length) return `<div style="font-size:10px;color:var(--muted);padding:4px 2px">Nothing yet.</div>`;
-    const max = list[0].cost || 0;
-    return list.map(r => `<div style="padding:7px 10px;background:var(--surface);border:1px solid var(--line);border-radius:10px;margin-bottom:5px">
-      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
-        <span style="font-size:12px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_weEscHtml(r.name)}</span>
-        <span style="font-size:12px;font-weight:800;color:#CFA13C;flex-shrink:0">${money(r.cost)}</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--muted);margin-top:2px">
-        <span>${r.calls} calls${r.callsToday ? ' \u00b7 ' + r.callsToday + ' today' : ''}</span>
-        <span>${money(r.perCall)}/call${r.costToday ? ' \u00b7 ' + money(r.costToday) + ' today' : ''}</span>
-      </div>${bar(r.cost, max)}</div>`).join('');
-  };
+  if (!_adminSpendOpen) { el.innerHTML = ''; return; }
 
-  if (!_adminSpendOpen) {
-    el.innerHTML = `<div onclick="_adminToggleSpend()" style="text-align:center;font-size:10px;color:#CFA13C;font-weight:700;padding:6px;cursor:pointer">Where the money goes \u25be</div>`;
-    return;
-  }
+  const money = n => '$' + (+n || 0).toFixed(2);
+  const list = ((_adminSpendView === 'model' ? spend.byModel : spend.byEndpoint) || []).slice();
+  const total = list.reduce((a, r) => a + (r.cost || 0), 0);
+  const GOLD = ['#CFA13C', '#8a6d2a', '#5a4a2a', '#3a3020'];
+  const top = list.slice(0, 3), rest = list.slice(3);
+  const segs = top.map((r, i) => ({ name: r.name, cost: r.cost || 0, calls: r.calls || 0, c: GOLD[i] }));
+  if (rest.length) segs.push({ name: `other (${rest.length})`, cost: rest.reduce((a, r) => a + (r.cost || 0), 0), calls: rest.reduce((a, r) => a + (r.calls || 0), 0), c: GOLD[3] });
 
-  // The headline number for launch: what an unfinished signup costs you.
-  const anon = `<div style="background:var(--gold-tint);border:1px solid var(--gold-line);border-radius:12px;padding:10px 12px;margin-bottom:8px">
-    <div style="font-size:9px;font-weight:800;letter-spacing:0.6px;color:#CFA13C">SIGNUP CHAT \u2014 BEFORE THEY HAVE AN ACCOUNT</div>
-    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:5px">
-      <span style="font-size:17px;font-weight:800;color:#CFA13C">${money(spend.anonCost)}</span>
-      <span style="font-size:10px;color:var(--muted)">${spend.anonCalls} calls \u00b7 ${money(spend.anonCostToday)} today</span>
-    </div>
-    <div style="font-size:10px;color:var(--muted);margin-top:4px">${spend.signups30} signed up in 30d \u00b7 <b style="color:#CFA13C">${money(spend.costPerSignup)}</b> per signup</div>
-    <div style="font-size:9px;color:var(--muted);margin-top:3px">This spend has no user attached, so it never appears in the roster below.</div>
-  </div>`;
+  const bar = (total > 0 && segs.length)
+    ? `<div style="display:flex;gap:2px;height:18px;border-radius:5px;overflow:hidden;margin:2px 0 10px">${segs.map(s => `<div style="width:${Math.max(2, Math.round(s.cost / total * 100))}%;background:${s.c}"></div>`).join('')}</div>`
+    : '';
+  const tab = (v, label) => `<div onclick="_adminSetSpendView('${v}')" style="flex:1;text-align:center;font-size:11px;font-weight:800;border-radius:8px;padding:5px;cursor:pointer;${_adminSpendView === v ? 'background:var(--accent);color:#101512' : 'background:var(--surface-2);color:var(--muted)'}">${label}</div>`;
+  const rowsHtml = segs.length
+    ? segs.map(s => `<div style="display:flex;justify-content:space-between;align-items:baseline;padding:4px 2px;font-size:12px"><span style="color:var(--ink);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><span style="color:${s.c}">\u25cf</span> ${_weEscHtml(s.name)}</span><span style="flex-shrink:0;color:var(--muted);font-size:10px;margin-left:8px">${s.calls} calls \u00b7 <b style="color:#CFA13C;font-size:12px">${money(s.cost)}</b></span></div>`).join('')
+    : `<div style="font-size:10px;color:var(--muted);padding:4px 2px">Nothing yet.</div>`;
+  const anonRow = `<div style="display:flex;justify-content:space-between;gap:8px;padding:7px 2px 2px;margin-top:6px;border-top:1px solid var(--line);font-size:10.5px;color:var(--muted)"><span>Signup chat (no account yet)</span><span style="flex-shrink:0">${money(spend.anonCost)} \u00b7 ${spend.signups30 || 0} signup${(spend.signups30 || 0) === 1 ? '' : 's'}</span></div>`;
 
-  el.innerHTML = `<div onclick="_adminToggleSpend()" style="text-align:center;font-size:10px;color:#CFA13C;font-weight:700;padding:6px;cursor:pointer">Hide breakdown \u25b4</div>`
-    + anon + head('BY FEATURE') + rows(spend.byEndpoint) + head('BY MODEL') + rows(spend.byModel);
+  el.innerHTML = `<div style="background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px">` +
+    bar +
+    `<div style="display:flex;gap:6px;margin-bottom:8px">${tab('feature', 'Feature')}${tab('model', 'Model')}</div>` +
+    rowsHtml + anonRow +
+    `<div onclick="_adminExplain('spend')" style="text-align:center;font-size:9.5px;color:var(--muted);padding-top:8px;cursor:pointer;text-decoration:underline">what am I looking at?</div>` +
+    `</div>`;
 }
 
 // ---- v3 roster: dense rows, search, sort, segments; tap a row to expand ----
@@ -10975,18 +10995,25 @@ function _adminRenderRoster() {
       `<span style="margin-left:auto;font-size:11px;color:var(--muted);flex-shrink:0"><b style="color:var(--ink)">${_adminStatFor(u)}</b></span>` +
       `<span style="font-size:10px;flex-shrink:0;width:40px;text-align:right;color:${dot}">${_adminAgoShort(u.lastSeen)}</span></div>`;
     if (open) {
+      const aiToday = (u.aiCostToday === undefined) ? '\u2014' : '$' + (u.aiCostToday || 0).toFixed(2);
+      const tile = (v, l, c) => `<div style="flex:1;background:var(--surface-2);border-radius:9px;padding:8px 4px;text-align:center;min-width:0"><div style="font-size:13.5px;font-weight:800;color:${c}">${v}</div><div style="font-size:8.5px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${l}</div></div>`;
       html += `<div style="padding:0 12px 12px;border-top:1px solid var(--line)">` +
-        `<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;font-size:11px;color:var(--muted);padding:10px 0">` +
+        `<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;font-size:11px;color:var(--muted);padding:10px 0 8px">` +
         `<span style="overflow:hidden;text-overflow:ellipsis">Email <b style="color:var(--ink)">${_weEscHtml(u.email || '\u2014')}</b></span>` +
         `<span>Joined <b style="color:var(--ink)">${joined}</b></span>` +
         `<span>Logins 7d <b style="color:var(--ink)">${u.logins7}</b></span>` +
-        `<span>${_weEscHtml(u.platform || '?')} \u00b7 ${_weEscHtml(u.appVersion || 'pre-tracking')}</span>` +
-        `<span>Meals <b style="color:var(--ink)">${u.meals}</b> \u00b7 Workouts <b style="color:var(--ink)">${u.workouts}</b></span>` +
-        `<span>AI 30d <b style="color:var(--ink)">${u.aiCalls30}</b> \u00b7 <b style="color:#CFA13C">$${(u.aiCost30 || 0).toFixed(2)}</b>${todayStr}</span></div>` +
+        `<span>${_weEscHtml(u.platform || '?')} \u00b7 ${_weEscHtml(u.appVersion || 'pre-tracking')}</span></div>` +
+        `<div style="display:flex;gap:8px;margin-bottom:10px">` +
+        tile(aiToday, 'AI today', '#CFA13C') +
+        tile('$' + (u.aiCost30 || 0).toFixed(2), (u.aiCalls30 || 0) + ' calls \u00b7 30d', '#CFA13C') +
+        tile(String(u.meals || 0), 'meals \u00b7 ' + (u.workouts || 0) + ' workouts', 'var(--ink)') +
+        `</div>` +
         `<div style="display:flex;gap:8px">` +
         (u.email ? `<a href="mailto:${u.email}" style="flex:1;text-align:center;background:var(--surface-2);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:8px 0;font-size:11px;font-weight:700;text-decoration:none">\u2709 Email</a>` : '') +
         `<button onclick="_adminToggleSuspend('${u.id}', ${u.aiSuspended ? 'false' : 'true'}, '${(u.username || '').replace(/'/g, '')}')" style="flex:1;background:${u.aiSuspended ? 'var(--accent)' : 'rgba(224,119,119,0.15)'};color:${u.aiSuspended ? '#101512' : '#e07777'};border:1px solid ${u.aiSuspended ? 'var(--accent)' : '#e07777'};border-radius:10px;padding:8px 0;font-size:11px;font-weight:800;cursor:pointer">${u.aiSuspended ? 'Resume AI' : 'Pause AI'}</button>` +
-        `</div></div>`;
+        `</div>` +
+        `<div style="font-size:9.5px;color:var(--muted);margin-top:8px;text-align:center">${u.aiSuspended ? 'AI is paused for this user \u2014 data and app still work. Resume turns it back on.' : 'Pause stops AI spend only \u2014 their data and app keep working'}</div>` +
+        `</div>`;
     }
     return html + `</div>`;
   }).join('') || '<div style="color:var(--muted);font-size:12px">No users match.</div>';
@@ -11039,7 +11066,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-21-ac-androidmic';
+const RATIO_BUILD = '2026-08-21-ad-adminredo';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
