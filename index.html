@@ -402,6 +402,30 @@
     .ob-ck-hint { display:block; font-size:9.5px; color:var(--muted); font-weight:400; margin-top:1px; line-height:1.3; }
     .ob-ck-it { align-items:flex-start; }
     .ob-ck-it .ob-ck-box { margin-top:1px; }
+    /* Coach-intro reveal: after the intro line, the portrait steps down to a
+       waist-up crop and the 7 checklist items deal in one at a time. The
+       collapse itself is driven from _ocHeroCollapse(); these rules only
+       describe the two states. Transforms + opacity only - 60fps-safe. */
+    #obchat-coachhero { overflow:hidden; transition:height .55s cubic-bezier(.4,0,.2,1); }
+    .ob-ck.ob-ck-pre .ob-ck-t, .ob-ck.ob-ck-pre .ob-ck-ex { opacity:0; }
+    .ob-ck.ob-ck-pre .ob-ck-grid .ob-ck-it { opacity:0; transform:translateY(16px); }
+    .ob-ck.ob-ck-go .ob-ck-t { opacity:1; transition:opacity .3s ease .22s; }
+    .ob-ck.ob-ck-go .ob-ck-grid .ob-ck-it { opacity:1; transform:none; transition:opacity .32s ease, transform .38s cubic-bezier(.34,1.4,.5,1); }
+    .ob-ck.ob-ck-go .ob-ck-grid .ob-ck-it:nth-child(1) { transition-delay:.30s; }
+    .ob-ck.ob-ck-go .ob-ck-grid .ob-ck-it:nth-child(2) { transition-delay:.37s; }
+    .ob-ck.ob-ck-go .ob-ck-grid .ob-ck-it:nth-child(3) { transition-delay:.44s; }
+    .ob-ck.ob-ck-go .ob-ck-grid .ob-ck-it:nth-child(4) { transition-delay:.51s; }
+    .ob-ck.ob-ck-go .ob-ck-grid .ob-ck-it:nth-child(5) { transition-delay:.58s; }
+    .ob-ck.ob-ck-go .ob-ck-grid .ob-ck-it:nth-child(6) { transition-delay:.65s; }
+    .ob-ck.ob-ck-go .ob-ck-grid .ob-ck-it:nth-child(7) { transition-delay:.72s; }
+    .ob-ck.ob-ck-go .ob-ck-grid .ob-ck-it:nth-child(8) { transition-delay:.79s; }
+    .ob-ck.ob-ck-go .ob-ck-ex { opacity:1; transition:opacity .35s ease .88s; }
+    @media (prefers-reduced-motion: reduce) {
+      #obchat-coachhero { transition:none; }
+      /* Failsafe doubles as accessibility: with motion off, the checklist is
+         simply visible - JS can't hide it even if a trigger never fires. */
+      .ob-ck.ob-ck-pre .ob-ck-t, .ob-ck.ob-ck-pre .ob-ck-ex, .ob-ck.ob-ck-pre .ob-ck-grid .ob-ck-it { opacity:1; transform:none; transition:none; }
+    }
 
     .vl-fab { position: fixed; right: 18px; bottom: 90px; width: 56px; height: 56px; border-radius: 50%; background: #CFA13C; border: none; box-shadow: 0 4px 14px rgba(207,161,60,0.4); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 300; }
     /* The app renders as a centered 520px column, but position:fixed anchors
@@ -7651,7 +7675,12 @@ function _ocAddHero(src, alt, opts) {
   // header + type box + however much text is on screen.
   const reserve = (opts && opts.reserve) || 300;
   const fit = (opts && opts.fit) || 'cover';
-  const pos = fit === 'contain' ? '50%' : '12%';
+  const collapse = !!(opts && opts.collapse);
+  if (collapse) row.id = 'obchat-coachhero';
+  // Collapse mode anchors the portrait to the TOP of its box: when the row
+  // later shrinks, the clip eats the legs and keeps the face. Anchoring
+  // bottom does the exact opposite (mockup v2 showed shoes, not shoulders).
+  const pos = collapse ? '0' : (fit === 'contain' ? '50%' : '12%');
   img.style.cssText = fill
     ? `display:block;width:100%;height:100%;object-fit:${fit};object-position:50% ${pos}`
     : intro
@@ -7661,6 +7690,32 @@ function _ocAddHero(src, alt, opts) {
   row.appendChild(img);
   box.appendChild(row);
   _ocScroll();
+}
+
+// The coach's full-body moment ends here: the portrait shrinks to waist-up
+// and the checklist deals its items in (CSS .ob-ck-go stagger). Fired when
+// the intro line finishes plus a dwell, or immediately when the user acts
+// first (send/mic), or by the 12s failsafe in _ocAddChecklist - whichever
+// comes first. Idempotent: the checklist's -go class is the already-ran
+// flag, so every trigger can fire safely.
+const OB_HERO_COLLAPSED_PX = 210;
+function _ocHeroCollapse() {
+  const ck = document.getElementById('obchat-checklist');
+  const row = document.getElementById('obchat-coachhero');
+  if (!ck && !row) return;                              // not the coach-intro screen
+  if (ck && ck.classList.contains('ob-ck-go')) return;  // already ran
+  if (row) {
+    const h = row.offsetHeight;
+    // Never GROW the hero: short viewports already run it near minH 140.
+    if (h > OB_HERO_COLLAPSED_PX + 20) {
+      row.style.height = h + 'px';
+      void row.offsetHeight;   // commit the start height before transitioning
+      requestAnimationFrame(() => { row.style.height = OB_HERO_COLLAPSED_PX + 'px'; });
+    }
+  }
+  if (ck) ck.classList.add('ob-ck-go');
+  const box = document.getElementById('obchat-messages');
+  if (box) requestAnimationFrame(() => { box.scrollTop = 0; });
 }
 
 let _coachAudioManifest = null; // null=not loaded, false=unavailable
@@ -8815,8 +8870,11 @@ function _ocIntroduceCoach(coachKey, goalKey) {
     _ocAddBot(c.intro, { onSpoken: () => {
       const b = document.getElementById('obchat-messages');
       if (b) requestAnimationFrame(() => { b.scrollTop = 0; });
+      // Intro's done and had its beat - the coach steps aside so the
+      // checklist (the reason this screen exists) owns the viewport.
+      setTimeout(_ocHeroCollapse, OB_LINE_DWELL_MS);
     } });
-    _ocAddHero(c.fullImg || c.img, c.name, { intro: true, reserve: shortVp ? 560 : 430, minH: shortVp ? 140 : 280, fit: 'contain' });
+    _ocAddHero(c.fullImg || c.img, c.name, { intro: true, reserve: shortVp ? 560 : 430, minH: shortVp ? 140 : 280, fit: 'contain', collapse: true });
     _ocAddChecklist();
   };
   // Lauren speaks BEFORE the coach is assigned, so her line uses her voice.
@@ -9079,7 +9137,7 @@ function _ocAddChecklist() {
   const items = req.map(k => { const h = _ocFieldHint(k); return `<div class="ob-ck-it" id="ob-ck-${k}"><span class="ob-ck-box"></span><span class="ob-ck-lbl">${OC_FIELD_LABELS[k] || k}${h ? `<span class=\"ob-ck-hint\">${h}</span>` : ''}</span></div>`; }).join('');
   const div = document.createElement('div');
   div.id = 'obchat-checklist';
-  div.className = 'ob-ck';
+  div.className = 'ob-ck ob-ck-pre';   // items hidden until _ocHeroCollapse deals them in
   div.innerHTML = `<div class="ob-ck-t">TELL ME THESE ${req.length} THINGS \u2014 ANY ORDER</div>` +
     `<div class="ob-ck-grid">${items}</div>` +
     `<div class="ob-ck-ex">Example: <b>${_ocExampleLine()}</b></div>`;
@@ -9089,6 +9147,9 @@ function _ocAddChecklist() {
   box.appendChild(div);
   _ocRenderChecklist();
   box.scrollTop = box.scrollHeight;
+  // Failsafe: whatever happens to the intro/speech chain, the checklist must
+  // never stay hidden. 12s outlasts the 9s speech backstop in _ocAfterSpeech.
+  setTimeout(_ocHeroCollapse, 12000);
 }
 
 function _ocRenderChecklist() {
@@ -9311,6 +9372,7 @@ function _ocExitIntroMode() {
 
 function _ocDispatch(text) {
   if (_oc) _oc._pinTop = false;   // they acted — normal bottom-follow resumes
+  _ocHeroCollapse();              // acting always ends the intro choreography
   document.getElementById('obchat-mic')?.classList.remove('hint');
   if (_oc.stage === 'goal') {
     _ocExitIntroMode();
@@ -9520,6 +9582,7 @@ function _ocWaveStop() {
 async function obChatMic() {
   if (!_oc || _oc.busy) return;
   if (_oc.forcedField) return;   // mic is off until they pick
+  _ocHeroCollapse();   // mic tap on the intro screen = "I'm ready" - skip the choreography
   document.getElementById('obchat-mic')?.classList.remove('hint');
   // Preserve anything already typed - starting the mic must never erase it.
   // Voice appends to the typed text; a joining space only if there's text.
@@ -10820,7 +10883,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-20-s-oauthlogos';
+const RATIO_BUILD = '2026-08-20-t-coachreveal';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
