@@ -4869,7 +4869,32 @@ function _vlStartWatchdog() {
 // downstream — vlHandleUtterance, the AI round trip, follow-up questions, the
 // confirm screen — is transport-agnostic, so feeding it browser transcripts
 // makes voice logging work off-iOS with no other changes.
+// Android Chrome delivers cumulative snapshots of the SAME utterance as
+// separate result entries ("I'm", "I'm a", "I'm a 62-year-old...") - naive
+// concatenation of every entry produced dad's "I'mI'm aI'm a" stutter, while
+// desktop Chrome delivers disjoint segments where concatenation is right.
+// Collapse: drop any entry that is a prefix of a LATER entry (a stale
+// snapshot, not new speech), join the survivors.
+function _webSpeechJoin(ev) {
+  const parts = [];
+  for (let i = 0; i < ev.results.length; i++) {
+    const tr = ((ev.results[i] && ev.results[i][0] && ev.results[i][0].transcript) || '').trim();
+    if (tr) parts.push(tr);
+  }
+  let out = '';
+  for (let i = 0; i < parts.length; i++) {
+    let stale = false;
+    for (let j = i + 1; j < parts.length; j++) {
+      if (parts[j].startsWith(parts[i])) { stale = true; break; }
+    }
+    if (!stale) out += (out ? ' ' : '') + parts[i];
+  }
+  return out;
+}
 let _vlWebRec = null;
+let _vlWebCarry = '';          // transcript banked across Android self-restarts
+let _vlWebRestarts = 0;
+let _vlWebStopRequested = false; // true only when OUR code asked the engine to stop
 
 async function vlStartListeningWeb() {
   try { await _ttsRelease(); } catch (e) {}
@@ -4877,6 +4902,7 @@ async function vlStartListeningWeb() {
   if (!Ctor) { _vlStarting = false; vlShowTypeInstead(); toast('Voice input needs Chrome or the iOS app — type instead'); return; }
 
   _vlLiveText = '';
+  _vlWebCarry = ''; _vlWebRestarts = 0; _vlWebStopRequested = false;
   const liveEl = document.getElementById('vl-live-transcript');
   if (liveEl) liveEl.textContent = '';
 
@@ -4898,15 +4924,17 @@ async function vlStartListeningWeb() {
   const stillListening = () => document.getElementById('vl-state-listening')?.style.display !== 'none';
 
   rec.onresult = (ev) => {
-    let text = '';
-    for (let i = 0; i < ev.results.length; i++) text += ev.results[i][0].transcript;
-    text = text.trim();
+    let text = _webSpeechJoin(ev);
+    if (_vlWebCarry) text = (_vlWebCarry + ' ' + text).trim();
     if (text) { _vlLiveText = text; _vlLastPartialAt = Date.now(); }
     const el = document.getElementById('vl-live-transcript');
     if (el) el.textContent = text;
   };
 
   rec.onerror = (ev) => {
+    // Android raises 'no-speech' between kept-alive segments; with words
+    // already banked that's a pause, not a problem - onend restarts us.
+    if (ev.error === 'no-speech' && !_vlWebStopRequested && stillListening() && (_vlLiveText || _vlWebCarry)) return;
     console.warn('web speech error', ev.error);
     _vlWebRec = null;
     _vlClearWatchdog();
@@ -4927,6 +4955,17 @@ async function vlStartListeningWeb() {
   // Browsers end the session themselves on a pause, which is the same contract
   // the native plugin's listeningState:stopped event provides.
   rec.onend = () => {
+    // Android Chrome ends the session on its own after ~1.5s of silence even
+    // with continuous=true - BEFORE the 3.5s watchdog gets a say (that's how
+    // dad got submitted mid-sentence). If WE didn't request this stop, bank
+    // the transcript and restart the same recognizer; endpointing stays ours.
+    if (!_vlWebStopRequested && stillListening()) {
+      _vlWebRestarts++;
+      if (_vlWebRestarts <= 8 && (Date.now() - _vlListenStartedAt) < VL_MAX_LISTEN_MS) {
+        if (_vlLiveText) _vlWebCarry = _vlLiveText;
+        try { rec.start(); return; } catch (e) { /* engine refused - finish the turn */ }
+      }
+    }
     _vlWebRec = null;
     // Ended with nothing heard and no error raised: previously the UI just
     // sat in the listening state forever with the mic still pulsing.
@@ -5047,6 +5086,7 @@ async function vlStartListening() {
 
 async function vlStopListening() {
   ttsSuppress(false);
+  _vlWebStopRequested = true;   // this stop is ours - onend must submit, not restart
   _vlClearWatchdog();
   const plugin = window.Capacitor?.Plugins?.SpeechRecognition;
   if (plugin) { try { await plugin.stop(); } catch(e) {} }
@@ -9890,6 +9930,7 @@ async function obChatMic() {
   rec.continuous = true;
   _oc.rec = rec; _oc.listening = true; _oc._speechReported = false;
   _oc._lastSpeechAt = 0;
+  _oc._stopRequested = false; _oc._webRestarts = 0; _oc._webCarry = '';
   _oc._listenStartedAt = Date.now();
   btn.classList.add('listening');
   // Same bug as the native path once had: the wavebar went up HERE, before
@@ -9908,9 +9949,8 @@ async function obChatMic() {
   // the warming state can never stick forever.
   rec.onstart = () => { _vt('web-start-event'); setTimeout(_raiseWave, 250); };
   rec.onresult = (ev) => {
-    let t = '';
-    for (const r of ev.results) t += r[0].transcript;
-    t = t.trim();
+    let t = _webSpeechJoin(ev);
+    if (_oc._webCarry) t = (_oc._webCarry + ' ' + t).trim();
     if (t) {
       if (!_oc.partial) _vt('web-first-partial: ' + JSON.stringify(t.slice(0, 40)));
       _raiseWave();
@@ -9926,14 +9966,17 @@ async function obChatMic() {
     if (!_oc || !_oc.listening) { clearInterval(_oc && _oc._endpointer); return; }
     const now = Date.now();
     const elapsed = now - _oc._listenStartedAt;
-    if (elapsed >= OB_MAX_LISTEN_MS) { try { rec.stop(); } catch (e) {} return; }
+    if (elapsed >= OB_MAX_LISTEN_MS) { _oc._stopRequested = true; try { rec.stop(); } catch (e) {} return; }
     if (_oc._lastSpeechAt) {
-      if (now - _oc._lastSpeechAt >= VL_SILENCE_STOP_MS) { try { rec.stop(); } catch (e) {} }
+      if (now - _oc._lastSpeechAt >= VL_SILENCE_STOP_MS) { _oc._stopRequested = true; try { rec.stop(); } catch (e) {} }
     } else if (elapsed >= OB_NO_SPEECH_MS) {
-      try { rec.stop(); } catch (e) {}
+      _oc._stopRequested = true; try { rec.stop(); } catch (e) {}
     }
   }, 300);
   rec.onerror = (ev) => {
+    // Android's 'no-speech' between kept-alive segments is a pause, not a
+    // failure, when words are already banked - onend will restart us.
+    if (ev.error === 'no-speech' && _oc && _oc.listening && !_oc._stopRequested && (_oc.partial || _oc._webCarry)) { _vt('web-no-speech-benign'); return; }
     _ocMicWarming(false);
     _ocStopListening();
     _oc._speechReported = true;
@@ -9941,6 +9984,18 @@ async function obChatMic() {
   };
   rec.onend = () => {
     _ocMicWarming(false);
+    // Android self-terminates on short pauses despite continuous=true. If we
+    // didn't ask for this stop (no tap, no watchdog decision), bank the
+    // transcript and restart - the 3.5s-after-last-word endpointer decides
+    // when the answer is over, not the browser. Manual tap goes through
+    // _ocStopListening (listening=false) so it never lands here.
+    if (_oc && _oc.listening && !_oc._stopRequested) {
+      _oc._webRestarts = (_oc._webRestarts || 0) + 1;
+      if (_oc._webRestarts <= 8 && (Date.now() - _oc._listenStartedAt) < OB_MAX_LISTEN_MS) {
+        if (_oc.partial) _oc._webCarry = _oc.partial;
+        try { rec.start(); _vt('web-self-restart ' + _oc._webRestarts); return; } catch (e) {}
+      }
+    }
     const finalText = _oc.partial;
     _ocStopListening();
     const inp = document.getElementById('obchat-input');
@@ -10984,7 +11039,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-21-ab-emailfirst';
+const RATIO_BUILD = '2026-08-21-ac-androidmic';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
