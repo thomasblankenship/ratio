@@ -7576,6 +7576,14 @@ async function signOut() {
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${_authToken}` }
     });
   } catch(e) {}
+  // Also sign out of the NATIVE Google session. App sign-out only clears
+  // Ratio's session; the Google SDK caches its own, so without this the next
+  // Google tap silently reuses the last account with no account picker -
+  // users could never switch Google accounts on iOS.
+  try {
+    const P = window.Capacitor && window.Capacitor.Plugins;
+    if (P && P.GoogleAuth && window._gaInited) { await P.GoogleAuth.signOut(); }
+  } catch(e) { console.warn('[oauth] GoogleAuth.signOut failed (non-fatal)', e); }
   localStorage.removeItem('sb_session');
   _authToken = null;
   _currentUser = null;
@@ -10906,7 +10914,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-21-w-gauthinit';
+const RATIO_BUILD = '2026-08-21-x-gsignout';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
