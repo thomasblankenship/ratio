@@ -10893,7 +10893,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-20-u-revealfit';
+const RATIO_BUILD = '2026-08-21-v-signupgate';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -11174,15 +11174,12 @@ async function appInit() {
   document.getElementById('app-shell').style.display = 'block';
   document.getElementById('welcome-screen').style.display = 'none';
   document.getElementById('auth-screen').style.display = 'none';
-  updateHeaderHeightVar();
-  window.addEventListener('resize', updateHeaderHeightVar);
-  updateDailyQuote();
-  await loadGoals();
-  initHealthKitSync();
-  // Load saved foods and meals eagerly so dashboard search works immediately
-  dbGet('saved_foods', 'order=name.asc').then(r => { if (r) savedFoods = r; }).catch(() => {});
-  dbGet('saved_meals', 'order=created_at.desc').then(r => { if (r) savedMeals = r; }).catch(() => {});
-
+  // ACCOUNT-EXISTENCE GATE — must run BEFORE any self-healing writer.
+  // loadGoals() backfills+saves default targets and the tz resolver saves a
+  // profile; run first, they MANUFACTURE the very rows this gate checks and
+  // a half-finished OAuth signup (auth user, claim-username never completed)
+  // walks into a fabricated dashboard account on relaunch. Gate first, heal
+  // later — self-healing is for accounts that exist.
   // Check if new user needs onboarding (no settings saved in Supabase for this user)
   const hasProfile = await loadSetting('profile');
   const hasGoals = await loadSetting('goals');
@@ -11261,6 +11258,15 @@ async function appInit() {
     startSignup();
     return;
   }
+  updateHeaderHeightVar();
+  window.addEventListener('resize', updateHeaderHeightVar);
+  updateDailyQuote();
+  await loadGoals();
+  initHealthKitSync();
+  // Load saved foods and meals eagerly so dashboard search works immediately
+  dbGet('saved_foods', 'order=name.asc').then(r => { if (r) savedFoods = r; }).catch(() => {});
+  dbGet('saved_meals', 'order=created_at.desc').then(r => { if (r) savedMeals = r; }).catch(() => {});
+
 
   updateGoalsDisplay();
   updateLogDateDisplay();
