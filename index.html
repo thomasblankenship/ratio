@@ -8234,7 +8234,20 @@ async function obOAuth(provider) {
         const nm = r && r.response && [r.response.givenName, r.response.familyName].filter(Boolean).join(' ');
         if (nm && !window._obName) window._obName = nm;
       } else if (provider === 'google' && window.Capacitor.Plugins.GoogleAuth) {
-        const r = await window.Capacitor.Plugins.GoogleAuth.signIn();
+        const GA = window.Capacitor.Plugins.GoogleAuth;
+        // codetrix plugin contract: initialize() must run before signIn() on
+        // iOS. Without it the native GIDSignIn has no configuration and
+        // signIn() dies in an NSException that kills the whole app - not
+        // catchable from JS. clientId passed explicitly so this works even
+        // if the capacitor-config/plist lookup paths change between plugin
+        // versions. Once per app run.
+        if (!window._gaInited) {
+          try {
+            await GA.initialize({ clientId: '862466233740-7lls6o6stvj4hv3fufutsr81r8f76gjg.apps.googleusercontent.com', scopes: ['profile', 'email'], grantOfflineAccess: false });
+          } catch (e) { console.warn('[oauth] GoogleAuth.initialize threw (may already be initialized)', e); }
+          window._gaInited = true;
+        }
+        const r = await GA.signIn();
         idToken = r && (r.authentication && r.authentication.idToken || r.idToken);
         if (r && r.name && !window._obName) window._obName = r.name;
       }
@@ -10893,7 +10906,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-21-v-signupgate';
+const RATIO_BUILD = '2026-08-21-w-gauthinit';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
