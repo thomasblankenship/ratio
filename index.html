@@ -7698,7 +7698,7 @@ function _ocAddHero(src, alt, opts) {
 // first (send/mic), or by the 12s failsafe in _ocAddChecklist - whichever
 // comes first. Idempotent: the checklist's -go class is the already-ran
 // flag, so every trigger can fire safely.
-const OB_HERO_COLLAPSED_PX = 210;
+const OB_HERO_COLLAPSED_PX = 210;   // CEILING - the fit measurement below can only shrink it
 function _ocHeroCollapse() {
   const ck = document.getElementById('obchat-checklist');
   const row = document.getElementById('obchat-coachhero');
@@ -7706,11 +7706,21 @@ function _ocHeroCollapse() {
   if (ck && ck.classList.contains('ob-ck-go')) return;  // already ran
   if (row) {
     const h = row.offsetHeight;
+    // Fit-to-viewport: the hero takes whatever height the intro + checklist
+    // leave over, clamped between a face-preserving floor and the designed
+    // ceiling. A fixed target clipped the checklist tail under long intros
+    // (Ian's) - overflow depends on copy length and device, so MEASURE.
+    let target = OB_HERO_COLLAPSED_PX;
+    const fitBox = document.getElementById('obchat-messages');
+    if (fitBox && fitBox.clientHeight > 0) {
+      const others = fitBox.scrollHeight - h;   // everything that isn't the hero
+      target = Math.max(110, Math.min(OB_HERO_COLLAPSED_PX, fitBox.clientHeight - others - 6));
+    }
     // Never GROW the hero: short viewports already run it near minH 140.
-    if (h > OB_HERO_COLLAPSED_PX + 20) {
+    if (h > target + 20) {
       row.style.height = h + 'px';
       void row.offsetHeight;   // commit the start height before transitioning
-      requestAnimationFrame(() => { row.style.height = OB_HERO_COLLAPSED_PX + 'px'; });
+      requestAnimationFrame(() => { row.style.height = target + 'px'; });
     }
   }
   if (ck) ck.classList.add('ob-ck-go');
@@ -10883,7 +10893,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-20-t-coachreveal';
+const RATIO_BUILD = '2026-08-20-u-revealfit';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
