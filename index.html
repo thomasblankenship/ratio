@@ -3223,15 +3223,29 @@
     <button type="button" id="lb-reset" onclick="event.stopPropagation();_lbResetZoom()" style="min-width:60px;height:36px;border-radius:18px;background:rgba(0,0,0,0.55);color:#fff;border:1px solid rgba(255,255,255,0.25);font-size:12px;font-weight:700;cursor:pointer">1.0×</button>
     <button type="button" onclick="event.stopPropagation();_lbZoom(1)" style="width:44px;height:44px;border-radius:50%;background:rgba(0,0,0,0.55);color:#fff;border:1px solid rgba(255,255,255,0.25);font-size:22px;cursor:pointer">+</button>
   </div>
-  <button type="button" id="lightbox-setavatar" onclick="event.stopPropagation();openAvatarEditor(_lightboxUrl)"
-    style="position:absolute;bottom:28px;left:50%;transform:translateX(-50%);background:#CFA13C;color:#101512;border:none;border-radius:12px;padding:12px 22px;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 2px 14px rgba(0,0,0,0.45);white-space:nowrap">Set as profile picture</button>
+  <div style="position:absolute;bottom:24px;left:50%;transform:translateX(-50%);display:flex;gap:10px;z-index:2" onclick="event.stopPropagation()">
+    <button type="button" onclick="event.stopPropagation();openPhotoFramer(_lightboxUrl)" style="background:rgba(0,0,0,0.55);color:#fff;border:1px solid rgba(255,255,255,0.3);border-radius:12px;padding:12px 16px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;box-shadow:0 2px 14px rgba(0,0,0,0.45)">Adjust size</button>
+    <button type="button" id="lightbox-setavatar" onclick="event.stopPropagation();openAvatarEditor(_lightboxUrl)" style="background:#CFA13C;color:#101512;border:none;border-radius:12px;padding:12px 18px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;box-shadow:0 2px 14px rgba(0,0,0,0.45)">Set as profile picture</button>
+  </div>
+</div>
+<!-- PHOTO FRAMING EDITOR (writes per-photo align: grid + compare honor it) -->
+<div id="photo-framer" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:1100;flex-direction:column;align-items:center;justify-content:center;padding:20px;box-sizing:border-box">
+  <div style="color:#fff;font-size:15px;font-weight:600;margin-bottom:16px">Adjust photo size &amp; position</div>
+  <div id="pf-box" style="width:210px;aspect-ratio:3/4;max-width:64vw;border-radius:10px;overflow:hidden;position:relative;background:#111;box-shadow:0 0 0 3px rgba(207,161,60,0.85);touch-action:none;cursor:grab">
+    <img id="pf-img" src="" alt="" style="width:100%;height:100%;object-fit:cover;transform-origin:center center;pointer-events:none;user-select:none" draggable="false" />
+  </div>
+  <div style="color:#bbb;font-size:11px;margin-top:12px;text-align:center;max-width:280px">Drag to move · pinch or slider to zoom.<br>This is how the photo shows everywhere — grid and compare.</div>
+  <input id="pf-zoom" type="range" min="1" max="3" step="0.01" value="1" oninput="_pfSetZoom(this.value)" style="width:210px;max-width:64vw;margin-top:12px;accent-color:#CFA13C" />
+  <div style="display:flex;gap:10px;margin-top:20px">
+    <button type="button" onclick="_pfCancel()" style="padding:11px 18px;border-radius:10px;background:rgba(255,255,255,0.1);color:#fff;border:1px solid rgba(255,255,255,0.25);font-size:14px;font-weight:600;cursor:pointer">Cancel</button>
+    <button type="button" onclick="_pfReset()" style="padding:11px 18px;border-radius:10px;background:rgba(255,255,255,0.1);color:#fff;border:1px solid rgba(255,255,255,0.25);font-size:14px;font-weight:600;cursor:pointer">Reset</button>
+    <button type="button" id="pf-save" onclick="_pfSave()" style="padding:11px 22px;border-radius:10px;background:#CFA13C;color:#101512;border:none;font-size:14px;font-weight:700;cursor:pointer">Save</button>
+  </div>
 </div>
 <!-- AVATAR FRAMING EDITOR -->
 <div id="avatar-editor" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:1100;flex-direction:column;align-items:center;justify-content:center;padding:20px;box-sizing:border-box">
   <div style="color:#fff;font-size:15px;font-weight:600;margin-bottom:18px">Frame your profile picture</div>
-  <div id="avatar-editor-circle" style="width:260px;height:260px;max-width:78vw;max-height:78vw;border-radius:50%;overflow:hidden;position:relative;background:#111;box-shadow:0 0 0 3px rgba(207,161,60,0.85);touch-action:none;cursor:grab">
-    <img id="avatar-editor-img" src="" alt="" style="width:100%;height:100%;object-fit:cover;object-position:50% 50%;transform:scale(1);transform-origin:50% 50%;pointer-events:none;user-select:none" draggable="false" />
-  </div>
+  <div id="avatar-editor-circle" style="width:260px;height:260px;max-width:78vw;max-height:78vw;border-radius:50%;overflow:hidden;position:relative;background:#111 no-repeat center/cover;box-shadow:0 0 0 3px rgba(207,161,60,0.85);touch-action:none;cursor:grab"></div>
   <div style="color:#bbb;font-size:11px;margin-top:12px">Drag to move · pinch or use the slider to zoom</div>
   <input id="avatar-editor-zoom" type="range" min="1" max="3" step="0.01" value="1" oninput="_aeSetZoom(this.value)" style="width:240px;max-width:78vw;margin-top:12px;accent-color:#CFA13C" />
   <div style="display:flex;gap:10px;margin-top:22px">
@@ -6076,50 +6090,71 @@ async function setLightboxPhotoAsAvatar() {
   }
 }
 
-// Apply the stored framing (position % + zoom) to any avatar <img>. Every
-// avatar spot calls this, and the editor preview uses the same math, so what
-// you frame is exactly what renders \u2014 at any circle size, because it is all
-// percentage-based.
-function _applyAvatarFrame(img) {
-  if (!img) return;
-  const f = (userProfile && userProfile.avatarFrame) || { x: 50, y: 50, zoom: 1 };
-  img.style.objectPosition = `${f.x}% ${f.y}%`;
-  img.style.transform = `scale(${f.zoom || 1})`;
-  img.style.transformOrigin = `${f.x}% ${f.y}%`;
+// Compute background-size + background-position for a framed avatar. All
+// percentage-based, so one calculation renders identically at 260px (editor)
+// or 32px (settings row) - true WYSIWYG. No aspect ratio stored (e.g. a plain
+// upload) falls back to cover/centered, exactly like before framing existed.
+function _avatarBgStyle(frame) {
+  const f = frame || {};
+  const zoom = Math.max(1, f.zoom || 1);
+  if (!f.ar) return { size: 'cover', pos: '50% 50%' };
+  const coverW = Math.max(100, 100 * f.ar), coverH = Math.max(100, 100 / f.ar);
+  const kx = coverW * zoom / 100, ky = coverH * zoom / 100;
+  const fpx = (f.fpx == null ? 0.5 : f.fpx), fpy = (f.fpy == null ? 0.5 : f.fpy);
+  const posX = kx > 1 ? Math.min(100, Math.max(0, (fpx * kx - 0.5) / (kx - 1) * 100)) : 50;
+  const posY = ky > 1 ? Math.min(100, Math.max(0, (fpy * ky - 0.5) / (ky - 1) * 100)) : 50;
+  return { size: `${(coverW * zoom).toFixed(2)}% ${(coverH * zoom).toFixed(2)}%`, pos: `${posX.toFixed(2)}% ${posY.toFixed(2)}%` };
+}
+// Paint a framed avatar as the background of a circle element (the img/icon
+// inside are hidden by the callers). One scale pass = crisp.
+function _paintAvatar(box, url, frame) {
+  if (!box) return;
+  const s = _avatarBgStyle(frame);
+  box.style.backgroundImage = `url("${url}")`;
+  box.style.backgroundRepeat = 'no-repeat';
+  box.style.backgroundSize = s.size;
+  box.style.backgroundPosition = s.pos;
 }
 
 // ---- avatar framing editor ----
-let _aeUrl = null, _aeX = 50, _aeY = 50, _aeZoom = 1;
-function _aeApply() {
-  const img = document.getElementById('avatar-editor-img');
-  if (img) { img.style.objectPosition = `${_aeX}% ${_aeY}%`; img.style.transform = `scale(${_aeZoom})`; img.style.transformOrigin = `${_aeX}% ${_aeY}%`; }
+let _aeUrl = null, _aeFpx = 0.5, _aeFpy = 0.5, _aeZoom = 1, _aeAr = 0;
+function _aeCircle() { return document.getElementById('avatar-editor-circle'); }
+function _aeK() { const coverW = Math.max(100, 100 * (_aeAr || 1)), coverH = Math.max(100, 100 / (_aeAr || 1)); return { kx: coverW * _aeZoom / 100, ky: coverH * _aeZoom / 100 }; }
+function _aeClamp() {
+  const { kx, ky } = _aeK();
+  if (kx > 1) { const m = 0.5 / kx; _aeFpx = Math.min(1 - m, Math.max(m, _aeFpx)); } else _aeFpx = 0.5;
+  if (ky > 1) { const m = 0.5 / ky; _aeFpy = Math.min(1 - m, Math.max(m, _aeFpy)); } else _aeFpy = 0.5;
 }
-function _aeSetZoom(v) { _aeZoom = Math.min(3, Math.max(1, +v || 1)); const s = document.getElementById('avatar-editor-zoom'); if (s && +s.value !== _aeZoom) s.value = _aeZoom; _aeApply(); }
+function _aePaint() { _paintAvatar(_aeCircle(), _aeUrl, { fpx: _aeFpx, fpy: _aeFpy, zoom: _aeZoom, ar: _aeAr }); }
+function _aeSetZoom(v) { _aeZoom = Math.min(3, Math.max(1, +v || 1)); const s = document.getElementById('avatar-editor-zoom'); if (s && +s.value !== _aeZoom) s.value = _aeZoom; _aeClamp(); _aePaint(); }
 function openAvatarEditor(url) {
   if (!url) return;
   _aeUrl = url;
-  // Re-editing the same photo? start from its saved framing; otherwise center.
-  const f = (userProfile && userProfile.avatarUrl === url && userProfile.avatarFrame) ? userProfile.avatarFrame : { x: 50, y: 50, zoom: 1 };
-  _aeX = f.x; _aeY = f.y; _aeZoom = f.zoom || 1;
-  const img = document.getElementById('avatar-editor-img');
-  if (img) img.src = url;
-  const s = document.getElementById('avatar-editor-zoom'); if (s) s.value = _aeZoom;
-  _aeApply();
+  const saved = (userProfile && userProfile.avatarUrl === url && userProfile.avatarFrame) ? userProfile.avatarFrame : null;
+  _aeFpx = (saved && saved.fpx != null) ? saved.fpx : 0.5;
+  _aeFpy = (saved && saved.fpy != null) ? saved.fpy : 0.5;
+  _aeZoom = (saved && saved.zoom) ? saved.zoom : 1;
+  _aeAr = (saved && saved.ar) ? saved.ar : 0;
+  const z = document.getElementById('avatar-editor-zoom'); if (z) z.value = _aeZoom;
   document.getElementById('avatar-editor').style.display = 'flex';
   _aeBind();
+  _aePaint();
+  // Learn the true aspect ratio, then re-clamp and repaint accurately.
+  const im = new Image();
+  im.onload = () => { if (im.naturalWidth && im.naturalHeight) { _aeAr = im.naturalWidth / im.naturalHeight; _aeClamp(); _aePaint(); } };
+  im.src = url;
 }
 function _aeCancel() { const el = document.getElementById('avatar-editor'); if (el) el.style.display = 'none'; }
 async function _aeConfirm() {
   if (!_aeUrl) return;
   const btn = document.getElementById('ae-confirm');
   if (btn) { btn.disabled = true; btn.textContent = 'Saving\u2026'; }
-  const frame = { x: Math.round(_aeX), y: Math.round(_aeY), zoom: +(_aeZoom).toFixed(2) };
+  const frame = { fpx: +_aeFpx.toFixed(4), fpy: +_aeFpy.toFixed(4), zoom: +_aeZoom.toFixed(2), ar: +(_aeAr || 1).toFixed(4) };
   try {
     userProfile = { ...userProfile, avatarUrl: _aeUrl, avatarFrame: frame };
     await saveSetting('profile', userProfile);
-    const mpImg = document.getElementById('mp-avatar-img');
-    const mpIcon = document.getElementById('mp-avatar-icon');
-    if (mpImg) { mpImg.src = _aeUrl; mpImg.style.display = 'block'; _applyAvatarFrame(mpImg); }
+    const mpi = document.getElementById('mp-avatar-img'), mpIcon = document.getElementById('mp-avatar-icon');
+    if (mpi) { _paintAvatar(mpi.parentElement, _aeUrl, frame); mpi.style.display = 'none'; }
     if (mpIcon) mpIcon.style.display = 'none';
     refreshProfilePageAvatar();
     toast('Profile picture updated \u2713');
@@ -6133,28 +6168,96 @@ async function _aeConfirm() {
 }
 let _aeBound = false;
 function _aeBind() {
-  const c = document.getElementById('avatar-editor-circle');
+  const c = _aeCircle();
   if (!c || _aeBound) return;
   _aeBound = true;
-  let sx = 0, sy = 0, px = 50, py = 50, pinchStart = 0, zoomStart = 1, dragging = false;
+  let sx = 0, sy = 0, pfx = 0.5, pfy = 0.5, pinchStart = 0, zoomStart = 1, dragging = false;
   const dist = t => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
   const size = () => c.getBoundingClientRect().width || 260;
-  // Drag moves the focal point: finger right reveals the left of the photo, so
-  // object-position decreases. The 100/(size*zoom) factor keeps the drag
-  // 1:1 with the photo under the finger at any zoom.
-  const pan = (cx, cy) => { const k = 100 / (size() * _aeZoom); _aeX = Math.min(100, Math.max(0, px - (cx - sx) * k * 100)); _aeY = Math.min(100, Math.max(0, py - (cy - sy) * k * 100)); _aeApply(); };
+  // 1:1 drag: moving the picture right by dx px reveals its left, i.e. the
+  // focal fraction decreases by dx / (image_width_px). image_width_px = kx*S.
+  const pan = (cx, cy) => {
+    const S = size(); const { kx, ky } = _aeK();
+    if (kx > 1) _aeFpx = pfx - (cx - sx) / (kx * S);
+    if (ky > 1) _aeFpy = pfy - (cy - sy) / (ky * S);
+    _aeClamp(); _aePaint();
+  };
   c.addEventListener('touchstart', e => {
     if (e.touches.length === 2) { pinchStart = dist(e.touches); zoomStart = _aeZoom; }
-    else if (e.touches.length === 1) { dragging = true; sx = e.touches[0].clientX; sy = e.touches[0].clientY; px = _aeX; py = _aeY; }
+    else if (e.touches.length === 1) { dragging = true; sx = e.touches[0].clientX; sy = e.touches[0].clientY; pfx = _aeFpx; pfy = _aeFpy; }
   }, { passive: true });
   c.addEventListener('touchmove', e => {
     if (e.touches.length === 2 && pinchStart) { _aeSetZoom(zoomStart * dist(e.touches) / pinchStart); }
     else if (e.touches.length === 1 && dragging) { pan(e.touches[0].clientX, e.touches[0].clientY); }
   }, { passive: true });
   c.addEventListener('touchend', e => { if (e.touches.length === 0) { dragging = false; pinchStart = 0; } }, { passive: true });
-  c.addEventListener('mousedown', e => { dragging = true; sx = e.clientX; sy = e.clientY; px = _aeX; py = _aeY; });
+  c.addEventListener('mousedown', e => { dragging = true; sx = e.clientX; sy = e.clientY; pfx = _aeFpx; pfy = _aeFpy; e.preventDefault(); });
   window.addEventListener('mousemove', e => { if (dragging) pan(e.clientX, e.clientY); });
   window.addEventListener('mouseup', () => { dragging = false; });
+}
+
+// ---- per-photo framing editor (writes the same `align` Compare uses) ----
+// align = { s, x, y }: scale + translate percent on an object-fit:cover img,
+// exactly what _cmpApply/_cmpSave and the grid render use, so one saved value
+// frames the photo identically everywhere (3:4 boxes throughout).
+let _pfId = null, _pfUrl = null, _pfS = 1, _pfX = 0, _pfY = 0;
+function _pfApply() { const img = document.getElementById('pf-img'); if (img) img.style.transform = `translate(${_pfX}%, ${_pfY}%) scale(${_pfS})`; }
+// Clamp translate to the scaled overflow so the photo never shows a gap: at
+// scale s the max shift is 50*(s-1)/s percent; at 1x it locks to centered.
+function _pfClamp() { const m = 50 * (_pfS - 1) / _pfS; _pfX = Math.min(m, Math.max(-m, _pfX)); _pfY = Math.min(m, Math.max(-m, _pfY)); }
+function _pfSetZoom(v) { _pfS = Math.min(3, Math.max(1, +v || 1)); const s = document.getElementById('pf-zoom'); if (s && +s.value !== _pfS) s.value = _pfS; _pfClamp(); _pfApply(); }
+function _pfReset() { _pfS = 1; _pfX = 0; _pfY = 0; const s = document.getElementById('pf-zoom'); if (s) s.value = 1; _pfApply(); }
+function openPhotoFramer(url) {
+  const p = (typeof allPhotos !== 'undefined' ? allPhotos : []).find(x => x.photo_url === url);
+  if (!p) { toast('Could not find that photo'); return; }
+  _pfId = p.id; _pfUrl = url;
+  const a = _cmpAlignOf(p); _pfS = a.s || 1; _pfX = a.x || 0; _pfY = a.y || 0;
+  const img = document.getElementById('pf-img'); if (img) img.src = url;
+  const z = document.getElementById('pf-zoom'); if (z) z.value = _pfS;
+  _pfApply();
+  document.getElementById('photo-framer').style.display = 'flex';
+  _pfBind();
+}
+function _pfCancel() { const el = document.getElementById('photo-framer'); if (el) el.style.display = 'none'; }
+async function _pfSave() {
+  if (!_pfId) return;
+  const btn = document.getElementById('pf-save'); if (btn) { btn.disabled = true; btn.textContent = 'Saving\u2026'; }
+  try {
+    await _cmpSave(_pfId, { s: +(_pfS).toFixed(3), x: +(_pfX).toFixed(2), y: +(_pfY).toFixed(2) });
+    if (typeof renderPhotos === 'function') renderPhotos();
+    if (typeof updateCompare === 'function') { try { updateCompare(); } catch (e) {} }
+    toast('Photo size saved \u2713');
+    _pfCancel();
+    closeLightbox();
+  } catch (e) { toast('Could not save the photo size'); }
+  finally { if (btn) { btn.disabled = false; btn.textContent = 'Save'; } }
+}
+let _pfBound = false;
+function _pfBind() {
+  const c = document.getElementById('pf-box');
+  if (!c || _pfBound) return;
+  _pfBound = true;
+  let sx = 0, sy = 0, px = 0, py = 0, pinchStart = 0, zoomStart = 1, dragging = false;
+  const dist = t => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+  const rect = () => c.getBoundingClientRect();
+  const pan = (cx, cy) => { const r = rect(); _pfX = px + (cx - sx) / (r.width * _pfS) * 100; _pfY = py + (cy - sy) / (r.height * _pfS) * 100; _pfClamp(); _pfApply(); };
+  c.addEventListener('touchstart', e => {
+    if (e.touches.length === 2) { pinchStart = dist(e.touches); zoomStart = _pfS; }
+    else if (e.touches.length === 1) { dragging = true; sx = e.touches[0].clientX; sy = e.touches[0].clientY; px = _pfX; py = _pfY; }
+  }, { passive: true });
+  c.addEventListener('touchmove', e => {
+    if (e.touches.length === 2 && pinchStart) { _pfSetZoom(zoomStart * dist(e.touches) / pinchStart); }
+    else if (e.touches.length === 1 && dragging) { pan(e.touches[0].clientX, e.touches[0].clientY); }
+  }, { passive: true });
+  c.addEventListener('touchend', e => { if (e.touches.length === 0) { dragging = false; pinchStart = 0; } }, { passive: true });
+  c.addEventListener('mousedown', e => { dragging = true; sx = e.clientX; sy = e.clientY; px = _pfX; py = _pfY; e.preventDefault(); });
+  window.addEventListener('mousemove', e => { if (dragging) pan(e.clientX, e.clientY); });
+  window.addEventListener('mouseup', () => { dragging = false; });
+}
+// Inline style for a gallery thumb so its saved framing shows in the grid.
+function _photoThumbStyle(p) {
+  const a = _cmpAlignOf(p);
+  return (a.s !== 1 || a.x !== 0 || a.y !== 0) ? ` style="transform:translate(${a.x}%, ${a.y}%) scale(${a.s})"` : '';
 }
 
 function changeMonth(dir) {
@@ -11397,7 +11500,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-22-ak-avatarframe';
+const RATIO_BUILD = '2026-08-22-am-photoframe';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -13378,7 +13481,7 @@ function renderPhotos() {
       <div class="photo-grid">
         ${photos.map(p => `
           <div class="photo-thumb">
-            <img src="${p.photo_url}" loading="lazy" onclick="openLightbox('${p.photo_url}')" />
+            <img src="${p.photo_url}" loading="lazy" onclick="openLightbox('${p.photo_url}')"${_photoThumbStyle(p)} />
             <div class="photo-angle">${p.angle}</div>
             <button onclick="deletePhoto('${p.id}','${p.photo_url}','${p.angle}')" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,0.6);border:none;color:white;border-radius:50%;width:22px;height:22px;font-size:13px;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center">×</button>
           </div>`).join('')}
@@ -21440,12 +21543,13 @@ function refreshProfilePageAvatar() {
   const img = document.getElementById('profile-page-avatar-img');
   const icon = document.getElementById('profile-page-avatar-icon');
   if (!img || !icon) return;
-  if (userProfile?.avatarUrl) {
-    img.src = userProfile.avatarUrl;
-    _applyAvatarFrame(img);
-    img.style.display = 'block';
+  const box = img.parentElement;
+  if (userProfile?.avatarUrl && box) {
+    _paintAvatar(box, userProfile.avatarUrl, userProfile.avatarFrame);
+    img.style.display = 'none';
     icon.style.display = 'none';
   } else {
+    if (box) box.style.backgroundImage = '';
     img.style.display = 'none';
     icon.style.display = 'block';
   }
@@ -21952,9 +22056,9 @@ async function loadMyProfilePage() {
   refreshMyProfileDisplay();
 
   if (userProfile.avatarUrl) {
-    document.getElementById('mp-avatar-img').src = userProfile.avatarUrl;
-    _applyAvatarFrame(document.getElementById('mp-avatar-img'));
-    document.getElementById('mp-avatar-img').style.display = 'block';
+    const _mpi = document.getElementById('mp-avatar-img');
+    _paintAvatar(_mpi.parentElement, userProfile.avatarUrl, userProfile.avatarFrame);
+    _mpi.style.display = 'none';
     document.getElementById('mp-avatar-icon').style.display = 'none';
   }
 }
@@ -22156,11 +22260,11 @@ async function uploadMyProfilePhoto(file) {
     const uploadRes = await storageUpload('progress-photos', path, file);
     if (uploadRes.error) throw new Error(typeof uploadRes.error === 'string' ? uploadRes.error : uploadRes.error.message || 'Upload failed');
     const url = storageUrl('progress-photos', path) + '?t=' + Date.now();
-    userProfile = { ...userProfile, avatarUrl: url, avatarFrame: { x: 50, y: 50, zoom: 1 } };
+    userProfile = { ...userProfile, avatarUrl: url, avatarFrame: { fpx: 0.5, fpy: 0.5, zoom: 1 } };
     await saveSetting('profile', userProfile);
-    document.getElementById('mp-avatar-img').src = url;
-    _applyAvatarFrame(document.getElementById('mp-avatar-img'));
-    document.getElementById('mp-avatar-img').style.display = 'block';
+    const _mpi = document.getElementById('mp-avatar-img');
+    _paintAvatar(_mpi.parentElement, url, userProfile.avatarFrame);
+    _mpi.style.display = 'none';
     document.getElementById('mp-avatar-icon').style.display = 'none';
     refreshProfilePageAvatar();
     toast('Photo updated ✓');
