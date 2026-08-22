@@ -749,6 +749,7 @@
         </div>
         <div id="admin-summary" style="margin-bottom:10px"></div>
         <div id="admin-explain" style="display:none;background:var(--gold-tint);border:1px dashed var(--gold-line);border-radius:12px;padding:9px 12px;font-size:11px;line-height:1.5;color:var(--ink);margin-bottom:8px"></div>
+        <div id="admin-alerts" style="margin-bottom:10px"></div>
         <div style="display:flex;align-items:center;gap:8px;margin:2px 0 8px">
           <span style="font-size:10px;font-weight:800;letter-spacing:0.6px;color:var(--muted)">USERS</span>
           <span id="admin-count" style="font-size:10px;color:var(--muted)"></span>
@@ -771,6 +772,7 @@
         <div id="admin-removed" style="margin-top:10px"></div>
         <div id="admin-spend" style="margin-top:10px;margin-bottom:6px"></div>
         <div id="admin-spend-detail" style="margin-bottom:10px"></div>
+        <div id="admin-expenses" style="margin-bottom:10px"></div>
       </div>
     </div>
 
@@ -10891,6 +10893,81 @@ function _adminRenderRemoved(log) {
   el.innerHTML = `<div style="background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:11px 13px">${head}${body}</div>`;
 }
 
+// Per-user spend breakdown, opened by tapping the AI-30d tile in a user's
+// drill-down. Same one-view-at-a-time Feature|Model pattern and gold shades as
+// the page-level spend card, scoped to this user's usage rows.
+let _adminUserSpendOpen = false;
+let _adminUserSpendView = 'feature';
+function _adminToggleUserSpend() { _adminUserSpendOpen = !_adminUserSpendOpen; _adminRenderRoster(); }
+function _adminSetUserSpendView(v) { _adminUserSpendView = v; _adminRenderRoster(); }
+function _adminUserSpendHtml(u) {
+  if (!u.aiByEndpoint) return `<div style="font-size:10px;color:var(--muted);padding:0 0 10px">Per-user breakdown needs worker 2026-08-22-i-userspend or later.</div>`;
+  const list = ((_adminUserSpendView === 'model' ? u.aiByModel : u.aiByEndpoint) || []);
+  const money = n => '$' + (+n || 0).toFixed(2);
+  const GOLD = ['#CFA13C', '#8a6d2a', '#5a4a2a', '#3a3020'];
+  const top = list.slice(0, 3), rest = list.slice(3);
+  const segs = top.map((r, i) => ({ name: r.name, cost: r.cost || 0, calls: r.calls || 0, c: GOLD[i] }));
+  if (rest.length) segs.push({ name: `other (${rest.length})`, cost: rest.reduce((a, r) => a + (r.cost || 0), 0), calls: rest.reduce((a, r) => a + (r.calls || 0), 0), c: GOLD[3] });
+  const tab = (v, label) => `<div onclick="_adminSetUserSpendView('${v}')" style="flex:1;text-align:center;font-size:10.5px;font-weight:800;border-radius:8px;padding:4px;cursor:pointer;${_adminUserSpendView === v ? 'background:var(--accent);color:#101512' : 'background:var(--surface-2);color:var(--muted)'}">${label}</div>`;
+  const rows = segs.length
+    ? segs.map(s => `<div style="display:flex;justify-content:space-between;align-items:baseline;padding:3px 2px;font-size:11.5px"><span style="color:var(--ink);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><span style="color:${s.c}">\u25cf</span> ${_weEscHtml(s.name)}</span><span style="flex-shrink:0;color:var(--muted);font-size:10px;margin-left:8px">${s.calls} calls \u00b7 <b style="color:#CFA13C;font-size:11.5px">${money(s.cost)}</b></span></div>`).join('')
+    : `<div style="font-size:10px;color:var(--muted);padding:3px 2px">No AI use in the last 30 days.</div>`;
+  return `<div style="margin:0 0 10px;padding:8px 10px;background:var(--surface-2);border-radius:9px">` +
+    `<div style="display:flex;gap:6px;margin-bottom:6px">${tab('feature', 'Feature')}${tab('model', 'Model')}</div>` + rows + `</div>`;
+}
+
+// ---- alerts + expenses (owner only: the worker simply omits both fields for
+// non-root viewers, so these render nothing for a granted admin) -------------
+const _ALERT_COLORS = { green: '#7fc98a', amber: '#E0A73C', red: '#e07777' };
+function _adminRenderAlerts(alerts) {
+  const el = document.getElementById('admin-alerts');
+  if (!el) return;
+  if (!alerts || !alerts.length) { el.innerHTML = ''; return; }
+  const bad = alerts.filter(a => a.level !== 'green').length;
+  const rows = alerts.map(a => {
+    const c = _ALERT_COLORS[a.level] || 'var(--muted)';
+    const dim = a.level === 'green';
+    const right = (a.daysLeft !== undefined && a.daysLeft !== null)
+      ? (a.daysLeft <= 0 ? 'PAST DUE' : (dim ? `${a.daysLeft}d` : `in ${a.daysLeft} day${a.daysLeft === 1 ? '' : 's'}`))
+      : '';
+    const autoTag = (a.auto === false) ? ` <span style="font-size:8.5px;font-weight:800;border-radius:8px;padding:1px 5px;background:rgba(224,167,60,0.15);color:#E0A73C">AUTO-RENEW OFF</span>` : '';
+    const noteLine = (!dim && a.note) ? `<div style="font-size:9.5px;color:var(--muted);padding:2px 0 0 16px">${_weEscHtml(a.note)}</div>` : (a.kind === 'info' && a.note ? `<div style="font-size:9.5px;color:var(--muted);padding:2px 0 0 16px">${_weEscHtml(a.note)}</div>` : '');
+    return `<div style="padding:4px 0"><div style="display:flex;gap:8px;align-items:baseline;font-size:12px">` +
+      `<span style="color:${c};flex-shrink:0">\u25cf</span>` +
+      `<span style="color:${dim ? 'var(--muted)' : 'var(--ink)'};flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_weEscHtml(a.name)}${autoTag}</span>` +
+      `<span style="color:${dim ? 'var(--muted)' : c};font-size:10.5px;flex-shrink:0;font-weight:${dim ? '400' : '800'}">${right}</span></div>${noteLine}</div>`;
+  }).join('');
+  el.innerHTML = `<div style="background:var(--surface);border:1px solid ${bad ? 'rgba(224,167,60,0.4)' : 'var(--line)'};border-radius:12px;padding:10px 13px">` +
+    `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">` +
+    `<span style="font-size:10px;font-weight:800;letter-spacing:0.5px;color:var(--muted)">ALERTS</span>` +
+    `<span style="font-size:10px;color:${bad ? '#E0A73C' : 'var(--muted)'}">${bad ? bad + ' need attention' : 'all clear'}</span></div>` + rows + `</div>`;
+}
+
+let _adminExpOpen = false;
+function _adminToggleExpenses() { _adminExpOpen = !_adminExpOpen; if (_adminData) _adminRenderExpenses(_adminData.expenses); }
+function _adminRenderExpenses(exp) {
+  const el = document.getElementById('admin-expenses');
+  if (!el) return;
+  if (!exp) { el.innerHTML = ''; return; }
+  const money = n => '$' + (+n || 0).toFixed(2);
+  const head = `<div onclick="_adminToggleExpenses()" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer">` +
+    `<span style="font-size:10px;font-weight:800;letter-spacing:0.5px;color:var(--muted)">EXPENSES</span>` +
+    `<span style="font-size:12px;color:#CFA13C;font-weight:800">~${money(exp.monthlyTotalUsd)}/mo <span style="font-size:11px;color:var(--muted)">${_adminExpOpen ? '\u25b4' : '\u25be'}</span></span></div>`;
+  let body = '';
+  if (_adminExpOpen) {
+    const line = (l, r, dim) => `<div style="display:flex;justify-content:space-between;gap:8px;font-size:${dim ? '11px' : '12px'};padding:${dim ? '2px' : '3px'} 0;color:${dim ? 'var(--muted)' : 'var(--ink)'}"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${l}</span><span style="flex-shrink:0;color:${dim ? 'var(--muted)' : '#CFA13C'};font-weight:${dim ? '400' : '700'}">${r}</span></div>`;
+    body = `<div style="margin-top:9px">` +
+      line('Anthropic AI (actual, this month)', money(exp.aiMonthUsd), false) +
+      (exp.lines || []).map(l => line(`${_weEscHtml(l.name)} ($${l.yearlyUsd}/yr${l.auto === false ? ' \u00b7 manual renew' : ''})`, money(l.monthlyUsd) + '/mo', false)).join('') +
+      `<div style="border-top:1px solid var(--line);margin-top:6px;padding-top:6px">` +
+      (exp.freeLines || []).map(f => line(`${_weEscHtml(f.name)} \u2014 ${_weEscHtml(f.plan)}`, '$0', true)).join('') +
+      `</div>` +
+      `<div style="font-size:9.5px;color:var(--muted);margin-top:7px">Free tiers become paid at scale \u2014 each shows here the day it does. Supabase flips first (photos): $25/mo Pro at 1GB storage.</div>` +
+      `</div>`;
+  }
+  el.innerHTML = `<div style="background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:11px 13px">${head}${body}</div>`;
+}
+
 async function renderAdmin() {
   const sEl = document.getElementById('admin-summary');
   const uEl = document.getElementById('admin-users');
@@ -10912,9 +10989,13 @@ async function renderAdmin() {
   const pausedN = (data.users || []).filter(u => !!u.aiSuspended).length;
   const mau = s0.mau || 0;
   _ADMIN_EXPLAINS.verdict = `The one-line dashboard. Today (DAU) ${s0.dau} \u00b7 7-day (WAU) ${s0.wau} \u00b7 30-day (MAU) ${s0.mau} \u00b7 stickiness ${s0.stickiness}%` + (newWk === null ? '' : ` \u00b7 +${newWk} new this week`) + `. Green dot = no paused users and nothing unusual. \u201cActive users\u201d is the 30-day number.`;
-  const statusLine = pausedN
-    ? `<span style="color:#e07777">\u23f8</span> ${pausedN} user${pausedN === 1 ? '' : 's'} paused`
-    : `<span style="color:#7fc98a">\u25cf</span> Nothing needs attention`;
+  const alertRed = (data.alerts || []).filter(a => a.level === 'red').length;
+  const alertAmber = (data.alerts || []).filter(a => a.level === 'amber').length;
+  const bits = [];
+  if (pausedN) bits.push(`<span style="color:#e07777">\u23f8</span> ${pausedN} user${pausedN === 1 ? '' : 's'} paused`);
+  if (alertRed) bits.push(`<span style="color:#e07777">\u25cf</span> ${alertRed} urgent alert${alertRed === 1 ? '' : 's'}`);
+  else if (alertAmber) bits.push(`<span style="color:#E0A73C">\u25cf</span> ${alertAmber} thing${alertAmber === 1 ? '' : 's'} coming up`);
+  const statusLine = bits.length ? bits.join(' \u00b7 ') : `<span style="color:#7fc98a">\u25cf</span> Nothing needs attention`;
   sEl.innerHTML = `<div onclick="_adminExplain('verdict')" style="background:var(--gold-tint);border:1px solid var(--gold-line);border-radius:12px;padding:11px 13px;cursor:pointer">` +
     `<div style="font-size:13.5px;color:var(--ink)"><b style="color:#CFA13C">${mau} active user${mau === 1 ? '' : 's'}</b> \u00b7 $${(s0.monthCostUsd || 0).toFixed(2)} AI spend last 30 days${newWk ? ` \u00b7 <b style=\"color:#CFA13C\">+${newWk} new</b>` : ''}</div>` +
     `<div style="font-size:11px;color:var(--muted);margin-top:3px">${statusLine} <span style="opacity:0.6">?</span></div></div>`;
@@ -10928,6 +11009,8 @@ async function renderAdmin() {
     `<span id="admin-spend-chev" style="font-size:12px;color:#CFA13C">${_adminSpendOpen ? '\u25b4' : '\u25be'}</span></div>`;
   _adminRenderRoster();
   _adminRenderRemoved(data.removedLog || []);
+  _adminRenderAlerts(data.alerts);
+  _adminRenderExpenses(data.expenses);
 }
 
 // ---- WHERE THE MONEY GOES ----
@@ -11032,7 +11115,7 @@ function _adminStatFor(u) {
   if (s === 'joined') return u.joined ? new Date(u.joined).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '?';
   return (u.meals || 0) + ' meals \u00b7 $' + (u.aiCost30 || 0).toFixed(2);
 }
-function _adminToggleRow(id) { _adminOpen = (_adminOpen === id) ? null : id; _adminRenderRoster(); }
+function _adminToggleRow(id) { _adminOpen = (_adminOpen === id) ? null : id; _adminUserSpendOpen = false; _adminRenderRoster(); }
 function _adminSetSeg(i) { _adminSeg = _ADMIN_SEGS[i]; _adminOpen = null; _adminRenderRoster(); }
 
 function _adminRenderRoster() {
@@ -11066,7 +11149,7 @@ function _adminRenderRoster() {
       : u.state === 'inprogress'
         ? _sb('In progress', 'rgba(224,167,60,0.15)', '#E0A73C')
         : _sb('Abandoned', 'rgba(255,255,255,0.07)', '#9a9a9a');
-    const adminBadge = u.isRoot ? _sb('ROOT', 'var(--gold-tint)', '#CFA13C') : (u.isAdmin ? _sb('ADMIN', 'var(--gold-tint)', '#CFA13C') : '');
+    const adminBadge = u.isRoot ? _sb('OWNER', 'var(--gold-tint)', '#CFA13C') : (u.isAdmin ? _sb('ADMIN', 'var(--gold-tint)', '#CFA13C') : '');
     let html = `<div style="background:var(--surface);border:1px solid var(--line);border-radius:12px;margin-bottom:6px;overflow:hidden">` +
       `<div onclick="_adminToggleRow('${u.id}')" style="display:flex;align-items:center;gap:8px;padding:10px 12px;cursor:pointer">` +
       `<span style="width:8px;height:8px;border-radius:50%;flex-shrink:0;background:${dot}"></span>` +
@@ -11100,15 +11183,16 @@ function _adminRenderRoster() {
           `<span>${_weEscHtml(u.platform || '?')} \u00b7 ${_weEscHtml(u.appVersion || 'pre-tracking')}</span></div>` +
           `<div style="display:flex;gap:8px;margin-bottom:10px">` +
           tile(aiToday, 'AI today', '#CFA13C') +
-          tile('$' + (u.aiCost30 || 0).toFixed(2), (u.aiCalls30 || 0) + ' calls \u00b7 30d', '#CFA13C') +
+          `<div onclick="_adminToggleUserSpend()" style="flex:1;background:var(--surface-2);border-radius:9px;padding:8px 4px;text-align:center;min-width:0;cursor:pointer"><div style="font-size:13.5px;font-weight:800;color:#CFA13C">$${(u.aiCost30 || 0).toFixed(2)}</div><div style="font-size:8.5px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(u.aiCalls30 || 0)} calls \u00b7 30d ${_adminUserSpendOpen ? '\u25b4' : '\u25be'}</div></div>` +
           tile(String(u.meals || 0), 'meals \u00b7 ' + (u.workouts || 0) + ' workouts', 'var(--ink)') +
           `</div>` +
+          (_adminUserSpendOpen ? _adminUserSpendHtml(u) : '') +
           `<div style="display:flex;gap:8px">` + emailBtn +
-          `<button onclick="_adminToggleSuspend('${u.id}', ${u.aiSuspended ? 'false' : 'true'}, '${uNameSafe}')" style="flex:1;background:${u.aiSuspended ? 'var(--accent)' : 'rgba(224,119,119,0.15)'};color:${u.aiSuspended ? '#101512' : '#e07777'};border:1px solid ${u.aiSuspended ? 'var(--accent)' : '#e07777'};border-radius:10px;padding:8px 0;font-size:11px;font-weight:800;cursor:pointer">${u.aiSuspended ? 'Resume AI' : 'Pause AI'}</button>` +
+          ((u.isRoot && !(_adminData && _adminData.viewerIsRoot)) ? '' : `<button onclick="_adminToggleSuspend('${u.id}', ${u.aiSuspended ? 'false' : 'true'}, '${uNameSafe}')" style="flex:1;background:${u.aiSuspended ? 'var(--accent)' : 'rgba(224,119,119,0.15)'};color:${u.aiSuspended ? '#101512' : '#e07777'};border:1px solid ${u.aiSuspended ? 'var(--accent)' : '#e07777'};border-radius:10px;padding:8px 0;font-size:11px;font-weight:800;cursor:pointer">${u.aiSuspended ? 'Resume AI' : 'Pause AI'}</button>`) +
           `</div>` +
           `<div style="font-size:9.5px;color:var(--muted);margin-top:8px;text-align:center">${u.aiSuspended ? 'AI is paused for this user \u2014 data and app still work. Resume turns it back on.' : 'Pause stops AI spend only \u2014 their data and app keep working'}</div>` +
           ((_adminData && _adminData.viewerIsRoot) ? (u.isRoot
-            ? `<div style="font-size:9.5px;color:var(--muted);margin-top:10px;text-align:center;border-top:1px solid var(--line);padding-top:10px">\u2605 Root admin \u2014 permanent, cannot be changed here</div>`
+            ? `<div style="font-size:9.5px;color:var(--muted);margin-top:10px;text-align:center;border-top:1px solid var(--line);padding-top:10px">\u2605 Owner \u2014 permanent, cannot be changed here</div>`
             : `<button onclick="_adminToggleAdmin('${u.id}', ${u.isAdmin ? 'false' : 'true'}, '${uNameSafe}')" style="width:100%;margin-top:10px;background:${u.isAdmin ? 'rgba(224,119,119,0.12)' : 'var(--gold-tint)'};color:${u.isAdmin ? '#e07777' : '#CFA13C'};border:1px solid ${u.isAdmin ? '#e07777' : 'var(--gold-line)'};border-radius:10px;padding:9px 0;font-size:11px;font-weight:800;cursor:pointer">${u.isAdmin ? 'Remove admin' : 'Make admin'}</button>`) : '') +
           `</div>`;
       }
@@ -11164,7 +11248,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-22-af-adminmgmt';
+const RATIO_BUILD = '2026-08-22-ai-alertsledger';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
