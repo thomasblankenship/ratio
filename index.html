@@ -3214,6 +3214,8 @@
 <div class="lightbox" id="lightbox" onclick="closeLightbox()">
   <button class="lightbox-close">×</button>
   <img id="lightbox-img" src="" />
+  <button type="button" id="lightbox-setavatar" onclick="event.stopPropagation();setLightboxPhotoAsAvatar()"
+    style="position:absolute;bottom:28px;left:50%;transform:translateX(-50%);background:#CFA13C;color:#101512;border:none;border-radius:12px;padding:12px 22px;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 2px 14px rgba(0,0,0,0.45);white-space:nowrap">Set as profile picture</button>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -5971,11 +5973,37 @@ function selectAngle(angle, btn) {
   btn.classList.add('selected');
 }
 
+let _lightboxUrl = null;
 function openLightbox(url) {
+  _lightboxUrl = url;
   document.getElementById('lightbox-img').src = url;
   document.getElementById('lightbox').classList.add('open');
 }
 function closeLightbox() { document.getElementById('lightbox').classList.remove('open'); }
+
+// Set the currently-open progress photo as the profile picture. The image is
+// already hosted, so unlike uploadMyProfilePhoto there is nothing to upload —
+// we point avatarUrl at the existing URL and reuse the same persist + refresh.
+async function setLightboxPhotoAsAvatar() {
+  if (!_lightboxUrl) return;
+  const btn = document.getElementById('lightbox-setavatar');
+  if (btn) { btn.disabled = true; btn.textContent = 'Setting\u2026'; }
+  try {
+    userProfile = { ...userProfile, avatarUrl: _lightboxUrl };
+    await saveSetting('profile', userProfile);
+    const mpImg = document.getElementById('mp-avatar-img');
+    const mpIcon = document.getElementById('mp-avatar-icon');
+    if (mpImg) { mpImg.src = _lightboxUrl; mpImg.style.display = 'block'; }
+    if (mpIcon) mpIcon.style.display = 'none';
+    refreshProfilePageAvatar();
+    toast('Profile picture updated \u2713');
+    closeLightbox();
+  } catch (e) {
+    toast('Could not update profile picture');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Set as profile picture'; }
+  }
+}
 
 function changeMonth(dir) {
   calendarMonth += dir;
@@ -11066,7 +11094,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-21-ad-adminredo';
+const RATIO_BUILD = '2026-08-21-ae-photoavatar';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
