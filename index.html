@@ -768,6 +768,7 @@
           </div>
         </div>
         <div id="admin-users"></div>
+        <div id="admin-removed" style="margin-top:10px"></div>
         <div id="admin-spend" style="margin-top:10px;margin-bottom:6px"></div>
         <div id="admin-spend-detail" style="margin-bottom:10px"></div>
       </div>
@@ -10846,6 +10847,50 @@ async function _adminToggleSuspend(userId, suspend, username) {
   } catch (e) { toast('Could not update \u2014 connection?'); }
 }
 
+// Grant or revoke admin. Root-only on the server; the button is only rendered
+// for the root viewer, and never for a root target. The WORKER_URL fetch
+// wrapper attaches the bearer token, same as every other admin call.
+async function _adminToggleAdmin(userId, makeAdmin, username) {
+  const warn = makeAdmin
+    ? `Make ${username} an admin? They will be able to see everyone\u2019s stats and pause users.`
+    : `Remove admin from ${username}?`;
+  if (!(await appConfirm(warn))) return;
+  try {
+    const r = await fetch(`${WORKER_URL}/admin/set-admin`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, makeAdmin })
+    });
+    const j = await r.json().catch(() => ({}));
+    if (r.ok && j.ok) { toast(makeAdmin ? 'Admin added \u2713' : 'Admin removed'); renderAdmin(); }
+    else toast(j.error || 'Could not update admin');
+  } catch (e) { toast('Could not update admin \u2014 connection?'); }
+}
+
+let _adminRemovedOpen = false;
+function _adminToggleRemoved() { _adminRemovedOpen = !_adminRemovedOpen; if (_adminData) _adminRenderRemoved(_adminData.removedLog || []); }
+function _adminRenderRemoved(log) {
+  const el = document.getElementById('admin-removed');
+  if (!el) return;
+  if (!log || !log.length) { el.innerHTML = ''; return; }
+  const fmt = iso => { if (!iso) return '?'; try { return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); } catch (e) { return '?'; } };
+  const head = `<div onclick="_adminToggleRemoved()" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer">` +
+    `<span style="font-size:10px;font-weight:800;letter-spacing:0.5px;color:var(--muted)">RECENTLY REMOVED \u00b7 ${log.length}</span>` +
+    `<span style="font-size:12px;color:var(--muted)">${_adminRemovedOpen ? '\u25b4' : '\u25be'}</span></div>`;
+  let body = '';
+  if (_adminRemovedOpen) {
+    body = `<div style="margin-top:10px;border-top:1px solid var(--line);padding-top:8px">` +
+      log.slice(0, 50).map(e => {
+        const who = _weEscHtml(e.email || (e.uid ? e.uid.slice(0, 8) : 'unknown'));
+        const tag = e.via === 'exit' ? 'left at signup' : 'sweep';
+        return `<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:4px 0">` +
+          `<span style="color:var(--ink);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${who}</span>` +
+          `<span style="flex-shrink:0;color:var(--muted);font-size:10px">joined ${fmt(e.joinedAt)} \u00b7 removed ${fmt(e.sweptAt)} \u00b7 ${tag}</span></div>`;
+      }).join('') +
+      `</div>`;
+  }
+  el.innerHTML = `<div style="background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:11px 13px">${head}${body}</div>`;
+}
+
 async function renderAdmin() {
   const sEl = document.getElementById('admin-summary');
   const uEl = document.getElementById('admin-users');
@@ -10882,6 +10927,7 @@ async function renderAdmin() {
     `<span style="font-size:13px;font-weight:800;color:#CFA13C">$${(data.summary.monthCostUsd || 0).toFixed(2)} <span style="font-size:9px;color:var(--muted)">30d</span></span>` +
     `<span id="admin-spend-chev" style="font-size:12px;color:#CFA13C">${_adminSpendOpen ? '\u25b4' : '\u25be'}</span></div>`;
   _adminRenderRoster();
+  _adminRenderRemoved(data.removedLog || []);
 }
 
 // ---- WHERE THE MONEY GOES ----
@@ -10999,7 +11045,7 @@ function _adminRenderRoster() {
   const dirEl = document.getElementById('admin-dir');
   if (dirEl) dirEl.textContent = _adminAsc ? '\u2191' : '\u2193';
   const cEl = document.getElementById('admin-count');
-  if (cEl) cEl.textContent = `${list.length} of ${all.length} users`;
+  if (cEl) { const nAdmin = (_adminData && _adminData.summary && _adminData.summary.adminCount) || 0; cEl.textContent = `${list.length} of ${all.length} users` + (nAdmin ? ` \u00b7 ${nAdmin} admin${nAdmin === 1 ? '' : 's'}` : ''); }
   const segEl = document.getElementById('admin-segs');
   if (segEl) segEl.innerHTML = _ADMIN_SEGS.map((x, i) =>
     `<span onclick="_adminSetSeg(${i})" style="flex-shrink:0;border-radius:14px;padding:6px 11px;font-size:11px;font-weight:700;cursor:pointer;${x === _adminSeg ? 'background:var(--gold-tint);border:1px solid var(--gold-line);color:#CFA13C' : 'background:var(--surface);border:1px solid var(--line);color:var(--muted)'}">${x}</span>`).join('');
@@ -11014,34 +11060,58 @@ function _adminRenderRoster() {
     const open = _adminOpen === u.id;
     const joined = u.joined ? new Date(u.joined).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }) : '?';
     const todayStr = (u.aiCostToday === undefined) ? '' : ` \u00b7 today <b style="color:var(--ink)">$${(u.aiCostToday || 0).toFixed(2)}</b>`;
+    const _sb = (txt, bg, col) => `<span style="flex-shrink:0;font-size:8.5px;font-weight:800;border-radius:8px;padding:2px 6px;background:${bg};color:${col}">${txt}</span>`;
+    const stateBadge = u.state === 'joined'
+      ? (isNew ? _sb('NEW', 'var(--gold-tint)', '#CFA13C') : _sb('Joined', 'rgba(127,201,138,0.12)', '#7fc98a'))
+      : u.state === 'inprogress'
+        ? _sb('In progress', 'rgba(224,167,60,0.15)', '#E0A73C')
+        : _sb('Abandoned', 'rgba(255,255,255,0.07)', '#9a9a9a');
+    const adminBadge = u.isRoot ? _sb('ROOT', 'var(--gold-tint)', '#CFA13C') : (u.isAdmin ? _sb('ADMIN', 'var(--gold-tint)', '#CFA13C') : '');
     let html = `<div style="background:var(--surface);border:1px solid var(--line);border-radius:12px;margin-bottom:6px;overflow:hidden">` +
       `<div onclick="_adminToggleRow('${u.id}')" style="display:flex;align-items:center;gap:8px;padding:10px 12px;cursor:pointer">` +
       `<span style="width:8px;height:8px;border-radius:50%;flex-shrink:0;background:${dot}"></span>` +
       `<span style="font-size:13.5px;font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${uname}</span>` +
-      (isNew ? `<span style="flex-shrink:0;font-size:8.5px;font-weight:800;border-radius:8px;padding:2px 6px;background:var(--gold-tint);color:#CFA13C">NEW</span>` : '') +
+      stateBadge + adminBadge +
       (u.aiSuspended ? `<span style="flex-shrink:0;font-size:8.5px;font-weight:800;border-radius:8px;padding:2px 6px;background:rgba(224,119,119,0.15);color:#e07777">AI PAUSED</span>` : '') +
       `<span style="margin-left:auto;font-size:11px;color:var(--muted);flex-shrink:0"><b style="color:var(--ink)">${_adminStatFor(u)}</b></span>` +
       `<span style="font-size:10px;flex-shrink:0;width:40px;text-align:right;color:${dot}">${_adminAgoShort(u.lastSeen)}</span></div>`;
     if (open) {
       const aiToday = (u.aiCostToday === undefined) ? '\u2014' : '$' + (u.aiCostToday || 0).toFixed(2);
       const tile = (v, l, c) => `<div style="flex:1;background:var(--surface-2);border-radius:9px;padding:8px 4px;text-align:center;min-width:0"><div style="font-size:13.5px;font-weight:800;color:${c}">${v}</div><div style="font-size:8.5px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${l}</div></div>`;
-      html += `<div style="padding:0 12px 12px;border-top:1px solid var(--line)">` +
-        `<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;font-size:11px;color:var(--muted);padding:10px 0 8px">` +
-        `<span style="overflow:hidden;text-overflow:ellipsis">Email <b style="color:var(--ink)">${_weEscHtml(u.email || '\u2014')}</b></span>` +
-        `<span>Joined <b style="color:var(--ink)">${joined}</b></span>` +
-        `<span>Logins 7d <b style="color:var(--ink)">${u.logins7}</b></span>` +
-        `<span>${_weEscHtml(u.platform || '?')} \u00b7 ${_weEscHtml(u.appVersion || 'pre-tracking')}</span></div>` +
-        `<div style="display:flex;gap:8px;margin-bottom:10px">` +
-        tile(aiToday, 'AI today', '#CFA13C') +
-        tile('$' + (u.aiCost30 || 0).toFixed(2), (u.aiCalls30 || 0) + ' calls \u00b7 30d', '#CFA13C') +
-        tile(String(u.meals || 0), 'meals \u00b7 ' + (u.workouts || 0) + ' workouts', 'var(--ink)') +
-        `</div>` +
-        `<div style="display:flex;gap:8px">` +
-        (u.email ? `<a href="mailto:${u.email}" style="flex:1;text-align:center;background:var(--surface-2);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:8px 0;font-size:11px;font-weight:700;text-decoration:none">\u2709 Email</a>` : '') +
-        `<button onclick="_adminToggleSuspend('${u.id}', ${u.aiSuspended ? 'false' : 'true'}, '${(u.username || '').replace(/'/g, '')}')" style="flex:1;background:${u.aiSuspended ? 'var(--accent)' : 'rgba(224,119,119,0.15)'};color:${u.aiSuspended ? '#101512' : '#e07777'};border:1px solid ${u.aiSuspended ? 'var(--accent)' : '#e07777'};border-radius:10px;padding:8px 0;font-size:11px;font-weight:800;cursor:pointer">${u.aiSuspended ? 'Resume AI' : 'Pause AI'}</button>` +
-        `</div>` +
-        `<div style="font-size:9.5px;color:var(--muted);margin-top:8px;text-align:center">${u.aiSuspended ? 'AI is paused for this user \u2014 data and app still work. Resume turns it back on.' : 'Pause stops AI spend only \u2014 their data and app keep working'}</div>` +
-        `</div>`;
+      const uNameSafe = (u.username || '').replace(/'/g, '');
+      const emailBtn = u.email ? `<a href="mailto:${u.email}" style="flex:1;text-align:center;background:var(--surface-2);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:8px 0;font-size:11px;font-weight:700;text-decoration:none">\u2709 Email</a>` : '';
+      if (u.state !== 'joined') {
+        // Incomplete signup: no real data, no AI to pause. State it plainly.
+        const abandoned = u.state === 'abandoned';
+        html += `<div style="padding:0 12px 12px;border-top:1px solid var(--line)">` +
+          `<div style="font-size:12px;color:var(--muted);padding:10px 0 8px;line-height:1.5"><b style="color:var(--ink)">${abandoned ? 'Never completed signup' : 'Signing up now'}</b> \u2014 no account was created yet.` +
+          (abandoned ? ` Scheduled for removal by the next cleanup.` : ` Started ${_adminAgoShort(u.joined)} ago \u2014 still within the grace window.`) + `</div>` +
+          `<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;font-size:11px;color:var(--muted);padding-bottom:10px">` +
+          `<span style="overflow:hidden;text-overflow:ellipsis">Email <b style="color:var(--ink)">${_weEscHtml(u.email || '\u2014')}</b></span>` +
+          `<span>Authed <b style="color:var(--ink)">${joined}</b></span></div>` +
+          (emailBtn ? `<div style="display:flex;gap:8px">${emailBtn}</div>` : '') +
+          `</div>`;
+      } else {
+        html += `<div style="padding:0 12px 12px;border-top:1px solid var(--line)">` +
+          `<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;font-size:11px;color:var(--muted);padding:10px 0 8px">` +
+          `<span style="overflow:hidden;text-overflow:ellipsis">Email <b style="color:var(--ink)">${_weEscHtml(u.email || '\u2014')}</b></span>` +
+          `<span>Joined <b style="color:var(--ink)">${joined}</b></span>` +
+          `<span>Logins 7d <b style="color:var(--ink)">${u.logins7}</b></span>` +
+          `<span>${_weEscHtml(u.platform || '?')} \u00b7 ${_weEscHtml(u.appVersion || 'pre-tracking')}</span></div>` +
+          `<div style="display:flex;gap:8px;margin-bottom:10px">` +
+          tile(aiToday, 'AI today', '#CFA13C') +
+          tile('$' + (u.aiCost30 || 0).toFixed(2), (u.aiCalls30 || 0) + ' calls \u00b7 30d', '#CFA13C') +
+          tile(String(u.meals || 0), 'meals \u00b7 ' + (u.workouts || 0) + ' workouts', 'var(--ink)') +
+          `</div>` +
+          `<div style="display:flex;gap:8px">` + emailBtn +
+          `<button onclick="_adminToggleSuspend('${u.id}', ${u.aiSuspended ? 'false' : 'true'}, '${uNameSafe}')" style="flex:1;background:${u.aiSuspended ? 'var(--accent)' : 'rgba(224,119,119,0.15)'};color:${u.aiSuspended ? '#101512' : '#e07777'};border:1px solid ${u.aiSuspended ? 'var(--accent)' : '#e07777'};border-radius:10px;padding:8px 0;font-size:11px;font-weight:800;cursor:pointer">${u.aiSuspended ? 'Resume AI' : 'Pause AI'}</button>` +
+          `</div>` +
+          `<div style="font-size:9.5px;color:var(--muted);margin-top:8px;text-align:center">${u.aiSuspended ? 'AI is paused for this user \u2014 data and app still work. Resume turns it back on.' : 'Pause stops AI spend only \u2014 their data and app keep working'}</div>` +
+          ((_adminData && _adminData.viewerIsRoot) ? (u.isRoot
+            ? `<div style="font-size:9.5px;color:var(--muted);margin-top:10px;text-align:center;border-top:1px solid var(--line);padding-top:10px">\u2605 Root admin \u2014 permanent, cannot be changed here</div>`
+            : `<button onclick="_adminToggleAdmin('${u.id}', ${u.isAdmin ? 'false' : 'true'}, '${uNameSafe}')" style="width:100%;margin-top:10px;background:${u.isAdmin ? 'rgba(224,119,119,0.12)' : 'var(--gold-tint)'};color:${u.isAdmin ? '#e07777' : '#CFA13C'};border:1px solid ${u.isAdmin ? '#e07777' : 'var(--gold-line)'};border-radius:10px;padding:9px 0;font-size:11px;font-weight:800;cursor:pointer">${u.isAdmin ? 'Remove admin' : 'Make admin'}</button>`) : '') +
+          `</div>`;
+      }
     }
     return html + `</div>`;
   }).join('') || '<div style="color:var(--muted);font-size:12px">No users match.</div>';
@@ -11094,7 +11164,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-21-ae-photoavatar';
+const RATIO_BUILD = '2026-08-22-af-adminmgmt';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
