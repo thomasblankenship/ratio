@@ -249,7 +249,8 @@
     .lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 1000; align-items: center; justify-content: center; }
     .lightbox.open { display: flex; }
     .lightbox img { max-width: 90vw; max-height: 90vh; object-fit: contain; border-radius: 8px; }
-    .lightbox-close { position: absolute; top: 20px; right: 20px; background: none; border: none; color: white; font-size: 32px; cursor: pointer; }
+    .lightbox-close { position: absolute; top: calc(env(safe-area-inset-top, 0px) + 14px); right: 14px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.5); border: none; border-radius: 50%; color: white; font-size: 26px; line-height: 1; cursor: pointer; z-index: 2; }
+    .lightbox img { touch-action: none; transform-origin: center center; }
 
     /* LOADING */
     .loading { text-align: center; padding: 60px 20px; color: var(--gray-400); font-size: 14px; }
@@ -3215,8 +3216,13 @@
 
 <!-- LIGHTBOX -->
 <div class="lightbox" id="lightbox" onclick="closeLightbox()">
-  <button class="lightbox-close">×</button>
-  <img id="lightbox-img" src="" />
+  <button type="button" class="lightbox-close" onclick="event.stopPropagation();closeLightbox()" aria-label="Close">×</button>
+  <img id="lightbox-img" src="" ontouchstart="event.stopPropagation()" onclick="event.stopPropagation()" />
+  <div style="position:absolute;bottom:86px;left:50%;transform:translateX(-50%);display:flex;gap:10px;align-items:center;z-index:2" onclick="event.stopPropagation()">
+    <button type="button" onclick="event.stopPropagation();_lbZoom(-1)" style="width:44px;height:44px;border-radius:50%;background:rgba(0,0,0,0.55);color:#fff;border:1px solid rgba(255,255,255,0.25);font-size:22px;cursor:pointer">−</button>
+    <button type="button" id="lb-reset" onclick="event.stopPropagation();_lbResetZoom()" style="min-width:60px;height:36px;border-radius:18px;background:rgba(0,0,0,0.55);color:#fff;border:1px solid rgba(255,255,255,0.25);font-size:12px;font-weight:700;cursor:pointer">1.0×</button>
+    <button type="button" onclick="event.stopPropagation();_lbZoom(1)" style="width:44px;height:44px;border-radius:50%;background:rgba(0,0,0,0.55);color:#fff;border:1px solid rgba(255,255,255,0.25);font-size:22px;cursor:pointer">+</button>
+  </div>
   <button type="button" id="lightbox-setavatar" onclick="event.stopPropagation();setLightboxPhotoAsAvatar()"
     style="position:absolute;bottom:28px;left:50%;transform:translateX(-50%);background:#CFA13C;color:#101512;border:none;border-radius:12px;padding:12px 22px;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 2px 14px rgba(0,0,0,0.45);white-space:nowrap">Set as profile picture</button>
 </div>
@@ -5977,12 +5983,61 @@ function selectAngle(angle, btn) {
 }
 
 let _lightboxUrl = null;
+let _lbScale = 1, _lbX = 0, _lbY = 0;
+const _LB_MIN = 1, _LB_MAX = 4;
+function _lbApply() {
+  const img = document.getElementById('lightbox-img');
+  if (img) img.style.transform = `translate(${_lbX}px, ${_lbY}px) scale(${_lbScale})`;
+  const r = document.getElementById('lb-reset');
+  if (r) r.textContent = _lbScale.toFixed(1) + '\u00d7';
+}
+function _lbResetZoom() { _lbScale = 1; _lbX = 0; _lbY = 0; _lbApply(); }
+function _lbZoom(dir) {
+  _lbScale = Math.min(_LB_MAX, Math.max(_LB_MIN, +(_lbScale + dir * 0.5).toFixed(2)));
+  if (_lbScale === 1) { _lbX = 0; _lbY = 0; }
+  _lbApply();
+}
 function openLightbox(url) {
   _lightboxUrl = url;
+  _lbResetZoom();
   document.getElementById('lightbox-img').src = url;
   document.getElementById('lightbox').classList.add('open');
+  _lbBindGestures();
 }
 function closeLightbox() { document.getElementById('lightbox').classList.remove('open'); }
+
+// Pinch to zoom, one finger to pan while zoomed, double-tap to toggle 1x/2x.
+// Bound once; touch-action:none on the img keeps the browser from hijacking
+// the pinch into a page zoom (the exact failure that made resize feel broken).
+let _lbGesturesBound = false;
+function _lbBindGestures() {
+  const img = document.getElementById('lightbox-img');
+  if (!img || _lbGesturesBound) return;
+  _lbGesturesBound = true;
+  let startDist = 0, startScale = 1, panX = 0, panY = 0, startX = 0, startY = 0, lastTap = 0;
+  const dist = t => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+  img.addEventListener('touchstart', e => {
+    if (e.touches.length === 2) { startDist = dist(e.touches); startScale = _lbScale; }
+    else if (e.touches.length === 1) {
+      startX = e.touches[0].clientX; startY = e.touches[0].clientY; panX = _lbX; panY = _lbY;
+      const now = Date.now();
+      if (now - lastTap < 300) { _lbScale = _lbScale > 1 ? 1 : 2; _lbX = 0; _lbY = 0; _lbApply(); }
+      lastTap = now;
+    }
+  }, { passive: true });
+  img.addEventListener('touchmove', e => {
+    if (e.touches.length === 2 && startDist) {
+      _lbScale = Math.min(_LB_MAX, Math.max(_LB_MIN, +(startScale * dist(e.touches) / startDist).toFixed(2)));
+      if (_lbScale === 1) { _lbX = 0; _lbY = 0; }
+      _lbApply();
+    } else if (e.touches.length === 1 && _lbScale > 1) {
+      _lbX = panX + (e.touches[0].clientX - startX);
+      _lbY = panY + (e.touches[0].clientY - startY);
+      _lbApply();
+    }
+  }, { passive: true });
+  img.addEventListener('touchend', e => { if (e.touches.length === 0) startDist = 0; }, { passive: true });
+}
 
 // Set the currently-open progress photo as the profile picture. The image is
 // already hosted, so unlike uploadMyProfilePhoto there is nothing to upload —
@@ -11248,7 +11303,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-22-ai-alertsledger';
+const RATIO_BUILD = '2026-08-22-aj-lightboxzoom';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
