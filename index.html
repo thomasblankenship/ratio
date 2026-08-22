@@ -1970,6 +1970,10 @@
           <div class="mp-row-label">Admin</div>
           <div class="mp-row-value" style="color:#CFA13C">Users &amp; usage ›</div>
         </div>
+        <div class="mp-row" id="settings-family-row" onclick="openFamily()">
+          <div class="mp-row-label">Family</div>
+          <div class="mp-row-value" style="color:#CFA13C" id="family-row-value">Share lists ›</div>
+        </div>
         <div class="mp-row" style="cursor:default">
           <div class="mp-row-label">Feature Announcements</div>
           <div onclick="toggleAnnouncementsEnabled()" id="ann-toggle-track" style="cursor:pointer;width:40px;height:22px;border-radius:11px;background:var(--accent);position:relative;transition:background 0.2s;flex-shrink:0">
@@ -3234,6 +3238,16 @@
     <button type="button" onclick="_pfCancel()" style="padding:11px 18px;border-radius:10px;background:rgba(255,255,255,0.1);color:#fff;border:1px solid rgba(255,255,255,0.25);font-size:14px;font-weight:600;cursor:pointer">Cancel</button>
     <button type="button" onclick="_pfReset()" style="padding:11px 18px;border-radius:10px;background:rgba(255,255,255,0.1);color:#fff;border:1px solid rgba(255,255,255,0.25);font-size:14px;font-weight:600;cursor:pointer">Reset</button>
     <button type="button" id="pf-save" onclick="_pfSave()" style="padding:11px 22px;border-radius:10px;background:#CFA13C;color:#101512;border:none;font-size:14px;font-weight:700;cursor:pointer">Save</button>
+  </div>
+</div>
+<!-- FAMILY PANEL -->
+<div id="family-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:1100;flex-direction:column;align-items:center;justify-content:center;padding:20px;box-sizing:border-box" onclick="closeFamily()">
+  <div style="background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px;width:100%;max-width:340px;max-height:80vh;overflow-y:auto" onclick="event.stopPropagation()">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <span style="font-size:15px;font-weight:700;color:var(--ink)">Family</span>
+      <button type="button" onclick="closeFamily()" style="background:none;border:none;color:var(--muted);font-size:22px;line-height:1;cursor:pointer;padding:4px 8px">×</button>
+    </div>
+    <div id="family-body"><div style="color:var(--muted);font-size:12px;padding:16px 0;text-align:center">Loading…</div></div>
   </div>
 </div>
 <!-- AVATAR FRAMING EDITOR -->
@@ -6203,6 +6217,112 @@ function _pfBind() {
 function _photoThumbStyle(p) {
   const a = _cmpAlignOf(p);
   return (a.s !== 1 || a.x !== 0 || a.y !== 0) ? ` style="transform:translate(${a.x}%, ${a.y}%) scale(${a.s})"` : '';
+}
+
+// ---- family / household sharing ----
+// All decisions happen in the worker (/family/*); this renders its answers.
+let _famStatus = null, _famGreeted = false;
+async function _famFetchStatus() {
+  const r = await fetch(`${WORKER_URL}/family/status`);
+  if (!r.ok) throw new Error('status ' + r.status);
+  _famStatus = await r.json();
+  _famUpdateRow();
+  return _famStatus;
+}
+function _famUpdateRow() {
+  const v = document.getElementById('family-row-value');
+  if (!v || !_famStatus) return;
+  if (_famStatus.pendingIn && _famStatus.pendingIn.length) v.innerHTML = '<span style="color:#E0A73C">\u25cf 1 invite \u203a</span>';
+  else if (_famStatus.household) v.textContent = _famStatus.members.map(m => m.name).join(' + ') + ' \u203a';
+  else v.textContent = 'Share lists \u203a';
+}
+function openFamily() {
+  document.getElementById('family-modal').style.display = 'flex';
+  _famRender();
+  _famFetchStatus().then(_famRender).catch(() => {
+    document.getElementById('family-body').innerHTML = '<div style="color:var(--muted);font-size:12px;padding:14px 0;text-align:center">Could not load \u2014 check your connection and reopen.</div>';
+  });
+}
+function closeFamily() { document.getElementById('family-modal').style.display = 'none'; }
+function _famRender() {
+  const el = document.getElementById('family-body');
+  if (!el) return;
+  const s = _famStatus;
+  if (!s) { el.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:16px 0;text-align:center">Loading\u2026</div>'; return; }
+  let h = '';
+  for (const inv of (s.pendingIn || [])) {
+    h += `<div style="background:var(--gold-tint);border:1px solid var(--gold-line);border-radius:12px;padding:12px;margin-bottom:12px">` +
+      `<div style="font-size:13px;color:var(--ink);margin-bottom:10px"><b>@${_weEscHtml(inv.fromName)}</b> invited you to share lists \u2014 one shopping list and shared to-dos.</div>` +
+      `<div style="display:flex;gap:8px">` +
+      `<button type="button" onclick="_famRespond('${inv.id}', true)" style="flex:1;background:#CFA13C;color:#101512;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer">Accept</button>` +
+      `<button type="button" onclick="_famRespond('${inv.id}', false)" style="flex:1;background:var(--surface-2);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px;font-size:13px;cursor:pointer">Decline</button>` +
+      `</div></div>`;
+  }
+  if (s.household) {
+    h += `<div style="font-size:11px;color:var(--muted);margin-bottom:6px">MEMBERS</div>`;
+    for (const m of (s.members || [])) {
+      h += `<div style="display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid var(--line)">` +
+        `<span style="width:10px;height:10px;border-radius:50%;background:${m.color};flex-shrink:0"></span>` +
+        `<span style="font-size:13.5px;color:var(--ink)">${_weEscHtml(m.name)}${m.you ? ' <span style=\"font-size:10px;color:var(--muted)\">(you)</span>' : ''}</span></div>`;
+    }
+    for (const o of (s.pendingOut || [])) {
+      h += `<div style="display:flex;align-items:center;justify-content:space-between;gap:9px;padding:7px 0;border-bottom:1px solid var(--line)">` +
+        `<span style="font-size:12.5px;color:var(--muted)">@${_weEscHtml(o.toName)} \u2014 invited, waiting</span>` +
+        `<button type="button" onclick="_famCancel('${o.id}')" style="background:none;border:none;color:#e07777;font-size:11.5px;cursor:pointer">Cancel</button></div>`;
+    }
+    h += `<div style="font-size:11px;color:var(--muted);margin-top:12px;line-height:1.5">Shared shopping and to-do lists live here next \u2014 rolling out this week.</div>`;
+    if ((s.members || []).length < 2 && !(s.pendingOut || []).length) {
+      h += _famInviteFormHtml();
+    }
+  } else if (!(s.pendingIn || []).length) {
+    h += `<div style="font-size:12.5px;color:var(--muted);line-height:1.55;margin-bottom:12px">Share one shopping list and to-dos with your family. Invite your partner by their Ratio username \u2014 they accept here, and you're linked.</div>` + _famInviteFormHtml();
+  }
+  el.innerHTML = h;
+}
+function _famInviteFormHtml() {
+  return `<div style="margin-top:10px">` +
+    `<input id="fam-invite-username" type="text" autocapitalize="none" autocorrect="off" placeholder="partner's username" style="width:100%;box-sizing:border-box;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:11px 12px;font-size:13.5px;color:var(--ink);margin-bottom:8px" />` +
+    `<button type="button" id="fam-invite-btn" onclick="_famInvite()" style="width:100%;background:#CFA13C;color:#101512;border:none;border-radius:10px;padding:12px;font-size:13.5px;font-weight:700;cursor:pointer">Send invite</button></div>`;
+}
+async function _famInvite() {
+  const inp = document.getElementById('fam-invite-username');
+  const btn = document.getElementById('fam-invite-btn');
+  const uname = (inp && inp.value || '').trim();
+  if (!uname) { toast('Enter their username'); return; }
+  if (btn) { btn.disabled = true; btn.textContent = 'Sending\u2026'; }
+  try {
+    const r = await fetch(`${WORKER_URL}/family/invite`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: uname }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { toast(j.error || 'Could not send invite'); return; }
+    toast(`Invite sent to @${j.invited} \u2713`);
+    await _famFetchStatus(); _famRender();
+  } catch (e) { toast('Could not send invite'); }
+  finally { if (btn) { btn.disabled = false; btn.textContent = 'Send invite'; } }
+}
+async function _famRespond(inviteId, accept) {
+  try {
+    const r = await fetch(`${WORKER_URL}/family/respond`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ inviteId, accept }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { toast(j.error || 'Could not respond'); return; }
+    toast(accept ? 'Welcome to the family \ud83c\udf89' : 'Invite declined');
+    await _famFetchStatus(); _famRender();
+  } catch (e) { toast('Could not respond'); }
+}
+async function _famCancel(inviteId) {
+  try {
+    const r = await fetch(`${WORKER_URL}/family/cancel`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ inviteId }) });
+    if (!r.ok) { const j = await r.json().catch(() => ({})); toast(j.error || 'Could not cancel'); return; }
+    toast('Invite canceled');
+    await _famFetchStatus(); _famRender();
+  } catch (e) { toast('Could not cancel'); }
+}
+// Boot greeting: if an invite is waiting, open the panel once this session.
+async function _familyBootCheck() {
+  try {
+    if (!_currentUser || _famGreeted) return;
+    await _famFetchStatus();
+    if (_famStatus && _famStatus.pendingIn && _famStatus.pendingIn.length) { _famGreeted = true; openFamily(); }
+  } catch (e) { /* quiet: settings row still works */ }
 }
 
 function changeMonth(dir) {
@@ -11458,7 +11578,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-22-ao-adminwhoami';
+const RATIO_BUILD = '2026-08-22-ap-family';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -23704,7 +23824,7 @@ document.addEventListener('visibilitychange', () => {
 // ===== SUSPENSION DETECTION — every wake signal feeds ONE check =====
 // Boot heartbeat: waits out session restore, then stamps today's activity
 // row and reveals the Admin row for allow-listed accounts.
-setTimeout(() => { try { _adminHeartbeat(); _adminMaybeShowRow(); } catch (e) {} }, 4000);
+setTimeout(() => { try { _adminHeartbeat(); _adminMaybeShowRow(); _familyBootCheck(); } catch (e) {} }, 4000);
 setTimeout(() => { try { _adminMaybeShowRow(); } catch (e) {} }, 12000);
 
 // History of this bug: visibilitychange alone missed (iOS doesn't reliably
