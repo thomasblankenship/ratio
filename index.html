@@ -7578,17 +7578,19 @@ async function obNext(step) {
 // The daily step goal from onboarding, clamped to something sane. Falls back to
 // 10,000 — the same value every read site already assumed when the key was
 // simply absent, so behaviour is unchanged for anyone who ignores the field.
-// ---- coach wrap-up: the interview coach returns for the last questions ----
-// Local-only ($0): chips are authoritative, free text is parsed with plain
-// rules, and the 3-strike law applies — three evasive answers lock the mic
-// and keyboard (same forcedField guards the sex-at-birth question uses) and
-// tap chips become the only way forward.
+// ---- coach wrap-up: everything asked at once, like the interview ----
+// One message lists all three items with an example sentence; one utterance
+// can answer all of them. Parsing is LOCAL ($0). Partial answers lock in;
+// the coach re-asks only the gaps. 3 no-progress replies = mic + keyboard
+// lock, chips only (same forcedField guards as the interview).
 const WU_ALLERGENS = ['Dairy', 'Gluten', 'Nuts', 'Shellfish', 'Eggs', 'Soy'];
 const WU_ALLERGEN_WORDS = { dairy: 'Dairy', milk: 'Dairy', lactose: 'Dairy', cheese: 'Dairy', gluten: 'Gluten', wheat: 'Gluten', nut: 'Nuts', nuts: 'Nuts', peanut: 'Nuts', peanuts: 'Nuts', almond: 'Nuts', almonds: 'Nuts', cashew: 'Nuts', cashews: 'Nuts', shellfish: 'Shellfish', shrimp: 'Shellfish', crab: 'Shellfish', lobster: 'Shellfish', egg: 'Eggs', eggs: 'Eggs', soy: 'Soy', soybean: 'Soy', tofu: 'Soy' };
 let _wu = null;
 function obWrapupStart() {
   const chat = document.getElementById('ob-chat');
-  if (!chat || typeof _ocAddBot !== 'function') { obShowStep(9); return; }  // failsafe: old path, never a trap
+  // Failsafe: if the chat system is somehow broken, SKIP the questions
+  // (defaults apply) rather than ever show a retired form screen.
+  if (!chat || typeof _ocAddBot !== 'function') { obShowStep(10); return; }
   document.querySelectorAll('.ob-screen').forEach(el => { el.style.display = 'none'; });
   window._oc = window._oc || {};
   if (!_oc.coach) { try { _oc.coach = localStorage.getItem('ob_coach') || 'lauren'; } catch (e) { _oc.coach = 'lauren'; } }
@@ -7596,131 +7598,144 @@ function obWrapupStart() {
   _oc.forcedField = null;
   _oc.busy = false;
   _ocLockInput(false);
-  _wu = { q: 'steps', strikes: 0, steps: null, stepsOn: true, allergies: [], other: [], favorites: '' };
+  _wu = { strikes: 0, done: { steps: false, allergies: false, favorites: false }, steps: null, stepsOn: true, allergies: [], other: [], favorites: '' };
   _oc.wrapup = true;
   const first = (window._obSignupName || '').trim().split(/\s+/)[0];
-  _ocAddBot(`Almost there${first ? ', ' + first : ''}! Three quick questions and your dashboard is ready.`, { onSpoken: () => _wuAsk() });
+  _ocAddBot(`Almost there${first ? ', ' + first : ''}! Last three things \u2014 you can tell me all of them at once: \u2460 your daily step goal (or that you don\u2019t track steps), \u2461 any food allergies or foods to avoid, \u2462 favorite foods for your meal plans. For example: \u201c8,000 steps, allergic to dairy, love steak and rice.\u201d`, { onSpoken: () => _wuChips() });
 }
-function _wuAsk() {
-  if (!_wu) return;
-  if (_wu.q === 'steps') {
-    _ocAddBot('Do you keep an eye on your daily steps? Tell me your goal \u2014 or say you don\u2019t track them.', { onSpoken: () => _ocChips([
-      { label: "I don't track steps", action: () => { _wu.stepsOn = false; _wu.steps = null; _wuResolve('steps'); } }
-    ]) });
-  } else if (_wu.q === 'allergies') {
-    _ocAddBot('Any food allergies, or foods I should keep out of your meal plans? Say them, or tap below.', { onSpoken: () => _wuAllergyChips() });
-  } else if (_wu.q === 'favorites') {
-    _ocAddBot('Last one \u2014 any favorite foods you\u2019d love your meals built around?', { onSpoken: () => _ocChips([
-      { label: 'Skip this', action: () => { _wu.favorites = ''; _wuResolve('favorites'); } }
-    ]) });
-  }
+function _wuMissing() {
+  const m = [];
+  if (!_wu.done.steps) m.push('steps');
+  if (!_wu.done.allergies) m.push('allergies');
+  if (!_wu.done.favorites) m.push('favorite foods');
+  return m;
 }
-function _wuAllergyChips() {
+// Utility chips for whatever is still unanswered \u2014 each resolves its field.
+function _wuChips() {
   if (!_wu) return;
-  const chips = WU_ALLERGENS.map(a => ({
-    label: (_wu.allergies.includes(a) ? '\u2713 ' : '') + a,
-    action: () => {
-      const i = _wu.allergies.indexOf(a);
-      if (i >= 0) _wu.allergies.splice(i, 1); else _wu.allergies.push(a);
-      _wuAllergyChips();
+  const chips = [];
+  if (!_wu.done.steps) chips.push({ label: "I don't track steps", action: () => { _wu.stepsOn = false; _wu.steps = null; _wu.done.steps = true; _wuAdvance(['steps off']); } });
+  if (!_wu.done.allergies) chips.push({ label: 'No allergies', action: () => { _wu.allergies = []; _wu.other = []; _wu.done.allergies = true; _wuAdvance(['no allergies']); } });
+  if (!_wu.done.favorites) chips.push({ label: 'No favorites', action: () => { _wu.favorites = ''; _wu.done.favorites = true; _wuAdvance(['no favorites']); } });
+  if (chips.length) _ocChips(chips);
+}
+// Parse ONE utterance for as many fields as it contains. Returns human-
+// readable descriptions of everything newly locked in (empty = no progress).
+function _wuParseAll(raw) {
+  const t = String(raw || '').toLowerCase();
+  const got = [];
+  // ---- steps ----
+  if (!_wu.done.steps) {
+    if (/(don'?t|dont|do not|not|never|no)\s+(track|count|watch)\w*\s+(my\s+)?steps?|no\s+steps?\b/.test(t)) {
+      _wu.stepsOn = false; _wu.steps = null; _wu.done.steps = true; got.push('steps off');
+    } else {
+      let n = null;
+      const clean = t.replace(/,/g, '');
+      let m = clean.match(/(\d+(?:\.\d+)?)\s*k?\s*steps?/);
+      if (m) n = /k\s*steps?/.test(m[0]) ? Math.round(parseFloat(m[1]) * 1000) : parseInt(m[1], 10);
+      if (n === null) { m = clean.match(/steps?\D{0,14}?(\d+(?:\.\d+)?)(k?)/); if (m) n = m[2] ? Math.round(parseFloat(m[1]) * 1000) : parseInt(m[1], 10); }
+      if (n === null) { m = clean.match(/\b(\d+(?:\.\d+)?)k\b/); if (m) n = Math.round(parseFloat(m[1]) * 1000); }
+      if (n === null) { m = clean.match(/\b(\d{4,5})\b/); if (m) n = parseInt(m[1], 10); }
+      if (n !== null && n >= 1000 && n <= 50000) { _wu.stepsOn = true; _wu.steps = n; _wu.done.steps = true; got.push(`${n.toLocaleString()} steps`); }
     }
-  }));
-  chips.push({ label: (_wu.allergies.length || _wu.other.length) ? 'Done \u2713' : 'None \u2014 all good', action: () => _wuResolve('allergies') });
-  _ocChips(chips);
+  }
+  // ---- allergies ----
+  if (!_wu.done.allergies) {
+    if (/no (food )?allergies|allergies[:\s]*none|nothing i'?m allergic to/.test(t)) {
+      _wu.allergies = []; _wu.other = []; _wu.done.allergies = true; got.push('no allergies');
+    } else {
+      let hit = false;
+      for (const wkey in WU_ALLERGEN_WORDS) {
+        if (new RegExp('\\b' + wkey + '\\b').test(t)) { const mapped = WU_ALLERGEN_WORDS[wkey]; if (!_wu.allergies.includes(mapped)) _wu.allergies.push(mapped); hit = true; }
+      }
+      const cm = t.match(/(?:allergic to|allergy to|allergies to|avoid|can'?t (?:have|eat)|stay away from)\s+([^.!?;\u2461\u2462]{2,80})/g) || [];
+      for (const seg of cm) {
+        const tail = seg.replace(/^(?:allergic to|allergy to|allergies to|avoid|can'?t (?:have|eat)|stay away from)\s+/, '');
+        for (const tok of tail.split(/,|\band\b|\bor\b/)) {
+          const key = tok.replace(/[^a-z\s]/g, '').trim();
+          if (!key || key.length < 2 || key.length > 28 || /step|allerg|food|track|favorite|love/.test(key)) continue;
+          if (WU_ALLERGEN_WORDS[key] || WU_ALLERGEN_WORDS[key.replace(/s$/, '')]) continue;   // dict pass already got it
+          const nice = key.replace(/\b\w/g, ch => ch.toUpperCase());
+          if (!_wu.other.includes(nice)) { _wu.other.push(nice); hit = true; }
+        }
+      }
+      if (hit) { _wu.done.allergies = true; got.push(`allergies: ${_wu.allergies.concat(_wu.other).join(', ')}`); }
+    }
+  }
+  // ---- favorites ----
+  if (!_wu.done.favorites) {
+    if (/no favorites?|nothing (special|in particular)/.test(t)) { _wu.favorites = ''; _wu.done.favorites = true; got.push('no favorites'); }
+    else {
+      const fm = t.match(/(?:love|loves|favorites? (?:are|is|:)?|really like|enjoy|big on)\s+([^.!?;\u2460\u2461]{2,140})/);
+      if (fm) {
+        let fav = fm[1].replace(/\b(?:eating|to eat)\b\s*/g, '').trim();
+        fav = fav.replace(/\s*(?:,|and|\bi\b)?\s*(?:don'?t track|no allerg)[\s\S]*$/, '').trim();
+        if (fav.length >= 2) { _wu.favorites = fav.slice(0, 200); _wu.done.favorites = true; got.push(`favorites: ${_wu.favorites}`); }
+      }
+    }
+  }
+  return got;
 }
 function _wuHandleText(text) {
   if (!_wu || !_oc.wrapup) return;
   if (_oc.forcedField) return;   // locked: chips are the only way forward
   _ocAddUser(text);
-  const t = String(text || '').trim().toLowerCase();
-  if (_wu.q === 'steps') {
-    if (/don'?t|dont|\bno\b|\bnot\b|never/.test(t) && /track|steps|count|watch/.test(t) || /^(no|nope|nah)[.!]?$/.test(t)) {
-      _wu.stepsOn = false; _wu.steps = null; return _wuResolve('steps');
-    }
-    let n = null;
-    const km = t.replace(/,/g, '').match(/(\d+(?:\.\d+)?)\s*k\b/);
-    if (km) n = Math.round(parseFloat(km[1]) * 1000);
-    else { const m = t.replace(/,/g, '').match(/\d{3,6}/); if (m) n = parseInt(m[0], 10); }
-    if (n && n >= 1000 && n <= 50000) { _wu.stepsOn = true; _wu.steps = n; return _wuResolve('steps'); }
-    return _wuStrike('That one slipped past me. A number like 8,000 or 10,000 works \u2014 or just say you don\u2019t track steps.');
-  }
-  if (_wu.q === 'allergies') {
-    if (/^(no|none|nope|nothing|nah|all good|not really|no allergies)[.!\s]*$/.test(t)) { _wu.allergies = []; _wu.other = []; return _wuResolve('allergies'); }
-    const tokens = t.split(/[,;]|\band\b|\bor\b/).map(s => s.trim()).filter(Boolean);
-    let hit = false;
-    for (const tok of tokens) {
-      const key = tok.replace(/[^a-z\s]/g, '').trim();
-      if (!key) continue;
-      const mapped = WU_ALLERGEN_WORDS[key] || WU_ALLERGEN_WORDS[key.replace(/s$/, '')];
-      if (mapped) { if (!_wu.allergies.includes(mapped)) _wu.allergies.push(mapped); hit = true; }
-      else if (/^[a-z][a-z\s]{1,28}$/.test(key) && !/allerg|avoid|food/.test(key)) {
-        const nice = key.replace(/\b\w/g, ch => ch.toUpperCase());
-        if (!_wu.other.includes(nice)) _wu.other.push(nice); hit = true;
-      }
-    }
-    if (hit) return _wuResolve('allergies');
-    return _wuStrike('I want to get this right \u2014 name the foods (like \u201cdairy and shrimp\u201d), tap the options below, or say \u201cnone\u201d.');
-  }
-  if (_wu.q === 'favorites') {
-    if (/^(no|none|nope|skip|nothing|nah)[.!\s]*$/.test(t)) { _wu.favorites = ''; return _wuResolve('favorites'); }
-    _wu.favorites = String(text).trim().slice(0, 200);
-    return _wuResolve('favorites');
-  }
+  const got = _wuParseAll(text);
+  if (got.length) { _wu.strikes = 0; _wuAdvance(got); }
+  else _wuStrike();
 }
-function _wuStrike(line) {
+// Progress happened: acknowledge it, then finish or chase only the gaps.
+function _wuAdvance(got) {
+  const missing = _wuMissing();
+  if (!missing.length) return _wuFinish(got);
+  const ack = got.length ? `Locked in: ${got.join(' \u00b7 ')}. ` : '';
+  _ocAddBot(`${ack}Still need: ${missing.join(' and ')} \u2014 say ${missing.length > 1 ? 'them' : 'it'} or tap below.`, { onSpoken: () => _wuChips() });
+}
+function _wuStrike() {
   _wu.strikes += 1;
   if (_wu.strikes >= 3) return _wuForce();
-  _ocAddBot(line, { onSpoken: () => { if (_wu.q === 'allergies') _wuAllergyChips(); else if (_wu.q === 'steps') _ocChips([{ label: "I don't track steps", action: () => { _wu.stepsOn = false; _wu.steps = null; _wuResolve('steps'); } }]); } });
+  const missing = _wuMissing();
+  const line = _wu.strikes === 1
+    ? `That one slipped past me. I still need ${missing.join(' and ')} \u2014 for example \u201c10,000 steps, no allergies, love chicken and rice.\u201d`
+    : `Let\u2019s nail this down \u2014 just ${missing.join(' and ')}, or tap an option below.`;
+  _ocAddBot(line, { onSpoken: () => _wuChips() });
 }
-// Strike three: the app takes over. Mic dies, keyboard dies, chips only —
-// the same guards obChatSend/obChatMic already honor for forcedField.
+// Strike three: the app takes over. Mic dies, keyboard dies, chips only \u2014
+// one forced group per missing field until everything is answered.
 function _wuForce() {
-  _oc.forcedField = 'wrapup:' + _wu.q;
+  _oc.forcedField = 'wrapup';
   try { if (typeof _ocStopListening === 'function') _ocStopListening(); } catch (e) {}
   _ocLockInput(true);
-  const un = () => { _oc.forcedField = null; _ocLockInput(false); };
-  if (_wu.q === 'steps') {
-    _ocAddBot('Let\u2019s keep it simple \u2014 tap one:', { onSpoken: () => _ocChips([
-      { label: '6,000', action: () => { un(); _wu.stepsOn = true; _wu.steps = 6000; _wuResolve('steps'); } },
-      { label: '8,000', action: () => { un(); _wu.stepsOn = true; _wu.steps = 8000; _wuResolve('steps'); } },
-      { label: '10,000', action: () => { un(); _wu.stepsOn = true; _wu.steps = 10000; _wuResolve('steps'); } },
-      { label: '12,000', action: () => { un(); _wu.stepsOn = true; _wu.steps = 12000; _wuResolve('steps'); } },
-      { label: "I don't track steps", action: () => { un(); _wu.stepsOn = false; _wu.steps = null; _wuResolve('steps'); } }
+  _wuForceNext();
+}
+function _wuForceNext() {
+  const missing = _wuMissing();
+  if (!missing.length) { _oc.forcedField = null; _ocLockInput(false); return _wuFinish([]); }
+  if (!_wu.done.steps) {
+    const pick = (n) => () => { _wu.stepsOn = n !== null; _wu.steps = n; _wu.done.steps = true; _wuForceNext(); };
+    _ocAddBot('Let\u2019s keep it simple \u2014 tap your step goal:', { onSpoken: () => _ocChips([
+      { label: '6,000', action: pick(6000) }, { label: '8,000', action: pick(8000) },
+      { label: '10,000', action: pick(10000) }, { label: '12,000', action: pick(12000) },
+      { label: "I don't track steps", action: pick(null) }
     ]) });
-  } else if (_wu.q === 'allergies') {
-    // Multi-select stays locked until Done — toggling keeps forcedField set.
+  } else if (!_wu.done.allergies) {
     const render = () => {
       const chips = WU_ALLERGENS.map(a => ({
         label: (_wu.allergies.includes(a) ? '\u2713 ' : '') + a,
-        action: () => { const i = _wu.allergies.indexOf(a); if (i >= 0) _wu.allergies.splice(i, 1); else _wu.allergies.push(a); render(); }
+        action: () => { const k = _wu.allergies.indexOf(a); if (k >= 0) _wu.allergies.splice(k, 1); else _wu.allergies.push(a); render(); }
       }));
-      chips.push({ label: _wu.allergies.length ? 'Done \u2713' : 'None \u2014 all good', action: () => { un(); _wuResolve('allergies'); } });
+      chips.push({ label: _wu.allergies.length ? 'Done \u2713' : 'None \u2014 all good', action: () => { _wu.done.allergies = true; _wuForceNext(); } });
       _ocChips(chips);
     };
-    _ocAddBot('Tap what applies, then Done:', { onSpoken: render });
+    _ocAddBot('Tap any allergies, then Done:', { onSpoken: render });
   } else {
-    _ocAddBot('No problem \u2014 tap to move on:', { onSpoken: () => _ocChips([{ label: 'Skip this', action: () => { un(); _wu.favorites = ''; _wuResolve('favorites'); } }]) });
-  }
-}
-function _wuResolve(q) {
-  _wu.strikes = 0;
-  if (q === 'steps') {
-    const ack = _wu.stepsOn ? `${_wu.steps.toLocaleString()} steps a day \u2014 locked in.` : 'No problem \u2014 steps stay off your plan. You can turn them on anytime.';
-    _wu.q = 'allergies';
-    _ocAddBot(ack, { onSpoken: () => _wuAsk() });
-  } else if (q === 'allergies') {
-    const all = _wu.allergies.concat(_wu.other);
-    const ack = all.length ? `Got it \u2014 I\u2019ll keep ${all.join(', ')} out of your meal plans.` : 'No allergies \u2014 the whole menu is yours.';
-    _wu.q = 'favorites';
-    _ocAddBot(ack, { onSpoken: () => _wuAsk() });
-  } else {
-    _wuFinish();
+    _ocAddBot('And favorites \u2014 tap to move on:', { onSpoken: () => _ocChips([{ label: 'Skip favorites', action: () => { _wu.favorites = ''; _wu.done.favorites = true; _wuForceNext(); } }]) });
   }
 }
 // Write every answer into the legacy controls the rest of the app already
-// reads (handleSignUp re-gathers from these exact elements), then hand off to
-// the Apple Health screen. Zero changes to the finisher = zero new data paths.
-function _wuFinish() {
+// reads (handleSignUp re-gathers from these exact elements), then hand off
+// to the Apple Health screen. Zero changes to the finisher.
+function _wuFinish(got) {
   try {
     const sg = document.getElementById('ob-step-goal');
     if (sg && _wu.stepsOn && _wu.steps) sg.value = String(_wu.steps);
@@ -7741,7 +7756,12 @@ function _wuFinish() {
     if (typeof obSaveProgress === 'function') obSaveProgress();
   } catch (e) { console.error('[wrapup] finish write failed', e); }
   _oc.wrapup = false;
-  _ocAddBot('That\u2019s everything \u2014 let\u2019s get you set up. \ud83d\udcaa', { onSpoken: () => { _wu = null; obShowStep(10); } });
+  const bits = [];
+  bits.push(_wu.stepsOn && _wu.steps ? `${_wu.steps.toLocaleString()} steps a day` : 'steps off (turn them on anytime)');
+  const alls = _wu.allergies.concat(_wu.other);
+  bits.push(alls.length ? `keeping ${alls.join(', ')} out of your meals` : 'no allergies');
+  if (_wu.favorites) bits.push(`meals built around ${_wu.favorites}`);
+  _ocAddBot(`Perfect \u2014 ${bits.join(', ')}. Let\u2019s get you set up. \ud83d\udcaa`, { onSpoken: () => { _wu = null; obShowStep(10); } });
 }
 
 function obStepGoal() {
@@ -7788,11 +7808,13 @@ function obBack(step) {
     const chat = document.getElementById('ob-chat');
     if (window._oc && _oc.coach && chat) { chat.style.display = 'flex'; return; }
     if (typeof showAuthScreen === 'function') { showAuthScreen(); return; }
-    obShowStep(1); return;
+    return;   // legacy step 1 is retired — never a destination
   }
   if (step === 8) { obShowStep(7); return; }
   if (step === 9) { obShowStep(8); return; }
-  if (step === 10) { obShowStep(9); return; }
+  // Back from Apple Health goes to the photos screen. Step 9 is a retired
+  // form (the coach wrap-up replaced it) and is NEVER shown again.
+  if (step === 10) { obShowStep(8); return; }
   if (step === 11) { obShowStep(10); return; }
 }
 
@@ -9092,11 +9114,10 @@ function obLoginInitProviders() {
   }
 }
 
-function obChatUseForms() {
-  _ocStopListening();
-  document.getElementById('ob-chat').style.display = 'none';
-  obShowStep(1);
-}
+// RETIRED: the forms door is closed for good (his call, Aug 22 — "never
+// want to see those screens again"). Kept as a no-op so any stray caller
+// stays harmlessly in the interview instead of resurrecting legacy screens.
+function obChatUseForms() {}
 
 function _ocSetCoach(key) {
   const img = document.getElementById('obchat-coach-avatar');
@@ -10569,8 +10590,8 @@ function startSignup() {
   resetAppState();
   document.getElementById('auth-screen').style.display = 'none';
   document.querySelectorAll('.ob-screen').forEach(el => { el.style.display = 'none'; });
-  // The coach interview is the default path; "Prefer forms?" inside it goes
-  // to the classic screens (obShowStep(1)), which remain fully functional.
+  // The coach interview is the ONLY path — the legacy form screens are
+  // retired and must never be shown (their markup awaits the excision pass).
   obStartChat();
 }
 
@@ -11749,7 +11770,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-22-ar-coachwrapup';
+const RATIO_BUILD = '2026-08-22-at-wrapall';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
