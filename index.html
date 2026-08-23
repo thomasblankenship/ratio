@@ -3871,6 +3871,16 @@ function addTodoItem(name, dueDate) {
   return item;
 }
 
+// iOS DICTATION MOP (Lauren-class bug, app-wide): keyboard-dictated words
+// stay provisional until dictation ends; submit mid-dictation and iOS
+// re-inserts the text AFTER our clear. Re-clear only an exact echo of what
+// was just sent — never new typing.
+function _iosDictMop(input, sentText) {
+  if (!input) return;
+  const mop = () => { if ((input.value || '').trim() === sentText) input.value = ''; };
+  setTimeout(mop, 350); setTimeout(mop, 900);
+}
+
 function addTodoItemFromInput() {
   const input = document.getElementById('todo-add-input');
   const dueEl = document.getElementById('todo-add-due');
@@ -3881,6 +3891,7 @@ function addTodoItemFromInput() {
   const due = dueRaw ? (dueRaw.length === 16 ? dueRaw + ':00' : dueRaw) : null;
   addTodoItem(val, due);
   input.value = '';
+  _iosDictMop(input, val);
   if (dueEl) dueEl.value = '';
   _todoDueSet = false; // chip returns to its empty state on the re-render
   renderTodoList();
@@ -4879,6 +4890,7 @@ function vlSubmitTyped() {
   const typeWrap = document.getElementById('vl-type-instead');
   if (typeWrap) typeWrap.style.display = 'none';
   input.value = '';
+  _iosDictMop(input, text);
   _vlLiveText = text;
   vlHandleUtterance(text);
 }
@@ -11829,7 +11841,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-23-bd-lauren3';
+const RATIO_BUILD = '2026-08-23-be-dictmop';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -15616,6 +15628,7 @@ function addShoppingExtra() {
   mealPrepPlan.shoppingExtras = mealPrepPlan.shoppingExtras || [];
   mealPrepPlan.shoppingExtras.push({ id: 'x' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name: val });
   input.value = '';
+  _iosDictMop(input, val);
   saveSetting('meal_prep_plan', mealPrepPlan);
   renderShoppingList();
 }
@@ -16287,6 +16300,7 @@ async function sendCoachChatMessage() {
   const message = input.value.trim();
   if (!message) return;
   input.value = '';
+  _iosDictMop(input, message);
   const messagesEl = document.getElementById('coach-chat-messages');
   messagesEl.innerHTML += `<div style="align-self:flex-end;max-width:80%;background:var(--accent);color:#101512;padding:10px 14px;border-radius:14px 14px 4px 14px;font-size:14px">${message}</div>`;
   messagesEl.innerHTML += `<div id="coach-chat-typing" style="font-size:12px;color:var(--muted);padding:4px 0">Coach is typing...</div>`;
