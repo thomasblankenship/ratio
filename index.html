@@ -11771,7 +11771,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-23-aw-micfix';
+const RATIO_BUILD = '2026-08-23-ba-donecancel';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -12275,7 +12275,12 @@ async function loadProgressWorkouts() {
     const sets = await dbGet('workout_sets', `date=eq.${forDate}&order=created_at.asc`) || [];
     if (progressWorkoutDate() !== forDate) return; // stale
     progressSets = sets;
-  } catch (e) { progressSets = []; }
+  } catch (e) {
+    // A transient fetch failure must NOT erase the sheet — wiping to []
+    // here made every logged exercise vanish on a network blip. Keep what
+    // we already know and say so loudly.
+    console.error('[ws] sets fetch failed — keeping previous data', e);
+  }
   // Diary rows that only exist to anchor sets are not cardio - re-render the
   // diary now that we know which workout ids the sets point at.
   renderWorkouts();
@@ -12557,6 +12562,22 @@ function renderTodayStrength() {
       <tr class="rdash"><td class="pnum" rowspan="2">${num}</td><td class="pname" rowspan="2"><span class="ink" style="font-size:13px;line-height:1.15">${_weEscHtml(n)}</span>${tick}</td><td class="psub">REPS</td>${cells(reps, false)}</tr>
       <tr class="rsolid"><td class="psub" style="border-top:1px dashed #999">WEIGHT</td>${cells(wts, false)}</tr>
     </tbody>`);
+  }
+
+  // Session exercises with NO saved sets yet — the name the user just
+  // added (typed or dictated) lands ON the paper immediately, inked, with
+  // empty cells waiting. Without this, an exercise whose reps panel was
+  // displaced before Log looked ERASED (his Ab roller). Tap reopens the
+  // set panel.
+  if (isToday && typeof _wsSession !== 'undefined' && _wsSession && Array.isArray(_wsSession.exercises)) {
+    for (const ex of _wsSession.exercises) {
+      if (byEx[ex.name] || plannedNames.has(ex.name)) continue;
+      num++;
+      bodies.push(`<tbody onclick="wsQuickLog('${_wsEscAttr(ex.name)}','${_wsEscAttr(ex.group || '')}')" style="cursor:pointer">
+      <tr class="rdash"><td class="pnum" rowspan="2">${num}</td><td class="pname" rowspan="2"><span class="ink" style="font-size:13px;line-height:1.15">${_weEscHtml(ex.name)}</span> <span style="font-size:8px;color:#8a8375">no sets yet — tap</span></td><td class="psub">REPS</td>${cells([], true)}</tr>
+      <tr class="rsolid"><td class="psub" style="border-top:1px dashed #999">WEIGHT</td>${cells([], true)}</tr>
+    </tbody>`);
+    }
   }
 
   // Planned, not yet logged: printed name, ghost target reps, blank weights.
@@ -17995,6 +18016,18 @@ function wsBlankRowCommit(input) {
     return;
   }
   const resolved = _wsResolveExercise(t);
+  // Swap this row to its inked pending look RIGHT NOW — waiting for the
+  // next re-render left a stale input+mic sitting where the exercise
+  // should be. Tap reopens the set panel; the next real render reconciles.
+  try {
+    if (tbody) {
+      tbody.dataset.editing = '';
+      const cell = tbody.querySelector('.pname');
+      if (cell) cell.innerHTML = `<span class="ink" style="font-size:13px;line-height:1.15">${_weEscHtml(resolved.name)}</span> <span style="font-size:8px;color:#8a8375">no sets yet — tap</span>`;
+      tbody.onclick = () => wsQuickLog(resolved.name, resolved.group);
+      tbody.style.cursor = 'pointer';
+    }
+  } catch (e) {}
   wsQuickLog(resolved.name, resolved.group);
 }
 
@@ -18024,7 +18057,8 @@ async function vlLogSets(name, group, sets) {
   if (!_wsSession) {
     _wsSession = { adhoc: true, exercises: [], workoutId: null,
                    startedAt: new Date().toISOString(), name: 'Workout' };
-    _wsSetsToday = [];
+    // Replace the cache only when the reload SUCCEEDS — pre-clearing meant
+    // a failed fetch left [] and today's logged sets vanished from view.
     try {
       const existing = await dbGet('workout_sets', `date=eq.${_wsToday()}&order=created_at.asc`);
       _wsSetsToday = existing || [];
@@ -18066,7 +18100,8 @@ async function wsQuickLog(name, group) {
   if (!_wsSession) {
     _wsSession = { adhoc: true, exercises: [], workoutId: null,
                    startedAt: new Date().toISOString(), name: 'Workout' };
-    _wsSetsToday = [];
+    // Replace the cache only when the reload SUCCEEDS — pre-clearing meant
+    // a failed fetch left [] and today's logged sets vanished from view.
     try {
       const existing = await dbGet('workout_sets', `date=eq.${_wsToday()}&order=created_at.asc`);
       _wsSetsToday = existing || [];
@@ -18248,6 +18283,7 @@ async function wsOpenSet(i) {
     w = match.weight; reps = match.reps;
   }
   document.getElementById('ws-set-title').textContent = ex.name;
+  _wsCloseBtnLabel(ex.name);
   // Best-ever line: heaviest single + estimated 1RM. Blank until history loads.
   const bestEl = document.getElementById('ws-set-best');
   if (bestEl) {
@@ -18283,7 +18319,24 @@ function _wsFmtDate(d) {
   return new Date(d + 'T12:00:00').toLocaleDateString([], { month: 'short', day: 'numeric' });
 }
 
-function wsCloseSet() { document.getElementById('ws-set-sheet').style.display = 'none'; }
+// "Done" on a zero-set panel read like the exercise was recorded — his
+// catch. Cancel = nothing logged for this exercise yet; Done = sets exist.
+function _wsCloseBtnLabel(name) {
+  try {
+    const b = document.getElementById('ws-set-close-btn');
+    if (b) b.textContent = _wsSetsFor(name).length ? 'Done' : 'Cancel';
+  } catch (e) {}
+}
+
+function wsCloseSet() {
+  document.getElementById('ws-set-sheet').style.display = 'none';
+  // Done is a deliberate pause — reconcile the sheet so pending and logged
+  // rows show true. Skipped if any row is mid-edit (no-wipe law).
+  try {
+    const editing = [...document.querySelectorAll('#ws-today-strength tbody')].some(t => t.dataset.editing === '1');
+    if (!editing && typeof renderTodayStrength === 'function') renderTodayStrength();
+  } catch (e) {}
+}
 
 function wsStep(field, delta) {
   const el = document.getElementById(field === 'weight' ? 'ws-weight' : 'ws-reps');
@@ -18351,6 +18404,7 @@ async function wsLogSet() {
     });
     const row = Array.isArray(saved) ? saved[0] : saved;
     _wsSetsToday.push(row || { exercise_name: ex.name, set_number: setNumber, weight, reps, workout_id: workoutId });
+    _wsCloseBtnLabel(ex.name);
     // Keep the session's end time moving so the HealthKit merge below has a
     // real window to match against.
     _wsTouchEnd(workoutId);
@@ -25069,7 +25123,7 @@ if (document.readyState === 'loading') {
 
     <div style="display:flex;gap:8px;margin-top:10px">
       <button type="button" onclick="wsUndoLastSet()" style="flex:1;background:none;border:1px solid var(--line);border-radius:8px;padding:9px;font-size:11px;color:var(--muted);cursor:pointer">Undo last set</button>
-      <button type="button" onclick="wsCloseSet()" style="flex:1;background:none;border:1px solid var(--line);border-radius:8px;padding:9px;font-size:11px;color:var(--muted);cursor:pointer">Done</button>
+      <button type="button" id="ws-set-close-btn" onclick="wsCloseSet()" style="flex:1;background:none;border:1px solid var(--line);border-radius:8px;padding:9px;font-size:11px;color:var(--muted);cursor:pointer">Done</button>
     </div>
   </div>
 </div>
