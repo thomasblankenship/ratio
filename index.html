@@ -11771,7 +11771,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-23-av-testfixes';
+const RATIO_BUILD = '2026-08-23-aw-micfix';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -17878,12 +17878,19 @@ async function wsStartSession(dayIdx) {
 let _wsDict = null;
 async function _wsDictate(el, btn, opts) {
   opts = opts || {};
-  if (_wsDict && _wsDict.active) { _wsDict.stop(); return; }
+  if (_wsDict && _wsDict.active) {
+    // Same element: toggle off. DIFFERENT element: hand the mic over —
+    // stop the old session and fall through to start this one, so tapping
+    // row 2's mic while row 1 lingers works on the first tap.
+    const same = _wsDict.el === el;
+    try { _wsDict.stop(); } catch (e) {}
+    if (same) return;
+  }
   if (!el) return;
   const base = opts.append ? String(el.value || '').trim() : '';
   const put = (t) => { el.value = base ? (t ? base + ' ' + t : base) : t; };
   const glow = (on) => { if (!btn) return; btn.style.boxShadow = on ? '0 0 0 4px rgba(207,161,60,0.35)' : ''; btn.style.background = on ? '#CFA13C' : 'var(--gold-tint)'; btn.style.color = on ? '#101512' : '#CFA13C'; };
-  const state = { active: true, lastHeard: Date.now(), timer: null, stop: null };
+  const state = { active: true, el, lastHeard: Date.now(), timer: null, stop: null };
   _wsDict = state;
   el.dataset.dictating = '1';
   glow(true);
@@ -17942,6 +17949,9 @@ function wsBlankRowTap(tbody) {
   tbody.dataset.editing = '1';
   const nameCell = tbody.querySelector('.pname');
   if (!nameCell) return;
+  // Stash the blank-row markup so an empty commit can restore JUST this
+  // cell — a full re-render here wiped every other in-progress row.
+  if (!tbody.dataset.orig) tbody.dataset.orig = nameCell.innerHTML;
   // Say it or type it — the gold mic dictates straight into the input and
   // commits through the exact same path as typing (canonical-name resolve,
   // quick-log). The blur commit is DELAYED 220ms: tapping the mic blurs the
@@ -17973,9 +17983,15 @@ function wsBlankRowCommit(input) {
   const t = (input.value || '').trim();
   const tbody = input.closest('tbody');
   if (!t) {
-    // wrote nothing - put the blank line back
-    if (tbody) { tbody.dataset.editing = ''; }
-    try { renderTodayStrength(); } catch (e) {}
+    // Wrote nothing (or the mic heard nothing) — restore THIS row's
+    // placeholder and leave every other row exactly as it was. The old
+    // full re-render here nuked in-progress rows when a dictation ended
+    // with “No speech detected”.
+    if (tbody) {
+      tbody.dataset.editing = '';
+      const cell = tbody.querySelector('.pname');
+      if (cell) cell.innerHTML = tbody.dataset.orig || '';
+    }
     return;
   }
   const resolved = _wsResolveExercise(t);
