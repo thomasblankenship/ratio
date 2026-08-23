@@ -391,7 +391,8 @@
     .ob-ck { background:linear-gradient(160deg,var(--gold-tint),rgba(207,161,60,0.04)); border:1px solid var(--gold-line); border-radius:14px; padding:12px; margin:4px 0 10px; }
     .ob-ck-t { font-size:10px; font-weight:800; letter-spacing:0.8px; color:#CFA13C; margin-bottom:8px; }
     .ob-ck-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px 10px; }
-    .ob-ck-it { display:flex; align-items:center; gap:7px; font-size:12.5px; color:var(--ink); }
+    .ob-ck-it { display:flex; align-items:center; gap:7px; font-size:12.5px; color:var(--ink); cursor:pointer; }
+    .ob-ck-it:active { opacity:0.6; }
     .ob-ck-box { width:18px; height:18px; border-radius:6px; border:1.5px solid var(--line); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:900; color:#101512; flex-shrink:0; transition:all .25s; }
     .ob-ck-it.done .ob-ck-box { background:#CFA13C; border-color:#CFA13C; }
     .ob-ck-it.done { color:var(--muted); }
@@ -9830,7 +9831,7 @@ function _ocAddChecklist() {
   const box = document.getElementById('obchat-messages');
   if (!box || document.getElementById('obchat-checklist')) return;
   const req = OC_REQUIRED();
-  const items = req.map(k => { const h = _ocFieldHint(k); return `<div class="ob-ck-it" id="ob-ck-${k}"><span class="ob-ck-box"></span><span class="ob-ck-lbl">${OC_FIELD_LABELS[k] || k}${h ? `<span class=\"ob-ck-hint\">${h}</span>` : ''}</span></div>`; }).join('');
+  const items = req.map(k => { const h = _ocFieldHint(k); return `<div class="ob-ck-it" id="ob-ck-${k}" onclick="_ocAskField('${k}')"><span class="ob-ck-box"></span><span class="ob-ck-lbl">${OC_FIELD_LABELS[k] || k}${h ? `<span class=\"ob-ck-hint\">${h}</span>` : ''}</span></div>`; }).join('');
   const div = document.createElement('div');
   div.id = 'obchat-checklist';
   div.className = 'ob-ck ob-ck-pre';   // items hidden until _ocHeroCollapse deals them in
@@ -9846,6 +9847,30 @@ function _ocAddChecklist() {
   // Failsafe: whatever happens to the intro/speech chain, the checklist must
   // never stay hidden. 12s outlasts the 9s speech backstop in _ocAfterSpeech.
   setTimeout(_ocHeroCollapse, 12000);
+}
+
+// Lauren's find: empty checkboxes read as buttons, so now they are. Tap an
+// item and the coach asks for that one field — a local bubble, no AI call;
+// whatever she answers goes through the normal any-order extraction.
+const OC_FIELD_ASKS = {
+  gender: 'Sure — male or female? It feeds the calorie formula, nothing more.',
+  age: 'Sure — how old are you?',
+  height_ft: 'Sure — how tall are you?',
+  weight_lb: 'Sure — what do you weigh right now?',
+  goal_weight_lb: 'Sure — what weight are you aiming for?',
+  activity: 'Sure — how many days a week do you train?',
+  pace: 'Sure — how fast do you want to move? Most people pick about 1 pound a week.'
+};
+function _ocAskField(k) {
+  if (!_oc || _oc.busy || _oc.forcedField) return;
+  const done = _oc.fields && _oc.fields[k] !== undefined && _oc.fields[k] !== null;
+  const label = (OC_FIELD_LABELS[k] || k).toLowerCase();
+  const line = done
+    ? `I've already got your ${label} — say a new one anytime and I'll update it.`
+    : (OC_FIELD_ASKS[k] || `Sure — what's your ${label}?`);
+  _ocAddBot(line);
+  const inp = document.getElementById('obchat-input');
+  if (inp && !done) inp.focus();
 }
 
 function _ocRenderChecklist() {
@@ -10045,8 +10070,32 @@ function obChatSend() {
   if (!text || !_oc || _oc.busy) return;
   if (_oc.forcedField) return;   // a button is the only way past this point
   input.value = '';
+  // iOS DICTATION RACE (Lauren's find): keyboard-dictated words stay
+  // "provisional" until dictation formally ends — send mid-dictation and
+  // iOS re-inserts the text AFTER our clear. Mop it up, but only if the
+  // box holds exactly what we just sent (never eat NEW typing).
+  const mop = () => { if ((input.value || '').trim() === text) { input.value = ''; } _ocMorphBar(); };
+  setTimeout(mop, 350); setTimeout(mop, 900);
   _oc.lastInputVoice = false;
+  _ocMorphBar();
   _ocDispatch(text);
+}
+
+// ONE right-side button, iMessage-style (Lauren reached for "the button"
+// after keyboard-dictating and found a second microphone): mic when the box
+// is empty, gold send arrow the moment there's text. While OUR mic is live
+// it stays a mic — it's the stop control. If this JS never runs, the mic
+// shows and Enter still sends: nothing is lost.
+function _ocMorphBar() {
+  const inp = document.getElementById('obchat-input');
+  const send = document.getElementById('obchat-send');
+  const mic = document.getElementById('obchat-mic');
+  if (!inp || !send || !mic) return;
+  const hasText = !!(inp.value || '').trim();
+  const listening = !!(window._oc && _oc.listening);
+  const showSend = hasText && !listening;
+  send.style.display = showSend ? '' : 'none';
+  mic.style.display = showSend ? 'none' : '';
 }
 
 // Lauren's intro is a fixed, non-scrolling screen built around her full-height
@@ -11780,7 +11829,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-23-bc-postclaim';
+const RATIO_BUILD = '2026-08-23-bd-lauren3';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -24443,11 +24492,11 @@ if (document.readyState === 'loading') {
   <div style="flex-shrink:0;padding:10px 14px calc(14px + env(safe-area-inset-bottom));border-top:1px solid var(--line);display:flex;gap:10px;align-items:center">
     <div style="flex:1;position:relative;min-width:0">
       <input id="obchat-input" type="text" placeholder="Type or tap the mic…" autocomplete="off"
-        onkeydown="if(event.key==='Enter')obChatSend()"
+        oninput="_ocMorphBar()" onkeydown="if(event.key==='Enter')obChatSend()"
         style="width:100%;box-sizing:border-box;padding:13px 16px;border:1px solid var(--line);border-radius:24px;background:var(--bg-deep);color:var(--ink);font-size:15px;outline:none">
       <div id="obchat-wave"></div>
     </div>
-    <button id="obchat-send" onclick="obChatSend()" aria-label="Send" style="width:46px;height:46px;border-radius:50%;background:var(--bg-deep);border:1px solid var(--line);color:var(--ink);cursor:pointer;flex-shrink:0"><i class="fa-solid fa-arrow-up"></i></button>
+    <button id="obchat-send" onclick="obChatSend()" aria-label="Send" style="display:none;width:46px;height:46px;border-radius:50%;background:#CFA13C;border:1px solid #CFA13C;color:#101512;cursor:pointer;flex-shrink:0"><i class="fa-solid fa-arrow-up"></i></button>
     <button id="obchat-mic" class="obchat-micbtn" onclick="obChatMic()" aria-label="Speak" style="width:46px;height:46px;border-radius:50%;background:var(--gold-tint);border:1px solid #CFA13C;color:#CFA13C;cursor:pointer;flex-shrink:0"><i class="fa-solid fa-microphone"></i></button>
   </div>
 </div>
