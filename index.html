@@ -466,7 +466,7 @@
     .ws-paper .pgrid td { border-left:1px dashed #999; }
     .ws-paper .phead td { background:#dedbd3; border:1px solid #2a2a2a !important; font-size:8px; font-weight:700; text-align:center; padding:3px 2px; }
     .ws-paper .pnum { border:1px solid #2a2a2a !important; font-size:12px; font-weight:800; text-align:center; background:#efece5; width:18px; }
-    .ws-paper .pname { border:1px solid #2a2a2a !important; padding:2px 4px; font-size:11px; color:#444; word-break:break-word; }
+    .ws-paper .pname { border:1px solid #2a2a2a !important; padding:2px 4px; font-size:11px; color:#444; word-break:break-word; min-width:96px; }
     .ws-paper .psub { border-left:1px solid #2a2a2a !important; font-size:7.5px; color:#555; padding:1px 3px; width:30px; }
     .ws-paper .pcell { text-align:center; font-family:'RatioHand','Segoe Script',cursive; font-size:14px; color:#22314d; min-width:34px; padding:1px 2px; }
     .ws-paper .pghost { text-align:center; font-size:10px; color:#b9b2a0; min-width:34px; }
@@ -1556,7 +1556,8 @@
                  consistent so the strip history doesn't fragment. -->
             <div id="ws-notes-suggest" style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:6px"></div>
             <textarea id="ws-notes-input" rows="2" maxlength="500" oninput="wsNoteInput()" placeholder="How did it go? Or name the day — &quot;Push day&quot; labels it up top" style="width:100%;box-sizing:border-box;background:#fffdf8;border:1px solid #999;border-radius:4px;padding:8px 10px;font-size:14px;color:#22314d;font-family:'RatioHand','Segoe Script',cursive;resize:vertical"></textarea>
-            <div style="display:flex;gap:6px;margin-top:6px">
+            <div style="display:flex;gap:6px;margin-top:6px;align-items:stretch">
+              <button type="button" aria-label="Dictate a note" onclick="_wsDictate(document.getElementById('ws-notes-input'), this, { append: true })" style="width:40px;border-radius:4px;background:var(--gold-tint);border:1px solid #CFA13C;color:#CFA13C;cursor:pointer;font-size:13px;flex-shrink:0"><i class="fa-solid fa-microphone"></i></button>
               <button type="button" onclick="wsSaveNotes()" style="flex:1;padding:8px;background:#2a2a2a;color:#f7f5f0;border:none;border-radius:4px;font-size:11px;font-weight:700;cursor:pointer">SAVE</button>
               <button type="button" onclick="wsCancelNotes()" style="flex:1;padding:8px;background:none;color:#555;border:1px solid #999;border-radius:4px;font-size:11px;font-weight:700;cursor:pointer">CANCEL</button>
             </div>
@@ -11770,7 +11771,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-22-at-wrapall';
+const RATIO_BUILD = '2026-08-23-au-wkvoice';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -12518,9 +12519,10 @@ function renderTodayStrength() {
   }
 
   // Shared column count: the whole sheet aligns under ONE set of columns.
-  // Minimum five (SET 1-5 printed on the form); a bigger day widens the grid
-  // and it scrolls sideways inside the paper.
-  let nCols = 5;
+  // Minimum FOUR printed (his call — SET 5 was dead width on a phone); a
+  // bigger day auto-widens the grid and scrolls sideways inside the paper,
+  // so a 5th logged set still gets its column the moment it exists.
+  let nCols = 4;
   for (const n of order) if (byEx[n].length > nCols) nCols = byEx[n].length;
   for (const p of remaining) if ((+p.sets || 0) > nCols) nCols = +p.sets;
 
@@ -15604,7 +15606,7 @@ function renderShoppingList() {
         <div class="card-title" style="margin-bottom:0">Shopping List</div>
         <button type="button" onclick="shareShoppingList()" style="flex-shrink:0;background:var(--surface);color:#CFA13C;border:1px solid var(--gold-line);border-radius:20px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">📤 Share</button>
       </div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:14px">${activeDishCount ? `Pulled from ${activeDishCount} dish${activeDishCount === 1 ? '' : 'es'} added to this week's prep plan — add anything else below. ` : 'Nothing from meal prep yet — add whatever you need below. '}Press and hold an item to drag it into your store's order.</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:14px">${activeDishCount ? `Pulled from ${activeDishCount} dish${activeDishCount === 1 ? '' : 'es'} added to this week's prep plan — add anything else below. ` : 'Nothing from meal prep yet — add whatever you need below. '}Press and hold an item to drag it into your store's order.${(!window._famStatus || !window._famStatus.household) ? ' <span style=\"color:#CFA13C\">Sharing with family? Turn on Team up in Settings.</span>' : ''}</div>
 
       <div style="display:flex;gap:8px;margin-bottom:14px">
         <input type="text" id="shopping-add-input" placeholder="Add an item (e.g. milk, paper towels)" onkeydown="if(event.key==='Enter') addShoppingExtra()" style="flex:1;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:16px;outline:none" />
@@ -17868,20 +17870,96 @@ async function wsStartSession(dayIdx) {
 
 // Tap a blank line, write on it. The name cell becomes an input; enter (or
 // the keyboard's Done) resolves against the library and opens the set sheet.
+// ---- _wsDictate: one mic for the workout sheet (exercise names + notes) ----
+// Native Capacitor speech when the plugin exists, web speech otherwise.
+// Reuses _webSpeechJoin so Android's duplicate-snapshot stutter is collapsed.
+// Second tap stops. commit:true blurs into wsBlankRowCommit when speech ends;
+// append:true dictates onto existing text (notes) instead of replacing.
+let _wsDict = null;
+async function _wsDictate(el, btn, opts) {
+  opts = opts || {};
+  if (_wsDict && _wsDict.active) { _wsDict.stop(); return; }
+  if (!el) return;
+  const base = opts.append ? String(el.value || '').trim() : '';
+  const put = (t) => { el.value = base ? (t ? base + ' ' + t : base) : t; };
+  const glow = (on) => { if (!btn) return; btn.style.boxShadow = on ? '0 0 0 4px rgba(207,161,60,0.35)' : ''; btn.style.background = on ? '#CFA13C' : 'var(--gold-tint)'; btn.style.color = on ? '#101512' : '#CFA13C'; };
+  const state = { active: true, lastHeard: Date.now(), timer: null, stop: null };
+  _wsDict = state;
+  el.dataset.dictating = '1';
+  glow(true);
+  const finish = () => {
+    if (!state.active) return;
+    state.active = false;
+    clearInterval(state.timer);
+    glow(false);
+    el.dataset.dictating = '';
+    if (opts.commit) { try { wsBlankRowCommit(el); } catch (e) {} }
+  };
+  const watchdog = (stopFn) => {
+    state.timer = setInterval(() => {
+      const quiet = Date.now() - state.lastHeard;
+      const total = Date.now() - state.started;
+      if (quiet > 2800 || total > 25000) { try { stopFn(); } catch (e) { finish(); } }
+    }, 400);
+  };
+  state.started = Date.now();
+  const plugin = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.SpeechRecognition;
+  if (plugin) {
+    try {
+      const avail = await plugin.available();
+      if (!avail || !avail.available) throw new Error('unavailable');
+      let perm = await plugin.checkPermissions();
+      if (perm.speechRecognition !== 'granted') perm = await plugin.requestPermissions();
+      if (perm.speechRecognition !== 'granted') { toast('Microphone permission needed \u2014 enable in Settings'); finish(); return; }
+      await plugin.removeAllListeners();
+      plugin.addListener('partialResults', (d) => {
+        state.lastHeard = Date.now();
+        const m = d && d.matches && d.matches[0];
+        if (m) put(m);
+      });
+      state.stop = async () => { try { await plugin.stop(); } catch (e) {} try { await plugin.removeAllListeners(); } catch (e) {} finish(); };
+      await plugin.start({ language: 'en-US', maxResults: 1, partialResults: true, popup: false });
+      watchdog(() => state.stop());
+    } catch (e) { console.error('[wsDictate] native failed', e); finish(); toast('Mic unavailable \u2014 type instead'); }
+    return;
+  }
+  const Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!Ctor) { toast('Voice input needs the iOS app or Chrome \u2014 type instead'); finish(); return; }
+  let rec;
+  try { rec = new Ctor(); } catch (e) { finish(); return; }
+  rec.lang = 'en-US'; rec.interimResults = true; rec.continuous = true; rec.maxAlternatives = 1;
+  rec.onresult = (ev) => { state.lastHeard = Date.now(); const t = _webSpeechJoin(ev); if (t) put(t); };
+  rec.onerror = () => {};
+  rec.onend = () => finish();
+  state.stop = () => { try { rec.stop(); } catch (e) { finish(); } };
+  try { rec.start(); watchdog(() => state.stop()); } catch (e) { finish(); }
+}
+
 function wsBlankRowTap(tbody) {
   if (!tbody || tbody.dataset.editing === '1') return;
   tbody.dataset.editing = '1';
   const nameCell = tbody.querySelector('.pname');
   if (!nameCell) return;
-  nameCell.innerHTML = `<input type="text" placeholder="exercise name\u2026" autocapitalize="words" class="ink"
-    style="width:100%;box-sizing:border-box;border:none;border-bottom:1px solid #6b6350;background:transparent;font-size:13px;outline:none;padding:1px 0"
+  // Say it or type it — the gold mic dictates straight into the input and
+  // commits through the exact same path as typing (canonical-name resolve,
+  // quick-log). pointerdown preventDefault keeps the input from blurring
+  // (and committing empty) when the mic is tapped.
+  nameCell.innerHTML = `<div style="display:flex;align-items:center;gap:4px">
+    <input type="text" placeholder="say or type\u2026" autocapitalize="words" class="ink"
+    style="flex:1;min-width:0;box-sizing:border-box;border:none;border-bottom:1px solid #6b6350;background:transparent;font-size:13px;outline:none;padding:1px 0"
     onkeydown="if(event.key==='Enter'){this.blur();}"
-    onblur="wsBlankRowCommit(this)">`;
+    onblur="wsBlankRowCommit(this)">
+    <button type="button" aria-label="Speak the exercise" onpointerdown="event.preventDefault()" onclick="_wsDictate(this.parentNode.querySelector('input'), this, { commit: true })"
+    style="width:26px;height:26px;border-radius:50%;background:var(--gold-tint);border:1px solid #CFA13C;color:#CFA13C;cursor:pointer;flex-shrink:0;font-size:11px;padding:0"><i class="fa-solid fa-microphone"></i></button>
+  </div>`;
   const input = nameCell.querySelector('input');
   if (input) setTimeout(() => { try { input.focus(); } catch (e) {} }, 30);
 }
 
 function wsBlankRowCommit(input) {
+  if (input.dataset.dictating === '1') return;   // mic is mid-capture — blur must not commit
+  if (input.dataset.committed === '1') return;   // blur + dictation-done can both land here
+  input.dataset.committed = '1';
   const t = (input.value || '').trim();
   const tbody = input.closest('tbody');
   if (!t) {
@@ -20116,7 +20194,7 @@ async function _progNutritionGlance() {
     const avgP = Math.round(days.reduce((a, d) => a + d.protein, 0) / days.length);
     const cTarget = (typeof userTargets !== 'undefined' && userTargets.calories) || 0;
     const pTarget = (typeof userTargets !== 'undefined' && userTargets.protein) || 0;
-    el.innerHTML = `<div style="font-weight:700;color:var(--ink)">This week's avg</div>` +
+    el.innerHTML = `<div style="font-weight:700;color:var(--ink)">7-day avg</div>` +
       `<div>Calories ${avgC.toLocaleString()}${cTarget ? ' / ' + cTarget.toLocaleString() : ''}</div>` +
       `<div>Protein ${avgP}g${pTarget ? ' / ' + pTarget + 'g' : ''}</div>`;
   } catch (e) { /* keep whatever is showing */ }
