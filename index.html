@@ -3795,7 +3795,7 @@ function renderTodoList() {
         <div class="card-title" style="margin-bottom:0">To-Do List</div>
         <button type="button" onclick="shareTodoList()" style="flex-shrink:0;background:var(--surface);color:#CFA13C;border:1px solid var(--gold-line);border-radius:20px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">📤 Share</button>
       </div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Sorted by soonest due date. Tap a task to check it off; tap × to remove it. You'll get a reminder when a task is due (unless it's already done).</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Sorted by soonest due date. Tap a task to check it off; tap × to remove it. You'll get a reminder when a task is due (unless it's already done).${(!window._famStatus || !window._famStatus.household) ? ' <span style=\"color:#CFA13C\">Sharing with family? Turn on Team up in Settings.</span>' : ''}</div>
 
       <div style="display:flex;gap:8px;margin-bottom:8px">
         <input type="text" id="todo-add-input" placeholder="Add a task (e.g. Mow the lawn)" onkeydown="if(event.key==='Enter') addTodoItemFromInput()" style="flex:1;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:16px;outline:none" />
@@ -11771,7 +11771,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-23-au-wkvoice';
+const RATIO_BUILD = '2026-08-23-av-testfixes';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -17911,7 +17911,8 @@ async function _wsDictate(el, btn, opts) {
       let perm = await plugin.checkPermissions();
       if (perm.speechRecognition !== 'granted') perm = await plugin.requestPermissions();
       if (perm.speechRecognition !== 'granted') { toast('Microphone permission needed \u2014 enable in Settings'); finish(); return; }
-      await plugin.removeAllListeners();
+      try { if (plugin.removeAllListeners) await plugin.removeAllListeners(); } catch (e) {}
+      console.log('[wsDictate] native start');
       plugin.addListener('partialResults', (d) => {
         state.lastHeard = Date.now();
         const m = d && d.matches && d.matches[0];
@@ -17927,6 +17928,7 @@ async function _wsDictate(el, btn, opts) {
   if (!Ctor) { toast('Voice input needs the iOS app or Chrome \u2014 type instead'); finish(); return; }
   let rec;
   try { rec = new Ctor(); } catch (e) { finish(); return; }
+  console.log('[wsDictate] web start');
   rec.lang = 'en-US'; rec.interimResults = true; rec.continuous = true; rec.maxAlternatives = 1;
   rec.onresult = (ev) => { state.lastHeard = Date.now(); const t = _webSpeechJoin(ev); if (t) put(t); };
   rec.onerror = () => {};
@@ -17942,18 +17944,26 @@ function wsBlankRowTap(tbody) {
   if (!nameCell) return;
   // Say it or type it — the gold mic dictates straight into the input and
   // commits through the exact same path as typing (canonical-name resolve,
-  // quick-log). pointerdown preventDefault keeps the input from blurring
-  // (and committing empty) when the mic is tapped.
+  // quick-log). The blur commit is DELAYED 220ms: tapping the mic blurs the
+  // input, but the mic's click lands inside the window and sets the
+  // dictating flag, which the commit guard respects. (preventDefault on
+  // pointerdown was the first attempt — it suppresses click on iOS. Dead
+  // button. Never again.)
   nameCell.innerHTML = `<div style="display:flex;align-items:center;gap:4px">
     <input type="text" placeholder="say or type\u2026" autocapitalize="words" class="ink"
     style="flex:1;min-width:0;box-sizing:border-box;border:none;border-bottom:1px solid #6b6350;background:transparent;font-size:13px;outline:none;padding:1px 0"
     onkeydown="if(event.key==='Enter'){this.blur();}"
-    onblur="wsBlankRowCommit(this)">
-    <button type="button" aria-label="Speak the exercise" onpointerdown="event.preventDefault()" onclick="_wsDictate(this.parentNode.querySelector('input'), this, { commit: true })"
+    onblur="wsBlankRowBlur(this)">
+    <button type="button" aria-label="Speak the exercise" onclick="_wsDictate(this.parentNode.querySelector('input'), this, { commit: true })"
     style="width:26px;height:26px;border-radius:50%;background:var(--gold-tint);border:1px solid #CFA13C;color:#CFA13C;cursor:pointer;flex-shrink:0;font-size:11px;padding:0"><i class="fa-solid fa-microphone"></i></button>
   </div>`;
   const input = nameCell.querySelector('input');
   if (input) setTimeout(() => { try { input.focus(); } catch (e) {} }, 30);
+}
+
+function wsBlankRowBlur(input) {
+  // Give a mic tap time to land before the blur commits/reset the row.
+  setTimeout(() => { try { wsBlankRowCommit(input); } catch (e) {} }, 220);
 }
 
 function wsBlankRowCommit(input) {
@@ -20178,10 +20188,13 @@ async function _progNutritionGlance() {
   const el = document.querySelector('#progcard-nutrition .prog-card-sub');
   if (!el) return;
   try {
-    const now = new Date();
-    const from = new Date(now.getTime() - 6 * 86400000);
-    const fromStr = `${from.getFullYear()}-${String(from.getMonth() + 1).padStart(2, '0')}-${String(from.getDate()).padStart(2, '0')}`;
-    const rows = await dbGet('meals', `select=date,calories,protein&date=gte.${fromStr}&order=date.asc`);
+    // Calendar weeks, Sunday-start — the same convention as the weekly email.
+    // Nothing logged yet this week? Show LAST week's average, labeled as last
+    // week. The moment a meal lands this week, it flips to this week's days.
+    const today = tzTodayStr();
+    const thisWk = _wrWeekStart(today);
+    const lastWk = _wrAddDays(thisWk, -7);
+    const rows = await dbGet('meals', `select=date,calories,protein&date=gte.${lastWk}&order=date.asc`);
     if (!rows || !rows.length) { el.textContent = 'Recent days and macro trends'; return; }
     const byDay = {};
     rows.forEach(r => {
@@ -20189,12 +20202,16 @@ async function _progNutritionGlance() {
       byDay[r.date].cals += +r.calories || 0;
       byDay[r.date].protein += +r.protein || 0;
     });
-    const days = Object.values(byDay);
-    const avgC = Math.round(days.reduce((a, d) => a + d.cals, 0) / days.length);
-    const avgP = Math.round(days.reduce((a, d) => a + d.protein, 0) / days.length);
+    const cur = [], prev = [];
+    for (const d in byDay) { if (d >= thisWk) cur.push(byDay[d]); else if (d >= lastWk) prev.push(byDay[d]); }
+    const pick = cur.length ? cur : prev;
+    if (!pick.length) { el.textContent = 'Recent days and macro trends'; return; }
+    const label = cur.length ? "This week's avg" : "Last week's avg";
+    const avgC = Math.round(pick.reduce((a, d) => a + d.cals, 0) / pick.length);
+    const avgP = Math.round(pick.reduce((a, d) => a + d.protein, 0) / pick.length);
     const cTarget = (typeof userTargets !== 'undefined' && userTargets.calories) || 0;
     const pTarget = (typeof userTargets !== 'undefined' && userTargets.protein) || 0;
-    el.innerHTML = `<div style="font-weight:700;color:var(--ink)">7-day avg</div>` +
+    el.innerHTML = `<div style="font-weight:700;color:var(--ink)">${label}</div>` +
       `<div>Calories ${avgC.toLocaleString()}${cTarget ? ' / ' + cTarget.toLocaleString() : ''}</div>` +
       `<div>Protein ${avgP}g${pTarget ? ' / ' + pTarget + 'g' : ''}</div>`;
   } catch (e) { /* keep whatever is showing */ }
