@@ -2344,10 +2344,10 @@
            inside a scrolling page. -->
       <div style="flex-shrink:0;background:var(--surface);padding:10px 10px calc(10px + env(safe-area-inset-bottom));border-top:1px solid var(--line);display:flex;gap:8px;align-items:center">
         <input id="vl-type-input" type="text" placeholder="Ask Coach&hellip;" autocomplete="off"
-          onfocus="vlTypeEngage()"
+          onfocus="vlTypeEngage()" oninput="_vlMorphBar()"
           onkeydown="if(event.key==='Enter')vlSubmitTyped()"
           style="flex:1;padding:13px 16px;border:1px solid var(--line);border-radius:24px;background:var(--bg-deep);color:var(--ink);font-size:15px;outline:none;min-width:0">
-        <button onclick="vlSubmitTyped()" aria-label="Send" style="width:46px;height:46px;border-radius:50%;background:var(--bg-deep);border:1px solid var(--line);color:var(--ink);cursor:pointer;flex-shrink:0"><i class="fa-solid fa-arrow-up"></i></button>
+        <button id="vl-bar-send" onclick="vlSubmitTyped()" aria-label="Send" style="display:none;width:46px;height:46px;border-radius:50%;background:#CFA13C;border:1px solid #CFA13C;color:#101512;cursor:pointer;flex-shrink:0"><i class="fa-solid fa-arrow-up"></i></button>
         <button id="vl-bar-mic" class="obchat-micbtn" onclick="vlBarMicTap()" aria-label="Speak" style="width:46px;height:46px;border-radius:50%;background:var(--gold-tint);border:1px solid #CFA13C;color:#CFA13C;cursor:pointer;flex-shrink:0"><i class="fa-solid fa-microphone"></i></button>
       </div>
     </div>
@@ -4781,6 +4781,7 @@ function vlShowState(state) {
     ti.placeholder = (state === 'listening') ? 'Listening\u2026' : 'Ask Coach\u2026';
   }
   if (state === 'listening') _vlWaveStart(); else _vlWaveStop();
+  _vlMorphBar();
   if (state === 'confirm') {
     const lines = OB_COACHES[vlCoachKey()].confirmLines;
     _vlThreadBot(lines[Math.floor(Math.random() * lines.length)]);
@@ -4877,6 +4878,22 @@ function vlTypeEngage() {
   if (ti && ti.value !== typed) ti.value = typed;
 }
 
+// ONE right-side button in the voice-log bar too (his find: keyboard-
+// dictated text stranded while our mic recorded over it): mic when the
+// box is empty, gold send when there's text. While listening the mic
+// stays visible — it's the stop control. JS failure = mic shows, Enter
+// still sends.
+function _vlMorphBar() {
+  const inp = document.getElementById('vl-type-input');
+  const send = document.getElementById('vl-bar-send');
+  const mic = document.getElementById('vl-bar-mic');
+  if (!inp || !send || !mic) return;
+  const listening = document.getElementById('vl-state-listening')?.style.display !== 'none';
+  const showSend = !!(inp.value || '').trim() && !listening;
+  send.style.display = showSend ? '' : 'none';
+  mic.style.display = showSend ? 'none' : '';
+}
+
 function vlSubmitTyped() {
   _vlVoiceTurn = false;
   const input = document.getElementById('vl-type-input');
@@ -4891,6 +4908,7 @@ function vlSubmitTyped() {
   if (typeWrap) typeWrap.style.display = 'none';
   input.value = '';
   _iosDictMop(input, text);
+  _vlMorphBar();
   _vlLiveText = text;
   vlHandleUtterance(text);
 }
@@ -11841,7 +11859,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-23-be-dictmop';
+const RATIO_BUILD = '2026-08-23-bf-vlmorph';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
