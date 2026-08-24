@@ -8126,6 +8126,10 @@ function obRefreshPhotoUI() {
     preview.style.display = 'none';
     if (ctrls) ctrls.style.display = 'none';
     box.style.display = 'block';
+    // Fall through - thumbs and the Next label refresh in BOTH states
+    // (clearing a photo must un-render its thumb immediately).
+    obRenderThumbs();
+    obUpdatePhotoBtn();
     return;
   }
   box.style.display = 'none';
@@ -12230,7 +12234,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-24-cb-obframer';
+const RATIO_BUILD = '2026-08-24-cc-obframer2';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
@@ -25665,19 +25669,19 @@ if (document.readyState === 'loading') {
       <!-- The preview IS the framer - same 3:4 box, drag/pinch/zoom and
            clamp math as the in-app "Adjust size" editor, so the photo lands
            in the app already framed ("one framing per photo everywhere"). -->
-      <div id="ob-photo-preview" style="display:none;margin-bottom:6px;position:relative">
-        <div id="ob-pf-box" style="height:340px;aspect-ratio:3/4;margin:0 auto;border-radius:12px;overflow:hidden;background:#000;touch-action:none;position:relative;cursor:grab">
+      <div id="ob-photo-preview" style="display:none;margin-bottom:10px">
+        <div id="ob-pf-box" style="height:280px;aspect-ratio:3/4;margin:0 auto;border-radius:12px;overflow:hidden;background:#000;touch-action:none;position:relative;cursor:grab;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none">
           <img id="ob-photo-img" style="width:100%;height:100%;object-fit:cover;will-change:transform" draggable="false" />
+          <button onclick="obClearCurrentAngle()" style="position:absolute;top:8px;right:8px;z-index:5;background:rgba(0,0,0,0.55);border:none;color:white;border-radius:50%;width:28px;height:28px;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">×</button>
         </div>
-        <button onclick="obClearCurrentAngle()" style="position:absolute;top:8px;right:calc(50% - 170px * 3 / 8 + 8px);background:rgba(0,0,0,0.55);border:none;color:white;border-radius:50%;width:28px;height:28px;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">×</button>
-      </div>
-      <div id="ob-pf-controls" style="display:none;margin-bottom:12px;max-width:340px;margin-left:auto;margin-right:auto">
-        <div style="display:flex;align-items:center;gap:10px">
-          <span style="font-size:11px;color:var(--muted);flex-shrink:0">Zoom</span>
-          <input type="range" id="ob-pf-zoom" min="1" max="3" step="0.01" value="1" oninput="_obpfSetZoom(this.value)" style="flex:1;accent-color:#CFA13C">
-          <button type="button" onclick="_obpfReset()" style="background:none;border:1px solid var(--line);border-radius:8px;padding:4px 10px;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0">Reset</button>
+        <div id="ob-pf-controls" style="display:none;max-width:280px;margin:8px auto 0;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:8px 12px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:11px;font-weight:700;color:var(--ink);flex-shrink:0">Zoom</span>
+            <input type="range" id="ob-pf-zoom" min="1" max="3" step="0.01" value="1" oninput="_obpfSetZoom(this.value)" style="flex:1;accent-color:#CFA13C;height:24px">
+            <button type="button" onclick="_obpfReset()" style="background:none;border:1px solid var(--line);border-radius:8px;padding:4px 10px;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0">Reset</button>
+          </div>
+          <div style="font-size:10.5px;color:var(--muted);margin-top:3px;text-align:center">Drag the photo to position it · pinch or slide to zoom</div>
         </div>
-        <div style="font-size:11px;color:var(--muted);margin-top:4px;text-align:center">Drag to position · pinch or slide to zoom</div>
       </div>
 
       <!-- Thumbnails row showing what's been added -->
