@@ -9683,6 +9683,19 @@ function _ocMissing() {
 // things exceeds what anyone holds in their head mid-sentence; a pinned card
 // with one example sentence to mimic gets the whole thing in one breath.
 const OC_FIELD_LABELS = { gender: 'Sex at birth', age: 'Age', height_ft: 'Height', weight_lb: 'Current weight', goal_weight_lb: 'Goal weight', activity: 'Activity level', pace: 'Weekly pace' };
+// The app's own gap-chaser: fires when required fields are missing and the
+// model's question isn't pursuing any of them. Throttled: at most every
+// 2nd interview turn, so it nudges without nagging.
+function _ocChaseLine(stillMissing, askedKey, capped) {
+  if (capped || !stillMissing.length || !_oc) return null;
+  _oc.turnN = (_oc.turnN || 0) + 1;
+  if (askedKey && stillMissing.includes(askedKey)) return null;   // model on task
+  if (_oc.lastChaseTurn !== undefined && (_oc.turnN - _oc.lastChaseTurn) < 2) return null;
+  _oc.lastChaseTurn = _oc.turnN;
+  const labels = stillMissing.map(k => (OC_FIELD_LABELS[k] || k).toLowerCase());
+  const list = labels.length === 1 ? labels[0] : labels.slice(0, -1).join(', ') + ' and ' + labels[labels.length - 1];
+  return `Before I can build your plan I still need your ${list} — just tell me whenever.`;
+}
 // The two invented terms get plain-English hints right on the card - if the
 // app's own creator needed them defined mid-interview, everyone will.
 function _ocFieldHint(k) {
@@ -10024,6 +10037,10 @@ async function _ocTurn(userText) {
       _oc.busy = false;
       return;
     }
+    // DETERMINISTIC FIELD CHASE (Lauren's stall: model said "all set" with
+    // height + weight never captured; the gate refused silently forever).
+    // If fields are missing and the model isn't pursuing one, the APP asks.
+    const _chaseLine = _ocChaseLine(_ocMissing(), askedKey, !!data.capped);
     let offerTyping = false;
     if (gotFields) {
       _oc.missStreak = 0;
@@ -10045,7 +10062,7 @@ async function _ocTurn(userText) {
           { label: "Keep talking", action: () => {} }
         ]);
       }
-    } : undefined);
+    } : (_chaseLine ? { onSpoken: () => _ocAddBot(_chaseLine) } : undefined));
     _ocRenderCard();
     if (data.capped || !_ocMissing().length) _ocComplete();
   } catch (e) {
@@ -10073,6 +10090,24 @@ function _ocComplete() {
     _oc.genderAskShown = true;
     _ocAddBot("One last thing before I can build this: the calorie formula uses sex assigned at birth. Which should I use for the math?", { onSpoken: chips });
     return;
+  }
+  // CAP-HOLE GUARD: the worker's turn cap can reach here with the core
+  // numbers still empty — blank height/weight/age would feed NaN into the
+  // plan math. Refuse, ask them to TYPE the missing numbers, parse locally.
+  {
+    const f0 = _oc.fields;
+    const needNums = [];
+    if (f0.age === undefined || f0.age === null) needNums.push('age');
+    if (f0.height_ft === undefined || f0.height_ft === null) needNums.push('height (like 5\'3")');
+    if (f0.weight_lb === undefined || f0.weight_lb === null) needNums.push('weight in lb');
+    if (needNums.length) {
+      if (!_oc.numChase) {
+        _oc.numChase = true;
+        _ocAddBot(`Almost there — type your ${needNums.join(', ')} below and I'll finish your plan.`);
+        document.getElementById('obchat-input')?.focus();
+      }
+      return;
+    }
   }
   _oc.stage = 'done';
   const f = _oc.fields;
@@ -10161,9 +10196,52 @@ function _ocExitIntroMode() {
   if (bar) bar.style.display = 'none';
 }
 
+// $0 parser for the cap-hole chase: pulls height (5'3 / 5 3 / 5ft3), a
+// weight (with lb or the larger bare number 70-700), and an age (13-100)
+// out of one typed line. Fills only what it confidently finds.
+function _ocParseNums(text, f) {
+  const t = String(text || '').toLowerCase();
+  const got = {};
+  const h = t.match(/([4-7])\s*(?:'|ft|foot|feet|\s)\s*(\d{1,2})?/);
+  if ((f.height_ft === undefined || f.height_ft === null) && h) {
+    const ft = +h[1], inch = h[2] !== undefined ? +h[2] : 0;
+    if (ft >= 4 && ft <= 7 && inch >= 0 && inch < 12) { got.height_ft = ft; got.height_in = inch; }
+  }
+  const w = t.match(/(\d{2,3})(?:\.\d+)?\s*(?:lb|lbs|pounds)/) || null;
+  if (f.weight_lb === undefined || f.weight_lb === null) {
+    let wv = w ? parseFloat(w[1]) : NaN;
+    if (!isFinite(wv)) {
+      // bare numbers: the one in 70-700 that is NOT the height digits
+      const nums = (t.match(/\d{2,3}(?:\.\d+)?/g) || []).map(parseFloat)
+        .filter(n => n >= 70 && n <= 700 && !(got.height_ft && n === got.height_ft * 100 + (got.height_in || 0)));
+      if (nums.length === 1) wv = nums[0];
+    }
+    if (isFinite(wv) && wv >= 70 && wv <= 700) got.weight_lb = wv;
+  }
+  if (f.age === undefined || f.age === null) {
+    const a = (t.match(/\d{2,3}/g) || []).map(Number).filter(n => n >= 13 && n <= 100
+      && n !== got.weight_lb && !(got.height_ft && n === got.height_ft * 10 + (got.height_in || 0)));
+    if (a.length === 1) got.age = a[0];
+  }
+  return got;
+}
 function _ocDispatch(text) {
   // During the wrap-up every input (typed or spoken) is handled locally.
   if (_oc && _oc.wrapup) { _wuHandleText(text); return; }
+  // Cap-hole numeric chase: parse locally, no AI — the AI may be capped out.
+  if (_oc && _oc.numChase) {
+    _ocAddUser(text);
+    Object.assign(_oc.fields, _ocParseNums(text, _oc.fields));
+    _ocRenderChecklist();
+    const still = [];
+    if (_oc.fields.age == null) still.push('age');
+    if (_oc.fields.height_ft == null) still.push('height (like 5\'3")');
+    if (_oc.fields.weight_lb == null) still.push('weight in lb');
+    if (still.length) { _ocAddBot(`Got part of it — still need your ${still.join(' and ')}.`); return; }
+    _oc.numChase = false;
+    _ocComplete();
+    return;
+  }
   if (_oc) _oc._pinTop = false;   // they acted — normal bottom-follow resumes
   _ocHeroCollapse();              // acting always ends the intro choreography
   document.getElementById('obchat-mic')?.classList.remove('hint');
@@ -11882,7 +11960,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-23-bl-famshare';
+const RATIO_BUILD = '2026-08-23-bm-fieldchase';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
