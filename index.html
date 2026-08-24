@@ -8057,6 +8057,49 @@ function obNumpadCancel() {
 // ONBOARDING PHOTO — Front/Side/Back
 let _obCurrentAngle = 'front';
 let _obPhotos = {}; // { front: File, side: File, back: File }
+// Per-angle framing chosen on the signup photos screen. Same {s,x,y} shape
+// and clamp math as the in-app framer (_pf*), and it rides into the
+// progress_photos.align column at upload so gallery/Compare/lightbox honor
+// it from the first render.
+let _obPhotoAlign = {};
+function _obpfA() { return _obPhotoAlign[_obCurrentAngle] || (_obPhotoAlign[_obCurrentAngle] = { s: 1, x: 0, y: 0 }); }
+function _obpfApply() {
+  const img = document.getElementById('ob-photo-img'); const a = _obpfA();
+  if (img) img.style.transform = `translate(${a.x}%, ${a.y}%) scale(${a.s})`;
+  const z = document.getElementById('ob-pf-zoom'); if (z && +z.value !== a.s) z.value = a.s;
+}
+function _obpfClamp() { const a = _obpfA(); const m = 50 * (a.s - 1) / a.s; a.x = Math.min(m, Math.max(-m, a.x)); a.y = Math.min(m, Math.max(-m, a.y)); }
+function _obpfSetZoom(v) { const a = _obpfA(); a.s = Math.min(3, Math.max(1, +v || 1)); _obpfClamp(); _obpfApply(); }
+function _obpfReset() { _obPhotoAlign[_obCurrentAngle] = { s: 1, x: 0, y: 0 }; _obpfApply(); }
+// Ride-along for the upload sites: null when untouched so default rows stay
+// clean (matches how _cmpSave only stores meaningful aligns).
+function _obAlignFor(angle) {
+  const a = _obPhotoAlign[angle];
+  if (!a || (a.s === 1 && a.x === 0 && a.y === 0)) return null;
+  return { s: +a.s.toFixed(3), x: +a.x.toFixed(2), y: +a.y.toFixed(2) };
+}
+let _obpfBound = false;
+function _obpfBind() {
+  const c = document.getElementById('ob-pf-box');
+  if (!c || _obpfBound) return;
+  _obpfBound = true;
+  let sx = 0, sy = 0, px = 0, py = 0, pinchStart = 0, zoomStart = 1, dragging = false;
+  const dist = t => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+  const rect = () => c.getBoundingClientRect();
+  const pan = (cx, cy) => { const a = _obpfA(); const r = rect(); a.x = px + (cx - sx) / (r.width * a.s) * 100; a.y = py + (cy - sy) / (r.height * a.s) * 100; _obpfClamp(); _obpfApply(); };
+  c.addEventListener('touchstart', e => {
+    if (e.touches.length === 2) { pinchStart = dist(e.touches); zoomStart = _obpfA().s; }
+    else if (e.touches.length === 1) { dragging = true; sx = e.touches[0].clientX; sy = e.touches[0].clientY; const a = _obpfA(); px = a.x; py = a.y; }
+  }, { passive: true });
+  c.addEventListener('touchmove', e => {
+    if (e.touches.length === 2 && pinchStart) { _obpfSetZoom(zoomStart * dist(e.touches) / pinchStart); }
+    else if (e.touches.length === 1 && dragging) { pan(e.touches[0].clientX, e.touches[0].clientY); }
+  }, { passive: true });
+  c.addEventListener('touchend', e => { if (e.touches.length === 0) { dragging = false; pinchStart = 0; } }, { passive: true });
+  c.addEventListener('mousedown', e => { dragging = true; sx = e.clientX; sy = e.clientY; const a = _obpfA(); px = a.x; py = a.y; e.preventDefault(); });
+  window.addEventListener('mousemove', e => { if (dragging) pan(e.clientX, e.clientY); });
+  window.addEventListener('mouseup', () => { dragging = false; });
+}
 
 function obSelectAngle(angle, btn) {
   _obCurrentAngle = angle;
@@ -8072,14 +8115,20 @@ function obRefreshPhotoUI() {
   const preview = document.getElementById('ob-photo-preview');
   const box = document.getElementById('ob-upload-box');
   const img = document.getElementById('ob-photo-img');
+  const ctrls = document.getElementById('ob-pf-controls');
   if (file) {
     img.src = file._previewUrl;
     preview.style.display = 'block';
-    box.style.display = 'none';
+    if (ctrls) ctrls.style.display = 'block';
+    _obpfApply();
+    _obpfBind();
   } else {
     preview.style.display = 'none';
+    if (ctrls) ctrls.style.display = 'none';
     box.style.display = 'block';
+    return;
   }
+  box.style.display = 'none';
   obRenderThumbs();
   obUpdatePhotoBtn();
 }
@@ -8094,7 +8143,7 @@ function obRenderThumbs() {
     if (f) {
       return `<div onclick="obSelectAngle('${a}', document.querySelectorAll('.ob-angle-btn')[${i}])"
         style="position:relative;width:72px;height:72px;border-radius:8px;overflow:hidden;cursor:pointer;border:2px solid ${active ? '#CFA13C' : 'var(--line)'}">
-        <img src="${f._previewUrl}" style="width:100%;height:100%;object-fit:cover" />
+        <img src="${f._previewUrl}" style="width:100%;height:100%;object-fit:cover${(_obPhotoAlign[a] && (_obPhotoAlign[a].s !== 1 || _obPhotoAlign[a].x !== 0 || _obPhotoAlign[a].y !== 0)) ? `;transform:translate(${_obPhotoAlign[a].x}%, ${_obPhotoAlign[a].y}%) scale(${_obPhotoAlign[a].s})` : ''}" />
         <div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.45);color:white;font-size:9px;font-weight:700;text-align:center;padding:3px;text-transform:uppercase">${a}</div>
       </div>`;
     }
@@ -8129,6 +8178,7 @@ function obPhotoSelected(evt) {
         const compressed = new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' });
         compressed._previewUrl = canvas.toDataURL('image/jpeg', 0.8);
         _obPhotos[_obCurrentAngle] = compressed;
+        _obPhotoAlign[_obCurrentAngle] = { s: 1, x: 0, y: 0 };   // fresh photo, fresh framing
         document.getElementById('ob-photo-input').value = '';
         obRefreshPhotoUI();
       }, 'image/jpeg', 0.8);
@@ -8140,6 +8190,7 @@ function obPhotoSelected(evt) {
 
 function obClearCurrentAngle() {
   delete _obPhotos[_obCurrentAngle];
+  delete _obPhotoAlign[_obCurrentAngle];
   obRefreshPhotoUI();
 }
 function obClearPhoto() { obClearCurrentAngle(); }
@@ -11124,7 +11175,7 @@ async function handleLogin() {
         if (p.startingPhotos?.length > 0) {
           for (const photo of p.startingPhotos) {
             try {
-              const inserted = await dbPost('progress_photos', { date: photo.date, photo_url: photo.url, angle: photo.angle, notes: 'Starting photo' });
+              const inserted = await dbPost('progress_photos', { date: photo.date, photo_url: photo.url, angle: photo.angle, notes: 'Starting photo', ...(photo.align ? { align: photo.align } : {}) });
               console.log('[handleLogin] photo row inserted:', photo.angle, inserted);
             } catch(e) { console.error('[handleLogin] photo row insert failed', photo.angle, e); }
           }
@@ -11192,7 +11243,8 @@ async function _finishSignUpInBackground(pendingData, newUserId, username) {
           });
           if (!res.ok) throw new Error(`upload failed for ${angle}: ${res.status}`);
           const url = `${SUPABASE_URL}/storage/v1/object/public/progress-photos/${path}`;
-          return { angle, url, date: photoDate };
+          const _al = _obAlignFor(angle);
+          return { angle, url, date: photoDate, ...(_al ? { align: _al } : {}) };
         })
       );
       const uploadedPhotos = uploadResults.filter(r => r.status === 'fulfilled').map(r => r.value);
@@ -12178,7 +12230,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-24-ca-wuresid';
+const RATIO_BUILD = '2026-08-24-cb-obframer';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
@@ -12447,7 +12499,7 @@ async function dismissWelcome() {
       try {
         const already = await dbGet('progress_photos', `date=eq.${up.date}&angle=eq.${up.angle}&select=id`);
         if (already && already.length) continue;
-        await dbPost('progress_photos', { date: up.date, photo_url: up.url, angle: up.angle, notes: 'Starting photo' });
+        await dbPost('progress_photos', { date: up.date, photo_url: up.url, angle: up.angle, notes: 'Starting photo', ...(up.align ? { align: up.align } : {}) });
       } catch (e) { console.warn('Could not record starting photo row:', up.angle, e); }
     }
     window._obUploadedPhotos = null;
@@ -12462,7 +12514,8 @@ async function dismissWelcome() {
         const uploadRes = await storageUpload('progress-photos', path, file);
         if (uploadRes.error) throw new Error(uploadRes.error);
         const url = storageUrl('progress-photos', path) + '?t=' + Date.now();
-        await dbPost('progress_photos', { date, photo_url: url, angle, notes: 'Starting photo' });
+        const _al = _obAlignFor(angle);
+        await dbPost('progress_photos', { date, photo_url: url, angle, notes: 'Starting photo', ...(_al ? { align: _al } : {}) });
         return angle;
       })
     );
@@ -12556,7 +12609,7 @@ async function appInit() {
           // Insert starting photo rows if photos were uploaded during signup
           if (p.startingPhotos?.length > 0) {
             for (const photo of p.startingPhotos) {
-              try { await dbPost('progress_photos', { date: photo.date, photo_url: photo.url, angle: photo.angle, notes: 'Starting photo' }); } catch(e) { console.warn('[appInit] photo row insert failed', e); }
+              try { await dbPost('progress_photos', { date: photo.date, photo_url: photo.url, angle: photo.angle, notes: 'Starting photo', ...(photo.align ? { align: photo.align } : {}) }); } catch(e) { console.warn('[appInit] photo row insert failed', e); }
             }
           }
           if (p.username) {
@@ -25609,9 +25662,22 @@ if (document.readyState === 'loading') {
         <div style="font-size:12px;color:var(--muted)">JPG or PNG</div>
       </div>
 
-      <div id="ob-photo-preview" style="display:none;margin-bottom:16px;position:relative">
-        <img id="ob-photo-img" style="width:100%;border-radius:12px;max-height:280px;object-fit:cover" />
-        <button onclick="obClearCurrentAngle()" style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.55);border:none;color:white;border-radius:50%;width:28px;height:28px;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">×</button>
+      <!-- The preview IS the framer - same 3:4 box, drag/pinch/zoom and
+           clamp math as the in-app "Adjust size" editor, so the photo lands
+           in the app already framed ("one framing per photo everywhere"). -->
+      <div id="ob-photo-preview" style="display:none;margin-bottom:6px;position:relative">
+        <div id="ob-pf-box" style="height:340px;aspect-ratio:3/4;margin:0 auto;border-radius:12px;overflow:hidden;background:#000;touch-action:none;position:relative;cursor:grab">
+          <img id="ob-photo-img" style="width:100%;height:100%;object-fit:cover;will-change:transform" draggable="false" />
+        </div>
+        <button onclick="obClearCurrentAngle()" style="position:absolute;top:8px;right:calc(50% - 170px * 3 / 8 + 8px);background:rgba(0,0,0,0.55);border:none;color:white;border-radius:50%;width:28px;height:28px;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">×</button>
+      </div>
+      <div id="ob-pf-controls" style="display:none;margin-bottom:12px;max-width:340px;margin-left:auto;margin-right:auto">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:11px;color:var(--muted);flex-shrink:0">Zoom</span>
+          <input type="range" id="ob-pf-zoom" min="1" max="3" step="0.01" value="1" oninput="_obpfSetZoom(this.value)" style="flex:1;accent-color:#CFA13C">
+          <button type="button" onclick="_obpfReset()" style="background:none;border:1px solid var(--line);border-radius:8px;padding:4px 10px;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0">Reset</button>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px;text-align:center">Drag to position · pinch or slide to zoom</div>
       </div>
 
       <!-- Thumbnails row showing what's been added -->
