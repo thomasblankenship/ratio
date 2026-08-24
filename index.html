@@ -10082,7 +10082,7 @@ async function _ocTurn(userText) {
       // Already have a plan; if this edit changed the inputs, replace the
       // now-stale plan bubble with the current numbers so the newest plan
       // is always the last thing on screen.
-      if (_ocPlanKey() !== _planKeyBefore) { _ocSyncPlanFields(); setTimeout(() => _ocShowPlanAndCreate(_oc.fields), 500); }
+      if (_ocPlanKey() !== _planKeyBefore) { _ocSyncPlanFields(); _ocShowPlanAndCreate(_oc.fields); }
     } else if (data.capped || !_ocMissing().length) {
       _ocComplete();
     }
@@ -10174,12 +10174,19 @@ function _ocComplete() {
   }
   // The plan bubble gets its own beat — posting it in the same tick as the
   // "got it all" summary stamped two messages at the same instant.
-  setTimeout(() => _ocShowPlanAndCreate(f), 650);
+  _ocShowPlanAndCreate(f);
 }
 // The plan summary + Create-my-account chip. Named so the Create Account
 // back button can bring the user right back here instead of a dead chat.
 function _ocShowPlanAndCreate(f) {
   f = f || (_oc && _oc.fields) || {};
+  // Give the plan its OWN beat: a typing indicator first, so it reads as the
+  // coach building the plan AFTER the summary/correction — not two bubbles
+  // stamped at the same instant. Guard against overlapping calls.
+  if (_oc) { if (_oc._planBeat) clearTimeout(_oc._planBeat); }
+  _ocTyping(true);
+  const _emit = () => {
+  _ocTyping(false);
   const plan = obCalcPlan();
   _ocAddBot(`Here's your plan${f.name ? ', ' + f.name : ''}: ${plan.calories.toLocaleString()} calories a day with ${plan.protein}g of protein.` +
     (plan.goalDateStr && plan.goalDateStr !== 'Track progress to see' ? ` At your pace you'd hit ${plan.goalWeight} lb around ${plan.goalDateStr}.` : '') +
@@ -10189,6 +10196,8 @@ function _ocShowPlanAndCreate(f) {
     document.getElementById('ob-chat').style.display = 'none';
     obShowStep(7);
   } }]);
+  };
+  if (_oc) _oc._planBeat = setTimeout(_emit, 900); else setTimeout(_emit, 900);
 }
 
 function obChatSend() {
@@ -12010,7 +12019,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-23-br-versionrow';
+const RATIO_BUILD = '2026-08-23-bs-planbeat';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
@@ -25345,7 +25354,7 @@ if (document.readyState === 'loading') {
       <div style="font-size:11px;color:var(--muted);text-align:center;line-height:1.6">By creating an account you agree to our <button type="button" onclick="showLegalOverlay('tos')" style="background:none;border:none;padding:0;font:inherit;color:#CFA13C;text-decoration:underline;cursor:pointer">Terms of Service</button> and <button type="button" onclick="showLegalOverlay('privacy')" style="background:none;border:none;padding:0;font:inherit;color:#CFA13C;text-decoration:underline;cursor:pointer">Privacy Policy</button>. We'll send a verification email to confirm your address.</div>
     </div>
     <div style="padding:20px 24px 40px;display:flex;gap:10px">
-      <button onclick="obBack(7)" style="padding:16px 20px;border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);font-size:20px;cursor:pointer">←</button>
+      <button onclick="obBack(7)" style="padding:16px 20px;border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);font-size:15px;font-weight:600;cursor:pointer;white-space:nowrap">← Back to my plan</button>
       <button id="ob-signup-btn" onclick="obNext(7)" style="display:none;flex:1;padding:16px;background:#CFA13C;color:#101512;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer">Next →</button>
     </div>
   </div>
