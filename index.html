@@ -7729,10 +7729,14 @@ function _wuParseAll(raw) {
       }
     }
   }
-  // Chase-mode fallback: when favorites is the ONLY thing left, take the
-  // utterance verbatim - a bare "steak" answering "still need favorite foods"
-  // is a real answer and _wuStrike'ing it just confused Lauren (Aug 24).
-  if (!_wu.done.favorites && _wu.done.steps && _wu.done.allergies) {
+  // Chase-mode fallback: a bare food name ("steak") is a real favorites
+  // answer. It can never be a STEPS answer (those are numeric or "don't
+  // track" phrasing), so only ALLERGIES needs to be settled to disambiguate
+  // - requiring steps too made "Steak" strike twice while steps was still
+  // open (Lauren, Aug 24 evening). got.length===0 stops the fallback from
+  // re-consuming an utterance another parser already claimed ("I don't
+  // track steps" must never ALSO become the favorites string).
+  if (!_wu.done.favorites && _wu.done.allergies && got.length === 0) {
     const cleaned = String(raw || '').trim().replace(/[.!?;,]+$/, '').trim();
     if (cleaned.length >= 2 && cleaned.length <= 200
         && !/^\d/.test(cleaned)
@@ -9179,10 +9183,13 @@ async function obClaimContinue() {
   const btn = document.getElementById('ob-claim-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
   try {
+    // Set BEFORE the await: obSaveAndWelcome runs appInit deep inside itself
+    // (via showWelcomeScreen), and the resume gate reads this flag to know it
+    // is mid-claim - not a relaunch that should bounce back into the wrap-up.
+    window._obPostClaim = true;
     await obSaveAndWelcome();
     // The account now EXISTS — step 7's sign-in buttons are poison from
     // here (Lauren tapped back, hit them signed-in, dead end). No back.
-    window._obPostClaim = true;
     obShowStep(8);
     try { const b8 = document.getElementById('ob-step8-back'); if (b8) b8.style.visibility = 'hidden'; } catch (e) {}
   } catch (e) {
@@ -11171,7 +11178,57 @@ async function _finishSignUpInBackground(pendingData, newUserId, username) {
   } catch(e) { console.warn('[bgFinish] background sync failed:', e); }
 }
 
+// Persists ONLY the post-claim wrap-up answers (steps goal, allergies,
+// favorites, health/notification opt-ins) into settings that already exist.
+// Used when finishing onboarding in a RESUMED session: the legacy controls
+// are empty there, and a full obSaveAndWelcome would rebuild the profile
+// from silent defaults (180 lb, 'male') - the exact class of bug the
+// gender hard-gate exists to prevent.
+async function obMergeWrapupIntoSettings() {
+  try {
+    const [goals, targets, preferences] = await Promise.all([
+      loadSetting('goals'), loadSetting('targets'), loadSetting('preferences')
+    ]);
+    const g = goals || {}, t = targets || {}, p = preferences || {};
+    if (window._obStepsTrackingOn !== undefined) g.stepsTrackingOn = !!window._obStepsTrackingOn;
+    t.steps = obStepGoal();
+    if (window._obAllergies) p.allergies = window._obAllergies;
+    if (window._obAllergiesOther !== undefined) p.allergiesOther = window._obAllergiesOther;
+    if (window._obFavoriteFoods !== undefined) p.favoriteFoods = window._obFavoriteFoods;
+    await Promise.all([saveSetting('goals', g), saveSetting('targets', t), saveSetting('preferences', p)]);
+    if (window._obHealthOptIn) { try { await saveSetting('healthkit_enabled', true); } catch (e) {} }
+    await saveSetting('notifications_enabled', window._obNotifOptIn !== false);
+    await saveSetting('todo_notifications_enabled', window._obNotifOptIn !== false);
+    localStorage.setItem('ff_onboarded', '1');
+    obClearProgress();
+  } catch (e) { console.warn('[wrapup-merge] failed', e); }
+}
 async function handleSignUp() {
+  // OAUTH/CLAIM PATH: the account already exists (obClaimContinue ran
+  // obSaveAndWelcome at the claim screen) and there is NO password - the
+  // validation below would hard-stick the reminders screen with "Password
+  // must be at least 6 characters". Two sub-cases:
+  //  - same-session finish: the interview's answers still sit in the legacy
+  //    controls, so re-running obSaveAndWelcome is correct AND picks up the
+  //    wrap-up answers written after the claim.
+  //  - resumed session (relaunched mid-flow): controls are EMPTY - merge
+  //    only the wrap-up answers, never rebuild the profile from defaults.
+  // Stamping onboarding_complete FIRST makes the resume gate loop-proof:
+  // the appInit that runs on the way into the app sees the key and passes.
+  if (_currentUser && _authToken) {
+    try { await saveSetting('onboarding_complete', true); } catch (e) {}
+    window._obCompleteWritten = true;
+    const _age = document.getElementById('ob-age')?.value;
+    const _wt = document.getElementById('ob-weight')?.value;
+    document.querySelectorAll('.ob-screen').forEach(el => { el.style.display = 'none'; });
+    if (_age && _wt) { await obSaveAndWelcome(); }
+    else {
+      await obMergeWrapupIntoSettings();
+      document.getElementById('app-shell').style.display = 'block';
+      await appInit();
+    }
+    return;
+  }
   const name = window._obSignupName || document.getElementById('ob-signup-name')?.value.trim();
   const username = window._obSignupUsername || document.getElementById('ob-signup-username')?.value.trim().toLowerCase();
   const email = window._obSignupEmail || document.getElementById('ob-signup-email')?.value.trim();
@@ -11200,6 +11257,10 @@ async function handleSignUp() {
       // Auto-confirmed (email confirmation disabled)
       _authToken = data.access_token;
       _currentUser = data.user;
+      // Email path reaches handleSignUp only at the very end of onboarding -
+      // stamp completion so the resume gate passes on the way in.
+      try { await saveSetting('onboarding_complete', true); } catch (e) {}
+      window._obCompleteWritten = true;
       document.querySelectorAll('.ob-screen').forEach(el => { el.style.display = 'none'; });
       await obSaveAndWelcome();
     } else {
@@ -12069,7 +12130,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-24-bx-obcomplete';
+const RATIO_BUILD = '2026-08-24-by-resumewrap';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
@@ -12273,7 +12334,13 @@ async function obSaveAndWelcome() {
   } catch(e) { console.warn('notification preference save failed', e); }
   localStorage.setItem('ff_onboarded', '1');
   obClearProgress();
-  if (weight) { try { await dbPost('scans', { date: today, weight }); } catch(e) {} }
+  // obSaveAndWelcome runs TWICE on the OAuth path (claim + step 11) - only
+  // insert the starting-weight scan if today has none, or the day gets two.
+  if (weight) {
+    let _dupScan = false;
+    try { const _ex = await dbGet('scans', `date=eq.${today}&select=id&limit=1`); _dupScan = !!(_ex && _ex.length); } catch (e) {}
+    if (!_dupScan) { try { await dbPost('scans', { date: today, weight }); } catch (e) {} }
+  }
 
   // Show the "your plan is ready" welcome screen — same design used everywhere
   // else this plan summary appears, so there's one consistent look.
@@ -12452,6 +12519,10 @@ async function appInit() {
           fetch(`${SUPABASE_URL}/rest/v1/user_settings?user_id=eq.${_currentUser.id}&key=eq.pending_onboarding`, {
             method: 'DELETE', headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${_authToken}` }
           }).catch(() => {});
+          // A recovered pending bundle carries every answer - applying it IS
+          // completing onboarding, so stamp it or the resume gate re-asks.
+          try { await saveSetting('onboarding_complete', true); } catch (e) {}
+          window._obCompleteWritten = true;
           await showWelcomeScreen();
           return;
         } catch(e) {
@@ -12461,6 +12532,26 @@ async function appInit() {
       }
     startSignup();
     return;
+  }
+  // UNFINISHED-SETUP RESUME: profile exists (account is real - the sweep
+  // never touches it) but onboarding_complete was never stamped: they quit
+  // before the end. Without this, relaunching mid-wrap-up walked straight
+  // into a working dashboard with setup half-done (Lauren, Aug 24 evening).
+  // Accounts created before the stamp existed are grandfathered by creation
+  // date, so no established account can ever be bounced into onboarding.
+  // _obPostClaim guards the appInit that fires DURING the cold claim flow.
+  {
+    const OB_COMPLETE_CUTOFF = '2026-08-24';
+    const _created = (_currentUser?.created_at || '').slice(0, 10);
+    if (_created >= OB_COMPLETE_CUTOFF && !window._obCompleteWritten && !window._obPostClaim) {
+      const _obc = await loadSetting('onboarding_complete');
+      if (!_obc) {
+        console.log('[appInit] joined but setup unfinished - resuming wrap-up');
+        document.getElementById('app-shell').style.display = 'none';
+        obWrapupStart();
+        return;
+      }
+    }
   }
   // Past the gate = a real account about to see the dashboard. That event is
   // what makes "finished onboarding" knowable (never a boot timer), so stamp
