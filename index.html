@@ -8078,6 +8078,16 @@ function _obAlignFor(angle) {
   if (!a || (a.s === 1 && a.x === 0 && a.y === 0)) return null;
   return { s: +a.s.toFixed(3), x: +a.x.toFixed(2), y: +a.y.toFixed(2) };
 }
+// iOS ignores user-scalable=no (since iOS 10) - a pinch anywhere zoomed the
+// whole PAGE (his 6:44 screenshot: date field hanging off a zoomed layout,
+// framer pinch never seen). The only real block is preventDefault on the
+// gesture events + multi-touch moves. This stops BROWSER zoom app-wide;
+// our own pinch handlers still receive every event untouched.
+if (typeof document !== 'undefined') {
+  document.addEventListener('gesturestart', e => e.preventDefault());
+  document.addEventListener('gesturechange', e => e.preventDefault());
+  document.addEventListener('touchmove', e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+}
 let _obpfBound = false;
 function _obpfBind() {
   const c = document.getElementById('ob-pf-box');
@@ -8090,11 +8100,12 @@ function _obpfBind() {
   c.addEventListener('touchstart', e => {
     if (e.touches.length === 2) { pinchStart = dist(e.touches); zoomStart = _obpfA().s; }
     else if (e.touches.length === 1) { dragging = true; sx = e.touches[0].clientX; sy = e.touches[0].clientY; const a = _obpfA(); px = a.x; py = a.y; }
-  }, { passive: true });
+  }, { passive: false });
   c.addEventListener('touchmove', e => {
+    e.preventDefault();   // the box owns its gestures - never scroll, never page-zoom
     if (e.touches.length === 2 && pinchStart) { _obpfSetZoom(zoomStart * dist(e.touches) / pinchStart); }
     else if (e.touches.length === 1 && dragging) { pan(e.touches[0].clientX, e.touches[0].clientY); }
-  }, { passive: true });
+  }, { passive: false });
   c.addEventListener('touchend', e => { if (e.touches.length === 0) { dragging = false; pinchStart = 0; } }, { passive: true });
   c.addEventListener('mousedown', e => { dragging = true; sx = e.clientX; sy = e.clientY; const a = _obpfA(); px = a.x; py = a.y; e.preventDefault(); });
   window.addEventListener('mousemove', e => { if (dragging) pan(e.clientX, e.clientY); });
@@ -8185,6 +8196,9 @@ function obPhotoSelected(evt) {
         _obPhotoAlign[_obCurrentAngle] = { s: 1, x: 0, y: 0 };   // fresh photo, fresh framing
         document.getElementById('ob-photo-input').value = '';
         obRefreshPhotoUI();
+        // Bring the framer + zoom card into view no matter the screen height -
+        // they rendered below the fold twice; scrolling is the guarantee.
+        setTimeout(() => { try { document.getElementById('ob-photo-preview').scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) {} }, 80);
       }, 'image/jpeg', 0.8);
     };
     img.src = ev.target.result;
@@ -12234,7 +12248,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-24-cc-obframer2';
+const RATIO_BUILD = '2026-08-24-cd-obframer3';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
@@ -25635,7 +25649,7 @@ if (document.readyState === 'loading') {
 
   <!-- Step 8: Starting Photos (optional) -->
   <div class="ob-screen" id="ob-step-8" style="position:fixed;top:0;left:0;right:0;bottom:0;background:var(--surface);display:none;flex-direction:column;z-index:9999">
-    <div style="padding:calc(env(safe-area-inset-top, 0px) + 16px) 24px 0;flex:1;overflow-y:auto;min-height:0">
+    <div style="padding:calc(env(safe-area-inset-top, 0px) + 10px) 24px 0;flex:1;overflow-y:auto;min-height:0">
       <div style="font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Progress photos</div>
       <div style="font-size:26px;font-weight:800;color:var(--ink);letter-spacing:-0.5px;margin-bottom:8px">Capture your starting point</div>
       <div style="font-size:14px;color:var(--muted);margin-bottom:24px;line-height:1.5">Take a photo now, or already a few weeks in? Upload one you already have and set the date it was taken — your journey, your timeline.</div>
@@ -25670,7 +25684,7 @@ if (document.readyState === 'loading') {
            clamp math as the in-app "Adjust size" editor, so the photo lands
            in the app already framed ("one framing per photo everywhere"). -->
       <div id="ob-photo-preview" style="display:none;margin-bottom:10px">
-        <div id="ob-pf-box" style="height:280px;aspect-ratio:3/4;margin:0 auto;border-radius:12px;overflow:hidden;background:#000;touch-action:none;position:relative;cursor:grab;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none">
+        <div id="ob-pf-box" style="height:260px;aspect-ratio:3/4;margin:0 auto;border-radius:12px;overflow:hidden;background:#000;touch-action:none;position:relative;cursor:grab;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none">
           <img id="ob-photo-img" style="width:100%;height:100%;object-fit:cover;will-change:transform" draggable="false" />
           <button onclick="obClearCurrentAngle()" style="position:absolute;top:8px;right:8px;z-index:5;background:rgba(0,0,0,0.55);border:none;color:white;border-radius:50%;width:28px;height:28px;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">×</button>
         </div>
@@ -25744,7 +25758,7 @@ if (document.readyState === 'loading') {
 
   <!-- Step 10: Apple Health -->
   <div class="ob-screen" id="ob-step-10" style="position:fixed;top:0;left:0;right:0;bottom:0;background:var(--surface);display:none;flex-direction:column;z-index:9999">
-    <div style="padding:calc(env(safe-area-inset-top, 0px) + 16px) 24px 0;flex:1;overflow-y:auto;min-height:0">
+    <div style="padding:calc(env(safe-area-inset-top, 0px) + 10px) 24px 0;flex:1;overflow-y:auto;min-height:0">
       <div style="font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">One last thing</div>
       <div style="font-size:26px;font-weight:800;color:var(--ink);letter-spacing:-0.5px;margin-bottom:8px">Connect Apple Health</div>
       <div style="font-size:14px;color:var(--muted);margin-bottom:24px;line-height:1.5">Let Ratio import your activity automatically — no manual logging.</div>
@@ -25776,7 +25790,7 @@ if (document.readyState === 'loading') {
 
   <!-- Step 11: Reminders -->
   <div class="ob-screen" id="ob-step-11" style="position:fixed;top:0;left:0;right:0;bottom:0;background:var(--surface);display:none;flex-direction:column;z-index:9999">
-    <div style="padding:calc(env(safe-area-inset-top, 0px) + 16px) 24px 0;flex:1;overflow-y:auto;min-height:0">
+    <div style="padding:calc(env(safe-area-inset-top, 0px) + 10px) 24px 0;flex:1;overflow-y:auto;min-height:0">
       <div style="font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Last one</div>
       <div style="font-size:26px;font-weight:800;color:var(--ink);letter-spacing:-0.5px;margin-bottom:8px">Want a nudge now and then?</div>
       <div style="font-size:14px;color:var(--muted);margin-bottom:24px;line-height:1.5">People who log consistently see the clearest results. A quiet reminder helps.</div>
