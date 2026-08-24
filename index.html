@@ -4174,7 +4174,11 @@ async function syncHealthKitWorkouts(showToast) {
           healthkit_id: w.id
         }, 'healthkit_id');
         importedCount++;
-      } catch (e) { failedCount++; console.error('HealthKit workout import failed for', w.id, e?.message || String(e)); }
+      } catch (e) {
+        const msg = e?.message || String(e);
+        if (/no auth session/i.test(msg)) { console.log('[HealthKit] signed out mid-sync — workout import stopped; next login re-covers it'); break; }
+        failedCount++; console.error('HealthKit workout import failed for', w.id, msg);
+      }
     }
     // Honest bookkeeping: the watermark only advances on a clean sweep. The
     // 30-day rolling window re-covers failures either way, but "Last synced"
@@ -4211,7 +4215,11 @@ async function syncHealthKitSteps(showToast) {
         await dbUpsert('daily_steps', { date: d.date, steps: d.steps }, 'user_id,date');
         stepFails = 0;
       } catch (e) {
-        console.error('HealthKit steps import failed for', d.date, e?.message || String(e));
+        const msg = e?.message || String(e);
+        // Signed out mid-backfill: the refusal is correct, not a mystery —
+        // one calm line, stop now, post-login sync re-covers these days.
+        if (/no auth session/i.test(msg)) { console.log('[HealthKit] signed out mid-sync — steps import stopped; next login re-covers it'); break; }
+        console.error('HealthKit steps import failed for', d.date, msg);
         if (++stepFails >= 3) { console.error('[HealthKit] aborting steps import \u2014 3 consecutive failures, next sync will retry'); break; }
       }
     }
@@ -9556,7 +9564,7 @@ function _ocSetGoal(key) {
 
 // Lauren's handoff, then the coach's full-size entrance. One sequence for
 // both the chip path and the spoken path.
-function _ocIntroduceCoach(coachKey, goalKey) {
+function _ocIntroduceCoach(coachKey, goalKey, handoffLine) {
   _oc.stage = 'interview';
   if (goalKey === 'maintain') _oc.fields.pace = 'maintain';
   const c = OB_COACHES[coachKey];
@@ -9607,7 +9615,7 @@ function _ocIntroduceCoach(coachKey, goalKey) {
   // Lauren speaks BEFORE the coach is assigned, so her line uses her voice.
   // The pause is the point: her line has to stay readable AFTER it finishes,
   // because the screen it explains is about to replace it.
-  _ocAddBot(`I know just the trainer for you — let me introduce you to ${c.name}.`,
+  _ocAddBot(handoffLine || `I know just the trainer for you — let me introduce you to ${c.name}.`,
     { onSpoken: () => setTimeout(enterCoach, OB_HANDOFF_PAUSE_MS) });
 }
 
@@ -9645,14 +9653,19 @@ function _ocAfterSpeech(cb) {
 
 // Spoken goal selection — the mic test happens ON the goal question, so
 // "I want to lose some body fat" has to work without an API round-trip.
-function _ocMatchGoal(text) {
+// All goal patterns a sentence hits, in ladder (priority) order. First is
+// primary; extras mean the user named a combo and deserves to hear that
+// the whole sentence was heard.
+function _ocMatchGoals(text) {
   const t = text.toLowerCase();
-  if (/(body ?fat|bf%|lean|tone|cut|shred)/.test(t)) return 'fat_loss';
-  if (/(muscle|bulk|gain|stronger|mass)/.test(t)) return 'muscle_gain';
-  if (/(maintain|keep|stay|perform)/.test(t)) return 'maintain';
-  if (/(lose|drop|weight|slim|smaller)/.test(t)) return 'weight_loss';
-  return null;
+  const out = [];
+  if (/(body ?fat|bf%|lean|tone|cut|shred)/.test(t)) out.push('fat_loss');
+  if (/(muscle|bulk|gain|stronger|mass)/.test(t)) out.push('muscle_gain');
+  if (/(maintain|keep|stay|perform)/.test(t)) out.push('maintain');
+  if (/(lose|drop|weight|slim|smaller)/.test(t)) out.push('weight_loss');
+  return out;
 }
+function _ocMatchGoal(text) { return _ocMatchGoals(text)[0] || null; }
 
 const OC_REQUIRED = () => {
   const need = ['gender', 'age', 'height_ft', 'weight_lb', 'activity', 'pace'];
@@ -10154,14 +10167,21 @@ function _ocDispatch(text) {
   if (_oc.stage === 'goal') {
     _ocExitIntroMode();
     _ocAddUser(text);
-    const goal = _ocMatchGoal(text);
+    const goals = _ocMatchGoals(text);
+    const goal = goals[0] || null;
     if (goal) {
       const box = document.getElementById('obchat-messages');
       const chips = box.querySelector('.obchat-chips'); if (chips) chips.remove();
       // _ocSetGoal adds its own user bubble for the chip path; here the user
       // already spoke, so set state directly.
       _obGoalType = goal;
-      _ocIntroduceCoach(OB_COACHES.ian.goals.includes(goal) ? 'ian' : 'olivia', goal);
+      // Named 2+ goals? Say the decision out loud instead of silently
+      // picking (his find: "gain muscle and maintain" — the pick was
+      // right, but nothing showed the sentence was fully heard).
+      const combo = goals.length >= 2
+        ? `You mentioned a couple of goals — ${OB_GOAL_LABELS[goal].toLowerCase()} leads, and that's exactly ${OB_COACHES[OB_COACHES.ian.goals.includes(goal) ? 'ian' : 'olivia'].name}'s specialty. Let me introduce you.`
+        : null;
+      _ocIntroduceCoach(OB_COACHES.ian.goals.includes(goal) ? 'ian' : 'olivia', goal, combo);
     } else {
       _oc.goalMisses = (_oc.goalMisses || 0) + 1;
       if (_oc.goalMisses >= 3) {
@@ -11859,7 +11879,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-23-bf-vlmorph';
+const RATIO_BUILD = '2026-08-23-bh-quietsignout';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
