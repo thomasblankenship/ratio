@@ -7646,7 +7646,12 @@ function obWrapupStart() {
   _wu = { strikes: 0, done: { steps: false, allergies: false, favorites: false }, steps: null, stepsOn: true, allergies: [], other: [], favorites: '' };
   _oc.wrapup = true;
   const first = (window._obSignupName || '').trim().split(/\s+/)[0];
-  _ocAddBot(`Almost there${first ? ', ' + first : ''}! Last three things \u2014 you can tell me all of them at once: \u2460 your daily step goal (or that you don\u2019t track steps), \u2461 any food allergies or foods to avoid, \u2462 favorite foods for your meal plans. For example: \u201c8,000 steps, allergic to dairy, love steak and rice.\u201d`, { onSpoken: () => _wuChips() });
+  // No chips on the initial ask: the interview never shows chips at ask
+  // time (they only appear as a forced-choice fallback after strikes), and
+  // throwing three "No X" chips up front trains the user to tap instead of
+  // speak - the opposite of every other turn (Semmes' catch, Aug 24). Chips
+  // still appear reactively via _wuAdvance (chase) and _wuStrike (retry).
+  _ocAddBot(`Almost there${first ? ', ' + first : ''}! Last three things \u2014 you can tell me all of them at once: \u2460 your daily step goal (or that you don\u2019t track steps), \u2461 any food allergies or foods to avoid, \u2462 favorite foods for your meal plans. For example: \u201c8,000 steps, allergic to dairy, love steak and rice.\u201d`);
 }
 function _wuMissing() {
   const m = [];
@@ -7695,7 +7700,12 @@ function _wuParseAll(raw) {
       }
       const cm = t.match(/(?:allergic to|allergy to|allergies to|avoid|can'?t (?:have|eat)|stay away from)\s+([^.!?;\u2461\u2462]{2,80})/g) || [];
       for (const seg of cm) {
-        const tail = seg.replace(/^(?:allergic to|allergy to|allergies to|avoid|can'?t (?:have|eat)|stay away from)\s+/, '');
+        let tail = seg.replace(/^(?:allergic to|allergy to|allergies to|avoid|can'?t (?:have|eat)|stay away from)\s+/, '');
+        // "allergic to dairy, love steak and rice" - without this cut the tail
+        // captures past the favorites clause and "rice" falls into _wu.other
+        // as a made-up allergy (Lauren's live catch, Aug 24).
+        tail = tail.replace(/\s*[,;]?\s*(?:love|loves|favorites?|really like|enjoy|big on)\b[\s\S]*$/, '').trim();
+        if (!tail) continue;
         for (const tok of tail.split(/,|\band\b|\bor\b/)) {
           const key = tok.replace(/[^a-z\s]/g, '').trim();
           if (!key || key.length < 2 || key.length > 28 || /step|allerg|food|track|favorite|love/.test(key)) continue;
@@ -7717,6 +7727,19 @@ function _wuParseAll(raw) {
         fav = fav.replace(/\s*(?:,|and|\bi\b)?\s*(?:don'?t track|no allerg)[\s\S]*$/, '').trim();
         if (fav.length >= 2) { _wu.favorites = fav.slice(0, 200); _wu.done.favorites = true; got.push(`favorites: ${_wu.favorites}`); }
       }
+    }
+  }
+  // Chase-mode fallback: when favorites is the ONLY thing left, take the
+  // utterance verbatim - a bare "steak" answering "still need favorite foods"
+  // is a real answer and _wuStrike'ing it just confused Lauren (Aug 24).
+  if (!_wu.done.favorites && _wu.done.steps && _wu.done.allergies) {
+    const cleaned = String(raw || '').trim().replace(/[.!?;,]+$/, '').trim();
+    if (cleaned.length >= 2 && cleaned.length <= 200
+        && !/^\d/.test(cleaned)
+        && !/^(?:no\b|none\b|skip\b|nothing\b)/i.test(cleaned)) {
+      _wu.favorites = cleaned.slice(0, 200);
+      _wu.done.favorites = true;
+      got.push(`favorites: ${_wu.favorites}`);
     }
   }
   return got;
@@ -12042,7 +12065,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-23-bu-chasenow';
+const RATIO_BUILD = '2026-08-24-bw-noaskchips';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
