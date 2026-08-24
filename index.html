@@ -7729,21 +7729,38 @@ function _wuParseAll(raw) {
       }
     }
   }
-  // Chase-mode fallback: a bare food name ("steak") is a real favorites
-  // answer. It can never be a STEPS answer (those are numeric or "don't
-  // track" phrasing), so only ALLERGIES needs to be settled to disambiguate
-  // - requiring steps too made "Steak" strike twice while steps was still
-  // open (Lauren, Aug 24 evening). got.length===0 stops the fallback from
-  // re-consuming an utterance another parser already claimed ("I don't
-  // track steps" must never ALSO become the favorites string).
-  if (!_wu.done.favorites && _wu.done.allergies && got.length === 0) {
-    const cleaned = String(raw || '').trim().replace(/[.!?;,]+$/, '').trim();
-    if (cleaned.length >= 2 && cleaned.length <= 200
-        && !/^\d/.test(cleaned)
-        && !/^(?:no\b|none\b|skip\b|nothing\b)/i.test(cleaned)) {
-      _wu.favorites = cleaned.slice(0, 200);
-      _wu.done.favorites = true;
-      got.push(`favorites: ${_wu.favorites}`);
+  // RESIDUAL FAVORITES: strip every phrase the other parsers recognize
+  // (allergy statements, 'no allergies', step counts, 'don't track steps')
+  // and whatever food-like text remains IS a favorites answer. Fixes two
+  // live catches (Aug 24): 'Steak no allergies' locked allergies but lost
+  // Steak (the old got-empty gate blocked mixed utterances), and 'Pizza'
+  // said after favorites were locked struck instead of appending. Gated on
+  // allergies settled so a bare food is never mis-read as an allergy.
+  if (_wu.done.allergies) {
+    const _favThisTurn = got.some(g => g.startsWith('favorites'));
+    let res = String(raw || '');
+    res = res.replace(/\b(?:i\s+)?(?:don'?t|dont|do not|not|never|no)\s+(?:track|count|watch)\w*\s+(?:my\s+)?steps?\b/gi, ' ');
+    res = res.replace(/\bno\s+(?:food\s+)?allergies\b|\ballergies[:\s]*none\b|\bnothing\s+i'?m\s+allergic\s+to\b/gi, ' ');
+    res = res.replace(/\b(?:allergic to|allergy to|allergies to|avoid|can'?t (?:have|eat)|stay away from)\s+[^.!?;]{0,80}/gi, ' ');
+    res = res.replace(/\b\d[\d,\.]*\s*k?\s*steps?\b/gi, ' ');
+    res = res.replace(/\b\d[\d,\.]*k?\b/g, ' ');
+    res = res.replace(/\b(?:love|loves|enjoy|really like|big on|favorites?\s*(?:are|is|:)?)\b/gi, ' ');
+    res = res.replace(/[.!?;,]+/g, ' ').replace(/^\s*(?:and|also|plus|or)\b/i, ' ').replace(/\s+/g, ' ').trim();
+    const _resBad = /^(?:no|none|skip|nothing|what|how|why|when|where|who|next|done|ok|okay|yes|yeah|yep|sure|help|hold|wait|stop|hang|um|uh|hmm)\b/i;
+    if (res.length >= 2 && res.length <= 200 && !/\d/.test(res) && !_resBad.test(res)) {
+      if (!_wu.done.favorites) {
+        _wu.favorites = res.slice(0, 200);
+        _wu.done.favorites = true;
+        got.push(`favorites: ${_wu.favorites}`);
+      } else if (!_favThisTurn && _wu.favorites
+                 && res.toLowerCase() !== _wu.favorites.toLowerCase()
+                 && !_wu.favorites.toLowerCase().includes(res.toLowerCase())
+                 && res.split(/\s+/).length <= 3) {
+        // Favorites already locked and only steps remains - a food word here
+        // means 'also this'. Append; the ack shows the full list.
+        _wu.favorites = (_wu.favorites + ', ' + res).slice(0, 200);
+        got.push(`favorites: ${_wu.favorites}`);
+      }
     }
   }
   return got;
@@ -7767,8 +7784,15 @@ function _wuStrike() {
   _wu.strikes += 1;
   if (_wu.strikes >= 3) return _wuForce();
   const missing = _wuMissing();
+  // The example mirrors ONLY what is still missing - reciting 'no
+  // allergies, love chicken' after those were already locked reads as not
+  // listening (his catch, Aug 24 evening).
+  const _ex = [];
+  if (!_wu.done.steps) _ex.push('10,000 steps');
+  if (!_wu.done.allergies) _ex.push('no allergies');
+  if (!_wu.done.favorites) _ex.push('love chicken and rice');
   const line = _wu.strikes === 1
-    ? `That one slipped past me. I still need ${missing.join(' and ')} \u2014 for example \u201c10,000 steps, no allergies, love chicken and rice.\u201d`
+    ? `That one slipped past me. I still need ${missing.join(' and ')} \u2014 for example \u201c${_ex.join(', ')}.\u201d`
     : `Let\u2019s nail this down \u2014 just ${missing.join(' and ')}, or tap an option below.`;
   _ocAddBot(line, { onSpoken: () => _wuChips() });
 }
@@ -12154,7 +12178,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-24-bz-acctintent';
+const RATIO_BUILD = '2026-08-24-ca-wuresid';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
@@ -25554,17 +25578,7 @@ if (document.readyState === 'loading') {
 
   <!-- Step 8: Starting Photos (optional) -->
   <div class="ob-screen" id="ob-step-8" style="position:fixed;top:0;left:0;right:0;bottom:0;background:var(--surface);display:none;flex-direction:column;z-index:9999">
-    <div style="padding:24px 24px 0;flex:1;overflow-y:auto;min-height:0">
-      <div style="display:flex;gap:4px;margin-bottom:32px">
-        <div style="flex:1;height:4px;background:#CFA13C;border-radius:2px"></div>
-        <div style="flex:1;height:4px;background:#CFA13C;border-radius:2px"></div>
-        <div style="flex:1;height:4px;background:#CFA13C;border-radius:2px"></div>
-        <div style="flex:1;height:4px;background:#CFA13C;border-radius:2px"></div>
-        <div style="flex:1;height:4px;background:#CFA13C;border-radius:2px"></div>
-        <div style="flex:1;height:4px;background:#CFA13C;border-radius:2px"></div>
-        <div style="flex:1;height:4px;background:#CFA13C;border-radius:2px"></div>
-        <div style="flex:1;height:4px;background:#CFA13C;border-radius:2px"></div>
-      </div>
+    <div style="padding:calc(env(safe-area-inset-top, 0px) + 16px) 24px 0;flex:1;overflow-y:auto;min-height:0">
       <div style="font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Progress photos</div>
       <div style="font-size:26px;font-weight:800;color:var(--ink);letter-spacing:-0.5px;margin-bottom:8px">Capture your starting point</div>
       <div style="font-size:14px;color:var(--muted);margin-bottom:24px;line-height:1.5">Take a photo now, or already a few weeks in? Upload one you already have and set the date it was taken — your journey, your timeline.</div>
@@ -25660,19 +25674,7 @@ if (document.readyState === 'loading') {
 
   <!-- Step 10: Apple Health -->
   <div class="ob-screen" id="ob-step-10" style="position:fixed;top:0;left:0;right:0;bottom:0;background:var(--surface);display:none;flex-direction:column;z-index:9999">
-    <div style="padding:24px 24px 0;flex:1;overflow-y:auto;min-height:0">
-      <div style="display:flex;gap:4px;margin-bottom:32px">
-        <div style="flex:1;height:4px;background:#CFA13C;border-radius:2px"></div>
-        <div style="flex:1;height:4px;background:#CFA13C;border-radius:2px"></div>
-        <div style="flex:1;height:4px;background:#CFA13C;border-radius:2px"></div>
-        <div style="flex:1;height:4px;background:#CFA13C;border-radius:2px"></div>
-        <div style="flex:1;height:4px;background:#CFA13C;border-radius:2px"></div>
-        <div style="flex:1;height:4px;background:#CFA13C;border-radius:2px"></div>
-        <div style="flex:1;height:4px;background:#CFA13C;border-radius:2px"></div>
-        <div style="flex:1;height:4px;background:#CFA13C;border-radius:2px"></div>
-        <div style="flex:1;height:4px;background:#CFA13C;border-radius:2px"></div>
-        <div style="flex:1;height:4px;background:#CFA13C;border-radius:2px"></div>
-      </div>
+    <div style="padding:calc(env(safe-area-inset-top, 0px) + 16px) 24px 0;flex:1;overflow-y:auto;min-height:0">
       <div style="font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">One last thing</div>
       <div style="font-size:26px;font-weight:800;color:var(--ink);letter-spacing:-0.5px;margin-bottom:8px">Connect Apple Health</div>
       <div style="font-size:14px;color:var(--muted);margin-bottom:24px;line-height:1.5">Let Ratio import your activity automatically — no manual logging.</div>
@@ -25704,19 +25706,7 @@ if (document.readyState === 'loading') {
 
   <!-- Step 11: Reminders -->
   <div class="ob-screen" id="ob-step-11" style="position:fixed;top:0;left:0;right:0;bottom:0;background:var(--surface);display:none;flex-direction:column;z-index:9999">
-    <div style="padding:24px 24px 0;flex:1;overflow-y:auto;min-height:0">
-      <div style="display:flex;gap:4px;margin-bottom:32px">
-        <div style="flex:1;height:4px;background:#CFA13C;border-radius:2px"></div>
-        <div style="flex:1;height:4px;background:#CFA13C;border-radius:2px"></div>
-        <div style="flex:1;height:4px;background:#CFA13C;border-radius:2px"></div>
-        <div style="flex:1;height:4px;background:#CFA13C;border-radius:2px"></div>
-        <div style="flex:1;height:4px;background:#CFA13C;border-radius:2px"></div>
-        <div style="flex:1;height:4px;background:#CFA13C;border-radius:2px"></div>
-        <div style="flex:1;height:4px;background:#CFA13C;border-radius:2px"></div>
-        <div style="flex:1;height:4px;background:#CFA13C;border-radius:2px"></div>
-        <div style="flex:1;height:4px;background:#CFA13C;border-radius:2px"></div>
-        <div style="flex:1;height:4px;background:#CFA13C;border-radius:2px"></div>
-      </div>
+    <div style="padding:calc(env(safe-area-inset-top, 0px) + 16px) 24px 0;flex:1;overflow-y:auto;min-height:0">
       <div style="font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Last one</div>
       <div style="font-size:26px;font-weight:800;color:var(--ink);letter-spacing:-0.5px;margin-bottom:8px">Want a nudge now and then?</div>
       <div style="font-size:14px;color:var(--muted);margin-bottom:24px;line-height:1.5">People who log consistently see the clearest results. A quiet reminder helps.</div>
