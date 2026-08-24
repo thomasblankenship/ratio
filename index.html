@@ -7004,8 +7004,12 @@ async function dbGet(table, filters = '', skipUserFilter = false) {
 async function saveSetting(key, value) {
   try {
     const uid = _currentUser?.id;
-    const body = uid ? { key, value, user_id: uid } : { key, value };
-    const conflict = uid ? 'user_id,key' : 'key';
+    // A setting has no valid home without an owner: user_settings is unique
+    // on (user_id, key), so a signed-out ON CONFLICT (key) upsert 400s with
+    // 42P10. Skip quietly — these re-save after login.
+    if (!uid) { console.log('[saveSetting] skipped (signed out):', key); return; }
+    const body = { key, value, user_id: uid };
+    const conflict = 'user_id,key';
     const res = await fetch(`${SUPABASE_URL}/rest/v1/user_settings?on_conflict=${conflict}`, {
       method: 'POST',
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${_authToken || SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates,return=minimal' },
@@ -7847,7 +7851,14 @@ function obBack(step) {
     // must never land on a legacy step.
     document.querySelectorAll('.ob-screen').forEach(el => { el.style.display = 'none'; });
     const chat = document.getElementById('ob-chat');
-    if (window._oc && _oc.coach && chat) { chat.style.display = 'flex'; return; }
+    // 4th back-button casualty: this used to reopen a chat that had already
+    // torn down after the interview — a dead end that forced a restart. Now
+    // it re-offers the plan + Create button so it's a real round trip.
+    if (window._oc && _oc.coach && chat) {
+      chat.style.display = 'flex';
+      if (_oc.stage === 'done') _ocShowPlanAndCreate(_oc.fields);
+      return;
+    }
     if (typeof showAuthScreen === 'function') { showAuthScreen(); return; }
     return;   // legacy step 1 is retired — never a destination
   }
@@ -9996,6 +10007,9 @@ async function _ocTurn(userText) {
     _ocTyping(false);
     if (data.debug) console.warn('[obchat] server-side turn failure:', data.debug);
     const gotFields = data.fields && Object.keys(data.fields).length > 0;
+    // Fingerprint the plan inputs BEFORE this turn's fields land, so a
+    // post-completion edit that moves the plan can refresh the stale bubble.
+    const _planKeyBefore = _ocPlanKey();
     // A goal weight they actually stated always beats a derived one.
     if (data.fields && data.fields.goal_weight_lb !== undefined && data.fields.goal_weight_lb !== null) _oc.goalWeightDerived = false;
     if (data.fields) Object.assign(_oc.fields, data.fields);
@@ -10064,7 +10078,14 @@ async function _ocTurn(userText) {
       }
     } : (_chaseLine ? { onSpoken: () => _ocAddBot(_chaseLine) } : undefined));
     _ocRenderCard();
-    if (data.capped || !_ocMissing().length) _ocComplete();
+    if (_oc.stage === 'done') {
+      // Already have a plan; if this edit changed the inputs, replace the
+      // now-stale plan bubble with the current numbers so the newest plan
+      // is always the last thing on screen.
+      if (_ocPlanKey() !== _planKeyBefore) { _ocSyncPlanFields(); setTimeout(() => _ocShowPlanAndCreate(_oc.fields), 500); }
+    } else if (data.capped || !_ocMissing().length) {
+      _ocComplete();
+    }
   } catch (e) {
     console.error('[obchat] turn failed', e);
     _ocTyping(false);
@@ -10073,6 +10094,24 @@ async function _ocTurn(userText) {
   _oc.busy = false;
 }
 
+// Fingerprint of every input obCalcPlan depends on — changes to any of
+// these after completion mean the shown plan is stale.
+function _ocPlanKey() {
+  const f = (_oc && _oc.fields) || {};
+  return [f.gender, f.age, f.height_ft, f.height_in, f.weight_lb, f.goal_weight_lb, f.body_fat_pct, f.goal_body_fat_pct, f.activity, f.pace, _obGoalType].join('|');
+}
+// Push _oc.fields into the classic form fields obCalcPlan reads. Shared by
+// _ocComplete and the post-completion edit refresh.
+function _ocSyncPlanFields() {
+  const f = _oc.fields;
+  _obGender = f.gender || _obGender || 'male';
+  _obActivity = f.activity || _obActivity || 'moderate';
+  _obPace = f.pace || _obPace || (_obGoalType === 'maintain' ? 'maintain' : 'lose_1');
+  const set = (id, v) => { const el = document.getElementById(id); if (el && v !== undefined && v !== null) el.value = v; };
+  set('ob-age', f.age); set('ob-height-ft', f.height_ft); set('ob-height-in', f.height_in ?? 0);
+  set('ob-weight', f.weight_lb); set('ob-goal-weight', f.goal_weight_lb ?? f.weight_lb);
+  set('ob-bf-current', f.body_fat_pct); set('ob-bf-goal', f.goal_body_fat_pct);
+}
 function _ocComplete() {
   if (_oc.stage === 'done') return;
   // HARD GATE. Mifflin-St Jeor cannot run without sex at birth, and the old
@@ -10133,8 +10172,15 @@ function _ocComplete() {
       if (f.allergies.some(a => a.toLowerCase() === String(el.dataset.allergy || '').toLowerCase())) el.classList.add('ob-allergy-selected');
     });
   }
+  // The plan bubble gets its own beat — posting it in the same tick as the
+  // "got it all" summary stamped two messages at the same instant.
+  setTimeout(() => _ocShowPlanAndCreate(f), 650);
+}
+// The plan summary + Create-my-account chip. Named so the Create Account
+// back button can bring the user right back here instead of a dead chat.
+function _ocShowPlanAndCreate(f) {
+  f = f || (_oc && _oc.fields) || {};
   const plan = obCalcPlan();
-  const coachName = OB_COACHES[_oc.coach].name.replace('Coach ', '');
   _ocAddBot(`Here's your plan${f.name ? ', ' + f.name : ''}: ${plan.calories.toLocaleString()} calories a day with ${plan.protein}g of protein.` +
     (plan.goalDateStr && plan.goalDateStr !== 'Track progress to see' ? ` At your pace you'd hit ${plan.goalWeight} lb around ${plan.goalDateStr}.` : '') +
     ` Let's create your account so I can save it — and from here on, that gold mic works everywhere in the app. Just tell me what you ate and I'll log it.`);
@@ -11960,7 +12006,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-23-bm-fieldchase';
+const RATIO_BUILD = '2026-08-23-bp-settingsguard';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -25206,8 +25252,8 @@ if (document.readyState === 'loading') {
       <div style="font-size:14px;color:var(--muted);margin-bottom:24px">Your plan is ready — just need a few details to save it.</div>
 
       <div style="margin-bottom:12px">
-        <div style="font-size:13px;font-weight:700;color:var(--muted);margin-bottom:6px">What should we call you?</div>
-        <input id="ob-signup-name" type="text" placeholder="First name" autocomplete="given-name"
+        <div style="font-size:13px;font-weight:700;color:var(--muted);margin-bottom:6px">Your first name <span style="font-weight:500">— what your coach calls you</span></div>
+        <input id="ob-signup-name" type="text" placeholder="First name (you'll pick a username next)" autocomplete="given-name"
           style="width:100%;padding:14px 16px;border:1.5px solid var(--line);border-radius:12px;font-size:16px;outline:none;box-sizing:border-box" />
       </div>
       <!-- Three doors, one username system. Apple + Google skip the password
