@@ -10067,6 +10067,15 @@ async function _ocTurn(userText) {
     // DETERMINISTIC FIELD CHASE (Lauren's stall: model said "all set" with
     // height + weight never captured; the gate refused silently forever).
     // If fields are missing and the model isn't pursuing one, the APP asks.
+    // RE-CONFIRM LOOP GUARD: when the model asked nothing useful this turn
+    // (empty/off-list 'asking') but a field is still missing, don't let the
+    // every-2nd-turn throttle sit on the backstop — reset it so the chase
+    // names the missing field NOW rather than after another dead turn.
+    {
+      const stillMissing = _ocMissing();
+      const modelOnTask = askedKey && stillMissing.includes(askedKey);
+      if (stillMissing.length && !modelOnTask && _oc) _oc.lastChaseTurn = undefined;
+    }
     const _chaseLine = _ocChaseLine(_ocMissing(), askedKey, !!data.capped);
     let offerTyping = false;
     if (gotFields) {
@@ -12033,7 +12042,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-23-bt-backfix';
+const RATIO_BUILD = '2026-08-23-bu-chasenow';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
