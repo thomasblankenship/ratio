@@ -7849,16 +7849,29 @@ function obBack(step) {
     // activity page - never a valid back target from Create Account. Back
     // goes to the live chat if it exists, else the clean auth screen. It
     // must never land on a legacy step.
-    document.querySelectorAll('.ob-screen').forEach(el => { el.style.display = 'none'; });
+    // 5th back-button casualty, and the nastiest: the old guard read
+    // `window._oc` — but the live interview state is a LEXICAL `_oc` (a
+    // separate empty `window._oc` exists for legacy reasons), so the check
+    // silently failed and dumped the user on the welcome screen. Detect the
+    // chat by its RENDERED MESSAGES instead — DOM ground truth, no variable
+    // reference to get wrong. If the interview exists, go back to it and
+    // re-post the plan (obCalcPlan reads the DOM, so it works even if the
+    // in-memory object is stale).
     const chat = document.getElementById('ob-chat');
-    // 4th back-button casualty: this used to reopen a chat that had already
-    // torn down after the interview — a dead end that forced a restart. Now
-    // it re-offers the plan + Create button so it's a real round trip.
-    if (window._oc && _oc.coach && chat) {
+    const msgs = document.getElementById('obchat-messages');
+    const hasInterview = !!(chat && msgs && msgs.children && msgs.children.length);
+    if (hasInterview) {
+      document.querySelectorAll('.ob-screen').forEach(el => { el.style.display = 'none'; });
       chat.style.display = 'flex';
-      if (_oc.stage === 'done') _ocShowPlanAndCreate(_oc.fields);
+      // Re-post the plan + Create button. Guard so we don't stack duplicates
+      // if the user bounces back and forth.
+      try { _ocShowPlanAndCreate((window._oc_fields) || (_oc && _oc.fields) || {}); } catch (e) {}
+      // Keep the chat scrolled to the newest message.
+      setTimeout(() => { try { msgs.scrollTop = msgs.scrollHeight; } catch (e) {} }, 60);
       return;
     }
+    // No interview in the DOM at all — only THEN fall back to the auth screen.
+    document.querySelectorAll('.ob-screen').forEach(el => { el.style.display = 'none'; });
     if (typeof showAuthScreen === 'function') { showAuthScreen(); return; }
     return;   // legacy step 1 is retired — never a destination
   }
@@ -10180,6 +10193,7 @@ function _ocComplete() {
 // back button can bring the user right back here instead of a dead chat.
 function _ocShowPlanAndCreate(f) {
   f = f || (_oc && _oc.fields) || {};
+  try { window._oc_fields = f; } catch (e) {}   // snapshot for the back button
   // Give the plan its OWN beat: a typing indicator first, so it reads as the
   // coach building the plan AFTER the summary/correction — not two bubbles
   // stamped at the same instant. Guard against overlapping calls.
@@ -12019,7 +12033,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-23-bs-planbeat';
+const RATIO_BUILD = '2026-08-23-bt-backfix';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
