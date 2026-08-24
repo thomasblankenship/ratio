@@ -11879,7 +11879,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-23-bh-quietsignout';
+const RATIO_BUILD = '2026-08-23-bi-unitswap';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -17635,6 +17635,58 @@ function mbRemoveIngredient(idx) {
 // {qty:1, unit:'32 oz'}. Parse the effective number either way; saving
 // normalizes to numeric qty + clean unit label.
 let _mbEditIdx = null;
+// Unit families with a canonical base (grams / ml). Flip the dropdown and
+// the NUMBER converts — same food, different ruler; macros move only on
+// Save, off the canonical ratio. Labels outside both families (each,
+// cloves, serving) keep a fixed label and plain-ratio math.
+const _MB_UNITS = {
+  oz: { fam: 'w', base: 28.3495, label: 'oz' },
+  lb: { fam: 'w', base: 453.592, label: 'lb' },
+  g:  { fam: 'w', base: 1, label: 'g' },
+  kg: { fam: 'w', base: 1000, label: 'kg' },
+  tsp: { fam: 'v', base: 4.9289, label: 'tsp' },
+  tbsp: { fam: 'v', base: 14.7868, label: 'tbsp' },
+  cup: { fam: 'v', base: 236.588, label: 'cup' },
+  floz: { fam: 'v', base: 29.5735, label: 'fl oz' },
+  ml: { fam: 'v', base: 1, label: 'ml' },
+  l:  { fam: 'v', base: 1000, label: 'l' }
+};
+function _mbUnitKey(label) {
+  const t = String(label || '').trim().toLowerCase().replace(/\.$/, '');
+  if (/^(oz|ounce|ounces)$/.test(t)) return 'oz';
+  if (/^(lb|lbs|pound|pounds)$/.test(t)) return 'lb';
+  if (/^(g|gram|grams)$/.test(t)) return 'g';
+  if (/^(kg|kilogram|kilograms)$/.test(t)) return 'kg';
+  if (/^(tsp|teaspoon|teaspoons)$/.test(t)) return 'tsp';
+  if (/^(tbsp|tablespoon|tablespoons)$/.test(t)) return 'tbsp';
+  if (/^(cup|cups)$/.test(t)) return 'cup';
+  if (/^(fl ?oz|fluid ounce|fluid ounces)$/.test(t)) return 'floz';
+  if (/^(ml|milliliter|milliliters|millilitre|millilitres)$/.test(t)) return 'ml';
+  if (/^(l|liter|liters|litre|litres)$/.test(t)) return 'l';
+  return null;
+}
+function _mbUnitControl(p) {
+  if (!p) return '<span style="font-size:12px;color:var(--muted)"></span>';
+  const key = _mbUnitKey(p.label);
+  if (!key) return `<span style="font-size:12px;color:var(--muted)">${p.label}</span>`;
+  const fam = _MB_UNITS[key].fam;
+  const opts = Object.keys(_MB_UNITS).filter(k => _MB_UNITS[k].fam === fam)
+    .map(k => `<option value="${k}" ${k === key ? 'selected' : ''}>${_MB_UNITS[k].label}</option>`).join('');
+  return `<select id="mb-ing-unit" data-prev="${key}" onchange="_mbUnitSwap()"
+    style="padding:6px 4px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font-size:12px">${opts}</select>`;
+}
+function _mbUnitSwap() {
+  const sel = document.getElementById('mb-ing-unit');
+  const inp = document.getElementById('mb-ing-qty');
+  if (!sel || !inp) return;
+  const from = sel.dataset.prev, to = sel.value;
+  const v = parseFloat(inp.value);
+  if (from && to && from !== to && isFinite(v) && v > 0) {
+    // Same food, different ruler — convert the number, touch nothing else.
+    inp.value = Math.round((v * _MB_UNITS[from].base / _MB_UNITS[to].base) * 100) / 100;
+  }
+  sel.dataset.prev = to;
+}
 function _mbAmountParse(ing) {
   const q = parseFloat(ing.qty);
   const um = String(ing.unit || '').trim().match(/^([\d.]+)\s*(.*)$/);
@@ -17663,7 +17715,14 @@ function mbApplyIngredientEdit(idx) {
   const inp = document.getElementById('mb-ing-qty');
   const newN = parseFloat(inp && inp.value);
   if (!p || !isFinite(newN) || newN <= 0) { toast('Enter the new amount as a number'); return; }
-  const factor = newN / p.n;
+  // Unit may have been flipped in the dropdown: compare old and new in the
+  // family's canonical base so 24 oz -> 1.71 lb scales by true mass ratio.
+  const sel = document.getElementById('mb-ing-unit');
+  const oldKey = _mbUnitKey(p.label);
+  const newKey = sel && oldKey ? sel.value : oldKey;
+  const factor = (oldKey && newKey && _MB_UNITS[oldKey] && _MB_UNITS[newKey])
+    ? (newN * _MB_UNITS[newKey].base) / (p.n * _MB_UNITS[oldKey].base)
+    : newN / p.n;
   if (!isFinite(factor) || factor <= 0 || factor > 100) { toast('That amount looks off \u2014 double-check it'); return; }
   // Authoritative totals stay honest: old contribution out, scaled one in.
   _mbShiftAuthoritative(ing, -1);
@@ -17675,7 +17734,7 @@ function mbApplyIngredientEdit(idx) {
   ing.cholesterol = Math.round((ing.cholesterol || 0) * factor);
   _mbShiftAuthoritative(ing, 1);
   ing.qty = newN;
-  ing.unit = p.label;   // normalize: '32 oz' shape becomes qty 29.9 + unit 'oz'
+  ing.unit = (newKey && _MB_UNITS[newKey]) ? _MB_UNITS[newKey].label : p.label;   // the ruler he chose
   _mbEditIdx = null;
   mbRenderIngredients();
   mbUpdateTotals();
@@ -17700,7 +17759,7 @@ function mbRenderIngredients() {
           <input id="mb-ing-qty" type="number" inputmode="decimal" step="any" min="0" value="${p ? p.n : ''}"
             style="width:76px;padding:6px 8px;border:1px solid #CFA13C;border-radius:8px;background:var(--surface);color:var(--ink);font-size:14px"
             onkeydown="if(event.key==='Enter'){mbApplyIngredientEdit(${i});}">
-          <span style="font-size:12px;color:var(--muted)">${p ? p.label : ''}</span>
+          ${_mbUnitControl(p)}
           <button onclick="mbApplyIngredientEdit(${i})" style="background:#CFA13C;color:#101512;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer">Save</button>
           <button onclick="mbCancelIngredientEdit()" style="background:none;border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:12px;color:var(--muted);cursor:pointer">Cancel</button>
         </div>
