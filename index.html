@@ -12005,13 +12005,41 @@ function maybeLoadDebugConsole() {
   // that took the whole page down with it.
   const d = document.createElement('script');
   d.src = 'https://cdn.jsdelivr.net/npm/eruda';
-  d.onload = () => { try { eruda.init(); } catch (e) {} };
+  d.onload = () => { try { eruda.init(); _logRatioVersions(); } catch (e) {} };
   d.onerror = () => { console.warn('[Ratio] debug console blocked by the network'); };
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-23-bq-debugall';
+const RATIO_BUILD = '2026-08-23-br-versionrow';
 window.RATIO_BUILD = RATIO_BUILD;
+// Fetches the worker build once (cached on window.WORKER_BUILD) and logs
+// index + worker as one line. Called at boot AND again after eruda.init()
+// — Eruda loads async and only captures logs emitted AFTER it inits, so
+// the boot-time line was firing into a console it hadn't hijacked yet.
+async function _fetchWorkerBuild() {
+  if (window.WORKER_BUILD) return window.WORKER_BUILD;
+  try {
+    const r = await fetch(`${WORKER_URL}/version`, { cache: 'no-store' });
+    const j = await r.json();
+    window.WORKER_BUILD = (j && j.build) || '?';
+  } catch (e) { window.WORKER_BUILD = 'unreachable'; }
+  return window.WORKER_BUILD;
+}
+async function _logRatioVersions() {
+  const wb = await _fetchWorkerBuild();
+  console.log('%c[Ratio] versions \u2014 index: ' + RATIO_BUILD + '  |  worker: ' + wb,
+    'font-weight:bold;color:#c9a227');
+  _paintVersionRow();
+}
+// Fills the Settings > App Version row with BOTH builds, and flags a
+// mismatch in gold so a half-deploy (worker updated, index stale or vice
+// versa) is impossible to miss.
+function _paintVersionRow() {
+  const bv = document.getElementById('settings-build-version');
+  if (!bv) return;
+  const wb = window.WORKER_BUILD || '…';
+  bv.innerHTML = 'index ' + RATIO_BUILD + '<br>worker ' + wb;
+}
 
 async function init() {
   // Build marker. When a fix "isn't working", the first question is always
@@ -12019,24 +12047,13 @@ async function init() {
   // cache aggressively. Check with `RATIO_BUILD` in the console, or read it at
   // the bottom of Profile → Settings.
   console.log('[Ratio] build', RATIO_BUILD);
-  // Also surface the WORKER build so a version mismatch is obvious at a
-  // glance (client and worker deploy separately and cache independently).
-  (async () => {
-    try {
-      const r = await fetch(`${WORKER_URL}/version`, { cache: 'no-store' });
-      const j = await r.json();
-      window.WORKER_BUILD = j && j.build || '?';
-      console.log('%c[Ratio] versions \u2014 index: ' + RATIO_BUILD + '  |  worker: ' + window.WORKER_BUILD,
-        'font-weight:bold;color:#c9a227');
-    } catch (e) { console.warn('[Ratio] could not read worker /version:', e && e.message); }
-  })();
+  _logRatioVersions();   // logs index + worker; also re-run on eruda load
   // The front desk greeting is the same string for every user who ever signs
   // up, so warm it early — this is the one line that cannot afford latency.
   setTimeout(() => {
     try { if (!_currentUser) ratioPrefetch('lauren', 'Hello and welcome to Ratio Fitness! My name is Lauren — tell me a little about the goals you would like to accomplish so I can recommend the perfect trainer for you. Are you trying to Lose Body Fat, Lose Weight, Gain Muscle, or just Maintain and Perform?'); } catch (e) {}
   }, 1500);
-  const bv = document.getElementById('settings-build-version');
-  if (bv) bv.textContent = RATIO_BUILD;
+  _paintVersionRow();   // fills with BOTH index + worker builds
 
   // Hide iOS's keyboard accessory bar (the grey ˄ ˅ ✓ strip WKWebView adds
   // above every keyboard) — it covers the bottom action button in sheets.
