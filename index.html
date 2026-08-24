@@ -11992,9 +11992,13 @@ function isQaUser() {
   } catch (e) { return false; }
 }
 
+// LAUNCH-WINDOW DEBUG: while family/friends are cold-testing signup, load
+// the console for EVERYONE so no bug goes unseen. Flip to false before the
+// public launch — this one line is the whole switch.
+const LAUNCH_DEBUG = true;
 let _debugConsoleLoaded = false;
 function maybeLoadDebugConsole() {
-  if (_debugConsoleLoaded || !isQaUser()) return;
+  if (_debugConsoleLoaded || !(LAUNCH_DEBUG || isQaUser())) return;
   _debugConsoleLoaded = true;
   // Loaded via onload rather than an inline init: adblockers and corporate
   // proxies both block this CDN, and a bare eruda.init() threw a ReferenceError
@@ -12006,7 +12010,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-23-bp-settingsguard';
+const RATIO_BUILD = '2026-08-23-bq-debugall';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -12015,6 +12019,17 @@ async function init() {
   // cache aggressively. Check with `RATIO_BUILD` in the console, or read it at
   // the bottom of Profile → Settings.
   console.log('[Ratio] build', RATIO_BUILD);
+  // Also surface the WORKER build so a version mismatch is obvious at a
+  // glance (client and worker deploy separately and cache independently).
+  (async () => {
+    try {
+      const r = await fetch(`${WORKER_URL}/version`, { cache: 'no-store' });
+      const j = await r.json();
+      window.WORKER_BUILD = j && j.build || '?';
+      console.log('%c[Ratio] versions \u2014 index: ' + RATIO_BUILD + '  |  worker: ' + window.WORKER_BUILD,
+        'font-weight:bold;color:#c9a227');
+    } catch (e) { console.warn('[Ratio] could not read worker /version:', e && e.message); }
+  })();
   // The front desk greeting is the same string for every user who ever signs
   // up, so warm it early — this is the one line that cannot afford latency.
   setTimeout(() => {
