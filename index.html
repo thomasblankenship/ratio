@@ -11879,7 +11879,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-23-bi-unitswap';
+const RATIO_BUILD = '2026-08-23-bj-livepreview';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -17675,6 +17675,58 @@ function _mbUnitControl(p) {
   return `<select id="mb-ing-unit" data-prev="${key}" onchange="_mbUnitSwap()"
     style="padding:6px 4px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font-size:12px">${opts}</select>`;
 }
+const _MB_STEPS = { oz: 0.5, lb: 0.1, g: 5, kg: 0.1, tsp: 0.25, tbsp: 0.5, cup: 0.25, floz: 0.5, ml: 10, l: 0.1 };
+// Snapshot taken when the editor opens; every preview keystroke restores
+// it before re-applying, so Save/Cancel always start from clean numbers.
+let _mbPrev = null;
+function _mbEditRestore() {
+  if (!_mbPrev) return;
+  const ing = _mbIngredients[_mbPrev.idx];
+  if (ing) Object.assign(ing, _mbPrev.orig);
+  _mbAuthoritativeTotals = _mbPrev.auth ? Object.assign({}, _mbPrev.auth) : null;
+}
+// One source for "what does the box currently say, in what unit, and what
+// scale is that vs the stored amount" — preview and Save both use it.
+function _mbEditFactor(p) {
+  const inp = document.getElementById('mb-ing-qty');
+  const newN = parseFloat(inp && inp.value);
+  if (!p || !isFinite(newN) || newN <= 0) return null;
+  const sel = document.getElementById('mb-ing-unit');
+  const oldKey = _mbUnitKey(p.label);
+  const newKey = sel && oldKey ? sel.value : oldKey;
+  const factor = (oldKey && newKey && _MB_UNITS[oldKey] && _MB_UNITS[newKey])
+    ? (newN * _MB_UNITS[newKey].base) / (p.n * _MB_UNITS[oldKey].base)
+    : newN / p.n;
+  if (!isFinite(factor) || factor <= 0 || factor > 100) return null;
+  return { newN, newKey, factor };
+}
+function _mbScaleInto(ing, factor) {
+  ing.calories = Math.round(ing.calories * factor);
+  ing.protein = Math.round(ing.protein * factor * 10) / 10;
+  ing.carbs = Math.round(ing.carbs * factor * 10) / 10;
+  ing.fat = Math.round(ing.fat * factor * 10) / 10;
+  ing.fiber = Math.round((ing.fiber || 0) * factor * 10) / 10;
+  ing.cholesterol = Math.round((ing.cholesterol || 0) * factor);
+}
+// Live preview: restore originals, re-apply at the CURRENT box value
+// through the real shift machinery, repaint header + inline macro line.
+function _mbEditPreview() {
+  if (!_mbPrev) return;
+  const ing = _mbIngredients[_mbPrev.idx];
+  if (!ing) return;
+  _mbEditRestore();
+  const p = _mbAmountParse(ing);
+  const f = _mbEditFactor(p);
+  if (f) {
+    _mbShiftAuthoritative(ing, -1);
+    _mbScaleInto(ing, f.factor);
+    _mbShiftAuthoritative(ing, 1);
+  }
+  mbUpdateTotals();
+  const pv = document.getElementById('mb-ing-preview');
+  if (pv) pv.textContent = f ? nutritionMetaString(ing) : '—';
+}
+
 function _mbUnitSwap() {
   const sel = document.getElementById('mb-ing-unit');
   const inp = document.getElementById('mb-ing-qty');
@@ -17686,6 +17738,8 @@ function _mbUnitSwap() {
     inp.value = Math.round((v * _MB_UNITS[from].base / _MB_UNITS[to].base) * 100) / 100;
   }
   sel.dataset.prev = to;
+  if (inp && _MB_STEPS[to]) inp.step = _MB_STEPS[to];
+  _mbEditPreview();
 }
 function _mbAmountParse(ing) {
   const q = parseFloat(ing.qty);
@@ -17702,39 +17756,30 @@ function mbEditIngredient(idx) {
   const ing = _mbIngredients[idx];
   if (!ing) return;
   if (!_mbAmountParse(ing)) { toast('That amount isn\u2019t a number I can scale \u2014 remove it and re-add the right size'); return; }
+  _mbPrev = { idx, orig: { calories: ing.calories, protein: ing.protein, carbs: ing.carbs, fat: ing.fat, fiber: ing.fiber, cholesterol: ing.cholesterol },
+    auth: _mbAuthoritativeTotals ? Object.assign({}, _mbAuthoritativeTotals) : null };
   _mbEditIdx = idx;
   mbRenderIngredients();
   const inp = document.getElementById('mb-ing-qty');
   if (inp) { inp.focus(); inp.select && inp.select(); }
 }
-function mbCancelIngredientEdit() { _mbEditIdx = null; mbRenderIngredients(); }
+function mbCancelIngredientEdit() { _mbEditRestore(); _mbPrev = null; _mbEditIdx = null; mbRenderIngredients(); mbUpdateTotals(); }
 function mbApplyIngredientEdit(idx) {
   const ing = _mbIngredients[idx];
   if (!ing) { _mbEditIdx = null; return; }
+  // The preview may have scaled these numbers already — back to originals
+  // first so the factor applies exactly once.
+  _mbEditRestore();
   const p = _mbAmountParse(ing);
-  const inp = document.getElementById('mb-ing-qty');
-  const newN = parseFloat(inp && inp.value);
-  if (!p || !isFinite(newN) || newN <= 0) { toast('Enter the new amount as a number'); return; }
-  // Unit may have been flipped in the dropdown: compare old and new in the
-  // family's canonical base so 24 oz -> 1.71 lb scales by true mass ratio.
-  const sel = document.getElementById('mb-ing-unit');
-  const oldKey = _mbUnitKey(p.label);
-  const newKey = sel && oldKey ? sel.value : oldKey;
-  const factor = (oldKey && newKey && _MB_UNITS[oldKey] && _MB_UNITS[newKey])
-    ? (newN * _MB_UNITS[newKey].base) / (p.n * _MB_UNITS[oldKey].base)
-    : newN / p.n;
-  if (!isFinite(factor) || factor <= 0 || factor > 100) { toast('That amount looks off \u2014 double-check it'); return; }
+  const f = _mbEditFactor(p);
+  if (!p || !f) { toast('Enter the new amount as a number'); return; }
   // Authoritative totals stay honest: old contribution out, scaled one in.
   _mbShiftAuthoritative(ing, -1);
-  ing.calories = Math.round(ing.calories * factor);
-  ing.protein = Math.round(ing.protein * factor * 10) / 10;
-  ing.carbs = Math.round(ing.carbs * factor * 10) / 10;
-  ing.fat = Math.round(ing.fat * factor * 10) / 10;
-  ing.fiber = Math.round((ing.fiber || 0) * factor * 10) / 10;
-  ing.cholesterol = Math.round((ing.cholesterol || 0) * factor);
+  _mbScaleInto(ing, f.factor);
   _mbShiftAuthoritative(ing, 1);
-  ing.qty = newN;
-  ing.unit = (newKey && _MB_UNITS[newKey]) ? _MB_UNITS[newKey].label : p.label;   // the ruler he chose
+  ing.qty = f.newN;
+  ing.unit = (f.newKey && _MB_UNITS[f.newKey]) ? _MB_UNITS[f.newKey].label : p.label;   // the ruler he chose
+  _mbPrev = null;
   _mbEditIdx = null;
   mbRenderIngredients();
   mbUpdateTotals();
@@ -17756,13 +17801,14 @@ function mbRenderIngredients() {
       <div style="flex:1;min-width:0">
         <div style="font-size:14px;font-weight:500;line-height:1.3">${ing.name}</div>
         <div style="display:flex;align-items:center;gap:6px;margin-top:4px">
-          <input id="mb-ing-qty" type="number" inputmode="decimal" step="any" min="0" value="${p ? p.n : ''}"
+          <input id="mb-ing-qty" type="number" inputmode="decimal" step="${(p && _MB_STEPS[_mbUnitKey(p.label)]) || 1}" min="0" value="${p ? p.n : ''}" oninput="_mbEditPreview()"
             style="width:76px;padding:6px 8px;border:1px solid #CFA13C;border-radius:8px;background:var(--surface);color:var(--ink);font-size:14px"
             onkeydown="if(event.key==='Enter'){mbApplyIngredientEdit(${i});}">
           ${_mbUnitControl(p)}
           <button onclick="mbApplyIngredientEdit(${i})" style="background:#CFA13C;color:#101512;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer">Save</button>
           <button onclick="mbCancelIngredientEdit()" style="background:none;border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:12px;color:var(--muted);cursor:pointer">Cancel</button>
         </div>
+        <div id="mb-ing-preview" style="font-size:11px;color:var(--muted);margin-top:4px">${nutritionMetaString(ing)}</div>
       </div>
     </div>`;
     }
