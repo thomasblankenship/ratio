@@ -10134,7 +10134,12 @@ async function _ocTurn(userText) {
       // Already have a plan; if this edit changed the inputs, replace the
       // now-stale plan bubble with the current numbers so the newest plan
       // is always the last thing on screen.
-      if (_ocPlanKey() !== _planKeyBefore) { _ocSyncPlanFields(); _ocShowPlanAndCreate(_oc.fields); }
+      if (_ocPlanKey() !== _planKeyBefore) {
+        // Instrumented: an unexplained per-turn re-post appeared Aug 24 -
+        // this line names the field that moved if it ever happens again.
+        console.log('[obchat] plan re-post: key changed', { before: _planKeyBefore, after: _ocPlanKey(), turnFields: data.fields });
+        _ocSyncPlanFields(); _ocShowPlanAndCreate(_oc.fields);
+      }
     } else if (data.capped || !_ocMissing().length) {
       _ocComplete();
     }
@@ -10349,6 +10354,25 @@ function _ocDispatch(text) {
     _oc.numChase = false;
     _ocComplete();
     return;
+  }
+  // POST-COMPLETION CREATE-ACCOUNT INTENT - handled LOCALLY, never sent to
+  // the AI. The plan bubble's CTA is "Let's create your account", so a
+  // spoken "create my account" / "let's do it" / bare yes IS the chip tap.
+  // Routed to the model instead, it invented an email-collection chat and
+  // FALSELY claimed "your account is set up" (Aug 24 evening test) - the
+  // model cannot create accounts and must never be asked to try.
+  if (_oc && _oc.stage === 'done' && !_oc.wrapup) {
+    const _t = String(text || '').trim();
+    const _acct = /\b(create|make|set\s*up|open|start)\b[\s\S]{0,24}\b(account|profile)\b/i.test(_t)
+      || /\bsign\s*(me\s*)?up\b/i.test(_t)
+      || /^(yes|yeah|yep|sure|ok(ay)?|let'?s\s+(do\s+it|go)|do\s+it|i'?m\s+ready|ready|sounds\s+good|perfect|great)[.!\s]*$/i.test(_t);
+    if (_acct) {
+      _ocAddUser(_t);
+      _ocStopListening();
+      document.getElementById('ob-chat').style.display = 'none';
+      obShowStep(7);
+      return;
+    }
   }
   if (_oc) _oc._pinTop = false;   // they acted — normal bottom-follow resumes
   _ocHeroCollapse();              // acting always ends the intro choreography
@@ -12130,7 +12154,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-24-by-resumewrap';
+const RATIO_BUILD = '2026-08-24-bz-acctintent';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
