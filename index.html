@@ -6362,6 +6362,7 @@ async function _familyBootCheck() {
     if (!_currentUser || _famGreeted) return;
     await _famFetchStatus();
     if (_famStatus && _famStatus.pendingIn && _famStatus.pendingIn.length) { _famGreeted = true; openFamily(); }
+    _shareCheckPending();
   } catch (e) { /* quiet: settings row still works */ }
 }
 
@@ -11881,7 +11882,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-23-bk-goalsingle';
+const RATIO_BUILD = '2026-08-23-bl-famshare';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
@@ -16557,17 +16558,19 @@ function renderSavedMeals() {
   if (cEl) cEl.textContent = _mn ? `${_mn} Meal${_mn === 1 ? '' : 's'}` : '';
   const el = document.getElementById('saved-meals-list');
   if (!el) return;
+  if (_shareMode && _shareMode.kind === 'meals') { _shareRenderSelect(el, savedMeals, 'meals'); return; }
   if (!savedMeals.length) {
     el.innerHTML = `
       <div style="text-align:center;padding:32px 16px">
         <div style="font-size:48px;margin-bottom:16px">🍱</div>
         <div style="font-size:19px;font-weight:800;color:#CFA13C;margin-bottom:8px;letter-spacing:-0.3px">Log Your Go-To Meals Faster</div>
-        <div style="font-size:14px;color:var(--muted);line-height:1.6;max-width:280px;margin:0 auto">Create and save your favorite meals to log them again with just one tap.</div>
+        <div style="font-size:14px;color:var(--muted);line-height:1.6;max-width:280px;margin:0 auto">Create and save your favorite meals to log them again with just one tap.${(!window._famStatus || !_famStatus.household) ? ' <span style=\"color:#CFA13C\">Eating with family? Turn on Team up in Settings and they can share their meals with you.</span>' : ''}</div>
       </div>`;
+    el.innerHTML = _shareBannerHtml('meals') + el.innerHTML;
     return;
   }
   const sorted = [...savedMeals].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
-  el.innerHTML = sorted.map(m => `
+  el.innerHTML = _shareBannerHtml('meals') + _shareHeaderHtml('meals') + sorted.map(m => `
     <div class="meal-row">
       <div class="meal-info">
         <div style="display:flex;align-items:flex-start;gap:4px">
@@ -17993,6 +17996,154 @@ async function saveMeal() {
   await loadSavedMeals();
 }
 
+// ---- FAMILY SHARING: foods & meals (push, one accept) ----
+let _shareMode = null;      // { kind: 'foods'|'meals', sel: Set(ids) }
+let _sharePending = [];     // pending bundles for ME, from /family/shares
+function _sharePartnerName() {
+  const m = (window._famStatus && _famStatus.members) || [];
+  const other = m.find(x => !x.me);
+  return (other && other.name) || 'family';
+}
+function _shareEligible() {
+  const s = window._famStatus;
+  return !!(s && s.household && s.members && s.members.length > 1);
+}
+function shareModeStart(kind) { _shareMode = { kind, sel: new Set() }; kind === 'foods' ? renderSavedFoods() : renderSavedMeals(); }
+function shareModeCancel() { const k = _shareMode && _shareMode.kind; _shareMode = null; k === 'meals' ? renderSavedMeals() : renderSavedFoods(); }
+function shareToggle(id) {
+  if (!_shareMode) return;
+  _shareMode.sel.has(id) ? _shareMode.sel.delete(id) : _shareMode.sel.add(id);
+  _shareMode.kind === 'foods' ? renderSavedFoods() : renderSavedMeals();
+}
+function shareSelectAll() {
+  if (!_shareMode) return;
+  const list = _shareMode.kind === 'foods' ? savedFoods : savedMeals;
+  const all = _shareMode.sel.size === list.length;
+  _shareMode.sel = new Set(all ? [] : list.map(x => x.id));
+  _shareMode.kind === 'foods' ? renderSavedFoods() : renderSavedMeals();
+}
+async function shareSend() {
+  if (!_shareMode || !_shareMode.sel.size) { toast('Pick at least one'); return; }
+  const kind = _shareMode.kind;
+  const list = kind === 'foods' ? savedFoods : savedMeals;
+  const items = list.filter(x => _shareMode.sel.has(x.id));
+  try {
+    const r = await fetch(`${WORKER_URL}/family/share`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind, items }) });
+    const j = await r.json();
+    if (!r.ok) { toast(j.error || 'Share failed'); return; }
+    toast(`Shared ${j.count} with ${j.to} \u2713`);
+    shareModeCancel();
+  } catch (e) { toast('Share failed \u2014 check your connection'); }
+}
+// The select-mode list: deliberately SIMPLE rows (checkbox + name + macros),
+// photo-picker style, so none of the normal pin/edit taps can misfire.
+function _shareRenderSelect(el, list, kind) {
+  const sel = _shareMode.sel;
+  const partner = _sharePartnerName();
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 2px 10px;border-bottom:1px solid var(--line);margin-bottom:2px">
+      <span style="font-size:13px;font-weight:600">${sel.size} selected</span>
+      <span>
+        <button onclick="shareSelectAll()" style="background:none;border:none;color:#CFA13C;font-size:12.5px;font-weight:600;cursor:pointer">Select all</button>
+        <button onclick="shareModeCancel()" style="background:var(--surface);border:1px solid var(--line);border-radius:9px;color:var(--muted);font-size:12px;padding:6px 11px;cursor:pointer;margin-left:6px">Cancel</button>
+      </span>
+    </div>
+    ${list.map(x => `
+    <div onclick="shareToggle('${x.id}')" style="display:flex;align-items:center;gap:11px;padding:11px 2px;border-bottom:1px solid var(--surface-2);cursor:pointer">
+      <span style="width:22px;height:22px;border-radius:50%;flex-shrink:0;${sel.has(x.id) ? 'background:#CFA13C;border:2px solid #CFA13C;position:relative' : 'border:2px solid var(--line)'}">${sel.has(x.id) ? '<span style=\"position:absolute;left:7px;top:3px;width:5px;height:10px;border:solid #101512;border-width:0 2px 2px 0;transform:rotate(45deg)\"></span>' : ''}</span>
+      <span style="flex:1;min-width:0">
+        <span style="display:block;font-size:13.5px;font-weight:600;line-height:1.25">${x.name}</span>
+        <span style="display:block;font-size:11px;color:var(--muted);line-height:1.3">${nutritionMetaString(x)}</span>
+      </span>
+    </div>`).join('')}
+    <div style="margin-top:16px">
+      <button onclick="shareSend()" style="display:block;width:100%;background:#CFA13C;color:#101512;border:none;border-radius:13px;padding:14px;font-size:14px;font-weight:700;cursor:pointer">Share ${sel.size} with ${partner}</button>
+      <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:9px">${partner} gets one notification \u2014 they accept all at once.</div>
+    </div>`;
+}
+function _shareHeaderHtml(kind) {
+  if (!_shareEligible()) return '';
+  return `<div style="display:flex;justify-content:flex-end;margin:0 0 8px"><button onclick="shareModeStart('${kind}')" style="background:var(--surface);border:1px solid #CFA13C;border-radius:10px;color:#CFA13C;font-size:12.5px;font-weight:700;padding:7px 14px;cursor:pointer"><i class="fa-solid fa-share-nodes" style="margin-right:6px"></i>Share</button></div>`;
+}
+function _shareBannerHtml(kind) {
+  const p = _sharePending.filter(s => s.kind === kind);
+  return p.map(s => `
+    <div onclick="shareOpenReview('${s.id}')" style="display:flex;align-items:center;gap:11px;background:var(--surface);border:1px solid #CFA13C;border-radius:14px;padding:12px 14px;margin:0 0 12px;cursor:pointer">
+      <span style="font-size:18px">\ud83c\udf81</span>
+      <span style="flex:1;font-size:13px;line-height:1.4"><b>${s.from}</b> shared <b>${s.count} ${s.kind === 'meals' ? 'meal' : 'food'}${s.count === 1 ? '' : 's'}</b> with you</span>
+      <span style="color:#CFA13C;font-size:12.5px;font-weight:700">Review \u203a</span>
+    </div>`).join('');
+}
+async function _shareCheckPending() {
+  try {
+    if (!_currentUser) return;
+    const r = await fetch(`${WORKER_URL}/family/shares`);
+    if (!r.ok) return;
+    const j = await r.json();
+    _sharePending = (j && j.shares) || [];
+    if (_sharePending.length) { renderSavedFoods(); renderSavedMeals(); }
+  } catch (e) { /* quiet \u2014 banner just doesn't show */ }
+}
+function shareOpenReview(id) {
+  const s = _sharePending.find(x => x.id === id);
+  if (!s) return;
+  const checked = new Set(s.items.map(it => it.name));
+  window._shareReview = { id, kind: s.kind, from: s.from, items: s.items, checked };
+  let ov = document.getElementById('share-review-modal');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'share-review-modal';
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:9500;display:flex;align-items:flex-end;justify-content:center';
+    document.body.appendChild(ov);
+  }
+  ov.style.display = 'flex';
+  _shareRenderReview();
+}
+function shareReviewToggle(name) {
+  const rv = window._shareReview; if (!rv) return;
+  rv.checked.has(name) ? rv.checked.delete(name) : rv.checked.add(name);
+  _shareRenderReview();
+}
+function shareReviewClose() { const ov = document.getElementById('share-review-modal'); if (ov) ov.style.display = 'none'; window._shareReview = null; }
+function _shareRenderReview() {
+  const rv = window._shareReview; if (!rv) return;
+  const ov = document.getElementById('share-review-modal');
+  const noun = rv.kind === 'meals' ? 'meal' : 'food';
+  ov.innerHTML = `
+  <div style="background:var(--bg-deep, #0d1210);border-radius:22px 22px 0 0;width:100%;max-width:520px;max-height:86vh;overflow-y:auto;padding:18px 18px calc(20px + env(safe-area-inset-bottom))">
+    <div style="display:flex;justify-content:flex-end"><button onclick="shareReviewClose()" style="background:var(--surface);border:1px solid var(--line);border-radius:9px;color:var(--muted);font-size:12px;padding:6px 12px;cursor:pointer">Close</button></div>
+    <div style="text-align:center;padding:2px 8px 14px">
+      <div style="font-size:17px;font-weight:700;margin-bottom:4px">${rv.from} shared ${rv.items.length} ${noun}${rv.items.length === 1 ? '' : 's'}</div>
+      <div style="font-size:12.5px;color:var(--muted)">Everything's checked \u2014 untick anything you don't want.</div>
+    </div>
+    ${rv.items.map(it => `
+    <div onclick="shareReviewToggle('${String(it.name).replace(/'/g, '&#39;')}')" style="display:flex;align-items:center;gap:11px;padding:11px 2px;border-bottom:1px solid var(--surface-2);cursor:pointer">
+      <span style="width:22px;height:22px;border-radius:50%;flex-shrink:0;${rv.checked.has(it.name) ? 'background:#CFA13C;border:2px solid #CFA13C;position:relative' : 'border:2px solid var(--line)'}">${rv.checked.has(it.name) ? '<span style=\"position:absolute;left:7px;top:3px;width:5px;height:10px;border:solid #101512;border-width:0 2px 2px 0;transform:rotate(45deg)\"></span>' : ''}</span>
+      <span style="flex:1;min-width:0">
+        <span style="display:block;font-size:13.5px;font-weight:600;line-height:1.25">${it.name}</span>
+        <span style="display:block;font-size:11px;color:var(--muted);line-height:1.3">${nutritionMetaString(it)}</span>
+      </span>
+    </div>`).join('')}
+    <div style="margin-top:16px">
+      <button onclick="shareAcceptSend()" style="display:block;width:100%;background:#CFA13C;color:#101512;border:none;border-radius:13px;padding:14px;font-size:14px;font-weight:700;cursor:pointer">Add ${rv.checked.size} to my ${noun}s</button>
+      <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:9px">Already have one? Matching names are skipped automatically.</div>
+    </div>
+  </div>`;
+}
+async function shareAcceptSend() {
+  const rv = window._shareReview; if (!rv) return;
+  if (!rv.checked.size) { toast('Pick at least one \u2014 or Close to decide later'); return; }
+  try {
+    const r = await fetch(`${WORKER_URL}/family/share-accept`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: rv.id, names: [...rv.checked] }) });
+    const j = await r.json();
+    if (!r.ok) { toast(j.error || 'Could not add them'); return; }
+    toast(`Added ${j.added}${j.skipped ? `, skipped ${j.skipped} you already had` : ''} \u2713`);
+    _sharePending = _sharePending.filter(x => x.id !== rv.id);
+    shareReviewClose();
+    if (rv.kind === 'meals') { await loadSavedMeals(); } else { await loadSavedFoods(); }
+  } catch (e) { toast('Could not add them \u2014 check your connection'); }
+}
+
 async function loadSavedFoods() {
   savedFoods = await dbGet('saved_foods', 'order=name.asc');
   renderSavedFoods();
@@ -18003,17 +18154,19 @@ function renderSavedFoods() {
   const _fn = (savedFoods || []).length;
   if (cEl) cEl.textContent = _fn ? `${_fn} Food${_fn === 1 ? '' : 's'}` : '';
   const el = document.getElementById('saved-foods-list');
+  if (_shareMode && _shareMode.kind === 'foods') { _shareRenderSelect(el, savedFoods, 'foods'); return; }
   if (!savedFoods.length) {
     el.innerHTML = `
       <div style="text-align:center;padding:32px 16px">
         <div style="font-size:48px;margin-bottom:16px"><i class="fa-solid fa-bowl-food"></i></div>
         <div style="font-size:19px;font-weight:800;color:#CFA13C;margin-bottom:8px;letter-spacing:-0.3px">Build Your Food Library</div>
-        <div style="font-size:14px;color:var(--muted);line-height:1.6;max-width:280px;margin:0 auto">Save the foods you eat often so logging them takes just one tap next time.</div>
+        <div style="font-size:14px;color:var(--muted);line-height:1.6;max-width:280px;margin:0 auto">Save the foods you eat often so logging them takes just one tap next time.${(!window._famStatus || !_famStatus.household) ? ' <span style=\"color:#CFA13C\">Eating with family? Turn on Team up in Settings and they can share their foods straight to your list.</span>' : ''}</div>
       </div>`;
+    el.innerHTML = _shareBannerHtml('foods') + el.innerHTML;
     return;
   }
   const sorted = [...savedFoods].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
-  el.innerHTML = sorted.map(f => `
+  el.innerHTML = _shareBannerHtml('foods') + _shareHeaderHtml('foods') + sorted.map(f => `
     <div class="meal-row">
       <div class="meal-info">
         <div style="display:flex;align-items:flex-start;gap:4px">
