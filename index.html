@@ -9662,7 +9662,9 @@ function _ocMatchGoals(text) {
   if (/(body ?fat|bf%|lean|tone|cut|shred)/.test(t)) out.push('fat_loss');
   if (/(muscle|bulk|gain|stronger|mass)/.test(t)) out.push('muscle_gain');
   if (/(maintain|keep|stay|perform)/.test(t)) out.push('maintain');
-  if (/(lose|drop|weight|slim|smaller)/.test(t)) out.push('weight_loss');
+  // Weight-loss needs its OWN evidence, not the bare verb "lose" — that verb
+  // is shared with "lose body fat" and was inventing a phantom 2nd goal.
+  if (/(weight|pounds?|lbs?|slim|smaller|scale|(lose|drop|shed).*(weight|pounds?|lbs?|size))/.test(t)) out.push('weight_loss');
   return out;
 }
 function _ocMatchGoal(text) { return _ocMatchGoals(text)[0] || null; }
@@ -11879,7 +11881,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-23-bj-livepreview';
+const RATIO_BUILD = '2026-08-23-bk-goalsingle';
 window.RATIO_BUILD = RATIO_BUILD;
 
 async function init() {
