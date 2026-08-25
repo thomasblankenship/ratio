@@ -1806,18 +1806,21 @@
     <!-- PROFILE — main listing page -->
     <div id="tab-profile" style="display:none">
       <div style="display:flex;flex-direction:column;align-items:center;padding:20px 0 24px">
-        <!-- Tap the circle to add/change the photo. Empty state shows a
-             camera badge + "Add photo" so a new user knows it is set here
-             (his ask, Aug 25). Reuses uploadMyProfilePhoto + the header input. -->
-        <div onclick="document.getElementById('pp-avatar-input').click()" style="position:relative;width:84px;height:84px;border-radius:50%;background:linear-gradient(135deg,#CFA13C,#A67C2E);display:flex;align-items:center;justify-content:center;margin-bottom:8px;overflow:hidden;cursor:pointer">
-          <i class="fa-solid fa-user" id="profile-page-avatar-icon" style="font-size:36px;color:#101512"></i>
-          <img id="profile-page-avatar-img" style="display:none;width:100%;height:100%;object-fit:cover" />
-          <div id="pp-avatar-badge" style="position:absolute;bottom:0;right:0;width:26px;height:26px;border-radius:50%;background:#101512;border:2px solid var(--bg,#101512);display:flex;align-items:center;justify-content:center">
-            <i class="fa-solid fa-camera" style="font-size:11px;color:#CFA13C"></i>
+        <!-- Tap the circle to add/change the photo. Empty state is a dashed
+             gold ring with a centered camera glyph (looks intentional, not
+             like a broken avatar); filled state paints the photo with a solid
+             ring and a small camera badge to change it. Aug 25 redesign. -->
+        <div onclick="document.getElementById('pp-avatar-input').click()" style="position:relative;width:92px;height:92px;margin-bottom:10px;cursor:pointer">
+          <div id="pp-avatar-ring" style="position:absolute;inset:0;border-radius:50%;display:flex;align-items:center;justify-content:center;overflow:hidden;background:rgba(207,161,60,0.10);border:2px dashed rgba(207,161,60,0.55);box-sizing:border-box;transition:all 0.15s">
+            <i class="fa-solid fa-camera" id="profile-page-avatar-icon" style="font-size:26px;color:#CFA13C;opacity:0.9"></i>
+            <img id="profile-page-avatar-img" style="display:none;width:100%;height:100%;object-fit:cover" />
+          </div>
+          <div id="pp-avatar-badge" style="display:none;position:absolute;bottom:2px;right:2px;width:28px;height:28px;border-radius:50%;background:#CFA13C;border:3px solid var(--bg,#0E1311);align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,0.4)">
+            <i class="fa-solid fa-camera" style="font-size:12px;color:#101512"></i>
           </div>
         </div>
         <input type="file" id="pp-avatar-input" accept="image/*" style="display:none" onchange="uploadMyProfilePhoto(this.files[0])" />
-        <div id="pp-avatar-hint" onclick="document.getElementById('pp-avatar-input').click()" style="display:none;font-size:12px;font-weight:700;color:#CFA13C;cursor:pointer;margin-bottom:6px">Add photo</div>
+        <div id="pp-avatar-hint" onclick="document.getElementById('pp-avatar-input').click()" style="display:none;font-size:12.5px;font-weight:700;color:#CFA13C;cursor:pointer;margin-bottom:8px;letter-spacing:0.2px">Add a photo</div>
         <div style="font-size:17px;font-weight:700;color:var(--ink)" id="profile-page-username">—</div>
       </div>
 
@@ -11794,16 +11797,30 @@ let _isAdminSync = false;
 async function _adminStatus() {
   if (_currentUser && ADMIN_USER_IDS.includes(_currentUser.id)) { if (!_isAdminSync) { _isAdminSync = true; try { applyPlatformUI(); } catch (e) {} } return { admin: true, root: true }; }
   if (!_currentUser) return { admin: false, root: false };
-  // Granted admins (user_flags.is_admin): ask the worker once and cache.
-  if (_adminWhoami === null) {
-    try {
-      const r = await fetch(`${WORKER_URL}/admin/whoami`);
-      _adminWhoami = r.ok ? await r.json() : { admin: false };
-    } catch (e) { _adminWhoami = { admin: false }; }
+  // Ask the worker whether this is a GRANTED admin. The old code cached the
+  // FIRST answer forever - so a call that ran before _authToken was set, or
+  // a transient whoami 500, cached {admin:false} for the whole session and
+  // the user never got admin UI until they logged out (Lauren, Aug 25).
+  // Now: only a positive, authoritative answer is cached. Anything else stays
+  // null so the next call retries - and we don't even try until we hold a
+  // token, since a token-less whoami can only ever come back false.
+  if (_adminWhoami && _adminWhoami.admin) {
+    if (!_isAdminSync) { _isAdminSync = true; try { applyPlatformUI(); } catch (e) {} }
+    return { admin: true, root: !!_adminWhoami.root };
   }
-  const _res = { admin: !!(_adminWhoami && _adminWhoami.admin), root: !!(_adminWhoami && _adminWhoami.root) };
-  if (_res.admin && !_isAdminSync) { _isAdminSync = true; try { applyPlatformUI(); } catch (e) {} }
-  return _res;
+  if (typeof _authToken !== 'string' || !_authToken) return { admin: false, root: false };
+  try {
+    const r = await fetch(`${WORKER_URL}/admin/whoami`);
+    if (r.ok) {
+      const j = await r.json();
+      if (j && j.admin) _adminWhoami = j;              // cache only a real yes
+      else _adminWhoami = null;                         // retry next time
+      if (j && j.admin && !_isAdminSync) { _isAdminSync = true; try { applyPlatformUI(); } catch (e) {} }
+      return { admin: !!(j && j.admin), root: !!(j && j.root) };
+    }
+  } catch (e) {}
+  _adminWhoami = null;   // failed - never stick on false, let a later call retry
+  return { admin: false, root: false };
 }
 async function _adminMaybeShowRow() {
   // The admin row moved into its own #settings-admin-block section; toggle
@@ -12363,7 +12380,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-25-co-adminqa';
+const RATIO_BUILD = '2026-08-25-cq-avatarframe';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
@@ -22984,21 +23001,27 @@ function refreshProfilePageAvatar() {
   const img = document.getElementById('profile-page-avatar-img');
   const icon = document.getElementById('profile-page-avatar-icon');
   if (!img || !icon) return;
-  const box = img.parentElement;
+  const ring = document.getElementById('pp-avatar-ring') || img.parentElement;
   const badge = document.getElementById('pp-avatar-badge');
   const hint = document.getElementById('pp-avatar-hint');
-  if (userProfile?.avatarUrl && box) {
-    _paintAvatar(box, userProfile.avatarUrl, userProfile.avatarFrame);
+  if (userProfile?.avatarUrl && ring) {
+    // Filled: solid gold ring, painted photo, small change badge, no hint.
+    _paintAvatar(ring, userProfile.avatarUrl, userProfile.avatarFrame);
+    ring.style.border = '2px solid rgba(207,161,60,0.85)';
+    ring.style.background = '#111';
     img.style.display = 'none';
     icon.style.display = 'none';
-    if (badge) badge.style.display = 'flex';   // change-photo affordance stays
+    if (badge) badge.style.display = 'flex';
     if (hint) hint.style.display = 'none';
-  } else {
-    if (box) box.style.backgroundImage = '';
+  } else if (ring) {
+    // Empty: dashed gold ring + centered camera + 'Add a photo' prompt.
+    ring.style.backgroundImage = '';
+    ring.style.background = 'rgba(207,161,60,0.10)';
+    ring.style.border = '2px dashed rgba(207,161,60,0.55)';
     img.style.display = 'none';
     icon.style.display = 'block';
-    if (badge) badge.style.display = 'flex';
-    if (hint) hint.style.display = 'block';    // 'Add photo' prompt when empty
+    if (badge) badge.style.display = 'none';
+    if (hint) hint.style.display = 'block';
   }
 }
 
@@ -23707,14 +23730,18 @@ async function uploadMyProfilePhoto(file) {
     const uploadRes = await storageUpload('progress-photos', path, file);
     if (uploadRes.error) throw new Error(typeof uploadRes.error === 'string' ? uploadRes.error : uploadRes.error.message || 'Upload failed');
     const url = storageUrl('progress-photos', path) + '?t=' + Date.now();
-    userProfile = { ...userProfile, avatarUrl: url, avatarFrame: { fpx: 0.5, fpy: 0.5, zoom: 1 } };
-    await saveSetting('profile', userProfile);
-    const _mpi = document.getElementById('mp-avatar-img');
-    _paintAvatar(_mpi.parentElement, url, userProfile.avatarFrame);
-    _mpi.style.display = 'none';
-    document.getElementById('mp-avatar-icon').style.display = 'none';
-    refreshProfilePageAvatar();
-    toast('Photo updated ✓');
+    // Hand off to the crop/zoom editor so the user frames what lands in the
+    // circle (drag to reposition, slider to zoom) - the same editor the
+    // lightbox uses. Its confirm saves avatarFrame + repaints everywhere.
+    // (Previously saved a fixed dead-center frame with no way to adjust.)
+    if (typeof openAvatarEditor === 'function') {
+      openAvatarEditor(url);
+    } else {
+      userProfile = { ...userProfile, avatarUrl: url, avatarFrame: { fpx: 0.5, fpy: 0.5, zoom: 1 } };
+      await saveSetting('profile', userProfile);
+      refreshProfilePageAvatar();
+      toast('Photo updated ✓');
+    }
   } catch(e) {
     toast('Could not upload photo');
   }
@@ -25236,6 +25263,12 @@ document.addEventListener('visibilitychange', () => {
 // Boot heartbeat: waits out session restore, then stamps today's activity
 // row and reveals the Admin row for allow-listed accounts.
 setTimeout(() => { try { _adminHeartbeat(); _adminMaybeShowRow(); _familyBootCheck(); initPushRegistration(); } catch (e) {} }, 4000);
+// whoami can miss on the first try (token not set yet, or a transient 500).
+// A few spaced re-checks flip admin UI on WITHOUT a relaunch. Each stops
+// retrying as soon as admin resolves true (cached) - so this is cheap.
+[7000, 12000, 20000].forEach(t => setTimeout(() => {
+  try { if (!_isAdminSync && _currentUser) { _adminWhoami = null; _adminMaybeShowRow(); if (typeof refreshNotifCenter === 'function') refreshNotifCenter(); } } catch (e) {}
+}, t));
 setTimeout(() => { try { _adminMaybeShowRow(); } catch (e) {} }, 12000);
 
 // History of this bug: visibilitychange alone missed (iOS doesn't reliably
