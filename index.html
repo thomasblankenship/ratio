@@ -11077,6 +11077,7 @@ async function verifyOtpCode() {
     _authToken = data.access_token;
     _currentUser = data.user;
     try { _adminHeartbeat(); } catch (e) {}
+    try { initPushRegistration(); } catch (e) {}
     document.getElementById('auth-screen').style.display = 'none';
 
     // The onboarding form values are all still sitting in the DOM exactly as
@@ -11793,6 +11794,57 @@ async function _adminMaybeShowRow() {
 // ---- launch heartbeat: one user_activity row per day, session-aware.
 // A "session" = first beat after 30+ minutes away. Writes are throttled
 // to one per 5 minutes so backgrounding/foregrounding stays cheap.
+// ============================================================
+// REMOTE PUSH (APNs) registration + tap handling.
+// @capacitor/push-notifications: ask permission, register with APNs, send
+// the returned device token to the worker so server-side events (admin
+// grant, and future real-time alerts) can reach a CLOSED phone. Native
+// iOS only; a no-op on web. Idempotent - safe to call on every launch.
+// ============================================================
+let _pushRegistered = false;
+async function initPushRegistration() {
+  const PN = window.Capacitor?.Plugins?.PushNotifications;
+  const native = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  if (!PN || !native || !_currentUser || !_authToken) return;
+  if (_pushRegistered) return;
+  _pushRegistered = true;
+  try {
+    // Listeners first so the registration event can't race past them.
+    PN.addListener('registration', async (token) => {
+      try {
+        const val = token && token.value;
+        if (!val) return;
+        await fetch(`${WORKER_URL}/register-push`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: val, platform: 'ios' })
+        });   // auth header auto-added by the WORKER_URL fetch wrapper
+        console.log('[push] device token registered');
+      } catch (e) { console.warn('[push] token store failed', e); }
+    });
+    PN.addListener('registrationError', (e) => console.warn('[push] registration error', e));
+    // A push TAPPED while the app was backgrounded/closed arrives here.
+    PN.addListener('pushNotificationActionPerformed', (action) => {
+      try {
+        const kind = action?.notification?.data?.kind;
+        if (kind === 'admin_granted') { _adminWhoami = null; openAdmin(); }
+      } catch (e) {}
+    });
+    // A push arriving in the FOREGROUND: surface it and refresh the bell so
+    // the in-app notice appears without waiting for the next cold launch.
+    PN.addListener('pushNotificationReceived', (notif) => {
+      try {
+        toast('\uD83D\uDD14 ' + [notif?.title, notif?.body].filter(Boolean).join(' \u2014 '));
+        if (notif?.data?.kind === 'admin_granted') _adminWhoami = null;
+        if (typeof refreshNotifCenter === 'function') refreshNotifCenter();
+      } catch (e) {}
+    });
+    let perm = await PN.checkPermissions();
+    if (perm.receive === 'prompt' || perm.receive === 'prompt-with-rationale') perm = await PN.requestPermissions();
+    if (perm.receive !== 'granted') { console.log('[push] permission not granted'); return; }
+    await PN.register();   // -> fires 'registration' with the token
+  } catch (e) { console.warn('[push] init failed', e); }
+}
 async function _adminHeartbeat(_retry) {
   try {
     // Called from a boot timer AND right after login; if the user has not
@@ -12286,7 +12338,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-25-ck-curlyquotes';
+const RATIO_BUILD = '2026-08-25-cl-pushreg';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
@@ -25121,6 +25173,7 @@ document.addEventListener('visibilitychange', () => {
     _appHiddenAt = Date.now();
   } else if (document.visibilityState === 'visible') {
     try { _adminHeartbeat(); } catch (e) {}
+    try { initPushRegistration(); } catch (e) {}
     const away = _appHiddenAt ? Date.now() - _appHiddenAt : 0;
     _appHiddenAt = null;
     if (away >= RESUME_RESET_MS) { resetToTodayHome(); return; }
@@ -25136,7 +25189,7 @@ document.addEventListener('visibilitychange', () => {
 // ===== SUSPENSION DETECTION — every wake signal feeds ONE check =====
 // Boot heartbeat: waits out session restore, then stamps today's activity
 // row and reveals the Admin row for allow-listed accounts.
-setTimeout(() => { try { _adminHeartbeat(); _adminMaybeShowRow(); _familyBootCheck(); } catch (e) {} }, 4000);
+setTimeout(() => { try { _adminHeartbeat(); _adminMaybeShowRow(); _familyBootCheck(); initPushRegistration(); } catch (e) {} }, 4000);
 setTimeout(() => { try { _adminMaybeShowRow(); } catch (e) {} }, 12000);
 
 // History of this bug: visibilitychange alone missed (iOS doesn't reliably
