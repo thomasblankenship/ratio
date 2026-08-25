@@ -7637,8 +7637,20 @@ function obWrapupStart() {
   // (defaults apply) rather than ever show a retired form screen.
   if (!chat || typeof _ocAddBot !== 'function') { obShowStep(10); return; }
   document.querySelectorAll('.ob-screen').forEach(el => { el.style.display = 'none'; });
-  window._oc = window._oc || {};
+  // COLD-START SAFE: on a resumed session the interview never ran, so the
+  // module-scoped `_oc` is still null. The old line set window._oc - a
+  // DIFFERENT binding (let does not attach to window) - then read the
+  // module one and crashed ('null is not an object', his 7:03 eruda),
+  // black-screening every resume. Initialize the module binding with the
+  // minimal shape downstream readers touch (history for _ocAddBot,
+  // fields/stage for dispatch), and restore the picked coach.
+  _oc = _oc || window._oc || {};
+  window._oc = _oc;
+  if (!_oc.fields) _oc.fields = {};
+  if (!Array.isArray(_oc.history)) _oc.history = [];
+  if (!_oc.stage) _oc.stage = 'done';
   if (!_oc.coach) { try { _oc.coach = localStorage.getItem('ob_coach') || 'lauren'; } catch (e) { _oc.coach = 'lauren'; } }
+  try { if (typeof _ocSetCoach === 'function' && typeof OB_COACHES !== 'undefined') _ocSetCoach(OB_COACHES[_oc.coach] ? _oc.coach : null); } catch (e) {}
   chat.style.display = 'flex';
   _oc.forcedField = null;
   _oc.busy = false;
@@ -12248,7 +12260,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-24-cd-obframer3';
+const RATIO_BUILD = '2026-08-24-ce-resumefix';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
@@ -12460,6 +12472,17 @@ async function obSaveAndWelcome() {
     if (!_dupScan) { try { await dbPost('scans', { date: today, weight }); } catch (e) {} }
   }
 
+  // Completion stamp at the choke point: EVERY email-style finish (auto-
+  // confirm, OTP verify, future paths) runs through here at the true end
+  // of onboarding. The OAuth CLAIM-time run is mid-flow (wrap-up still
+  // ahead) - _obPostClaim is set before that call, so it skips; the
+  // step-11 authed branch stamps explicitly for that path. The OTP path
+  // missing this stamp looped his email-verify signup back into the
+  // wrap-up (6:58 eruda).
+  if (!window._obPostClaim) {
+    try { await saveSetting('onboarding_complete', true); } catch (e) {}
+    window._obCompleteWritten = true;
+  }
   // Show the "your plan is ready" welcome screen — same design used everywhere
   // else this plan summary appears, so there's one consistent look.
   document.querySelectorAll('.ob-screen').forEach(el => { el.style.display = 'none'; });
@@ -12666,9 +12689,16 @@ async function appInit() {
       const _obc = await loadSetting('onboarding_complete');
       if (!_obc) {
         console.log('[appInit] joined but setup unfinished - resuming wrap-up');
-        document.getElementById('app-shell').style.display = 'none';
-        obWrapupStart();
-        return;
+        // If the wrap-up cannot start for ANY reason, restore the shell and
+        // continue into the app - a black screen is never an option.
+        try {
+          document.getElementById('app-shell').style.display = 'none';
+          obWrapupStart();
+          return;
+        } catch (e) {
+          console.error('[appInit] resume failed - falling through to dashboard', e);
+          document.getElementById('app-shell').style.display = 'block';
+        }
       }
     }
   }
@@ -25664,7 +25694,7 @@ if (document.readyState === 'loading') {
       <!-- Date picker -->
       <div style="margin-bottom:16px">
         <div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px">When was this taken?</div>
-        <input type="date" id="ob-photo-date" style="width:100%;padding:12px 14px;border:1.5px solid var(--line);border-radius:10px;font-size:16px;outline:none;box-sizing:border-box;color:var(--ink)" />
+        <input type="date" id="ob-photo-date" style="width:100%;max-width:100%;min-width:0;display:block;-webkit-appearance:none;appearance:none;height:46px;padding:12px 14px;border:1.5px solid var(--line);border-radius:10px;font-size:16px;outline:none;box-sizing:border-box;color:var(--ink);background:var(--surface);text-align:center" />
         <div style="font-size:12px;color:var(--muted);margin-top:6px">Change this if you're uploading a photo from earlier in your journey.</div>
       </div>
 
