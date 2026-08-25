@@ -1806,10 +1806,18 @@
     <!-- PROFILE — main listing page -->
     <div id="tab-profile" style="display:none">
       <div style="display:flex;flex-direction:column;align-items:center;padding:20px 0 24px">
-        <div style="width:84px;height:84px;border-radius:50%;background:linear-gradient(135deg,#CFA13C,#A67C2E);display:flex;align-items:center;justify-content:center;margin-bottom:12px;overflow:hidden">
+        <!-- Tap the circle to add/change the photo. Empty state shows a
+             camera badge + "Add photo" so a new user knows it is set here
+             (his ask, Aug 25). Reuses uploadMyProfilePhoto + the header input. -->
+        <div onclick="document.getElementById('pp-avatar-input').click()" style="position:relative;width:84px;height:84px;border-radius:50%;background:linear-gradient(135deg,#CFA13C,#A67C2E);display:flex;align-items:center;justify-content:center;margin-bottom:8px;overflow:hidden;cursor:pointer">
           <i class="fa-solid fa-user" id="profile-page-avatar-icon" style="font-size:36px;color:#101512"></i>
           <img id="profile-page-avatar-img" style="display:none;width:100%;height:100%;object-fit:cover" />
+          <div id="pp-avatar-badge" style="position:absolute;bottom:0;right:0;width:26px;height:26px;border-radius:50%;background:#101512;border:2px solid var(--bg,#101512);display:flex;align-items:center;justify-content:center">
+            <i class="fa-solid fa-camera" style="font-size:11px;color:#CFA13C"></i>
+          </div>
         </div>
+        <input type="file" id="pp-avatar-input" accept="image/*" style="display:none" onchange="uploadMyProfilePhoto(this.files[0])" />
+        <div id="pp-avatar-hint" onclick="document.getElementById('pp-avatar-input').click()" style="display:none;font-size:12px;font-weight:700;color:#CFA13C;cursor:pointer;margin-bottom:6px">Add photo</div>
         <div style="font-size:17px;font-weight:700;color:var(--ink)" id="profile-page-username">—</div>
       </div>
 
@@ -1963,15 +1971,6 @@
             <div id="wkemail-toggle-knob" style="position:absolute;top:3px;right:3px;width:16px;height:16px;border-radius:50%;background:var(--surface);transition:all 0.2s"></div>
           </div>
         </div>
-        <!-- ⚠️ PRE-LAUNCH: QA ONLY — hide before public release. See LAUNCH-CHECKLIST.md -->
-        <div class="mp-row qa-only" onclick="sendTestTodoNotification()">
-          <div class="mp-row-label">Test Reminder</div>
-          <div class="mp-row-value" style="color:#CFA13C">Send in 10s</div>
-        </div>
-        <div class="mp-row" id="settings-admin-row" onclick="openAdmin()" style="display:none">
-          <div class="mp-row-label">Admin</div>
-          <div class="mp-row-value" style="color:#CFA13C">Dashboard ›</div>
-        </div>
         <div class="mp-row" id="settings-family-row" onclick="openFamily()">
           <div class="mp-row-label">Family</div>
           <div class="mp-row-value" style="color:#CFA13C" id="family-row-value">Team up ›</div>
@@ -1990,10 +1989,26 @@
           <div class="mp-row-label">App Appearance</div>
           <div class="mp-row-value" id="settings-appearance-value">Dark</div>
         </div>
-        <!-- ⚠️ PRE-LAUNCH: QA ONLY — hide before public release. See LAUNCH-CHECKLIST.md -->
-        <div class="mp-row qa-only" style="cursor:default;border-bottom:none">
-          <div class="mp-row-label">App Version</div>
-          <div class="mp-row-value" style="color:var(--muted)" id="settings-build-version">—</div>
+      </div>
+      <!-- ADMIN & DEV: its own section below the normal settings, shown only
+           to admins/owners. _adminMaybeShowRow toggles #settings-admin-block
+           on the same whoami signal as the profile menu. QA-only tools (test
+           reminder, build version) live here too, still gated by qa-mode. -->
+      <div id="settings-admin-block" style="display:none">
+        <div style="font-size:11px;font-weight:700;color:#CFA13C;text-transform:uppercase;letter-spacing:0.5px;margin:18px 0 6px">Admin</div>
+        <div class="card" style="padding:4px 0">
+          <div class="mp-row" onclick="openAdmin()">
+            <div class="mp-row-label">Admin Dashboard</div>
+            <div class="mp-row-value" style="color:#CFA13C">Open ›</div>
+          </div>
+          <div class="mp-row qa-only" onclick="sendTestTodoNotification()">
+            <div class="mp-row-label">Test Reminder</div>
+            <div class="mp-row-value" style="color:#CFA13C">Send in 10s</div>
+          </div>
+          <div class="mp-row qa-only" style="cursor:default;border-bottom:none">
+            <div class="mp-row-label">App Version</div>
+            <div class="mp-row-value" style="color:var(--muted)" id="settings-build-version">—</div>
+          </div>
         </div>
       </div>
     </div>
@@ -11770,10 +11785,14 @@ const ADMIN_USER_IDS = [
 ];
 
 let _adminWhoami = null; // cached once per session: { admin, root }
+// Sync mirror of admin status so isQaUser() (which is sync, and runs before
+// whoami resolves) can grant debug tools to admins. Set the moment
+// _adminStatus learns the answer; applyPlatformUI is re-run then.
+let _isAdminSync = false;
 // One source of truth for "is the signed-in user an admin/owner" - the
 // settings row AND the promotion notification both read from here.
 async function _adminStatus() {
-  if (_currentUser && ADMIN_USER_IDS.includes(_currentUser.id)) return { admin: true, root: true };
+  if (_currentUser && ADMIN_USER_IDS.includes(_currentUser.id)) { if (!_isAdminSync) { _isAdminSync = true; try { applyPlatformUI(); } catch (e) {} } return { admin: true, root: true }; }
   if (!_currentUser) return { admin: false, root: false };
   // Granted admins (user_flags.is_admin): ask the worker once and cache.
   if (_adminWhoami === null) {
@@ -11782,13 +11801,16 @@ async function _adminStatus() {
       _adminWhoami = r.ok ? await r.json() : { admin: false };
     } catch (e) { _adminWhoami = { admin: false }; }
   }
-  return { admin: !!(_adminWhoami && _adminWhoami.admin), root: !!(_adminWhoami && _adminWhoami.root) };
+  const _res = { admin: !!(_adminWhoami && _adminWhoami.admin), root: !!(_adminWhoami && _adminWhoami.root) };
+  if (_res.admin && !_isAdminSync) { _isAdminSync = true; try { applyPlatformUI(); } catch (e) {} }
+  return _res;
 }
 async function _adminMaybeShowRow() {
-  const row = document.getElementById('settings-admin-row');
-  if (!row) return;
+  // The admin row moved into its own #settings-admin-block section; toggle
+  // that on the same whoami signal (Aug 25 restructure).
+  const block = document.getElementById('settings-admin-block');
   const who = await _adminStatus();
-  row.style.display = who.admin ? '' : 'none';
+  if (block) block.style.display = who.admin ? 'block' : 'none';
 }
 
 // ---- launch heartbeat: one user_activity row per day, session-aware.
@@ -12316,6 +12338,9 @@ function isQaUser() {
   try {
     if (_debugForced()) return true;
     if (_currentUser && QA_USER_IDS.includes(_currentUser.id)) { _rememberQaDevice(); return true; }
+    // Admins are the testers now, so they get the debug tools too (version
+    // string, test reminder, eruda) - resolved async, mirrored here (Aug 25).
+    if (_isAdminSync) { _rememberQaDevice(); return true; }
     return _qaDeviceFlag();
   } catch (e) { return false; }
 }
@@ -12338,7 +12363,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-25-cm-adminresync';
+const RATIO_BUILD = '2026-08-25-co-adminqa';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
@@ -22960,14 +22985,20 @@ function refreshProfilePageAvatar() {
   const icon = document.getElementById('profile-page-avatar-icon');
   if (!img || !icon) return;
   const box = img.parentElement;
+  const badge = document.getElementById('pp-avatar-badge');
+  const hint = document.getElementById('pp-avatar-hint');
   if (userProfile?.avatarUrl && box) {
     _paintAvatar(box, userProfile.avatarUrl, userProfile.avatarFrame);
     img.style.display = 'none';
     icon.style.display = 'none';
+    if (badge) badge.style.display = 'flex';   // change-photo affordance stays
+    if (hint) hint.style.display = 'none';
   } else {
     if (box) box.style.backgroundImage = '';
     img.style.display = 'none';
     icon.style.display = 'block';
+    if (badge) badge.style.display = 'flex';
+    if (hint) hint.style.display = 'block';    // 'Add photo' prompt when empty
   }
 }
 
