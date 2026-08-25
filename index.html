@@ -7681,6 +7681,13 @@ function _wuChips() {
 // Parse ONE utterance for as many fields as it contains. Returns human-
 // readable descriptions of everything newly locked in (empty = no progress).
 function _wuParseAll(raw) {
+  // iOS dictation writes curly apostrophes (\u2019). "I don\u2019t track
+  // steps" failed every don'?t regex below, so the steps parser missed it
+  // AND the residual stripper left it in - the whole sentence became
+  // Lauren's favorites string (live, Aug 25). Normalize before parsing.
+  raw = String(raw || '')
+    .replace(/[\u2018\u2019\u02BC\u00B4]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"');
   const t = String(raw || '').toLowerCase();
   const got = [];
   // ---- steps ----
@@ -7753,7 +7760,12 @@ function _wuParseAll(raw) {
     res = res.replace(/\b(?:allergic to|allergy to|allergies to|avoid|can'?t (?:have|eat)|stay away from)\s+[^.!?;]{0,80}/gi, ' ');
     res = res.replace(/\b\d[\d,\.]*\s*k?\s*steps?\b/gi, ' ');
     res = res.replace(/\b\d[\d,\.]*k?\b/g, ' ');
-    res = res.replace(/\b(?:love|loves|enjoy|really like|big on|favorites?\s*(?:are|is|:)?)\b/gi, ' ');
+    // Full intro phrases first ('my favorite food is'), then bare keywords,
+    // then conversational fillers ('I have', 'my food is') - what's left is
+    // the food itself.
+    res = res.replace(/\b(?:my\s+)?favou?rite\s+foods?\s+(?:is|are)\b/gi, ' ');
+    res = res.replace(/\b(?:love|loves|enjoy|really like|big on|favou?rites?\s*(?:are|is|:)?)\b/gi, ' ');
+    res = res.replace(/\b(?:i\s+(?:have|eat|like)|my\s+foods?\s+(?:is|are))\b/gi, ' ');
     res = res.replace(/[.!?;,]+/g, ' ').replace(/^\s*(?:and|also|plus|or)\b/i, ' ').replace(/\s+/g, ' ').trim();
     const _resBad = /^(?:no|none|skip|nothing|what|how|why|when|where|who|next|done|ok|okay|yes|yeah|yep|sure|help|hold|wait|stop|hang|um|uh|hmm)\b/i;
     if (res.length >= 2 && res.length <= 200 && !/\d/.test(res) && !_resBad.test(res)) {
@@ -12274,7 +12286,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-24-cj-adminnotif';
+const RATIO_BUILD = '2026-08-25-ck-curlyquotes';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
