@@ -4172,7 +4172,11 @@ async function syncHealthKitWorkouts(showToast) {
           ...((w.effort ?? w.effortScore) != null ? { effort: (w.effort ?? w.effortScore) } : {}),
           time: new Date(w.startDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           healthkit_id: w.id
-        }, 'healthkit_id');
+        // Per-user conflict key: healthkit_id alone was globally unique, so a
+        // second account on the same device hit the FIRST account's rows and
+        // RLS refused the cross-user update - 42501 for every workout
+        // (Aug 24, 7:16pm). Requires the workouts_user_healthkit_uidx index.
+        }, 'user_id,healthkit_id');
         importedCount++;
       } catch (e) {
         const msg = e?.message || String(e);
@@ -4320,6 +4324,15 @@ async function syncHealthKitBody(showToast) {
 
 async function syncHealthKitAll(showToast) {
   console.log('[HealthKit] sync start uid=' + (_currentUser?.id || 'none') + ' token=' + (_authToken ? 'yes' : 'no'));
+  // Consent gate INSIDE the sync: healthkit_enabled is the contract, and
+  // enforcing it only at call sites let one path through for an account
+  // that never opted in (Aug 24, 7:16pm). No setting, no sync - period.
+  const _hkEnabled = await loadSetting('healthkit_enabled');
+  if (!_hkEnabled) {
+    console.log('[HealthKit] not enabled for this account - sync skipped');
+    if (showToast) toast('Turn on Apple Health in Profile first');
+    return;
+  }
   // ONE refresh up front. Without this, a launch with an expired token makes
   // the first of ~395 writes 401 and the rest fail as "Load failed" before the
   // per-write refresh lands - a wasted pass every cold start. See _sbEnsureFreshToken.
@@ -11015,6 +11028,19 @@ function startSignup() {
   _currentUser = null;
   _authToken = null;
   resetAppState();
+  // A new signup is a NEW person: every opt-in and identity global from a
+  // previous same-session run must die here. window._obHealthOptIn leaked a
+  // Connect tap from an earlier test signup into the next account's save -
+  // healthkit_enabled=true for an account that never consented (Aug 24).
+  window._obHealthOptIn = undefined;
+  window._obNotifOptIn = undefined;
+  window._obName = '';
+  window._obUsername = undefined;
+  window._obSignupName = undefined; window._obSignupUsername = undefined;
+  window._obSignupEmail = undefined; window._obSignupPassword = undefined;
+  window._obPostClaim = false;
+  window._obCompleteWritten = false;   // the NEW account's stamp must fire
+  _obPhotos = {}; _obPhotoAlign = {};
   document.getElementById('auth-screen').style.display = 'none';
   document.querySelectorAll('.ob-screen').forEach(el => { el.style.display = 'none'; });
   // The coach interview is the ONLY path — the legacy form screens are
@@ -12260,7 +12286,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-24-ce-resumefix';
+const RATIO_BUILD = '2026-08-24-cg-hkguard';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
