@@ -11757,13 +11757,11 @@ const ADMIN_USER_IDS = [
 ];
 
 let _adminWhoami = null; // cached once per session: { admin, root }
-async function _adminMaybeShowRow() {
-  const row = document.getElementById('settings-admin-row');
-  if (!row) return;
-  // Owners in the hardcoded list: show instantly, no network.
-  if (_currentUser && ADMIN_USER_IDS.includes(_currentUser.id)) { row.style.display = ''; return; }
-  row.style.display = 'none';
-  if (!_currentUser) return;
+// One source of truth for "is the signed-in user an admin/owner" - the
+// settings row AND the promotion notification both read from here.
+async function _adminStatus() {
+  if (_currentUser && ADMIN_USER_IDS.includes(_currentUser.id)) return { admin: true, root: true };
+  if (!_currentUser) return { admin: false, root: false };
   // Granted admins (user_flags.is_admin): ask the worker once and cache.
   if (_adminWhoami === null) {
     try {
@@ -11771,7 +11769,13 @@ async function _adminMaybeShowRow() {
       _adminWhoami = r.ok ? await r.json() : { admin: false };
     } catch (e) { _adminWhoami = { admin: false }; }
   }
-  if (_adminWhoami && _adminWhoami.admin) row.style.display = '';
+  return { admin: !!(_adminWhoami && _adminWhoami.admin), root: !!(_adminWhoami && _adminWhoami.root) };
+}
+async function _adminMaybeShowRow() {
+  const row = document.getElementById('settings-admin-row');
+  if (!row) return;
+  const who = await _adminStatus();
+  row.style.display = who.admin ? '' : 'none';
 }
 
 // ---- launch heartbeat: one user_activity row per day, session-aware.
@@ -12270,7 +12274,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-24-ci-noseed';
+const RATIO_BUILD = '2026-08-24-cj-adminnotif';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
@@ -24536,6 +24540,26 @@ async function refreshNotifCenter() {
   const nc = await _loadNotifCenter();
   let changed = false;
 
+  try { // Admin/owner access granted - self-detected, so it works no
+    // matter where the promotion happened. Stable ids fire each tier
+    // exactly once: admin now, owner again after a root upgrade.
+    const who = await _adminStatus();
+    if (who.admin) {
+      const id = who.root ? 'owner-granted' : 'admin-granted';
+      if (!nc.items.some(i => i.id === id)) {
+        nc.items.push({
+          id, type: 'admin_granted',
+          title: who.root ? 'You\u2019re an owner' : 'You\u2019re now an admin',
+          body: who.root
+            ? 'Full owner access: everything admins can see, plus managing other admins. Find it in Profile \u2192 Admin.'
+            : 'You now have access to the Admin panel in Profile \u2192 Admin: member roster, usage stats, and support tools. Tap to take a look.',
+          ts: Date.now(), read: false
+        });
+        changed = true;
+      }
+    }
+  } catch (e) {}
+
   try { // Weekly report ready
     const wk = latestCompletedWeekStart();
     const id = 'wr-' + wk;
@@ -24640,6 +24664,7 @@ async function notifItemTap(id) {
   updateBellUI();
   closeNotifCenter();
   if (item.type === 'weekly_report') openWeeklyReportFromBell();
+  else if (item.type === 'admin_granted') openAdmin();
   else if (item.type === 'todo_due') openTodoListPage();
   // Announcements are self-contained — the title and body say it all. Only
   // open something if the row carried a link.
