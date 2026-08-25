@@ -3691,29 +3691,13 @@ let _tabBeforeTodo = 'today';
 
 function defaultTodoList() { return { items: [], seeded: false }; }
 
-// The example list a first-time user sees — item #1 pre-checked to show it's an option.
-function seededTodoItems() {
-  const mk = (name, dateStr, completed) => ({
-    id: 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-    name, dueDate: dateStr, completed: !!completed
-  });
-  return [
-    mk('Mow Lawn', '2026-07-29T11:00:00', true),
-    mk('Organize Garage', '2026-07-30T14:00:00', false),
-    mk('Take Olivia to Gymnastics', '2026-08-03T16:30:00', false),
-    mk('Give Mom a Call', null, false)
-  ];
-}
+// New accounts start with an EMPTY list - demo tasks were only ever his
+// own testing data, never meant to ship to every user (his call, Aug 24).
+// The add-box placeholder text is the only example a first-timer needs.
 
 async function loadTodoList() {
   const saved = await loadSetting('todo_list');
   todoList = (saved && Array.isArray(saved.items)) ? saved : defaultTodoList();
-  // First ever visit: seed the example list once, then persist so it never re-seeds.
-  if (!todoList.seeded) {
-    todoList.items = seededTodoItems();
-    todoList.seeded = true;
-    await saveSetting('todo_list', todoList);
-  }
   todoListLoaded = true;
   scheduleTodoNotifications();
 }
@@ -12286,7 +12270,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-24-cg-hkguard';
+const RATIO_BUILD = '2026-08-24-ci-noseed';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
@@ -24555,6 +24539,11 @@ async function refreshNotifCenter() {
   try { // Weekly report ready
     const wk = latestCompletedWeekStart();
     const id = 'wr-' + wk;
+    // Same too-new rule the report itself uses: an account that joined ON
+    // or after that week's start has no week to review - a day-old signup
+    // was being told its "week in review" was ready (caught Aug 24).
+    const _joined = (_currentUser?.created_at || '').slice(0, 10);
+    if (_joined && _joined >= wk) throw 'too new';
     if (!nc.items.some(i => i.id === id)) {
       const seen = await loadSetting('weekly_report_seen');
       nc.items.push({ id, type: 'weekly_report', title: 'Weekly Report Ready', body: 'Tap to see your week in review', ts: Date.now(), read: seen === wk });
