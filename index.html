@@ -12338,7 +12338,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-25-cl-pushreg';
+const RATIO_BUILD = '2026-08-25-cm-adminresync';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
@@ -24608,6 +24608,21 @@ async function refreshNotifCenter() {
     // matter where the promotion happened. Stable ids fire each tier
     // exactly once: admin now, owner again after a root upgrade.
     const who = await _adminStatus();
+    // Keep the notice in sync with ACTUAL status, both directions:
+    //  - lost admin (or never had it): drop any stale grant notice, so a
+    //    later re-grant fires fresh instead of being deduped by its old id.
+    //  - admin but not root: an owner-grant notice is wrong, clear it.
+    //  - owner: the plain admin notice is superseded, clear it.
+    // This is what makes remove/re-add repeatable (his test, Aug 25).
+    const _dropIds = [];
+    if (!who.admin) { _dropIds.push('admin-granted', 'owner-granted'); }
+    else if (who.root) { _dropIds.push('admin-granted'); }
+    else { _dropIds.push('owner-granted'); }
+    if (_dropIds.length) {
+      const before = nc.items.length;
+      nc.items = nc.items.filter(i => !_dropIds.includes(i.id));
+      if (nc.items.length !== before) changed = true;
+    }
     if (who.admin) {
       const id = who.root ? 'owner-granted' : 'admin-granted';
       if (!nc.items.some(i => i.id === id)) {
