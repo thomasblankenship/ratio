@@ -7,6 +7,7 @@
        escape hatch for problems that happen before sign-in. -->
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="build" content="2026-08-26-cs-autoupdate" />
   <title>Ratio</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
@@ -12380,7 +12381,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-26-cr-avatarpaint';
+const RATIO_BUILD = '2026-08-26-cs-autoupdate';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
@@ -25283,7 +25284,53 @@ setTimeout(() => { try { _adminMaybeShowRow(); } catch (e) {} }, 12000);
 // Whichever fires first wins; the heartbeat is the backstop if none do.
 let _lastActiveTick = Date.now();
 
+// ---- Auto-update on foreground --------------------------------------------
+// The native webview loads the live site once per launch and does NOT re-fetch
+// when the app returns to the foreground, so a deploy stays invisible until the
+// OS kills the app (a manual force-quit). This reads the deployed build marker
+// (the <meta name="build"> at the very top of the live index.html, fetched
+// cache-busted and only the first ~20KB) and compares it to the running one.
+// If a newer build is live it reloads to a cache-busted URL to pull it.
+var _APP_BUILD = (document.querySelector('meta[name="build"]') || {}).content || '';
+_APP_BUILD = ('' + _APP_BUILD).trim();
+var _updLastCheck = 0, _updBusy = false;
+async function checkForAppUpdate(reason) {
+  if (_updBusy || !_APP_BUILD) return;
+  var now = Date.now();
+  if (now - _updLastCheck < 15000) return;   // coalesce the burst of wake events
+  _updLastCheck = now;
+  var ctrl;
+  try {
+    ctrl = new AbortController();
+    var res = await fetch(location.origin + '/?cb=' + now, {
+      cache: 'no-store', signal: ctrl.signal, headers: { 'Range': 'bytes=0-20000' }
+    });
+    if (!res || !res.body) return;
+    var reader = res.body.getReader(), dec = new TextDecoder(), buf = '';
+    for (var i = 0; i < 10; i++) {
+      var chunk = await reader.read();
+      if (chunk.value) buf += dec.decode(chunk.value, { stream: true });
+      if (chunk.done || buf.length > 20000 || buf.indexOf('name="build"') !== -1) break;
+    }
+    try { ctrl.abort(); } catch (e) {}
+    var m = buf.match(/name=["']build["']\s+content=["']([^"']+)["']/);
+    var remote = m ? m[1].trim() : '';
+    if (!remote || remote === _APP_BUILD) return;
+    var tried = '';
+    try { tried = sessionStorage.getItem('upd_reload_to') || ''; } catch (e) {}
+    if (tried === remote) return;             // already bounced to this target
+    try { sessionStorage.setItem('upd_reload_to', remote); } catch (e) {}
+    _updBusy = true;
+    console.log('[Ratio] new build ' + remote + ' live (running ' + _APP_BUILD + ') - reloading');
+    location.replace(location.origin + '/?v=' + encodeURIComponent(remote));
+  } catch (e) {
+    try { if (ctrl) ctrl.abort(); } catch (e2) {}
+    // offline, blocked, or range unsupported - ignore and retry next foreground
+  }
+}
+
 function checkAwayGap() {
+  checkForAppUpdate('resume');
   const gap = Date.now() - _lastActiveTick;
   _lastActiveTick = Date.now();
   if (gap >= 20 * 1000) console.log('[Ratio] away ' + Math.round(gap / 1000) + 's');
@@ -25309,6 +25356,7 @@ setInterval(checkAwayGap, 15 * 1000);
 window.addEventListener('focus', checkAwayGap);
 window.addEventListener('pageshow', checkAwayGap);
 document.addEventListener('resume', checkAwayGap);        // Capacitor native lifecycle
+setTimeout(function(){ try { checkForAppUpdate('launch'); } catch(e){} }, 4000);
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') checkAwayGap();
 });
