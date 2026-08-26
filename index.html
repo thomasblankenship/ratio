@@ -12380,7 +12380,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-25-cq-avatarframe';
+const RATIO_BUILD = '2026-08-26-cr-avatarpaint';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
@@ -23008,7 +23008,7 @@ function refreshProfilePageAvatar() {
     // Filled: solid gold ring, painted photo, small change badge, no hint.
     _paintAvatar(ring, userProfile.avatarUrl, userProfile.avatarFrame);
     ring.style.border = '2px solid rgba(207,161,60,0.85)';
-    ring.style.background = '#111';
+    ring.style.backgroundColor = '#111';
     img.style.display = 'none';
     icon.style.display = 'none';
     if (badge) badge.style.display = 'flex';
