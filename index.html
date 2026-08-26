@@ -7,7 +7,7 @@
        escape hatch for problems that happen before sign-in. -->
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <meta name="build" content="2026-08-26-cv-nousername" />
+  <meta name="build" content="2026-08-26-cz-adminemail" />
   <title>Ratio</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
@@ -1850,10 +1850,6 @@
       <div style="font-size:11px;font-weight:700;color:#CFA13C;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Personal Details</div>
       <div class="card" style="padding:4px 0">
         <div class="mp-row" style="cursor:default">
-          <div class="mp-row-label">Username</div>
-          <input type="text" id="mp-display-username" oninput="_mpPending.username=this.value" placeholder="username" onfocus="moveCaretToEnd(this)" style="width:130px;text-align:right;background:none;border:none;color:#CFA13C;font-weight:600;font-size:14px;outline:none;font-family:inherit" />
-        </div>
-        <div class="mp-row" style="cursor:default">
           <div class="mp-row-label">Email Address</div>
           <div class="mp-row-value" id="mp-email" style="color:var(--ink);font-weight:500">—</div>
         </div>
@@ -2700,24 +2696,6 @@
     </div>
 
     <!-- Username -->
-    <div style="background:var(--surface);border-radius:12px;padding:14px 16px;margin-bottom:16px">
-      <div style="font-size:12px;color:var(--muted);margin-bottom:2px">Username</div>
-      <div id="settings-username-display" style="display:flex;justify-content:space-between;align-items:center">
-        <div id="settings-username" style="font-size:14px;font-weight:600;color:var(--ink)"></div>
-        <button onclick="openUsernameEdit()" style="background:none;border:none;color:#CFA13C;font-size:13px;font-weight:600;cursor:pointer">Change</button>
-      </div>
-      <div id="settings-username-edit" style="display:none;margin-top:8px">
-        <input type="text" id="settings-username-input" placeholder="e.g. alexfit22" autocomplete="off" autocapitalize="off" autocorrect="off"
-          oninput="settingsCheckUsername(this.value)"
-          style="width:100%;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;font-size:16px;outline:none;box-sizing:border-box" />
-        <div id="settings-username-status" style="font-size:12px;margin-top:6px;display:none"></div>
-        <div style="display:flex;gap:8px;margin-top:8px">
-          <button onclick="closeUsernameEdit()" style="flex:1;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-size:13px;font-weight:600;cursor:pointer">Cancel</button>
-          <button onclick="saveUsernameChange()" style="flex:1;padding:10px;border:none;border-radius:10px;background:#CFA13C;color:#101512;font-size:13px;font-weight:700;cursor:pointer">Save</button>
-        </div>
-      </div>
-    </div>
-
     <!-- AI Coach preferences -->
     <div style="background:var(--surface);border-radius:12px;padding:14px 16px;margin-bottom:16px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
@@ -4482,7 +4460,7 @@ let _vlFollowupCount = 0;
 const VL_MAX_FOLLOWUPS = 2; // after this many follow-up rounds, force the AI to finalize with its best guess rather than ask again
 
 // Recorder safety timers — a "forgot to tap stop" / stuck-listening safeguard
-const VL_SILENCE_STOP_MS = 3500; // auto-stop N ms after the last new word, once something has been heard.
+const VL_SILENCE_STOP_MS = 5000; // auto-stop N ms after the last new word, once something has been heard.
                                  // 3s still clipped people mid-thought after saying a number.
 const VL_NO_SPEECH_TIMEOUT_MS = 7000; // give up if literally nothing is heard within this window
 const VL_MAX_LISTEN_MS = 25000; // hard ceiling regardless of activity — this is the actual answer to "what if someone leaves the recorder on"
@@ -7572,7 +7550,6 @@ async function obNext(step) {
   if (step === 7) {
     // Validate form fields first before advancing to photo step
     const name = document.getElementById('ob-signup-name')?.value.trim();
-    const username = document.getElementById('ob-signup-username')?.value.trim().toLowerCase();
     const email = document.getElementById('ob-signup-email')?.value.trim();
     const password = document.getElementById('ob-signup-password')?.value;
     const confirm = document.getElementById('ob-signup-confirm')?.value;
@@ -7580,15 +7557,6 @@ async function obNext(step) {
     const emailErrEl = document.getElementById('ob-signup-email-error');
     if (emailErrEl) emailErrEl.style.display = 'none';
     if (!name) { if (signupErrEl) { signupErrEl.textContent = 'Please enter your name'; signupErrEl.style.display = 'block'; } return; }
-    if (!username) { if (signupErrEl) { signupErrEl.textContent = 'Please choose a username'; signupErrEl.style.display = 'block'; } return; }
-    if (!/^[a-z0-9._]{3,20}$/.test(username)) {
-      if (signupErrEl) { signupErrEl.textContent = 'Username must be 3-20 characters: letters, numbers, periods, underscores only'; signupErrEl.style.display = 'block'; }
-      return;
-    }
-    if (window._obUsernameAvailable === false) {
-      if (signupErrEl) { signupErrEl.textContent = 'That username is already taken'; signupErrEl.style.display = 'block'; }
-      return;
-    }
     if (!email) { if (signupErrEl) { signupErrEl.textContent = 'Please enter your email'; signupErrEl.style.display = 'block'; } return; }
     // Basic email format check (same shape Supabase itself requires) — catches
     // typos like missing @ or domain before we ever hit the network.
@@ -9234,7 +9202,7 @@ async function obOAuthAfterAuth() {
   let door = 'signup';
   try { door = localStorage.getItem('ob_oauth_door') || 'signup'; localStorage.removeItem('ob_oauth_door'); } catch (e) {}
   const show = () => {
-    try { obRestoreProgress(); } catch (e) {}
+    try { obRestoreProgress(true); } catch (e) {}
     // Login door + no interview answers = someone who chose Sign In but has
     // no Ratio account. Say so and route into the REAL signup (Lauren) -
     // never silently convert a login into a claim screen. (Their bare auth
@@ -9496,52 +9464,101 @@ const OB_LINE_DWELL_MS = 1200;     // hold after a typed line finishes
 const OB_HANDOFF_PAUSE_MS = 1800;  // extra hold before a coach walks in
 
 function _ocSpeakAndReveal(text, bubble, opts2) {
-  // Show the whole line at once (no word-by-word karaoke) and keep the audio
-  // plus the stage-advance timing. spoken() still fires when the line has
-  // genuinely finished (audio end, muted dwell, or a backstop) because
-  // onboarding stage transitions hang off it, not a fixed clock.
+  // Fires exactly once, when this line has genuinely finished being spoken -
+  // by Gemini, by the device voice, instantly when muted, or by the backstop.
+  // Stage transitions hang off this instead of a clock, because generation
+  // latency (20s+ observed) is unboundable from here.
   let _spokenFired = false;
   const spoken = () => {
     if (_spokenFired) return; _spokenFired = true;
     try { if (opts2 && opts2.onSpoken) opts2.onSpoken(); } catch (e) {}
   };
-  bubble.textContent = text || '';
-  _ocScroll();
-  // Muted / voice-off: nothing to speak. Hold a beat so a handoff line stays
-  // readable, then advance.
+  // Voice off routes through the MUTED branch on purpose: it already
+  // reveals the text and fires spoken(), which is what advances onboarding.
   if (!VOICE_OUTPUT_ENABLED || _ocMuted || !text) {
-    setTimeout(spoken, text ? OB_LINE_DWELL_MS : 300);
+    if (!text) { setTimeout(spoken, 300); return; }
+    const mw = text.split(/\s+/);
+    let mi = 0;
+    bubble.textContent = '';
+    const mt = setInterval(() => {
+      mi++;
+      bubble.textContent = mw.slice(0, mi).join(' ');
+      _ocScroll();
+      if (mi >= mw.length) {
+        clearInterval(mt);
+        setTimeout(spoken, OB_LINE_DWELL_MS);
+      }
+    }, OB_TYPE_MS_PER_WORD);
     return;
   }
-  // Voice on: text is already fully shown; play the audio and advance when it
-  // ends. The 30s backstop guarantees a stage never wedges if audio never
-  // resolves.
   setTimeout(spoken, 30000);
+  const words = text.split(/\s+/);
+  let shown = 0, done = false, timer = null, audioLed = false;
+  const stopTimer = () => { if (timer) { clearInterval(timer); timer = null; } };
+  const showWords = (count) => {
+    if (done || count <= shown) return;
+    shown = Math.min(count, words.length);
+    bubble.textContent = words.slice(0, shown).join(' ');
+    _ocScroll();
+  };
+  const showAll = () => { done = true; stopTimer(); bubble.textContent = text; _ocScroll(); };
+  const toFraction = (f) => { audioLed = true; stopTimer(); showWords(Math.max(1, Math.round(f * words.length))); };
+  bubble.textContent = '';
+  const provisionalCap = Math.max(2, Math.ceil(words.length * 0.35));
+  const patience = setTimeout(() => {
+    if (audioLed || done) return;
+    timer = setInterval(() => {
+      if (audioLed || done) { stopTimer(); return; }
+      if (shown >= provisionalCap) { stopTimer(); return; }
+      showWords(shown + 1);
+    }, 300);
+  }, 1300);
   const who = (_oc && _oc.coach) || 'lauren';
-  ratioSpeak(who, text, { onEnd: () => { spoken(); } }).then(played => {
-    if (played) return;                    // includes 'stale' - no fallback
-    _ocRevealDeviceVoice(text, bubble, spoken);   // device voice; text already shown
+  ratioSpeak(who, text, { onProgress: toFraction, onEnd: () => { showAll(); spoken(); } }).then(played => {
+    if (played) return;
+    clearTimeout(patience); stopTimer();
+    bubble.textContent = ''; shown = 0;
+    _ocRevealDeviceVoice(text, bubble, spoken);
   });
+  setTimeout(() => { clearTimeout(patience); showAll(); }, Math.max(9000, words.length * 600));
 }
 
 function _ocRevealDeviceVoice(text, bubble, onSpoken) {
-  // Text is shown all at once; this only plays the device voice and advances
-  // when it finishes (or a backstop fires). No word-by-word reveal.
-  bubble.textContent = text; _ocScroll();
-  const done = { v: false };
-  const finish = () => { if (!done.v) { done.v = true; if (onSpoken) onSpoken(); } };
-  if (!VOICE_OUTPUT_ENABLED || _ocMuted || _ttsSuppressed || !window.speechSynthesis) { finish(); return; }
+  const showAll = () => { bubble.textContent = text; if (onSpoken) onSpoken(); };
+  if (!VOICE_OUTPUT_ENABLED || _ocMuted || _ttsSuppressed || !window.speechSynthesis) { showAll(); return; }
+  let done = false;
+  let timer = null;
+  const finish = () => { if (!done) { done = true; if (timer) clearInterval(timer); showAll(); } };
   try {
-    _ttsStop();   // both engines - see _vlSpeakDevice
+    _ttsStop();
     const u = new SpeechSynthesisUtterance(text);
     u.rate = 1.05;
     const v = _oc ? _ocVoices[_oc.coach || 'olivia'] : null;
     if (v) u.voice = v;
     _logDeviceVoice(u.voice);
+    let usedBoundary = false;
+    u.onboundary = (ev) => {
+      usedBoundary = true;
+      if (timer) { clearInterval(timer); timer = null; }
+      const i = ev.charIndex != null ? ev.charIndex : 0;
+      const nextSpace = text.indexOf(' ', i);
+      bubble.textContent = text.slice(0, nextSpace === -1 ? text.length : nextSpace);
+      _ocScroll();
+    };
     u.onend = finish;
     u.onerror = finish;
     speechSynthesis.speak(u);
-    setTimeout(finish, Math.max(6000, text.split(/\s+/).length * 500));
+    const words = text.split(/\s+/);
+    let n = 0;
+    const perWord = Math.max(150, Math.min(320, 60000 / (170 * u.rate)));
+    timer = setInterval(() => {
+      if (usedBoundary || done) { clearInterval(timer); timer = null; return; }
+      n++;
+      bubble.textContent = words.slice(0, n).join(' ');
+      _ocScroll();
+      if (n >= words.length) { clearInterval(timer); timer = null; }
+    }, perWord);
+    setTimeout(finish, Math.max(6000, words.length * 500));
   } catch (e) { finish(); }
 }
 
@@ -11346,7 +11363,6 @@ async function handleSignUp() {
     const data = await signUp(email, password, name);
     // Store name in ob flow
     window._obName = name;
-    window._obUsername = username;
     if (data.access_token) {
       // Auto-confirmed (email confirmation disabled)
       _authToken = data.access_token;
@@ -11542,7 +11558,7 @@ function obSaveProgress(preserveTimestamp) {
   } catch(e) { console.warn('obSaveProgress failed:', e); }
 }
 
-function obRestoreProgress() {
+function obRestoreProgress(allowAccountStep) {
   try {
     const raw = localStorage.getItem('ob_progress');
     console.log('[ob_progress] checking for saved progress:', !!raw);
@@ -11563,7 +11579,8 @@ function obRestoreProgress() {
     // there is no session yet and auto-landing there on a reload traps the
     // person on Create Account with no way back to start (the stuck loop).
     // A signed-out reload at 7+ falls through to the clean auth screen.
-    const hasProgress = snap.obGoalType && snap.step > 1 && snap.step < 7;
+    const _maxStep = allowAccountStep ? 8 : 7;
+    const hasProgress = snap.obGoalType && snap.step > 1 && snap.step < _maxStep;
     if (!hasProgress) {
       console.log('[ob_progress] snapshot has no meaningful progress, discarding');
       localStorage.removeItem('ob_progress');
@@ -11585,8 +11602,8 @@ function obRestoreProgress() {
     const shellEl = document.getElementById('app-shell');
     if (shellEl) shellEl.style.display = 'block';
     const stepToRestore = snap.step || 1;
-    console.log('[ob_progress] calling obShowStep with', stepToRestore);
-    obShowStep(stepToRestore);
+    console.log('[ob_progress] calling obShowStep with', stepToRestore, 'allowAccountStep:', !!allowAccountStep);
+    if (!allowAccountStep) obShowStep(stepToRestore);
     console.log('[ob_progress] obShowStep returned, current display:', document.getElementById('ob-step-' + (snap.step || 1))?.style.display);
     // Restore field values once the right screen is visible
     Object.entries(snap.fields || {}).forEach(([id, val]) => {
@@ -12182,7 +12199,7 @@ function _adminRenderRoster() {
   uEl.innerHTML = list.map(u => {
     const ago = _adminAgo(u.lastSeen);
     const dot = colors[ago.cls] || '#8a8a8a';
-    const uname = _weEscHtml(u.username || '');
+    const uname = _weEscHtml(u.email || u.username || '');
     const isNew = u.joined && new Date(u.joined).getTime() >= seven;
     const open = _adminOpen === u.id;
     const joined = u.joined ? new Date(u.joined).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }) : '?';
@@ -12303,7 +12320,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-26-cv-nousername';
+const RATIO_BUILD = '2026-08-26-cz-adminemail';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
@@ -22956,7 +22973,7 @@ async function loadCurrentUsername() {
     const el = document.getElementById('settings-username');
     if (el) el.textContent = name;
     const pageEl = document.getElementById('profile-page-username');
-    if (pageEl) pageEl.textContent = name;
+    if (pageEl) pageEl.textContent = (userProfile && userProfile.name) ? userProfile.name : name;
   } catch(e) {
     const el = document.getElementById('settings-username');
     if (el) el.textContent = 'Not set';
@@ -25221,33 +25238,22 @@ async function checkForAppUpdate(reason) {
   var now = Date.now();
   if (now - _updLastCheck < 15000) return;   // coalesce the burst of wake events
   _updLastCheck = now;
-  var ctrl;
   try {
-    ctrl = new AbortController();
-    var res = await fetch(location.origin + '/?cb=' + now, {
-      cache: 'no-store', signal: ctrl.signal, headers: { 'Range': 'bytes=0-20000' }
-    });
-    if (!res || !res.body) return;
-    var reader = res.body.getReader(), dec = new TextDecoder(), buf = '';
-    for (var i = 0; i < 10; i++) {
-      var chunk = await reader.read();
-      if (chunk.value) buf += dec.decode(chunk.value, { stream: true });
-      if (chunk.done || buf.length > 20000 || buf.indexOf('name="build"') !== -1) break;
-    }
-    try { ctrl.abort(); } catch (e) {}
+    var res = await fetch(location.origin + '/?cb=' + now, { cache: 'no-store', headers: { 'Range': 'bytes=0-20000' } });
+    if (!res || !res.ok) return;
+    var buf = await res.text();
     var m = buf.match(/name=["']build["']\s+content=["']([^"']+)["']/);
     var remote = m ? m[1].trim() : '';
     if (!remote || remote === _APP_BUILD) return;
     var tried = '';
     try { tried = sessionStorage.getItem('upd_reload_to') || ''; } catch (e) {}
-    if (tried === remote) return;             // already bounced to this target
+    if (tried === remote) return;
     try { sessionStorage.setItem('upd_reload_to', remote); } catch (e) {}
     _updBusy = true;
     console.log('[Ratio] new build ' + remote + ' live (running ' + _APP_BUILD + ') - reloading');
     location.replace(location.origin + '/?v=' + encodeURIComponent(remote));
   } catch (e) {
-    try { if (ctrl) ctrl.abort(); } catch (e2) {}
-    // offline, blocked, or range unsupported - ignore and retry next foreground
+    // offline or blocked - ignore and retry next foreground
   }
 }
 
@@ -25744,7 +25750,7 @@ if (document.readyState === 'loading') {
 
       <div style="margin-bottom:12px">
         <div style="font-size:13px;font-weight:700;color:var(--muted);margin-bottom:6px">Your first name <span style="font-weight:500">— what your coach calls you</span></div>
-        <input id="ob-signup-name" type="text" placeholder="First name (you'll pick a username next)" autocomplete="given-name"
+        <input id="ob-signup-name" type="text" placeholder="First name" autocomplete="given-name"
           style="width:100%;padding:14px 16px;border:1.5px solid var(--line);border-radius:12px;font-size:16px;outline:none;box-sizing:border-box" />
       </div>
       <!-- Three doors, one username system. Apple + Google skip the password
@@ -25764,14 +25770,6 @@ if (document.readyState === 'loading') {
           style="width:100%;padding:15px;background:var(--surface);color:var(--ink);border:1.5px solid #CFA13C;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:14px">Continue with email</button>
       </div>
       <div id="ob-email-fields" style="display:none">
-      <div style="margin-bottom:12px">
-        <div style="font-size:13px;font-weight:700;color:var(--muted);margin-bottom:6px">Username</div>
-        <input id="ob-signup-username" type="text" placeholder="e.g. alexfit22" autocomplete="off" autocapitalize="off" autocorrect="off"
-          oninput="obCheckUsername(this.value)"
-          style="width:100%;padding:14px 16px;border:1.5px solid var(--line);border-radius:12px;font-size:16px;outline:none;box-sizing:border-box" />
-        <div id="ob-signup-username-status" style="font-size:12px;margin-top:6px;display:none"></div>
-        <div style="font-size:12px;color:var(--muted);margin-top:6px">Sign in with this instead of your email — 3-20 characters, letters/numbers/periods/underscores.</div>
-      </div>
       <div style="margin-bottom:12px">
         <div style="font-size:13px;font-weight:700;color:var(--muted);margin-bottom:6px">Email</div>
         <input id="ob-signup-email" type="email" placeholder="you@example.com" autocomplete="email"
