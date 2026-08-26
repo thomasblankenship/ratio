@@ -7,7 +7,7 @@
        escape hatch for problems that happen before sign-in. -->
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <meta name="build" content="2026-08-26-ct-erudamove" />
+  <meta name="build" content="2026-08-26-cv-nousername" />
   <title>Ratio</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
@@ -575,7 +575,7 @@
           <div id="auth-msg-google" style="font-size:12.5px;color:#F87171;margin:6px 0 0;min-height:0"></div>
         </div>
         <div id="auth-email-fields" style="display:none">
-        <div style="margin-bottom:12px"><input id="auth-email" type="text" placeholder="Email or Username" autocomplete="username" autocapitalize="off" autocorrect="off" onfocus="moveCaretToEnd(this)" style="width:100%;padding:14px 16px;border:1.5px solid var(--line);border-radius:12px;font-size:16px;outline:none;box-sizing:border-box" /></div>
+        <div style="margin-bottom:12px"><input id="auth-email" type="text" placeholder="Email" autocomplete="username" autocapitalize="off" autocorrect="off" onfocus="moveCaretToEnd(this)" style="width:100%;padding:14px 16px;border:1.5px solid var(--line);border-radius:12px;font-size:16px;outline:none;box-sizing:border-box" /></div>
         <div style="margin-bottom:20px;position:relative">
           <input id="auth-password" type="password" placeholder="Password" autocomplete="current-password" style="width:100%;padding:14px 48px 14px 16px;border:1.5px solid var(--line);border-radius:12px;font-size:16px;outline:none;box-sizing:border-box" onkeydown="if(event.key==='Enter')handleLogin()" />
           <button type="button" onclick="togglePw('auth-password',this)" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:0;font-size:18px;line-height:1;color:var(--muted)">👁️</button>
@@ -6331,26 +6331,26 @@ function _famRender() {
       h += _famInviteFormHtml();
     }
   } else if (!(s.pendingIn || []).length) {
-    h += `<div style="font-size:12.5px;color:var(--muted);line-height:1.55;margin-bottom:12px">Share one shopping list and to-dos with your family. Invite your partner by their Ratio username \u2014 they accept here, and you're linked.</div>` + _famInviteFormHtml();
+    h += `<div style="font-size:12.5px;color:var(--muted);line-height:1.55;margin-bottom:12px">Share one shopping list and to-dos with your family. Invite your partner by their email \u2014 they accept here, and you're linked.</div>` + _famInviteFormHtml();
   }
   el.innerHTML = h;
 }
 function _famInviteFormHtml() {
   return `<div style="margin-top:10px">` +
-    `<input id="fam-invite-username" type="text" autocapitalize="none" autocorrect="off" placeholder="partner's username" style="width:100%;box-sizing:border-box;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:11px 12px;font-size:13.5px;color:var(--ink);margin-bottom:8px" />` +
+    `<input id="fam-invite-username" type="email" autocapitalize="none" autocorrect="off" placeholder="partner's email" style="width:100%;box-sizing:border-box;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:11px 12px;font-size:13.5px;color:var(--ink);margin-bottom:8px" />` +
     `<button type="button" id="fam-invite-btn" onclick="_famInvite()" style="width:100%;background:#CFA13C;color:#101512;border:none;border-radius:10px;padding:12px;font-size:13.5px;font-weight:700;cursor:pointer">Send invite</button></div>`;
 }
 async function _famInvite() {
   const inp = document.getElementById('fam-invite-username');
   const btn = document.getElementById('fam-invite-btn');
   const uname = (inp && inp.value || '').trim();
-  if (!uname) { toast('Enter their username'); return; }
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(uname)) { toast('Enter a valid email'); return; }
   if (btn) { btn.disabled = true; btn.textContent = 'Sending\u2026'; }
   try {
-    const r = await fetch(`${WORKER_URL}/family/invite`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: uname }) });
+    const r = await fetch(`${WORKER_URL}/family/invite`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: uname }) });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) { toast(j.error || 'Could not send invite'); return; }
-    toast(`Invite sent to @${j.invited} \u2713`);
+    toast(`Invite sent to ${j.invited} \u2713`);
     await _famFetchStatus(); _famRender();
   } catch (e) { toast('Could not send invite'); }
   finally { if (btn) { btn.disabled = false; btn.textContent = 'Send invite'; } }
@@ -9284,7 +9284,7 @@ function obShowClaimUsername() {
   if (!el) return;
   el.style.display = 'flex';
   const t = document.getElementById('ob-claim-title');
-  if (t && window._obName) t.textContent = `Almost there, ${window._obName} - claim your username`;
+  if (t && window._obName) t.textContent = window._obName ? `You're all set, ${window._obName}!` : "You're all set!";
   const input = document.getElementById('ob-claim-username');
   if (input && !input.value) {
     const base = (window._obName || 'user').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12) || 'user';
@@ -9296,11 +9296,7 @@ function obShowClaimUsername() {
 async function obClaimContinue() {
   const errEl = document.getElementById('ob-claim-error');
   if (errEl) errEl.style.display = 'none';
-  const val = (document.getElementById('ob-claim-username')?.value || '').trim().toLowerCase();
   const fail = (m) => { if (errEl) { errEl.textContent = m; errEl.style.display = 'block'; } };
-  if (!/^[a-z0-9._]{3,20}$/.test(val)) return fail('3-20 characters: letters, numbers, periods, underscores only.');
-  if (window._obUsernameAvailable === false) return fail('That username is taken - try another.');
-  window._obUsername = val;
   // obSaveAndWelcome reads the classic form fields, refilled by
   // obRestoreProgress. If the snapshot expired the fields are empty - never
   // let silent defaults compute a plan the person did not give.
@@ -9500,126 +9496,52 @@ const OB_LINE_DWELL_MS = 1200;     // hold after a typed line finishes
 const OB_HANDOFF_PAUSE_MS = 1800;  // extra hold before a coach walks in
 
 function _ocSpeakAndReveal(text, bubble, opts2) {
-  // Fires exactly once, when this line has genuinely finished being spoken —
-  // by Gemini, by the device voice, instantly when muted, or by the backstop.
-  // Stage transitions hang off this instead of a clock, because generation
-  // latency (20s+ observed) is unboundable from here.
+  // Show the whole line at once (no word-by-word karaoke) and keep the audio
+  // plus the stage-advance timing. spoken() still fires when the line has
+  // genuinely finished (audio end, muted dwell, or a backstop) because
+  // onboarding stage transitions hang off it, not a fixed clock.
   let _spokenFired = false;
   const spoken = () => {
     if (_spokenFired) return; _spokenFired = true;
     try { if (opts2 && opts2.onSpoken) opts2.onSpoken(); } catch (e) {}
   };
-  // Voice off routes through the MUTED branch on purpose: it already
-  // reveals the text and fires spoken(), which is what advances onboarding.
+  bubble.textContent = text || '';
+  _ocScroll();
+  // Muted / voice-off: nothing to speak. Hold a beat so a handoff line stays
+  // readable, then advance.
   if (!VOICE_OUTPUT_ENABLED || _ocMuted || !text) {
-    // Muted used to dump the whole line and advance in 600ms - fast enough
-    // that the handoff ("let me introduce you to Ian") was gone before anyone
-    // read it. Type it out at talking pace instead, then hold.
-    if (!text) { setTimeout(spoken, 300); return; }
-    const mw = text.split(/\s+/);
-    let mi = 0;
-    bubble.textContent = '';
-    const mt = setInterval(() => {
-      mi++;
-      bubble.textContent = mw.slice(0, mi).join(' ');
-      _ocScroll();
-      if (mi >= mw.length) {
-        clearInterval(mt);
-        setTimeout(spoken, OB_LINE_DWELL_MS);   // let it land before the next beat
-      }
-    }, OB_TYPE_MS_PER_WORD);
+    setTimeout(spoken, text ? OB_LINE_DWELL_MS : 300);
     return;
   }
-  setTimeout(spoken, 30000);   // backstop: never wedge a stage forever
-  const words = text.split(/\s+/);
-  let shown = 0, done = false, timer = null, audioLed = false;
-  const stopTimer = () => { if (timer) { clearInterval(timer); timer = null; } };
-
-  // The one rule that fixes the double reveal: NEVER go backwards. The old
-  // code let the audio callback reset the bubble to a two-word prefix after
-  // the timer had already written the whole line, so the text appeared, then
-  // reappeared, with the voice trailing behind it.
-  const showWords = (count) => {
-    if (done || count <= shown) return;
-    shown = Math.min(count, words.length);
-    bubble.textContent = words.slice(0, shown).join(' ');
-    _ocScroll();
-  };
-  const showAll = () => { done = true; stopTimer(); bubble.textContent = text; _ocScroll(); };
-  const toFraction = (f) => { audioLed = true; stopTimer(); showWords(Math.max(1, Math.round(f * words.length))); };
-
-  bubble.textContent = '';
-  // The provisional reveal exists so a slow generation is not dead air — but
-  // it must never FINISH, or the voice ends up narrating text that is already
-  // fully on screen. It stops at roughly a third of the line and waits for
-  // the audio to take over.
-  const provisionalCap = Math.max(2, Math.ceil(words.length * 0.35));
-  const patience = setTimeout(() => {
-    if (audioLed || done) return;
-    timer = setInterval(() => {
-      if (audioLed || done) { stopTimer(); return; }
-      if (shown >= provisionalCap) { stopTimer(); return; }   // hold for the voice
-      showWords(shown + 1);
-    }, 300);
-  }, 1300);
-
+  // Voice on: text is already fully shown; play the audio and advance when it
+  // ends. The 30s backstop guarantees a stage never wedges if audio never
+  // resolves.
+  setTimeout(spoken, 30000);
   const who = (_oc && _oc.coach) || 'lauren';
-  ratioSpeak(who, text, { onProgress: toFraction, onEnd: () => { showAll(); spoken(); } }).then(played => {
-    if (played) return;                    // includes 'stale' — no fallback
-    clearTimeout(patience); stopTimer();
-    bubble.textContent = ''; shown = 0;
-    _ocRevealDeviceVoice(text, bubble, spoken);
+  ratioSpeak(who, text, { onEnd: () => { spoken(); } }).then(played => {
+    if (played) return;                    // includes 'stale' - no fallback
+    _ocRevealDeviceVoice(text, bubble, spoken);   // device voice; text already shown
   });
-  setTimeout(() => { clearTimeout(patience); showAll(); }, Math.max(9000, words.length * 600));
 }
 
 function _ocRevealDeviceVoice(text, bubble, onSpoken) {
-  const showAll = () => { bubble.textContent = text; if (onSpoken) onSpoken(); };
-  if (!VOICE_OUTPUT_ENABLED || _ocMuted || _ttsSuppressed || !window.speechSynthesis) { showAll(); return; }
-  let done = false;
-  let timer = null;
-  const finish = () => { if (!done) { done = true; if (timer) clearInterval(timer); showAll(); } };
+  // Text is shown all at once; this only plays the device voice and advances
+  // when it finishes (or a backstop fires). No word-by-word reveal.
+  bubble.textContent = text; _ocScroll();
+  const done = { v: false };
+  const finish = () => { if (!done.v) { done.v = true; if (onSpoken) onSpoken(); } };
+  if (!VOICE_OUTPUT_ENABLED || _ocMuted || _ttsSuppressed || !window.speechSynthesis) { finish(); return; }
   try {
-    _ttsStop();   // both engines — see _vlSpeakDevice
+    _ttsStop();   // both engines - see _vlSpeakDevice
     const u = new SpeechSynthesisUtterance(text);
     u.rate = 1.05;
-    // Before a coach is assigned the speaker is Lauren — female voice.
     const v = _oc ? _ocVoices[_oc.coach || 'olivia'] : null;
     if (v) u.voice = v;
-    // This is the MAIN fallback path — it builds its own utterance rather than
-    // going through _ocSpeakDevice, so without this line the one voice Semmes
-    // is trying to identify was the one voice never logged.
     _logDeviceVoice(u.voice);
-
-    let usedBoundary = false;
-    u.onboundary = (ev) => {
-      usedBoundary = true;
-      if (timer) { clearInterval(timer); timer = null; }
-      const i = ev.charIndex != null ? ev.charIndex : 0;
-      // include the word being spoken, not just everything before it
-      const nextSpace = text.indexOf(' ', i);
-      bubble.textContent = text.slice(0, nextSpace === -1 ? text.length : nextSpace);
-      _ocScroll();
-    };
     u.onend = finish;
     u.onerror = finish;
     speechSynthesis.speak(u);
-
-    // Timed fallback: start revealing at a natural pace, and let boundary
-    // events take over if they arrive.
-    const words = text.split(/\s+/);
-    let n = 0;
-    const perWord = Math.max(150, Math.min(320, 60000 / (170 * u.rate))); // ~170 wpm
-    timer = setInterval(() => {
-      if (usedBoundary || done) { clearInterval(timer); timer = null; return; }
-      n++;
-      bubble.textContent = words.slice(0, n).join(' ');
-      _ocScroll();
-      if (n >= words.length) { clearInterval(timer); timer = null; }
-    }, perWord);
-
-    // Hard stop — never leave a half-written sentence if the engine dies.
-    setTimeout(finish, Math.max(6000, words.length * 500));
+    setTimeout(finish, Math.max(6000, text.split(/\s+/).length * 500));
   } catch (e) { finish(); }
 }
 
@@ -12381,7 +12303,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-26-ct-erudamove';
+const RATIO_BUILD = '2026-08-26-cv-nousername';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
@@ -25892,16 +25814,9 @@ if (document.readyState === 'loading') {
   <div class="ob-screen" id="ob-claim" style="position:fixed;top:0;left:0;right:0;bottom:0;background:var(--surface);display:none;flex-direction:column;z-index:9999;max-width:520px;margin:0 auto">
     <div style="padding:24px;flex:1;overflow-y:auto;min-height:0">
       <div style="font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;margin-top:24px">One last thing</div>
-      <div id="ob-claim-title" style="font-size:26px;font-weight:800;color:var(--ink);letter-spacing:-0.5px;margin-bottom:6px">Claim your username</div>
-      <div style="font-size:14px;color:var(--muted);margin-bottom:24px">You can sign in with this anywhere &mdash; no password needed with your linked account.</div>
-      <div style="margin-bottom:12px">
-        <div style="font-size:13px;font-weight:700;color:var(--muted);margin-bottom:6px">Username</div>
-        <input id="ob-claim-username" type="text" placeholder="e.g. alexfit22" autocomplete="off" autocapitalize="off" autocorrect="off"
-          oninput="obCheckUsername(this.value,'ob-claim-username')"
-          style="width:100%;padding:14px 16px;border:1.5px solid var(--line);border-radius:12px;font-size:16px;outline:none;box-sizing:border-box" />
-        <div id="ob-claim-username-status" style="font-size:12px;margin-top:6px;display:none"></div>
-        <div style="font-size:12px;color:var(--muted);margin-top:6px">3-20 characters, letters/numbers/periods/underscores.</div>
-      </div>
+      <div id="ob-claim-title" style="font-size:26px;font-weight:800;color:var(--ink);letter-spacing:-0.5px;margin-bottom:6px">You're all set</div>
+      <div style="font-size:14px;color:var(--muted);margin-bottom:24px">Your plan is ready. Tap continue to jump in.</div>
+      
       <div id="ob-claim-error" style="font-size:13px;color:#F87171;margin-bottom:8px;display:none"></div>
     </div>
     <div style="padding:20px 24px 40px">
