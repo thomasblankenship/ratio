@@ -7,7 +7,7 @@
        escape hatch for problems that happen before sign-in. -->
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <meta name="build" content="2026-08-26-cs-autoupdate" />
+  <meta name="build" content="2026-08-26-ct-erudamove" />
   <title>Ratio</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
@@ -12376,12 +12376,12 @@ function maybeLoadDebugConsole() {
   // that took the whole page down with it.
   const d = document.createElement('script');
   d.src = 'https://cdn.jsdelivr.net/npm/eruda';
-  d.onload = () => { try { eruda.init(); _logRatioVersions(); } catch (e) {} };
+  d.onload = () => { try { eruda.init(); try { eruda.position({ x: 6, y: Math.round((window.innerHeight || 700) * 0.45) }); } catch (e) {} _logRatioVersions(); } catch (e) {} };
   d.onerror = () => { console.warn('[Ratio] debug console blocked by the network'); };
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-26-cs-autoupdate';
+const RATIO_BUILD = '2026-08-26-ct-erudamove';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
