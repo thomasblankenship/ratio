@@ -7,7 +7,7 @@
        escape hatch for problems that happen before sign-in. -->
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <meta name="build" content="2026-08-27-dk-adminroster" />
+  <meta name="build" content="2026-08-27-dl-foodsearch" />
   <title>Ratio</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
@@ -1089,9 +1089,10 @@
       </div>
       <div style="position:relative;margin-bottom:12px">
         <i class="fa-solid fa-magnifying-glass" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:12px;pointer-events:none"></i>
-        <input type="text" placeholder="Filter my foods…" oninput="filterSavedList('saved-foods-list', this.value)"
+        <input type="text" id="myfoods-filter-input" placeholder="Filter my foods…" oninput="filterSavedList('saved-foods-list', this.value);_myFoodsDbHint(this.value)"
           style="width:100%;padding:9px 12px 9px 32px;border:1px solid var(--line);border-radius:10px;font-size:14px;outline:none;box-sizing:border-box" />
       </div>
+      <div id="myfoods-db-hint" onclick="_myFoodsDbSearch()" style="display:none;margin:-4px 0 12px;padding:10px 12px;background:var(--surface);border:1px solid var(--line);border-radius:10px;font-size:12.5px;color:#CFA13C;font-weight:700;cursor:pointer"><i class="fa-solid fa-magnifying-glass" style="margin-right:7px;font-size:11px"></i>Search the food database for "<span id="myfoods-db-hint-q"></span>" →</div>
       <div class="card">
         <div id="add-food-form" style="display:none;background:var(--gold-tint);border-radius:10px;padding:14px;margin-bottom:12px">
           <div id="add-food-form-fields"></div>
@@ -12433,7 +12434,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-27-dk-adminroster';
+const RATIO_BUILD = '2026-08-27-dl-foodsearch';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
@@ -17154,6 +17155,25 @@ async function qlLog() {
 
 // In-page filter for the drill-in lists - plain textContent match, hides
 // non-matching rows.
+// My Foods -> database search bridge (Aug 27, his feedback): the page only
+// filtered SAVED foods, so reaching the database meant going back a page.
+// Typing in the filter now offers a one-tap jump into the hub search with
+// the query carried over.
+function _myFoodsDbHint(q) {
+  const hint = document.getElementById('myfoods-db-hint');
+  const qEl = document.getElementById('myfoods-db-hint-q');
+  if (!hint || !qEl) return;
+  const t = String(q || '').trim();
+  qEl.textContent = t;
+  hint.style.display = t.length >= 2 ? 'block' : 'none';
+}
+function _myFoodsDbSearch() {
+  const q = (document.getElementById('myfoods-filter-input')?.value || '').trim();
+  switchTab('meals');
+  const input = document.getElementById('food-search-input');
+  if (input) { input.value = q; try { input.focus(); } catch (e) {} }
+  try { onFoodSearchInput(q); } catch (e) {}
+}
 function filterSavedList(listId, q) {
   const box = document.getElementById(listId);
   if (!box) return;
