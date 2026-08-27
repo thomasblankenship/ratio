@@ -7,7 +7,7 @@
        escape hatch for problems that happen before sign-in. -->
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <meta name="build" content="2026-08-26-db-unitfam" />
+  <meta name="build" content="2026-08-27-dd-fampush" />
   <title>Ratio</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
@@ -6261,6 +6261,7 @@ async function _famFetchStatus() {
   if (!r.ok) throw new Error('status ' + r.status);
   _famStatus = await r.json();
   _famUpdateRow();
+  _famDiffNotify();   // fire-and-forget: partner accepted/declined/left detection
   return _famStatus;
 }
 function _famUpdateRow() {
@@ -6286,7 +6287,7 @@ function _famRender() {
   let h = '';
   for (const inv of (s.pendingIn || [])) {
     h += `<div style="background:var(--gold-tint);border:1px solid var(--gold-line);border-radius:12px;padding:12px;margin-bottom:12px">` +
-      `<div style="font-size:13px;color:var(--ink);margin-bottom:10px"><b>@${_weEscHtml(inv.fromName)}</b> invited you to share lists \u2014 one shopping list and shared to-dos.</div>` +
+      `<div style="font-size:13px;color:var(--ink);margin-bottom:10px"><b>${_weEscHtml(inv.fromName)}</b> invited you to share lists \u2014 one shopping list and shared to-dos.</div>` +
       `<div style="display:flex;gap:8px">` +
       `<button type="button" onclick="_famRespond('${inv.id}', true)" style="flex:1;background:#CFA13C;color:#101512;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer">Accept</button>` +
       `<button type="button" onclick="_famRespond('${inv.id}', false)" style="flex:1;background:var(--surface-2);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px;font-size:13px;cursor:pointer">Decline</button>` +
@@ -6301,12 +6302,18 @@ function _famRender() {
     }
     for (const o of (s.pendingOut || [])) {
       h += `<div style="display:flex;align-items:center;justify-content:space-between;gap:9px;padding:7px 0;border-bottom:1px solid var(--line)">` +
-        `<span style="font-size:12.5px;color:var(--muted)">@${_weEscHtml(o.toName)} \u2014 invited, waiting</span>` +
+        `<span style="font-size:12.5px;color:var(--muted)">${_weEscHtml(o.toName)} \u2014 invited, waiting</span>` +
         `<button type="button" onclick="_famCancel('${o.id}')" style="background:none;border:none;color:#e07777;font-size:11.5px;cursor:pointer">Cancel</button></div>`;
     }
     h += `<div style="font-size:11px;color:var(--muted);margin-top:12px;line-height:1.5">Shared shopping and to-do lists live here next \u2014 rolling out this week.</div>`;
     if ((s.members || []).length < 2 && !(s.pendingOut || []).length) {
       h += _famInviteFormHtml();
+    }
+    // Leave is always available once linked, and for a stranded solo
+    // household (partner left / invite declined). Hidden only while an
+    // invite is out - Cancel is the right verb in that state.
+    if ((s.members || []).length >= 2 || !(s.pendingOut || []).length) {
+      h += `<div style="margin-top:14px;text-align:center"><button type="button" onclick="_famLeave()" style="background:none;border:none;color:#e07777;font-size:12px;cursor:pointer;padding:6px 10px">Leave family</button></div>`;
     }
   } else if (!(s.pendingIn || []).length) {
     h += `<div style="font-size:12.5px;color:var(--muted);line-height:1.55;margin-bottom:12px">Share one shopping list and to-dos with your family. Invite your partner by their email \u2014 they accept here, and you're linked.</div>` + _famInviteFormHtml();
@@ -6347,8 +6354,65 @@ async function _famCancel(inviteId) {
     const r = await fetch(`${WORKER_URL}/family/cancel`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ inviteId }) });
     if (!r.ok) { const j = await r.json().catch(() => ({})); toast(j.error || 'Could not cancel'); return; }
     toast('Invite canceled');
+    // My own cancel must not read as "not accepted" on the next fetch.
+    try { const seen = JSON.parse(localStorage.getItem('fam_seen_out') || '[]'); localStorage.setItem('fam_seen_out', JSON.stringify(seen.filter(o => o.id !== inviteId))); } catch (e) {}
     await _famFetchStatus(); _famRender();
   } catch (e) { toast('Could not cancel'); }
+}
+async function _famLeave() {
+  if (!confirm('Leave the family? You can Team up again any time.')) return;
+  try {
+    const r = await fetch(`${WORKER_URL}/family/leave`, { method: 'POST' });
+    if (!r.ok) { const j = await r.json().catch(() => ({})); toast(j.error || 'Could not leave'); return; }
+    // Wipe the diff snapshots FIRST - my own departure must never read
+    // as "partner left" or "invite not accepted" on the refetch below.
+    try { localStorage.removeItem('fam_seen_out'); localStorage.removeItem('fam_seen_members'); } catch (e) {}
+    toast('You left the family');
+    await _famFetchStatus(); _famRender();
+  } catch (e) { toast('Could not leave'); }
+}
+// Bell item with a stable id - re-running never duplicates (same pattern
+// as the admin-grant notice).
+async function _famNotifPush(id, title, body) {
+  try {
+    const nc = await _loadNotifCenter();
+    if (nc.items.some(i => i.id === id)) return;
+    nc.items.push({ id, type: 'family', title, body, ts: Date.now(), read: false });
+    nc.items.sort((a, b) => b.ts - a.ts);
+    if (nc.items.length > 30) nc.items = nc.items.slice(0, 30);
+    saveSetting('notif_center', nc);
+    updateBellUI();
+  } catch (e) {}
+}
+// Partner-response detection: compare this fetch against the last one.
+// A pending-out invite that vanished means accepted (a partner appeared)
+// or declined/expired (no partner). A member that vanished left. The
+// snapshots are per-device localStorage; the notification itself lands in
+// the account-level notif center, so stable ids dedupe across devices.
+// Self-actions (cancel, leave) purge the snapshots before refetch.
+async function _famDiffNotify() {
+  try {
+    if (!_currentUser || !_famStatus) return;
+    const OUT_KEY = 'fam_seen_out', MEM_KEY = 'fam_seen_members';
+    const prevOut = JSON.parse(localStorage.getItem(OUT_KEY) || '[]');
+    const nowOut = (_famStatus.pendingOut || []).map(o => ({ id: o.id, toName: o.toName }));
+    const nowOutIds = new Set(nowOut.map(o => o.id));
+    const partner = (_famStatus.members || []).find(m => !m.you);
+    for (const p of prevOut) {
+      if (nowOutIds.has(p.id)) continue;
+      if (partner) await _famNotifPush('fam-joined-' + p.id, `${partner.name} joined your family \ud83c\udf89`, 'You now share lists. Tap to see your team.');
+      else await _famNotifPush('fam-noaccept-' + p.id, 'Family invite not accepted', `Your invite to ${p.toName} was declined or canceled \u2014 you can send another.`);
+    }
+    localStorage.setItem(OUT_KEY, JSON.stringify(nowOut));
+    const prevMem = JSON.parse(localStorage.getItem(MEM_KEY) || '[]');
+    const nowMem = (_famStatus.members || []).map(m => ({ userId: m.userId, name: m.name }));
+    const nowMemIds = new Set(nowMem.map(m => m.userId));
+    for (const m of prevMem) {
+      if (nowMemIds.has(m.userId) || m.userId === _currentUser.id) continue;
+      await _famNotifPush('fam-left-' + m.userId + '-' + new Date().toISOString().slice(0, 10), `${m.name} left the family`, 'Shared lists are yours alone now \u2014 you can invite someone else any time.');
+    }
+    localStorage.setItem(MEM_KEY, JSON.stringify(nowMem));
+  } catch (e) {}
 }
 // Boot greeting: if an invite is waiting, open the panel once this session.
 async function _familyBootCheck() {
@@ -11807,6 +11871,7 @@ async function initPushRegistration() {
       try {
         const kind = action?.notification?.data?.kind;
         if (kind === 'admin_granted') { _adminWhoami = null; openAdmin(); }
+        else if (kind === 'family_invite' || kind === 'family_update') { openFamily(); }
       } catch (e) {}
     });
     // A push arriving in the FOREGROUND: surface it and refresh the bell so
@@ -11815,6 +11880,11 @@ async function initPushRegistration() {
       try {
         toast('\uD83D\uDD14 ' + [notif?.title, notif?.body].filter(Boolean).join(' \u2014 '));
         if (notif?.data?.kind === 'admin_granted') _adminWhoami = null;
+        // A family push while the app is OPEN: refresh status so the
+        // amber badge / panel / bell entry appear without a relaunch.
+        if (String(notif?.data?.kind || '').indexOf('family') === 0) {
+          try { _famFetchStatus().then(_famRender).catch(() => {}); } catch (e) {}
+        }
         if (typeof refreshNotifCenter === 'function') refreshNotifCenter();
       } catch (e) {}
     });
@@ -12320,7 +12390,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-26-db-unitfam';
+const RATIO_BUILD = '2026-08-27-dd-fampush';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
@@ -24756,7 +24826,7 @@ function _renderNotifCenter() {
     el.innerHTML = '<div style="padding:26px 16px;text-align:center;color:var(--muted);font-size:13px">Nothing yet — weekly reports and to-do alerts will show up here.</div>';
     return;
   }
-  const icons = { weekly_report: 'fa-chart-line', todo_due: 'fa-list-check' };
+  const icons = { weekly_report: 'fa-chart-line', todo_due: 'fa-list-check', family: 'fa-user-group' };
   el.innerHTML = items.map(i => `
     <div onclick="notifItemTap('${i.id}')" style="display:flex;gap:12px;align-items:flex-start;padding:12px 16px;border-bottom:1px solid var(--surface-2);cursor:pointer;background:${i.read ? 'transparent' : 'var(--gold-tint)'}">
       <div style="width:30px;height:30px;border-radius:9px;background:var(--surface-2);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px"><i class="fa-solid ${icons[i.type] || 'fa-bell'}" style="font-size:13px;color:#CFA13C"></i></div>
@@ -24788,6 +24858,7 @@ async function notifItemTap(id) {
   if (item.type === 'weekly_report') openWeeklyReportFromBell();
   else if (item.type === 'admin_granted') openAdmin();
   else if (item.type === 'todo_due') openTodoListPage();
+  else if (item.type === 'family') openFamily();
   // Announcements are self-contained — the title and body say it all. Only
   // open something if the row carried a link.
   else if (item.type === 'announcement' && item.url) {
