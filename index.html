@@ -7,7 +7,7 @@
        escape hatch for problems that happen before sign-in. -->
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <meta name="build" content="2026-08-27-dd-fampush" />
+  <meta name="build" content="2026-08-27-de-whoamiprobe" />
   <title>Ratio</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
@@ -11812,19 +11812,33 @@ async function _adminStatus() {
     if (!_isAdminSync) { _isAdminSync = true; try { applyPlatformUI(); } catch (e) {} }
     return { admin: true, root: !!_adminWhoami.root };
   }
-  if (typeof _authToken !== 'string' || !_authToken) return { admin: false, root: false };
+  if (typeof _authToken !== 'string' || !_authToken) { _whoamiProbe({ ev: 'no-token' }); return { admin: false, root: false }; }
   try {
     const r = await fetch(`${WORKER_URL}/admin/whoami`);
     if (r.ok) {
       const j = await r.json();
+      _whoamiProbe({ ev: 'resp', status: r.status, admin: !!(j && j.admin), root: !!(j && j.root) });
       if (j && j.admin) _adminWhoami = j;              // cache only a real yes
       else _adminWhoami = null;                         // retry next time
       if (j && j.admin && !_isAdminSync) { _isAdminSync = true; try { applyPlatformUI(); } catch (e) {} }
       return { admin: !!(j && j.admin), root: !!(j && j.root) };
     }
-  } catch (e) {}
+    _whoamiProbe({ ev: 'resp-bad', status: r.status });
+  } catch (e) { _whoamiProbe({ ev: 'threw', err: String((e && e.message) || e) }); }
   _adminWhoami = null;   // failed - never stick on false, let a later call retry
   return { admin: false, root: false };
+}
+// TEMPORARY whoami diagnostic (de-whoamiprobe): rolling event log saved to
+// the user's own settings so it can be read from SQL. The hardcoded-admin
+// shortcut above returns before any probe, so only granted-path accounts
+// write. Remove once the Lauren admin-visibility bug is found.
+let _whoamiLog = [];
+function _whoamiProbe(ev) {
+  try {
+    _whoamiLog.push({ t: new Date().toISOString(), ...ev });
+    if (_whoamiLog.length > 12) _whoamiLog = _whoamiLog.slice(-12);
+    saveSetting('whoami_debug', { events: _whoamiLog, build: RATIO_BUILD });
+  } catch (e) {}
 }
 async function _adminMaybeShowRow() {
   // The admin row moved into its own #settings-admin-block section; toggle
@@ -12390,7 +12404,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-27-dd-fampush';
+const RATIO_BUILD = '2026-08-27-de-whoamiprobe';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
