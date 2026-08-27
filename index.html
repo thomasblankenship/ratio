@@ -765,7 +765,7 @@
           <div style="display:flex;align-items:center;gap:8px;margin:4px 0 10px;font-size:11px;color:var(--muted)">Sort
             <select id="admin-sort" onchange="_adminRenderRoster()" style="background:var(--surface);color:#CFA13C;border:1px solid var(--line);border-radius:10px;padding:6px 8px;font-size:12px;font-weight:700;outline:none">
               <option value="seen">Last seen</option><option value="spend">AI spend 30d</option><option value="calls">AI calls 30d</option>
-              <option value="meals">Meals</option><option value="workouts">Workouts</option><option value="logins">Logins 7d</option><option value="joined">Newest signup</option>
+              <option value="meals">Foods logged</option><option value="workouts">Workouts</option><option value="logins">Logins 7d</option><option value="joined">Newest signup</option>
             </select>
             <button type="button" id="admin-dir" onclick="_adminAsc=!_adminAsc;_adminRenderRoster()" style="background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:6px 10px;color:#CFA13C;cursor:pointer;font-weight:800">↓</button>
           </div>
@@ -12272,11 +12272,13 @@ function _adminStatFor(u) {
   const s = (document.getElementById('admin-sort') || {}).value || 'seen';
   if (s === 'spend') return '$' + (u.aiCost30 || 0).toFixed(2);
   if (s === 'calls') return (u.aiCalls30 || 0) + ' calls';
-  if (s === 'meals') return (u.meals || 0) + ' meals';
+  if (s === 'meals') return (u.meals || 0) + ' foods';
   if (s === 'workouts') return (u.workouts || 0) + ' wo';
   if (s === 'logins') return (u.logins7 || 0) + ' logins';
   if (s === 'joined') return u.joined ? new Date(u.joined).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '?';
-  return (u.meals || 0) + ' meals \u00b7 $' + (u.aiCost30 || 0).toFixed(2);
+  // Scan line shows spend only (Aug 27) - the entry count lives in the
+  // drill-down tile, where it is labeled honestly as foods logged.
+  return '$' + (u.aiCost30 || 0).toFixed(2);
 }
 function _adminToggleRow(id) { _adminOpen = (_adminOpen === id) ? null : id; _adminUserSpendOpen = false; _adminRenderRoster(); }
 function _adminSetSeg(i) { _adminSeg = _ADMIN_SEGS[i]; _adminOpen = null; _adminRenderRoster(); }
@@ -12358,7 +12360,7 @@ function _adminRenderRoster() {
           `<div style="display:flex;gap:8px;margin-bottom:10px">` +
           tile(aiToday, 'AI today', '#CFA13C') +
           `<div onclick="_adminToggleUserSpend()" style="flex:1;background:var(--surface-2);border-radius:9px;padding:8px 4px;text-align:center;min-width:0;cursor:pointer"><div style="font-size:13.5px;font-weight:800;color:#CFA13C">$${(u.aiCost30 || 0).toFixed(2)}</div><div style="font-size:8.5px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(u.aiCalls30 || 0)} calls \u00b7 30d ${_adminUserSpendOpen ? '\u25b4' : '\u25be'}</div></div>` +
-          tile(String(u.meals || 0), 'meals \u00b7 ' + (u.workouts || 0) + ' workouts', 'var(--ink)') +
+          tile(String(u.meals || 0), 'foods logged \u00b7 ' + (u.workouts || 0) + ' workouts', 'var(--ink)') +
           `</div>` +
           (_adminUserSpendOpen ? _adminUserSpendHtml(u) : '') +
           `<div style="display:flex;gap:8px">` + emailBtn +
@@ -12434,7 +12436,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-27-dl-foodsearch';
+const RATIO_BUILD = '2026-08-27-dm-rosterslim';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
