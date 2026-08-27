@@ -7,7 +7,7 @@
        escape hatch for problems that happen before sign-in. -->
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <meta name="build" content="2026-08-27-dg-probeless" />
+  <meta name="build" content="2026-08-27-dh-signupfix" />
   <title>Ratio</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
@@ -7631,9 +7631,11 @@ async function obNext(step) {
     }
     if (!password || password.length < 6) { if (signupErrEl) { signupErrEl.textContent = 'Password must be at least 6 characters'; signupErrEl.style.display = 'block'; } return; }
     if (password !== confirm) { if (signupErrEl) { signupErrEl.textContent = 'Passwords do not match'; signupErrEl.style.display = 'block'; } return; }
-    // Store validated values so handleSignUp can use them after step 8
+    // Store validated values so handleSignUp can use them after step 8.
+    // (username assignment removed with the username field, Aug 27 - the
+    // bare identifier threw ReferenceError and killed the Next button;
+    // every downstream read already falls back through || null.)
     window._obSignupName = name;
-    window._obSignupUsername = username;
     window._obSignupEmail = email;
     window._obSignupPassword = password;
     obShowStep(8);
@@ -12390,7 +12392,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-27-dg-probeless';
+const RATIO_BUILD = '2026-08-27-dh-signupfix';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
