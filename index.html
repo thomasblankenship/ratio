@@ -7,7 +7,7 @@
        escape hatch for problems that happen before sign-in. -->
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <meta name="build" content="2026-08-27-dj-cleanup" />
+  <meta name="build" content="2026-08-27-dk-adminroster" />
   <title>Ratio</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
@@ -12233,6 +12233,11 @@ function _adminRenderSpend(spend) {
 
 // ---- v3 roster: dense rows, search, sort, segments; tap a row to expand ----
 let _adminData = null, _adminQ = '', _adminSeg = 'All', _adminAsc = false, _adminOpen = null;
+// Roster cap (Aug 27): only the first rows render until expanded, so AI
+// Spend and Expenses stay one flick away no matter how many users join.
+let _adminShowAll = false;
+const _ADMIN_ROSTER_CAP = 8;
+function _adminToggleShowAll() { _adminShowAll = !_adminShowAll; _adminRenderRoster(); }
 const _ADMIN_SEGS = ['All', 'Active 7d', 'Going cold', 'AI users', 'Never activated', 'Paused'];
 
 function _adminAgoShort(iso) {
@@ -12292,7 +12297,11 @@ function _adminRenderRoster() {
 
   const colors = { live: '#7fc98a', today: '#8a8a8a', stale: '#e07777' };
   const seven = Date.now() - 7 * 86400000;
-  uEl.innerHTML = list.map(u => {
+  // Cap: an expanded row always stays visible even if it sorts below the
+  // fold, so tapping a deep row never snaps it shut.
+  const capped = !_adminShowAll && list.length > _ADMIN_ROSTER_CAP + 1;
+  const shown = capped ? list.filter((u, i) => i < _ADMIN_ROSTER_CAP || _adminOpen === u.id) : list;
+  uEl.innerHTML = shown.map(u => {
     const ago = _adminAgo(u.lastSeen);
     const dot = colors[ago.cls] || '#8a8a8a';
     const uname = _weEscHtml(u.email || u.username || '');
@@ -12301,8 +12310,11 @@ function _adminRenderRoster() {
     const joined = u.joined ? new Date(u.joined).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }) : '?';
     const todayStr = (u.aiCostToday === undefined) ? '' : ` \u00b7 today <b style="color:var(--ink)">$${(u.aiCostToday || 0).toFixed(2)}</b>`;
     const _sb = (txt, bg, col) => `<span style="flex-shrink:0;font-size:8.5px;font-weight:800;border-radius:8px;padding:2px 6px;background:${bg};color:${col}">${txt}</span>`;
+    // A settled account gets NO state chip (Aug 27) - the green 'Joined'
+    // said nothing and stole the name's space. NEW still marks the first
+    // 7 days; the joined date lives in the expanded row.
     const stateBadge = u.state === 'joined'
-      ? (isNew ? _sb('NEW', 'var(--gold-tint)', '#CFA13C') : _sb('Joined', 'rgba(127,201,138,0.12)', '#7fc98a'))
+      ? (isNew ? _sb('NEW', 'var(--gold-tint)', '#CFA13C') : '')
       : u.state === 'inprogress'
         ? _sb('In progress', 'rgba(224,167,60,0.15)', '#E0A73C')
         : _sb('Abandoned', 'rgba(255,255,255,0.07)', '#9a9a9a');
@@ -12313,7 +12325,7 @@ function _adminRenderRoster() {
     let html = `<div style="background:var(--surface);border:1px solid var(--line);border-radius:12px;margin-bottom:6px;overflow:hidden">` +
       `<div onclick="_adminToggleRow('${u.id}')" style="display:flex;align-items:center;gap:8px;padding:10px 12px;cursor:pointer">` +
       `<span style="width:8px;height:8px;border-radius:50%;flex-shrink:0;background:${dot}"></span>` +
-      `<span style="font-size:13.5px;font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${uname}</span>` +
+      `<span style="flex:1 1 auto;font-size:13.5px;font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${uname}</span>` +
       stateBadge + setupBadge + adminBadge +
       (u.aiSuspended ? `<span style="flex-shrink:0;font-size:8.5px;font-weight:800;border-radius:8px;padding:2px 6px;background:rgba(224,119,119,0.15);color:#e07777">AI PAUSED</span>` : '') +
       `<span style="margin-left:auto;font-size:11px;color:var(--muted);flex-shrink:0"><b style="color:var(--ink)">${_adminStatFor(u)}</b></span>` +
@@ -12360,6 +12372,11 @@ function _adminRenderRoster() {
     }
     return html + `</div>`;
   }).join('') || '<div style="color:var(--muted);font-size:12px">No users match.</div>';
+  if (capped) {
+    uEl.innerHTML += `<div onclick=\"_adminToggleShowAll()\" style=\"text-align:center;padding:9px;font-size:11.5px;font-weight:700;color:#CFA13C;background:var(--surface);border:1px solid var(--line);border-radius:12px;cursor:pointer;margin-bottom:6px\">Show all ${list.length} users \u25be</div>`;
+  } else if (_adminShowAll && list.length > _ADMIN_ROSTER_CAP + 1) {
+    uEl.innerHTML += `<div onclick=\"_adminToggleShowAll()\" style=\"text-align:center;padding:9px;font-size:11.5px;font-weight:700;color:var(--muted);background:var(--surface);border:1px solid var(--line);border-radius:12px;cursor:pointer;margin-bottom:6px\">Show fewer \u25b4</div>`;
+  }
 }
 
 const QA_USER_IDS = [
@@ -12416,7 +12433,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-27-dj-cleanup';
+const RATIO_BUILD = '2026-08-27-dk-adminroster';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
