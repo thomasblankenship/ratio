@@ -7,7 +7,7 @@
        escape hatch for problems that happen before sign-in. -->
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <meta name="build" content="2026-08-26-da-profilenull" />
+  <meta name="build" content="2026-08-26-db-unitfam" />
   <title>Ratio</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
@@ -12320,7 +12320,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-26-da-profilenull';
+const RATIO_BUILD = '2026-08-26-db-unitfam';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
@@ -18191,17 +18191,32 @@ function _mbUnitKey(label) {
   if (/^(l|liter|liters|litre|litres)$/.test(t)) return 'l';
   return null;
 }
-function _mbUnitControl(p) {
+function _mbUnitControl(p, ing) {
   if (!p) return '<span style="font-size:12px;color:var(--muted)"></span>';
   const key = _mbUnitKey(p.label);
   if (!key) return `<span style="font-size:12px;color:var(--muted)">${p.label}</span>`;
+  // Density-known foods (broth, milk, oil, flour...) may swap across the
+  // weight/volume line - the density is the bridge. Unknown foods stay
+  // same-family: a "cup of chicken" is not a real measurement.
+  const gpc = ing ? _mbDensityGPC(ing.name) : null;
   const fam = _MB_UNITS[key].fam;
-  const opts = Object.keys(_MB_UNITS).filter(k => _MB_UNITS[k].fam === fam)
+  const opts = Object.keys(_MB_UNITS).filter(k => gpc != null || _MB_UNITS[k].fam === fam)
     .map(k => `<option value="${k}" ${k === key ? 'selected' : ''}>${_MB_UNITS[k].label}</option>`).join('');
   return `<select id="mb-ing-unit" data-prev="${key}" onchange="_mbUnitSwap()"
     style="padding:6px 4px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font-size:12px">${opts}</select>`;
 }
 const _MB_STEPS = { oz: 0.5, lb: 0.1, g: 5, kg: 0.1, tsp: 0.25, tbsp: 0.5, cup: 0.25, floz: 0.5, ml: 10, l: 0.1 };
+// Any amount -> canonical grams, crossing the weight/volume line through
+// the food's density (gpc = grams per cup from _mbDensityGPC). Returns
+// null when the conversion is not knowable - callers must treat null as
+// "cannot convert", never as zero.
+function _mbCanonicalGrams(v, unitKey, gpc) {
+  if (!isFinite(v) || !unitKey || !_MB_UNITS[unitKey]) return null;
+  const u = _MB_UNITS[unitKey];
+  if (u.fam === 'w') return v * u.base;
+  if (gpc == null) return null;
+  return v * u.base * (gpc / _MB_UNITS.cup.base);
+}
 // Snapshot taken when the editor opens; every preview keystroke restores
 // it before re-applying, so Save/Cancel always start from clean numbers.
 let _mbPrev = null;
@@ -18220,9 +18235,22 @@ function _mbEditFactor(p) {
   const sel = document.getElementById('mb-ing-unit');
   const oldKey = _mbUnitKey(p.label);
   const newKey = sel && oldKey ? sel.value : oldKey;
-  const factor = (oldKey && newKey && _MB_UNITS[oldKey] && _MB_UNITS[newKey])
-    ? (newN * _MB_UNITS[newKey].base) / (p.n * _MB_UNITS[oldKey].base)
-    : newN / p.n;
+  let factor;
+  if (oldKey && newKey && _MB_UNITS[oldKey] && _MB_UNITS[newKey]) {
+    if (_MB_UNITS[oldKey].fam === _MB_UNITS[newKey].fam) {
+      factor = (newN * _MB_UNITS[newKey].base) / (p.n * _MB_UNITS[oldKey].base);
+    } else {
+      // Cross-family edit (g -> cup and friends) goes through canonical
+      // grams via the food's density; no density = no factor = no save.
+      const ing = _mbIngredients[_mbEditIdx];
+      const gpc = ing ? _mbDensityGPC(ing.name) : null;
+      const gOld = _mbCanonicalGrams(p.n, oldKey, gpc);
+      const gNew = _mbCanonicalGrams(newN, newKey, gpc);
+      factor = (gOld != null && gNew != null && gOld > 0) ? gNew / gOld : NaN;
+    }
+  } else {
+    factor = newN / p.n;
+  }
   if (!isFinite(factor) || factor <= 0 || factor > 100) return null;
   return { newN, newKey, factor };
 }
@@ -18260,8 +18288,21 @@ function _mbUnitSwap() {
   const from = sel.dataset.prev, to = sel.value;
   const v = parseFloat(inp.value);
   if (from && to && from !== to && isFinite(v) && v > 0) {
-    // Same food, different ruler — convert the number, touch nothing else.
-    inp.value = Math.round((v * _MB_UNITS[from].base / _MB_UNITS[to].base) * 100) / 100;
+    if (_MB_UNITS[from].fam === _MB_UNITS[to].fam) {
+      // Same food, different ruler — convert the number, touch nothing else.
+      inp.value = Math.round((v * _MB_UNITS[from].base / _MB_UNITS[to].base) * 100) / 100;
+    } else {
+      // Weight <-> volume through the food's density. Same amount either
+      // way, so the macros preview must not move on the swap itself.
+      const ing = _mbIngredients[_mbEditIdx];
+      const gpc = ing ? _mbDensityGPC(ing.name) : null;
+      const g = _mbCanonicalGrams(v, from, gpc);
+      if (g != null && gpc != null) {
+        const u = _MB_UNITS[to];
+        const out = u.fam === 'w' ? g / u.base : g / (gpc / _MB_UNITS.cup.base) / u.base;
+        inp.value = Math.round(out * 100) / 100;
+      }
+    }
   }
   sel.dataset.prev = to;
   if (inp && _MB_STEPS[to]) inp.step = _MB_STEPS[to];
@@ -18330,7 +18371,7 @@ function mbRenderIngredients() {
           <input id="mb-ing-qty" type="number" inputmode="decimal" step="${(p && _MB_STEPS[_mbUnitKey(p.label)]) || 1}" min="0" value="${p ? p.n : ''}" oninput="_mbEditPreview()"
             style="width:76px;padding:6px 8px;border:1px solid #CFA13C;border-radius:8px;background:var(--surface);color:var(--ink);font-size:14px"
             onkeydown="if(event.key==='Enter'){mbApplyIngredientEdit(${i});}">
-          ${_mbUnitControl(p)}
+          ${_mbUnitControl(p, ing)}
           <button onclick="mbApplyIngredientEdit(${i})" style="background:#CFA13C;color:#101512;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer">Save</button>
           <button onclick="mbCancelIngredientEdit()" style="background:none;border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:12px;color:var(--muted);cursor:pointer">Cancel</button>
         </div>
