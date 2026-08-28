@@ -9094,8 +9094,15 @@ function obStartChat() {
   // takes the height it needs and the portrait absorbs the remainder, so both
   // always fit exactly.
   if (msgs) msgs.style.cssText = 'flex:1;min-height:0;overflow:hidden;padding:2px 18px 0;display:flex;flex-direction:column';
-  _ocAddBot("Hello and welcome to Ratio Fitness! My name is Lauren — tell me a little about the goals you would like to accomplish so I can recommend the perfect trainer for you. Are you trying to Lose Body Fat, Lose Weight, Gain Muscle, or just Maintain and Perform?");
+  // Hero FIRST, greeting second (Aug 27). Every intro-mode gate keys off
+  // the hero's existence (_ocIsIntro) - with the greeting added first,
+  // those gates all saw a non-intro screen: the bubble skipped its
+  // final-height lock (so Lauren deflated word by word as the reveal
+  // grew the text above her) and the line wrongly got an avatar chip
+  // despite her full portrait being right there. _ocPlace inserts
+  // message rows above the hero, so the visual order is unchanged.
   _ocAddHero(OB_LAUREN.img, 'Lauren at the Ratio Fitness front desk', { intro: true, fill: true });
+  _ocAddBot("Hello and welcome to Ratio Fitness! My name is Lauren — tell me a little about the goals you would like to accomplish so I can recommend the perfect trainer for you. Are you trying to Lose Body Fat, Lose Weight, Gain Muscle, or just Maintain and Perform?");
   // No pill buttons — Lauren just ASKED the question, and the answer is meant
   // to be spoken. The pulsing mic is the hint.
   document.getElementById('obchat-mic')?.classList.add('hint');
@@ -12476,7 +12483,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-27-do-silence65';
+const RATIO_BUILD = '2026-08-27-dp-heroorder';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
