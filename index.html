@@ -12560,7 +12560,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-27-du-sessionmem';
+const RATIO_BUILD = '2026-08-27-dv-coachauth';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
@@ -17120,9 +17120,13 @@ async function sendCoachChatMessage() {
   try {
     const res = await fetch(`${WORKER_URL}/ai-coach-chat`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      // The token is what lets the worker pull THIS user's live data
+      // (weight, meals, goals) into the coach's context - without it the
+      // coach was blind and said so, repeatedly, to his face (Aug 27).
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (_authToken || '') },
       body: JSON.stringify({
         message,
+        todayDate: today,
         history: _coachChatHistory,
         context: {
           primaryGoal: userProfile.primaryGoal, activity: userProfile.activity,
