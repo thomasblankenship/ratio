@@ -4454,7 +4454,14 @@ let _vlLiveText = '';
 let _vlParsed = null;
 let _vlSessionId = 0; // bumped whenever a session ends/restarts, so a stale in-flight AI response can't land on a newer session
 let _vlStarting = false; // guards against a double-tap on the mic starting two concurrent listening sessions
-let _vlHistory = []; // conversation turns for the current multi-turn parse ({role:'user'|'assistant', content})
+let _vlHistory = []; // conversation turns for the current SESSION ({role:'user'|'assistant', content})
+// SESSION MEMORY (Aug 27, his call): the thread survives completed logs so
+// "I didn't have eggs for breakfast, I had oatmeal" can amend what's
+// already saved. In-memory only: clears after 30 idle minutes or when the
+// page unloads. Cancelling a listen does NOT forget the session.
+let _vlLastTurnAt = 0;
+const VL_SESSION_IDLE_MS = 30 * 60 * 1000;
+const VL_HISTORY_CAP = 14; // turns kept client-side (worker reads last 10)
 // Rolling last-8 voice exchanges, persisted to user_settings key vl_debug
 // (same rolling-probe pattern that root-caused the invisible-admin bug).
 // Dad's 17-exercises-as-17-reps parse and the amnesia after it can't be
@@ -4874,7 +4881,7 @@ function vlResetToIdle() {
   if (ctxEl) { ctxEl.style.display = 'none'; ctxEl.textContent = ''; }
   _vlLiveText = '';
   _vlParsed = null;
-  _vlHistory = [];
+  // Session memory: a cancelled/failed listen does not forget the session.
   _vlAwaitingFollowup = false;
   _vlCorrecting = false;
   _vlFollowupCount = 0;
@@ -5276,11 +5283,12 @@ function vlHandleUtterance(text) {
   if (confirmPending) _vlAwaitingFollowup = true;
   _vlThreadUser(text);
   _vlCorrecting = false; // the correction (if any) has been captured — the hint is no longer needed
-  if (_vlAwaitingFollowup) {
-    _vlHistory.push({ role: 'user', content: text });
-  } else {
-    _vlHistory = [{ role: 'user', content: text }];
-  }
+  // Session memory: always append within the session; the only automatic
+  // forgetter is 30 idle minutes (or page unload, being in-memory).
+  if (Date.now() - _vlLastTurnAt > VL_SESSION_IDLE_MS) _vlHistory = [];
+  _vlLastTurnAt = Date.now();
+  _vlHistory.push({ role: 'user', content: text });
+  while (_vlHistory.length > VL_HISTORY_CAP) _vlHistory.shift();
   vlSendToAI(text);
 }
 
@@ -5606,6 +5614,14 @@ function vlRenderConfirm(data) {
       title = 'Log Food';
       itemsHtml = groups.map(g => `<div style="font-size:11px;font-weight:700;color:#CFA13C;text-transform:uppercase;letter-spacing:0.5px;margin-top:10px">${cap(g.type)}</div>` + g.items.map(rowHtml).join('')).join('');
     }
+  } else if (data.action === 'amend_log') {
+    const a = data.amendLog || {};
+    const items = a.items || [];
+    items.forEach(i => { totals.calories += +i.calories||0; totals.protein += +i.protein||0; totals.carbs += +i.carbs||0; totals.fat += +i.fat||0; totals.fiber += +i.fiber||0; totals.cholesterol += +i.cholesterol||0; });
+    const removing = (a.removeRowIds || []).length;
+    const aRow = i => `<div style="padding:8px 0;border-bottom:1px solid var(--surface-2)"><div style="font-size:14px;font-weight:500;color:var(--ink)">${i.name}${i.quantity ? ' \u2014 ' + i.quantity : ''}</div><div class="meal-meta" style="margin-top:2px">${nutritionMetaString(i)}</div></div>`;
+    title = items.length ? 'Fix the log' : 'Remove from the log';
+    itemsHtml = `<div class="meal-meta" style="margin:6px 0">Replacing ${removing} saved ${removing === 1 ? 'entry' : 'entries'}${a.mealType ? ' in ' + a.mealType : ''}</div>` + items.map(aRow).join('');
   } else if (data.action === 'save_meal') {
     const ings = data.saveMeal?.ingredients || [];
     ings.forEach(i => { totals.calories += +i.calories||0; totals.protein += +i.protein||0; totals.carbs += +i.carbs||0; totals.fat += +i.fat||0; totals.fiber += +i.fiber||0; });
@@ -5698,31 +5714,80 @@ async function vlConfirmSave() {
       if (!groups.length) { toast('Nothing to log — try again'); return; }
       const overall = { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, cholesterol: 0 };
       items.forEach(i => { overall.calories += +i.calories||0; overall.protein += +i.protein||0; overall.carbs += +i.carbs||0; overall.fat += +i.fat||0; overall.fiber += +i.fiber||0; overall.cholesterol += +i.cholesterol||0; });
+      const _vlSavedNotes = [];
       for (const g of groups) {
         const totals = g.items.reduce((a,i) => ({ calories: a.calories+(+i.calories||0), protein: a.protein+(+i.protein||0), carbs: a.carbs+(+i.carbs||0), fat: a.fat+(+i.fat||0), fiber: a.fiber+(+i.fiber||0), cholesterol: a.cholesterol+(+i.cholesterol||0) }), {calories:0,protein:0,carbs:0,fat:0,fiber:0,cholesterol:0});
         // Keep the spoken amount in the row name ("Feta Cheese (50g)"), same
         // style as barcode/search entries — otherwise the quantity you said is
         // invisible in the log and the edit sheet shows a meaningless "1 serving".
         const name = g.items.map(i => i.quantity ? `${i.name} (${i.quantity})` : i.name).join(', ') || 'Voice-logged meal';
-        await dbPost('meals', {
+        const savedRows = await dbPost('meals', {
           date: logDate, name, meal_type: g.type,
           calories: Math.round(totals.calories), protein: Math.round(totals.protein*10)/10,
           carbs: Math.round(totals.carbs*10)/10, fat: Math.round(totals.fat*10)/10,
           fiber: Math.round(totals.fiber*10)/10, cholesterol: Math.round(totals.cholesterol*10)/10,
           time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         });
+        // Real row id into the session note - this is what lets a later
+        // correction amend THIS exact saved row instead of fuzzy-matching.
+        const savedRow = Array.isArray(savedRows) ? savedRows[0] : savedRows;
+        if (savedRow && savedRow.id != null) {
+          _vlSavedNotes.push({ rowId: savedRow.id, mealType: g.type, name,
+            items: g.items.map(i => ({ name: i.name, quantity: i.quantity || '', calories: +i.calories||0, protein: +i.protein||0, carbs: +i.carbs||0, fat: +i.fat||0, fiber: +i.fiber||0, cholesterol: +i.cholesterol||0 })) });
+        }
       }
       await loadTodayMeals();
       toast('Logged ✓');
-      // React in character and STAY in the chat — a macro heads-up nobody
-      // sees is not a heads-up. Session state resets so the next thing they
-      // say starts fresh rather than "correcting" the already-saved card.
+      // React in character and STAY in the chat. SESSION MEMORY: the
+      // thread now survives the save - an assistant note records what was
+      // saved (with real row ids) so "I didn't have eggs, I had oatmeal"
+      // can amend those exact rows. Only 30 idle minutes or a page unload
+      // forgets the session.
       vlShowState('idle');
       _vlParsed = null;
-      _vlHistory = [];
+      if (_vlSavedNotes.length) _vlHistory.push({ role: 'assistant', content: JSON.stringify({ saved: _vlSavedNotes }) });
+      while (_vlHistory.length > VL_HISTORY_CAP) _vlHistory.shift();
       _vlAwaitingFollowup = false;
       _vlFollowupCount = 0;
       vlCoachReactToLog(overall);
+      return;
+    } else if (data.action === 'amend_log') {
+      const a = data.amendLog || {};
+      const removeIds = (a.removeRowIds || []).filter(x => x != null);
+      for (const rid of removeIds) {
+        try { await dbDelete('meals', rid); }
+        catch (e) { console.warn('[vl-amend] delete failed for row', rid, (e && e.message) || e); }
+      }
+      const items = a.items || [];
+      const amendNotes = [];
+      if (items.length) {
+        const groups = vlGroupItemsByMealType(items, a.mealType);
+        for (const g of groups) {
+          const totals = g.items.reduce((x,i) => ({ calories: x.calories+(+i.calories||0), protein: x.protein+(+i.protein||0), carbs: x.carbs+(+i.carbs||0), fat: x.fat+(+i.fat||0), fiber: x.fiber+(+i.fiber||0), cholesterol: x.cholesterol+(+i.cholesterol||0) }), {calories:0,protein:0,carbs:0,fat:0,fiber:0,cholesterol:0});
+          const name = g.items.map(i => i.quantity ? `${i.name} (${i.quantity})` : i.name).join(', ') || 'Voice-logged meal';
+          const savedRows = await dbPost('meals', {
+            date: logDate, name, meal_type: g.type,
+            calories: Math.round(totals.calories), protein: Math.round(totals.protein*10)/10,
+            carbs: Math.round(totals.carbs*10)/10, fat: Math.round(totals.fat*10)/10,
+            fiber: Math.round(totals.fiber*10)/10, cholesterol: Math.round(totals.cholesterol*10)/10,
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          });
+          const savedRow = Array.isArray(savedRows) ? savedRows[0] : savedRows;
+          if (savedRow && savedRow.id != null) {
+            amendNotes.push({ rowId: savedRow.id, mealType: g.type, name,
+              items: g.items.map(i => ({ name: i.name, quantity: i.quantity || '', calories: +i.calories||0, protein: +i.protein||0, carbs: +i.carbs||0, fat: +i.fat||0, fiber: +i.fiber||0, cholesterol: +i.cholesterol||0 })) });
+          }
+        }
+      }
+      await loadTodayMeals();
+      toast(items.length ? 'Fixed \u2713' : 'Removed \u2713');
+      vlShowState('idle');
+      _vlParsed = null;
+      // The amendment itself becomes part of the session's memory.
+      _vlHistory.push({ role: 'assistant', content: JSON.stringify({ amended: { removedRowIds: removeIds, saved: amendNotes } }) });
+      while (_vlHistory.length > VL_HISTORY_CAP) _vlHistory.shift();
+      _vlAwaitingFollowup = false;
+      _vlFollowupCount = 0;
       return;
     } else if (data.action === 'save_meal') {
       const ings = data.saveMeal?.ingredients || [];
@@ -12495,7 +12560,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-27-dt-wrapupline';
+const RATIO_BUILD = '2026-08-27-du-sessionmem';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
