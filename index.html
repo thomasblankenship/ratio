@@ -4455,6 +4455,23 @@ let _vlParsed = null;
 let _vlSessionId = 0; // bumped whenever a session ends/restarts, so a stale in-flight AI response can't land on a newer session
 let _vlStarting = false; // guards against a double-tap on the mic starting two concurrent listening sessions
 let _vlHistory = []; // conversation turns for the current multi-turn parse ({role:'user'|'assistant', content})
+// Rolling last-8 voice exchanges, persisted to user_settings key vl_debug
+// (same rolling-probe pattern that root-caused the invisible-admin bug).
+// Dad's 17-exercises-as-17-reps parse and the amnesia after it can't be
+// diagnosed without his exact words - transcripts aren't stored anywhere
+// else. Read with: select value from user_settings where key='vl_debug'
+// and user_id='<uid>'. Fire-and-forget; never blocks the flow.
+let _vlDebugRing = [];
+function _vlDebugLog(entry) {
+  try {
+    entry.t = new Date().toISOString().slice(5, 19);
+    _vlDebugRing.push(entry);
+    while (_vlDebugRing.length > 8) _vlDebugRing.shift();
+    let payload = JSON.stringify(_vlDebugRing);
+    while (payload.length > 6000 && _vlDebugRing.length > 1) { _vlDebugRing.shift(); payload = JSON.stringify(_vlDebugRing); }
+    if (typeof saveSetting === 'function') saveSetting('vl_debug', payload);
+  } catch (e) { /* telemetry must never break the mic */ }
+}
 let _vlAwaitingFollowup = false; // true while the next utterance should be treated as an answer to a follow-up question, not a fresh command
 let _vlCorrecting = false; // true while the next utterance is a correction to the proposal shown on the confirm card ("the apple should be a snack") — affects only the listening-screen hint text
 let _vlFollowupCount = 0;
@@ -5333,6 +5350,8 @@ async function vlSendToAI(text) {
         + ' (HTTP ' + res.status + ')');
     }
 
+    _vlDebugLog({ in: String(text).slice(0, 400), hist: Math.max(0, _vlHistory.length - 1),
+                  act: data.action, out: JSON.stringify(data).slice(0, 500) });
     // Accept a followup even when we asked the AI to finalize — if the model
     // asks anyway, showing the question (which the user can answer or cancel)
     // beats dumping the whole session into an "Unrecognized" dead end. The
@@ -9553,11 +9572,15 @@ function _ocAddBot(text, opts) {
   // Intro screen: the portrait row flexes into whatever the text leaves
   // over, so a bubble growing word-by-word shrank Lauren in real time
   // (dad: her picture shrinks as text goes in). The full line is known
-  // before the reveal - render it invisibly once, lock that height, then
-  // animate into the reserved space. One layout, no deflation.
+  // before the reveal - render it once, capture the final height, then
+  // reserve that height on the ROW and animate into it. Reserving on the
+  // bubble itself painted a huge mostly-empty box during the reveal (his
+  // screenshot); the row is transparent, so its reserved space is
+  // invisible while the bubble grows naturally inside. One layout for
+  // Lauren either way.
   if (_ocIsIntro() && bubble) {
     bubble.textContent = text;
-    bubble.style.minHeight = bubble.offsetHeight + 'px';
+    row.style.minHeight = row.offsetHeight + 'px';
     bubble.textContent = '';
   }
   if (_oc) _oc.history.push({ role: 'assistant', content: text });
@@ -12483,7 +12506,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-27-dp-heroorder';
+const RATIO_BUILD = '2026-08-27-dr-vldebug';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
