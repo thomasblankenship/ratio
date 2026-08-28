@@ -10457,7 +10457,7 @@ function _ocShowPlanAndCreate(f) {
   const plan = obCalcPlan();
   _ocAddBot(`Here's your plan${f.name ? ', ' + f.name : ''}: ${plan.calories.toLocaleString()} calories a day with ${plan.protein}g of protein.` +
     (plan.goalDateStr && plan.goalDateStr !== 'Track progress to see' ? ` At your pace you'd hit ${plan.goalWeight} lb around ${plan.goalDateStr}.` : '') +
-    ` Let's create your account so I can save it — and from here on, that gold mic works everywhere in the app. Just tell me what you ate and I'll log it.`);
+    ` Let's create your account so I can save it — and from here on, that gold mic works everywhere in the app. Meals, workouts, weigh-ins — just say it and I'll log it.`);
   _ocChips([{ label: 'Create my account →', action: () => {
     _ocStopListening();
     document.getElementById('ob-chat').style.display = 'none';
@@ -12495,7 +12495,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-27-ds-pushtotalk';
+const RATIO_BUILD = '2026-08-27-dt-wrapupline';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
