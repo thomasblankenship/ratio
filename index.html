@@ -4461,7 +4461,12 @@ let _vlFollowupCount = 0;
 const VL_MAX_FOLLOWUPS = 2; // after this many follow-up rounds, force the AI to finalize with its best guess rather than ask again
 
 // Recorder safety timers — a "forgot to tap stop" / stuck-listening safeguard
-const VL_SILENCE_STOP_MS = 5000; // auto-stop N ms after the last new word, once something has been heard.
+const VL_SILENCE_STOP_MS = 6500; // auto-stop N ms after the last new word, once something has been heard.
+// 5000 -> 6500 (Aug 27): real thinking/recall pauses cluster around 2-6s;
+// 5s clipped the top of that range for older and slower-composing users
+// (dad). 6.5s covers nearly the whole tail without the silence-anxiety a
+// 10s window causes - people who think it did not hear them start talking
+// again and corrupt the transcript. Tap-the-mic still sends instantly.
                                  // 3s still clipped people mid-thought after saying a number.
 const VL_NO_SPEECH_TIMEOUT_MS = 7000; // give up if literally nothing is heard within this window
 const VL_MAX_LISTEN_MS = 25000; // hard ceiling regardless of activity — this is the actual answer to "what if someone leaves the recorder on"
@@ -12471,7 +12476,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-27-dn-dadfixes';
+const RATIO_BUILD = '2026-08-27-do-silence65';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
