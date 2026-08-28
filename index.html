@@ -4478,15 +4478,15 @@ let _vlFollowupCount = 0;
 const VL_MAX_FOLLOWUPS = 2; // after this many follow-up rounds, force the AI to finalize with its best guess rather than ask again
 
 // Recorder safety timers — a "forgot to tap stop" / stuck-listening safeguard
-const VL_SILENCE_STOP_MS = 6500; // auto-stop N ms after the last new word, once something has been heard.
-// 5000 -> 6500 (Aug 27): real thinking/recall pauses cluster around 2-6s;
-// 5s clipped the top of that range for older and slower-composing users
-// (dad). 6.5s covers nearly the whole tail without the silence-anxiety a
-// 10s window causes - people who think it did not hear them start talking
-// again and corrupt the transcript. Tap-the-mic still sends instantly.
+// PUSH-TO-TALK (Aug 27, his call): no silence auto-stop anywhere. The user
+// owns the ending - tap to start, talk and pause freely, tap to send.
+// Every silence-window tuning question (5s? 6.5s? 10s?) dissolved with
+// the timer. Both mics already wore the right clothes: the VL dictation
+// bar has cancel/transcript/accept, and the interview mic pulses gold as
+// the documented stop control.
                                  // 3s still clipped people mid-thought after saying a number.
-const VL_NO_SPEECH_TIMEOUT_MS = 7000; // give up if literally nothing is heard within this window
-const VL_MAX_LISTEN_MS = 25000; // hard ceiling regardless of activity — this is the actual answer to "what if someone leaves the recorder on"
+const VL_NO_SPEECH_TIMEOUT_MS = 15000; // give up if literally nothing is heard within this window (push-to-talk grace)
+const VL_MAX_LISTEN_MS = 90000; // hard ceiling regardless of activity - forgotten-recorder guard under push-to-talk, auto-submits what was heard. 25s could not hold a real spoken workout (dad's 17 exercises) — this is the actual answer to "what if someone leaves the recorder on"
 let _vlListenStartedAt = 0;
 let _vlLastPartialAt = 0;
 let _vlWatchdogTimer = null;
@@ -4956,12 +4956,8 @@ function _vlStartWatchdog() {
       vlStopListening();
       return;
     }
-    if (_vlLastPartialAt && (now - _vlLastPartialAt) >= VL_SILENCE_STOP_MS) {
-      // Heard something, then went quiet for a bit — treat as "done speaking" and process it.
-      _vlClearWatchdog();
-      vlStopListening();
-      return;
-    }
+    // Push-to-talk: no silence auto-stop. The user taps the check to send;
+    // pauses of any length are theirs to take.
     if (!_vlLastPartialAt && elapsed >= VL_NO_SPEECH_TIMEOUT_MS) {
       // Nothing at all was heard — give up rather than sit there listening indefinitely.
       _vlClearWatchdog();
@@ -5071,13 +5067,12 @@ async function vlStartListeningWeb() {
     // the transcript and restart the same recognizer; endpointing stays ours.
     if (!_vlWebStopRequested && stillListening()) {
       _vlWebRestarts++;
-      if (_vlWebRestarts <= 8 && (Date.now() - _vlListenStartedAt) < VL_MAX_LISTEN_MS) {
+      if (_vlWebRestarts <= 30 && (Date.now() - _vlListenStartedAt) < VL_MAX_LISTEN_MS) {
         if (_vlLiveText) _vlWebCarry = _vlLiveText;
         try {
           rec.start();
-          // Same restart-latency hole as the interview mic (Aug 27):
-          // reset the silence clock only when words are banked, so the
-          // no-speech give-up path keeps its original timing.
+          // With words banked, mark speech-activity across the engine
+          // restart (push-to-talk: feeds only the no-speech guard).
           if (_vlLiveText || _vlWebCarry) _vlLastPartialAt = Date.now();
           return;
         } catch (e) { /* engine refused - finish the turn */ }
@@ -9076,8 +9071,8 @@ const OB_GOAL_LABELS = { fat_loss: 'Lose Body Fat', weight_loss: 'Lose Weight', 
 
 // Onboarding answers are longer than voice-log commands ("I'm 43, about five
 // nine, maybe 210") so the lead-in is more patient than the log's 7s.
-const OB_NO_SPEECH_MS = 10000;   // nothing heard at all -> stop
-const OB_MAX_LISTEN_MS = 60000;  // hard ceiling on one answer
+const OB_NO_SPEECH_MS = 15000;   // nothing heard at all -> stop (push-to-talk grace)
+const OB_MAX_LISTEN_MS = 90000;  // hard ceiling on one answer - forgotten-recorder guard, auto-submits what was heard
 let _oc = null;
 
 function obStartChat() {
@@ -10945,9 +10940,8 @@ async function obChatMic() {
         const now = Date.now();
         const elapsed = now - _oc._listenStartedAt;
         if (elapsed >= OB_MAX_LISTEN_MS) return finishNative('max-length');
-        if (_oc._lastSpeechAt) {
-          if (now - _oc._lastSpeechAt >= VL_SILENCE_STOP_MS) finishNative('pause');
-        } else if (elapsed >= OB_NO_SPEECH_MS) {
+        // Push-to-talk: no pause auto-stop - the user taps the mic to send.
+        if (!_oc._lastSpeechAt && elapsed >= OB_NO_SPEECH_MS) {
           finishNative('nothing-heard');
         }
       }, 300);
@@ -11050,9 +11044,8 @@ async function obChatMic() {
     const now = Date.now();
     const elapsed = now - _oc._listenStartedAt;
     if (elapsed >= OB_MAX_LISTEN_MS) { _oc._stopRequested = true; try { rec.stop(); } catch (e) {} return; }
-    if (_oc._lastSpeechAt) {
-      if (now - _oc._lastSpeechAt >= VL_SILENCE_STOP_MS) { _oc._stopRequested = true; try { rec.stop(); } catch (e) {} }
-    } else if (elapsed >= OB_NO_SPEECH_MS) {
+    // Push-to-talk: no pause auto-stop - the user taps the mic to send.
+    if (!_oc._lastSpeechAt && elapsed >= OB_NO_SPEECH_MS) {
       _oc._stopRequested = true; try { rec.stop(); } catch (e) {}
     }
   }, 300);
@@ -11074,17 +11067,13 @@ async function obChatMic() {
     // _ocStopListening (listening=false) so it never lands here.
     if (_oc && _oc.listening && !_oc._stopRequested) {
       _oc._webRestarts = (_oc._webRestarts || 0) + 1;
-      if (_oc._webRestarts <= 8 && (Date.now() - _oc._listenStartedAt) < OB_MAX_LISTEN_MS) {
+      if (_oc._webRestarts <= 30 && (Date.now() - _oc._listenStartedAt) < OB_MAX_LISTEN_MS) {
         if (_oc.partial) _oc._webCarry = _oc.partial;
         try {
           rec.start();
-          // Restart spin-up + first-partial latency ran ~3s on dad's
-          // phone - against a 5s silence clock still pointing at his last
-          // word BEFORE Android killed the segment, so the endpointer
-          // fired while he was mid-sentence into a warming mic. With
-          // words banked, the clock restarts here so it measures HIS
-          // silence, not the engine's. (No words banked = leave the
-          // no-speech give-up timing untouched.)
+          // With words banked, mark speech-activity across the engine
+          // restart. Under push-to-talk this only keeps the heard-
+          // something state honest for the no-speech give-up guard.
           if (_oc.partial || _oc._webCarry) _oc._lastSpeechAt = Date.now();
           _vt('web-self-restart ' + _oc._webRestarts);
           return;
@@ -12506,7 +12495,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-27-dr-vldebug';
+const RATIO_BUILD = '2026-08-27-ds-pushtotalk';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
