@@ -5051,7 +5051,14 @@ async function vlStartListeningWeb() {
       _vlWebRestarts++;
       if (_vlWebRestarts <= 8 && (Date.now() - _vlListenStartedAt) < VL_MAX_LISTEN_MS) {
         if (_vlLiveText) _vlWebCarry = _vlLiveText;
-        try { rec.start(); return; } catch (e) { /* engine refused - finish the turn */ }
+        try {
+          rec.start();
+          // Same restart-latency hole as the interview mic (Aug 27):
+          // reset the silence clock only when words are banked, so the
+          // no-speech give-up path keeps its original timing.
+          if (_vlLiveText || _vlWebCarry) _vlLastPartialAt = Date.now();
+          return;
+        } catch (e) { /* engine refused - finish the turn */ }
       }
     }
     _vlWebRec = null;
@@ -9256,6 +9263,12 @@ async function obOAuthBootCheck() {
 // mid-SIGNUP - restore the interview's answers and claim a username.
 async function obOAuthAfterAuth() {
   try { sessionStorage.removeItem('ob_oauth_flow'); } catch (e) {}
+  // Boot must not repaint over whatever this function decides to show -
+  // see the guard in init(). Without it, boot treated a MID-SIGNUP OAuth
+  // return as a returning user: cleared the interview snapshot, flashed
+  // the app shell, and appInit routed dad straight back to Lauren with
+  // every answer gone (Aug 27).
+  window._oauthUiHandled = true;
   let hasProfile = false;
   try {
     const r = await fetch(`${SUPABASE_URL}/rest/v1/user_settings?user_id=eq.${_currentUser.id}&key=eq.profile&select=key&limit=1`,
@@ -9525,6 +9538,16 @@ function _ocAddBot(text, opts) {
   }
   const bubble = row.querySelector('.obchat-bubble');
   _ocPlace(row);
+  // Intro screen: the portrait row flexes into whatever the text leaves
+  // over, so a bubble growing word-by-word shrank Lauren in real time
+  // (dad: her picture shrinks as text goes in). The full line is known
+  // before the reveal - render it invisibly once, lock that height, then
+  // animate into the reserved space. One layout, no deflation.
+  if (_ocIsIntro() && bubble) {
+    bubble.textContent = text;
+    bubble.style.minHeight = bubble.offsetHeight + 'px';
+    bubble.textContent = '';
+  }
   if (_oc) _oc.history.push({ role: 'assistant', content: text });
 
   const speak = _oc && !(opts && opts.silent);
@@ -11018,7 +11041,19 @@ async function obChatMic() {
       _oc._webRestarts = (_oc._webRestarts || 0) + 1;
       if (_oc._webRestarts <= 8 && (Date.now() - _oc._listenStartedAt) < OB_MAX_LISTEN_MS) {
         if (_oc.partial) _oc._webCarry = _oc.partial;
-        try { rec.start(); _vt('web-self-restart ' + _oc._webRestarts); return; } catch (e) {}
+        try {
+          rec.start();
+          // Restart spin-up + first-partial latency ran ~3s on dad's
+          // phone - against a 5s silence clock still pointing at his last
+          // word BEFORE Android killed the segment, so the endpointer
+          // fired while he was mid-sentence into a warming mic. With
+          // words banked, the clock restarts here so it measures HIS
+          // silence, not the engine's. (No words banked = leave the
+          // no-speech give-up timing untouched.)
+          if (_oc.partial || _oc._webCarry) _oc._lastSpeechAt = Date.now();
+          _vt('web-self-restart ' + _oc._webRestarts);
+          return;
+        } catch (e) {}
       }
     }
     const finalText = _oc.partial;
@@ -12436,7 +12471,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-27-dm-rosterslim';
+const RATIO_BUILD = '2026-08-27-dn-dadfixes';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
@@ -12555,6 +12590,11 @@ async function init() {
     // in place; getSession() -> obOAuthBootCheck() will consume it next.
   }
   const session = await getSession();
+  // OAuth landing: obOAuthAfterAuth (run inside getSession) has already
+  // chosen the screen - returning users got the app + appInit, mid-signup
+  // got their restored interview + the claim screen. Boot repainting here
+  // is exactly what wiped dad's answers and restarted onboarding.
+  if (window._oauthUiHandled) return;
   if (session) {
     _authToken = session.access_token;
     _currentUser = session.user;
