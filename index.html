@@ -4491,6 +4491,16 @@ const VL_MAX_FOLLOWUPS = 2; // after this many follow-up rounds, force the AI to
 // the timer. Both mics already wore the right clothes: the VL dictation
 // bar has cancel/transcript/accept, and the interview mic pulses gold as
 // the documented stop control.
+// Spoken punctuation (Aug 29, his ask): saying 'question mark' should
+// produce '?'. Only unambiguous multi-word phrases convert - 'period'
+// and 'comma' stay words because people genuinely say them as words.
+function _spokenPunct(t) {
+  return String(t || '')
+    .replace(/\s*\bquestion mark\b/gi, '?')
+    .replace(/\s*\bexclamation (?:point|mark)\b/gi, '!')
+    .replace(/  +/g, ' ')
+    .trim();
+}
                                  // 3s still clipped people mid-thought after saying a number.
 const VL_NO_SPEECH_TIMEOUT_MS = 15000; // give up if literally nothing is heard within this window (push-to-talk grace)
 const VL_MAX_LISTEN_MS = 90000; // hard ceiling regardless of activity - forgotten-recorder guard under push-to-talk, auto-submits what was heard. 25s could not hold a real spoken workout (dad's 17 exercises) — this is the actual answer to "what if someone leaves the recorder on"
@@ -5280,6 +5290,7 @@ function vlHandleUtterance(text) {
     return;
   }
   _vlAckStrikes = 0;
+  text = _spokenPunct(text);
   if (confirmPending) _vlAwaitingFollowup = true;
   _vlThreadUser(text);
   _vlCorrecting = false; // the correction (if any) has been captured — the hint is no longer needed
@@ -10613,6 +10624,7 @@ function _ocParseNums(text, f) {
   return got;
 }
 function _ocDispatch(text) {
+  text = _spokenPunct(text);
   // During the wrap-up every input (typed or spoken) is handled locally.
   if (_oc && _oc.wrapup) { _wuHandleText(text); return; }
   // Cap-hole numeric chase: parse locally, no AI — the AI may be capped out.
@@ -12286,8 +12298,8 @@ async function renderAdmin() {
   document.getElementById('admin-spend').innerHTML =
     `<div onclick="_adminToggleSpend()" style="background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;gap:8px">` +
     `<span style="font-size:11px;color:var(--muted);font-weight:700">AI SPEND</span>` +
-    `<span style="font-size:13px;font-weight:800;color:#CFA13C">${todayCost} <span style="font-size:9px;color:var(--muted)">today</span></span>` +
-    `<span style="font-size:13px;font-weight:800;color:#CFA13C">$${(data.summary.monthCostUsd || 0).toFixed(2)} <span style="font-size:9px;color:var(--muted)">30d</span></span>` +
+    `<span onclick="event.stopPropagation();_adminSetSpendRange('today')" style="font-size:13px;font-weight:800;color:#CFA13C;cursor:pointer">${todayCost} <span style="font-size:9px;color:var(--muted)">today</span></span>` +
+    `<span onclick="event.stopPropagation();_adminSetSpendRange('30d')" style="font-size:13px;font-weight:800;color:#CFA13C;cursor:pointer">$${(data.summary.monthCostUsd || 0).toFixed(2)} <span style="font-size:9px;color:var(--muted)">30d</span></span>` +
     `<span id="admin-spend-chev" style="font-size:12px;color:#CFA13C">${_adminSpendOpen ? '\u25b4' : '\u25be'}</span></div>`;
   _adminRenderRoster();
   _adminRenderRemoved(data.removedLog || []);
@@ -12307,6 +12319,16 @@ function _adminToggleSpend() {
 
 let _adminSpendView = 'feature';
 function _adminSetSpendView(v) { _adminSpendView = v; if (_adminData) _adminRenderSpend(_adminData.spend); }
+// Today drill-in (Aug 29, his ask): tapping the today number - or the
+// range chips inside the panel - scopes the same Feature/Model breakdown
+// to today's calls. The worker has always shipped costToday/callsToday
+// per row; the panel just never offered them.
+let _adminSpendRange = '30d';
+function _adminSetSpendRange(r) {
+  _adminSpendRange = r;
+  if (!_adminSpendOpen) { _adminToggleSpend(); return; }
+  if (_adminData) _adminRenderSpend(_adminData.spend);
+}
 function _adminToggleSearch() {
   const el = document.getElementById('admin-search');
   if (!el) return;
@@ -12332,7 +12354,12 @@ function _adminRenderSpend(spend) {
   if (!_adminSpendOpen) { el.innerHTML = ''; return; }
 
   const money = n => '$' + (+n || 0).toFixed(2);
-  const list = ((_adminSpendView === 'model' ? spend.byModel : spend.byEndpoint) || []).slice();
+  const raw = ((_adminSpendView === 'model' ? spend.byModel : spend.byEndpoint) || []).slice();
+  const todayRange = _adminSpendRange === 'today';
+  const list = todayRange
+    ? raw.filter(r => (r.callsToday || 0) > 0).map(r => ({ name: r.name, cost: r.costToday || 0, calls: r.callsToday || 0 }))
+    : raw;
+  list.sort((a, b) => (b.cost || 0) - (a.cost || 0));
   const total = list.reduce((a, r) => a + (r.cost || 0), 0);
   const GOLD = ['#CFA13C', '#8a6d2a', '#5a4a2a', '#3a3020'];
   const top = list.slice(0, 3), rest = list.slice(3);
@@ -12346,14 +12373,33 @@ function _adminRenderSpend(spend) {
   const rowsHtml = segs.length
     ? segs.map(s => `<div style="display:flex;justify-content:space-between;align-items:baseline;padding:4px 2px;font-size:12px"><span style="color:var(--ink);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><span style="color:${s.c}">\u25cf</span> ${_weEscHtml(s.name)}</span><span style="flex-shrink:0;color:var(--muted);font-size:10px;margin-left:8px">${s.calls} calls \u00b7 <b style="color:#CFA13C;font-size:12px">${money(s.cost)}</b></span></div>`).join('')
     : `<div style="font-size:10px;color:var(--muted);padding:4px 2px">Nothing yet.</div>`;
-  const anonRow = `<div style="display:flex;justify-content:space-between;gap:8px;padding:7px 2px 2px;margin-top:6px;border-top:1px solid var(--line);font-size:10.5px;color:var(--muted)"><span>Signup chat (no account yet)</span><span style="flex-shrink:0">${money(spend.anonCost)} \u00b7 ${spend.signups30 || 0} signup${(spend.signups30 || 0) === 1 ? '' : 's'}</span></div>`;
+  const anonRow = todayRange
+    ? (spend.anonCostToday !== undefined ? `<div style="display:flex;justify-content:space-between;gap:8px;padding:7px 2px 2px;margin-top:6px;border-top:1px solid var(--line);font-size:10.5px;color:var(--muted)"><span>Signup chat (no account yet)</span><span style="flex-shrink:0">${money(spend.anonCostToday)} today</span></div>` : '')
+    : `<div style="display:flex;justify-content:space-between;gap:8px;padding:7px 2px 2px;margin-top:6px;border-top:1px solid var(--line);font-size:10.5px;color:var(--muted)"><span>Signup chat (no account yet)</span><span style="flex-shrink:0">${money(spend.anonCost)} \u00b7 ${spend.signups30 || 0} signup${(spend.signups30 || 0) === 1 ? '' : 's'}</span></div>`;
 
   el.innerHTML = `<div style="background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px">` +
     bar +
-    `<div style="display:flex;gap:6px;margin-bottom:8px">${tab('feature', 'Feature')}${tab('model', 'Model')}</div>` +
+    `<div style="display:flex;gap:6px;margin-bottom:6px">${tab('feature', 'Feature')}${tab('model', 'Model')}</div>` +
+    `<div style="display:flex;gap:6px;margin-bottom:8px">` +
+    `<div onclick="_adminSetSpendRange('today')" style="flex:1;text-align:center;font-size:10px;font-weight:800;border-radius:8px;padding:4px;cursor:pointer;${todayRange ? 'background:var(--accent);color:#101512' : 'background:var(--surface-2);color:var(--muted)'}">Today</div>` +
+    `<div onclick="_adminSetSpendRange('30d')" style="flex:1;text-align:center;font-size:10px;font-weight:800;border-radius:8px;padding:4px;cursor:pointer;${!todayRange ? 'background:var(--accent);color:#101512' : 'background:var(--surface-2);color:var(--muted)'}">30 days</div>` +
+    `</div>` +
     rowsHtml + anonRow +
-    `<div onclick="_adminExplain('spend')" style="text-align:center;font-size:9.5px;color:var(--muted);padding-top:8px;cursor:pointer;text-decoration:underline">what am I looking at?</div>` +
+    `<div onclick="_adminExplainSpend()" style="text-align:center;font-size:9.5px;color:var(--muted);padding-top:8px;cursor:pointer;text-decoration:underline">what am I looking at?</div>` +
+    `<div id="admin-explain-spend" style="display:none;font-size:10.5px;color:var(--muted);line-height:1.45;padding-top:6px"></div>` +
     `</div>`;
+}
+
+// The shared #admin-explain box lives at the top of the screen, so tapping
+// the spend card's link appeared to do nothing (Aug 29 - he found the text
+// by accident while scrolling up). The answer now opens right under the
+// question.
+function _adminExplainSpend() {
+  const el = document.getElementById('admin-explain-spend');
+  if (!el) return;
+  const show = el.style.display === 'none';
+  el.textContent = show ? (_ADMIN_EXPLAINS['spend'] || '') : '';
+  el.style.display = show ? '' : 'none';
 }
 
 // ---- v3 roster: dense rows, search, sort, segments; tap a row to expand ----
@@ -12560,7 +12606,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-27-dv-coachauth';
+const RATIO_BUILD = '2026-08-29-dw-adminpolish';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
