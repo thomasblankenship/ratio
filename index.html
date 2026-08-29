@@ -11951,7 +11951,7 @@ function applyPlatformUI() {
 // /admin/stats, so a curious user editing this list gets a 403, not data.
 const ADMIN_USER_IDS = [
   '2a9cb3ab-1555-4b1d-b832-171ff650e613', // Semmes
-  // wife's ID goes here when assigned
+  '5186cf44-b9df-4f53-8b6c-7827bfaadb99', // Lauren - co-owner (Aug 29)
 ];
 
 let _adminWhoami = null; // cached once per session: { admin, root }
@@ -12114,7 +12114,7 @@ const _ADMIN_EXPLAINS = {
   wau: '7-DAY (WAU): how many different people opened the app at least once in the last 7 days.',
   mau: '30-DAY (MAU): how many different people opened the app at least once in the last 30 days \u2014 your whole active audience.',
   stick: 'STICKINESS: Today \u00f7 30-Day. Of everyone who uses the app at all, what share showed up today. Above 20% is considered a daily-habit product \u2014 people are coming back on their own.',
-  spend: 'AI SPEND: what all users\u2019 AI features (voice logging, coach, label scans, meal ideas) actually cost in Anthropic tokens \u2014 TODAY and over the last 30 days \u2014 computed from real per-call token counts. CALLS is how many AI requests the 30 days was. If today looks big while 30d is small, someone is running up the bill right now.',
+  spend: 'AI SPEND: what all users\u2019 AI features (voice logging, coach, label scans, meal ideas) actually cost in Anthropic tokens \u2014 computed from real per-call token counts. Today / 30 days scopes the list; each row is a feature, and the small text names the model that served it (rows using several models expand on tap). Pre User Signup is Lauren\u2019s front-desk interview \u2014 AI spent on visitors before they have an account, with how many converted into signups.',
   newwk: 'NEW THIS WK: accounts created in the last 7 days. Usage numbers (DAU/WAU/MAU) tell you engagement; this one tells you growth.'
 };
 let _adminExplainKey = null;
@@ -12317,8 +12317,15 @@ function _adminToggleSpend() {
   if (_adminData) _adminRenderSpend(_adminData.spend);
 }
 
-let _adminSpendView = 'feature';
-function _adminSetSpendView(v) { _adminSpendView = v; if (_adminData) _adminRenderSpend(_adminData.spend); }
+// One list, feature-first (Aug 29, his call): the Feature/Model tabs were
+// two flat photos of the same calls that made YOU do the join. Now each
+// feature row expands to show which models served it. Single-model
+// features (the common case) just say so inline.
+let _adminSpendOpenFeat = null;
+function _adminSpendToggleFeat(name) {
+  _adminSpendOpenFeat = (_adminSpendOpenFeat === name) ? null : name;
+  if (_adminData) _adminRenderSpend(_adminData.spend);
+}
 // Today drill-in (Aug 29, his ask): tapping the today number - or the
 // range chips inside the panel - scopes the same Feature/Model breakdown
 // to today's calls. The worker has always shipped costToday/callsToday
@@ -12354,32 +12361,47 @@ function _adminRenderSpend(spend) {
   if (!_adminSpendOpen) { el.innerHTML = ''; return; }
 
   const money = n => '$' + (+n || 0).toFixed(2);
-  const raw = ((_adminSpendView === 'model' ? spend.byModel : spend.byEndpoint) || []).slice();
+  const raw = (spend.byEndpoint || []).slice();
   const todayRange = _adminSpendRange === 'today';
-  const list = todayRange
-    ? raw.filter(r => (r.callsToday || 0) > 0).map(r => ({ name: r.name, cost: r.costToday || 0, calls: r.callsToday || 0 }))
-    : raw;
+  const mapModels = (ms) => (ms || [])
+    .map(m => todayRange ? { name: m.name, cost: m.costToday || 0, calls: m.callsToday || 0 } : m)
+    .filter(m => (m.calls || 0) > 0)
+    .sort((a, b) => (b.cost || 0) - (a.cost || 0));
+  const list = (todayRange
+    ? raw.filter(r => (r.callsToday || 0) > 0).map(r => ({ name: r.name, cost: r.costToday || 0, calls: r.callsToday || 0, models: mapModels(r.models) }))
+    : raw.map(r => ({ name: r.name, cost: r.cost || 0, calls: r.calls || 0, models: mapModels(r.models) })));
   list.sort((a, b) => (b.cost || 0) - (a.cost || 0));
   const total = list.reduce((a, r) => a + (r.cost || 0), 0);
   const GOLD = ['#CFA13C', '#8a6d2a', '#5a4a2a', '#3a3020'];
   const top = list.slice(0, 3), rest = list.slice(3);
   const segs = top.map((r, i) => ({ name: r.name, cost: r.cost || 0, calls: r.calls || 0, c: GOLD[i] }));
   if (rest.length) segs.push({ name: `other (${rest.length})`, cost: rest.reduce((a, r) => a + (r.cost || 0), 0), calls: rest.reduce((a, r) => a + (r.calls || 0), 0), c: GOLD[3] });
+  const rowColor = (name) => { const i = top.findIndex(t => t.name === name); return i >= 0 ? GOLD[i] : GOLD[3]; };
+  const shortModel = (n) => _weEscHtml(String(n || '').replace(/^claude-/, ''));
 
   const bar = (total > 0 && segs.length)
     ? `<div style="display:flex;gap:2px;height:18px;border-radius:5px;overflow:hidden;margin:2px 0 10px">${segs.map(s => `<div style="width:${Math.max(2, Math.round(s.cost / total * 100))}%;background:${s.c}"></div>`).join('')}</div>`
     : '';
-  const tab = (v, label) => `<div onclick="_adminSetSpendView('${v}')" style="flex:1;text-align:center;font-size:11px;font-weight:800;border-radius:8px;padding:5px;cursor:pointer;${_adminSpendView === v ? 'background:var(--accent);color:#101512' : 'background:var(--surface-2);color:var(--muted)'}">${label}</div>`;
-  const rowsHtml = segs.length
-    ? segs.map(s => `<div style="display:flex;justify-content:space-between;align-items:baseline;padding:4px 2px;font-size:12px"><span style="color:var(--ink);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><span style="color:${s.c}">\u25cf</span> ${_weEscHtml(s.name)}</span><span style="flex-shrink:0;color:var(--muted);font-size:10px;margin-left:8px">${s.calls} calls \u00b7 <b style="color:#CFA13C;font-size:12px">${money(s.cost)}</b></span></div>`).join('')
+  const rowsHtml = list.length
+    ? list.map(r => {
+        const ms = r.models || [];
+        const single = ms.length === 1;
+        const expandable = ms.length > 1;
+        const open = expandable && _adminSpendOpenFeat === r.name;
+        const nameBits = `<span style="color:${rowColor(r.name)}">\u25cf</span> ${_weEscHtml(r.name)}` +
+          (single ? ` <span style="color:var(--muted);font-size:10px">\u00b7 ${shortModel(ms[0].name)}</span>` : '') +
+          (expandable ? ` <span style="color:var(--muted);font-size:9px">${open ? '\u25b4' : '\u25be'}</span>` : '');
+        const rowLine = `<div ${expandable ? `onclick="_adminSpendToggleFeat('${_weEscHtml(r.name)}')" ` : ''}style="display:flex;justify-content:space-between;align-items:baseline;padding:4px 2px;font-size:12px;${expandable ? 'cursor:pointer' : ''}"><span style="color:var(--ink);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${nameBits}</span><span style="flex-shrink:0;color:var(--muted);font-size:10px;margin-left:8px">${r.calls} calls \u00b7 <b style="color:#CFA13C;font-size:12px">${money(r.cost)}</b></span></div>`;
+        const modelLines = open ? ms.map(m => `<div style="display:flex;justify-content:space-between;align-items:baseline;padding:2px 2px 2px 18px;font-size:11px"><span style="color:var(--muted);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${shortModel(m.name)}</span><span style="flex-shrink:0;color:var(--muted);font-size:10px;margin-left:8px">${m.calls} calls \u00b7 ${money(m.cost)}</span></div>`).join('') : '';
+        return rowLine + modelLines;
+      }).join('')
     : `<div style="font-size:10px;color:var(--muted);padding:4px 2px">Nothing yet.</div>`;
   const anonRow = todayRange
-    ? (spend.anonCostToday !== undefined ? `<div style="display:flex;justify-content:space-between;gap:8px;padding:7px 2px 2px;margin-top:6px;border-top:1px solid var(--line);font-size:10.5px;color:var(--muted)"><span>Signup chat (no account yet)</span><span style="flex-shrink:0">${money(spend.anonCostToday)} today</span></div>` : '')
-    : `<div style="display:flex;justify-content:space-between;gap:8px;padding:7px 2px 2px;margin-top:6px;border-top:1px solid var(--line);font-size:10.5px;color:var(--muted)"><span>Signup chat (no account yet)</span><span style="flex-shrink:0">${money(spend.anonCost)} \u00b7 ${spend.signups30 || 0} signup${(spend.signups30 || 0) === 1 ? '' : 's'}</span></div>`;
+    ? (spend.anonCostToday !== undefined ? `<div style="display:flex;justify-content:space-between;gap:8px;padding:7px 2px 2px;margin-top:6px;border-top:1px solid var(--line);font-size:10.5px;color:var(--muted)"><span>Pre User Signup</span><span style="flex-shrink:0">${money(spend.anonCostToday)} today</span></div>` : '')
+    : `<div style="display:flex;justify-content:space-between;gap:8px;padding:7px 2px 2px;margin-top:6px;border-top:1px solid var(--line);font-size:10.5px;color:var(--muted)"><span>Pre User Signup</span><span style="flex-shrink:0">${money(spend.anonCost)} \u00b7 ${spend.signups30 || 0} signup${(spend.signups30 || 0) === 1 ? '' : 's'}</span></div>`;
 
   el.innerHTML = `<div style="background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px">` +
     bar +
-    `<div style="display:flex;gap:6px;margin-bottom:6px">${tab('feature', 'Feature')}${tab('model', 'Model')}</div>` +
     `<div style="display:flex;gap:6px;margin-bottom:8px">` +
     `<div onclick="_adminSetSpendRange('today')" style="flex:1;text-align:center;font-size:10px;font-weight:800;border-radius:8px;padding:4px;cursor:pointer;${todayRange ? 'background:var(--accent);color:#101512' : 'background:var(--surface-2);color:var(--muted)'}">Today</div>` +
     `<div onclick="_adminSetSpendRange('30d')" style="flex:1;text-align:center;font-size:10px;font-weight:800;border-radius:8px;padding:4px;cursor:pointer;${!todayRange ? 'background:var(--accent);color:#101512' : 'background:var(--surface-2);color:var(--muted)'}">30 days</div>` +
@@ -12606,7 +12628,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-29-dw-adminpolish';
+const RATIO_BUILD = '2026-08-29-dy-laurenroot';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
