@@ -3695,7 +3695,7 @@ function defaultTodoList() { return { items: [], seeded: false }; }
 // sheet open (fresh each time), writes on every mutation. Whole-value
 // last-write-wins - fine at family scale.
 function _famHouseholdId() {
-  return (window._famStatus && _famStatus.household && _famStatus.household.id) || null;
+  return (_famStatus && _famStatus.household && _famStatus.household.id) || null;
 }
 async function _sharedLoad(key) {
   const hid = _famHouseholdId();
@@ -3840,7 +3840,7 @@ function renderTodoList() {
         <div class="card-title" style="margin-bottom:0">To-Do List</div>
         <button type="button" onclick="shareTodoList()" style="flex-shrink:0;background:var(--surface);color:#CFA13C;border:1px solid var(--gold-line);border-radius:20px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">📤 Share</button>
       </div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Sorted by soonest due date. Tap a task to check it off; tap × to remove it. You'll get a reminder when a task is due (unless it's already done).${(!window._famStatus || !window._famStatus.household) ? ' <span style=\"color:#CFA13C\">Sharing with family? Turn on Team up in Settings.</span>' : ' <span style=\"color:#CFA13C\">Shared with your family.</span>'}</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Sorted by soonest due date. Tap a task to check it off; tap × to remove it. You'll get a reminder when a task is due (unless it's already done).${(!_famStatus || !_famStatus.household) ? ' <span style=\"color:#CFA13C\">Sharing with family? Turn on Team up in Settings.</span>' : ' <span style=\"color:#CFA13C\">Shared with your family.</span>'}</div>
 
       <div style="display:flex;gap:8px;margin-bottom:8px">
         <input type="text" id="todo-add-input" placeholder="Add a task (e.g. Mow the lawn)" onkeydown="if(event.key==='Enter') addTodoItemFromInput()" style="flex:1;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:16px;outline:none" />
@@ -12690,7 +12690,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-29-dz-sharedtodo';
+const RATIO_BUILD = '2026-08-29-ea-famlexical';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
@@ -16635,7 +16635,7 @@ function renderShoppingList() {
         <div class="card-title" style="margin-bottom:0">Shopping List</div>
         <button type="button" onclick="shareShoppingList()" style="flex-shrink:0;background:var(--surface);color:#CFA13C;border:1px solid var(--gold-line);border-radius:20px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">📤 Share</button>
       </div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:14px">${activeDishCount ? `Pulled from ${activeDishCount} dish${activeDishCount === 1 ? '' : 'es'} added to this week's prep plan — add anything else below. ` : 'Nothing from meal prep yet — add whatever you need below. '}Press and hold an item to drag it into your store's order.${(!window._famStatus || !window._famStatus.household) ? ' <span style=\"color:#CFA13C\">Sharing with family? Turn on Team up in Settings.</span>' : ''}</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:14px">${activeDishCount ? `Pulled from ${activeDishCount} dish${activeDishCount === 1 ? '' : 'es'} added to this week's prep plan — add anything else below. ` : 'Nothing from meal prep yet — add whatever you need below. '}Press and hold an item to drag it into your store's order.${(!_famStatus || !_famStatus.household) ? ' <span style=\"color:#CFA13C\">Sharing with family? Turn on Team up in Settings.</span>' : ''}</div>
 
       <div style="display:flex;gap:8px;margin-bottom:14px">
         <input type="text" id="shopping-add-input" placeholder="Add an item (e.g. milk, paper towels)" onkeydown="if(event.key==='Enter') addShoppingExtra()" style="flex:1;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:16px;outline:none" />
@@ -17483,7 +17483,7 @@ function renderSavedMeals() {
       <div style="text-align:center;padding:32px 16px">
         <div style="font-size:48px;margin-bottom:16px">🍱</div>
         <div style="font-size:19px;font-weight:800;color:#CFA13C;margin-bottom:8px;letter-spacing:-0.3px">Log Your Go-To Meals Faster</div>
-        <div style="font-size:14px;color:var(--muted);line-height:1.6;max-width:280px;margin:0 auto">Create and save your favorite meals to log them again with just one tap.${(!window._famStatus || !_famStatus.household) ? ' <span style=\"color:#CFA13C\">Eating with family? Turn on Team up in Settings and they can share their meals with you.</span>' : ''}</div>
+        <div style="font-size:14px;color:var(--muted);line-height:1.6;max-width:280px;margin:0 auto">Create and save your favorite meals to log them again with just one tap.${(!_famStatus || !_famStatus.household) ? ' <span style=\"color:#CFA13C\">Eating with family? Turn on Team up in Settings and they can share their meals with you.</span>' : ''}</div>
       </div>`;
     el.innerHTML = _shareBannerHtml('meals') + el.innerHTML;
     return;
@@ -18960,12 +18960,12 @@ async function saveMeal() {
 let _shareMode = null;      // { kind: 'foods'|'meals', sel: Set(ids) }
 let _sharePending = [];     // pending bundles for ME, from /family/shares
 function _sharePartnerName() {
-  const m = (window._famStatus && _famStatus.members) || [];
+  const m = (_famStatus && _famStatus.members) || [];
   const other = m.find(x => !x.me);
   return (other && other.name) || 'family';
 }
 function _shareEligible() {
-  const s = window._famStatus;
+  const s = _famStatus;
   return !!(s && s.household && s.members && s.members.length > 1);
 }
 function shareModeStart(kind) { _shareMode = { kind, sel: new Set() }; kind === 'foods' ? renderSavedFoods() : renderSavedMeals(); }
@@ -19120,7 +19120,7 @@ function renderSavedFoods() {
       <div style="text-align:center;padding:32px 16px">
         <div style="font-size:48px;margin-bottom:16px"><i class="fa-solid fa-bowl-food"></i></div>
         <div style="font-size:19px;font-weight:800;color:#CFA13C;margin-bottom:8px;letter-spacing:-0.3px">Build Your Food Library</div>
-        <div style="font-size:14px;color:var(--muted);line-height:1.6;max-width:280px;margin:0 auto">Save the foods you eat often so logging them takes just one tap next time.${(!window._famStatus || !_famStatus.household) ? ' <span style=\"color:#CFA13C\">Eating with family? Turn on Team up in Settings and they can share their foods straight to your list.</span>' : ''}</div>
+        <div style="font-size:14px;color:var(--muted);line-height:1.6;max-width:280px;margin:0 auto">Save the foods you eat often so logging them takes just one tap next time.${(!_famStatus || !_famStatus.household) ? ' <span style=\"color:#CFA13C\">Eating with family? Turn on Team up in Settings and they can share their foods straight to your list.</span>' : ''}</div>
       </div>`;
     el.innerHTML = _shareBannerHtml('foods') + el.innerHTML;
     return;
