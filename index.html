@@ -3689,12 +3689,74 @@ let _tabBeforeTodo = 'today';
 
 function defaultTodoList() { return { items: [], seeded: false }; }
 
+// ---- Household-shared lists (Aug 29, the family test's finding) ----
+// One row per (household, key) in household_settings; RLS admits members
+// via the is_household_member() SECURITY DEFINER function. Reads happen on
+// sheet open (fresh each time), writes on every mutation. Whole-value
+// last-write-wins - fine at family scale.
+function _famHouseholdId() {
+  return (window._famStatus && _famStatus.household && _famStatus.household.id) || null;
+}
+async function _sharedLoad(key) {
+  const hid = _famHouseholdId();
+  if (!hid) return { shared: false, value: null };
+  const rows = await dbGet('household_settings', `household_id=eq.${hid}&key=eq.${key}&select=value`);
+  return { shared: true, value: (rows && rows.length) ? JSON.parse(rows[0].value) : null };
+}
+async function _sharedSave(key, obj) {
+  const hid = _famHouseholdId();
+  if (!hid) return false;
+  await dbUpsert('household_settings', { household_id: hid, key, value: JSON.stringify(obj), updated_at: new Date().toISOString() }, 'household_id,key');
+  return true;
+}
+// Pure merge: union my personal items into the shared list by name
+// (case-insensitive). Runs ONCE per member - the personal copy is retired
+// afterwards so a deleted shared task can't be resurrected from someone's
+// stale personal list (the zombie guard).
+function _todoMergeShared(sharedObj, personalObj) {
+  const merged = (sharedObj && Array.isArray(sharedObj.items)) ? sharedObj : { items: [], seeded: true };
+  const mine = (personalObj && !personalObj.migratedToHousehold && Array.isArray(personalObj.items)) ? personalObj.items : [];
+  if (!mine.length) return { merged, changed: false };
+  const have = new Set(merged.items.map(i => String(i.name || '').toLowerCase().trim()));
+  let changed = false;
+  for (const it of mine) {
+    const k = String(it.name || '').toLowerCase().trim();
+    if (k && !have.has(k)) { merged.items.push(it); have.add(k); changed = true; }
+  }
+  return { merged, changed: changed || mine.length > 0 };
+}
+// Route every to-do write to the household when one exists.
+function _todoPersist() {
+  if (_famHouseholdId()) {
+    _sharedSave('todo_list', todoList).catch(e => { console.warn('[todo] shared save failed - keeping personal copy too', e); saveSetting('todo_list', todoList); });
+  } else {
+    saveSetting('todo_list', todoList);
+  }
+}
+
 // New accounts start with an EMPTY list - demo tasks were only ever his
 // own testing data, never meant to ship to every user (his call, Aug 24).
 // The add-box placeholder text is the only example a first-timer needs.
 
 async function loadTodoList() {
-  const saved = await loadSetting('todo_list');
+  let saved = null, sharedMode = false;
+  if (_famHouseholdId()) {
+    try { const r = await _sharedLoad('todo_list'); sharedMode = r.shared; saved = r.value; }
+    catch (e) { console.warn('[todo] shared read failed - personal fallback', e); }
+  }
+  if (sharedMode) {
+    const personal = await loadSetting('todo_list');
+    const { merged, changed } = _todoMergeShared(saved, personal);
+    saved = merged;
+    if (changed) {
+      // Personal items now live in the household; retire the personal copy
+      // (zombie guard) and push the union up for the other member.
+      saveSetting('todo_list', { items: [], seeded: true, migratedToHousehold: true });
+      _sharedSave('todo_list', saved).catch(e => console.warn('[todo] shared seed failed', e));
+    }
+  } else {
+    saved = await loadSetting('todo_list');
+  }
   todoList = (saved && Array.isArray(saved.items)) ? saved : defaultTodoList();
   todoListLoaded = true;
   scheduleTodoNotifications();
@@ -3778,7 +3840,7 @@ function renderTodoList() {
         <div class="card-title" style="margin-bottom:0">To-Do List</div>
         <button type="button" onclick="shareTodoList()" style="flex-shrink:0;background:var(--surface);color:#CFA13C;border:1px solid var(--gold-line);border-radius:20px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">📤 Share</button>
       </div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Sorted by soonest due date. Tap a task to check it off; tap × to remove it. You'll get a reminder when a task is due (unless it's already done).${(!window._famStatus || !window._famStatus.household) ? ' <span style=\"color:#CFA13C\">Sharing with family? Turn on Team up in Settings.</span>' : ''}</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Sorted by soonest due date. Tap a task to check it off; tap × to remove it. You'll get a reminder when a task is due (unless it's already done).${(!window._famStatus || !window._famStatus.household) ? ' <span style=\"color:#CFA13C\">Sharing with family? Turn on Team up in Settings.</span>' : ' <span style=\"color:#CFA13C\">Shared with your family.</span>'}</div>
 
       <div style="display:flex;gap:8px;margin-bottom:8px">
         <input type="text" id="todo-add-input" placeholder="Add a task (e.g. Mow the lawn)" onkeydown="if(event.key==='Enter') addTodoItemFromInput()" style="flex:1;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:16px;outline:none" />
@@ -3848,7 +3910,7 @@ function addTodoItem(name, dueDate) {
   };
   todoList.items = todoList.items || [];
   todoList.items.push(item);
-  saveSetting('todo_list', todoList);
+  _todoPersist();
   scheduleTodoNotifications();
   return item;
 }
@@ -3884,7 +3946,7 @@ function toggleTodoChecked(id) {
   const item = (todoList.items || []).find(t => t.id === id);
   if (!item) return;
   item.completed = !item.completed;
-  saveSetting('todo_list', todoList);
+  _todoPersist();
   scheduleTodoNotifications();
   renderTodoList();
 }
@@ -3892,7 +3954,7 @@ function toggleTodoChecked(id) {
 function removeTodoItem(id) {
   if (!todoList) return;
   todoList.items = (todoList.items || []).filter(t => t.id !== id);
-  saveSetting('todo_list', todoList);
+  _todoPersist();
   scheduleTodoNotifications();
   renderTodoList();
 }
@@ -3915,7 +3977,7 @@ async function clearTodoList() {
   })) return;
 
   todoList.items = clearingSelected ? items.filter(i => !i.completed) : [];
-  saveSetting('todo_list', todoList);
+  _todoPersist();
   scheduleTodoNotifications();
   renderTodoList();
   toast(clearingSelected ? `${done.length} task${done.length === 1 ? '' : 's'} cleared` : 'To-do list cleared');
@@ -6408,7 +6470,7 @@ function _famRender() {
         `<span style="font-size:12.5px;color:var(--muted)">${_weEscHtml(o.toName)} \u2014 invited, waiting</span>` +
         `<button type="button" onclick="_famCancel('${o.id}')" style="background:none;border:none;color:#e07777;font-size:11.5px;cursor:pointer">Cancel</button></div>`;
     }
-    h += `<div style="font-size:11px;color:var(--muted);margin-top:12px;line-height:1.5">Shared shopping and to-do lists live here next \u2014 rolling out this week.</div>`;
+    h += `<div style="font-size:11px;color:var(--muted);margin-top:12px;line-height:1.5">Your to-do list is shared with everyone here \u2014 add a task on one phone, it shows on both. Shared shopping list is next.</div>`;
     if ((s.members || []).length < 2 && !(s.pendingOut || []).length) {
       h += _famInviteFormHtml();
     }
@@ -12628,7 +12690,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-29-dy-laurenroot';
+const RATIO_BUILD = '2026-08-29-dz-sharedtodo';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
@@ -25034,7 +25096,8 @@ async function refreshNotifCenter() {
   } catch(e) {}
 
   try { // To-dos whose due time has passed
-    const tl = todoListLoaded ? todoList : await loadSetting('todo_list');
+    const tl = todoListLoaded ? todoList
+      : (_famHouseholdId() ? ((await _sharedLoad('todo_list').catch(() => ({ value: null }))).value || await loadSetting('todo_list')) : await loadSetting('todo_list'));
     (tl?.items || []).forEach(it => {
       if (!it.dueDate || it.completed) return;
       const t = new Date(it.dueDate).getTime();
