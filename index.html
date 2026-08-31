@@ -3866,7 +3866,7 @@ function renderTodoList() {
       </div>
       <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Tap a blank line in a box to add a task \u2014 the calendar beside it sets an optional due date, and you\u2019ll get a reminder when it\u2019s due. Tap a task to check it off; tap \u00d7 to remove it.${_famHouseholdId() ? ' Press and hold a task to drag it to another person.' : ''}${(!_famStatus || !_famStatus.household) ? ' <span style=\\"color:#CFA13C\\">Sharing with family? Turn on Team up in Settings.</span>' : ' <span style=\\"color:#CFA13C\\">Shared with your family.</span>'}</div>
 
-      <div id="todo-list-rows">
+      <div id="todo-list-rows" style="-webkit-user-select:none;user-select:none;-webkit-touch-callout:none">
         ${(() => {
           if (!_famHouseholdId()) return items.map((item, i) => renderTodoListRow(item, i)).join('') + _todoAddRowHtml('');
           // Family List expanded on top; people as tappable tiles below
@@ -3926,8 +3926,11 @@ function initTodoDragZones() {
   _todoZoneSortables = [];
   document.querySelectorAll('#todo-list-rows .todo-drop-zone').forEach(zone => {
     _todoZoneSortables.push(Sortable.create(zone, {
-      group: 'todo-cards',
+      group: { name: 'todo-cards', pull: zone.hasAttribute('onclick') ? false : true, put: true },
+      sort: false,
       draggable: '.todo-row',
+      filter: '.todo-add-row',
+      preventOnFilter: false,
       animation: 150,
       delay: 250,
       delayOnTouchOnly: true,
@@ -12842,7 +12845,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-31-ej-shoptap';
+const RATIO_BUILD = '2026-08-31-ek-tododragfix';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
