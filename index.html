@@ -12842,7 +12842,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-31-ei-todoscroll';
+const RATIO_BUILD = '2026-08-31-ej-shoptap';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
@@ -16710,6 +16710,19 @@ async function clearShoppingList() {
   toast(clearingSelected ? `${targets.length} item${targets.length === 1 ? '' : 's'} cleared` : 'Shopping list cleared');
 }
 
+// Tap-to-add (Aug 31, after the to-do line won him over): Enter commits
+// and clears; the clear also disarms the blur echo, so Enter-then-blur
+// can't double-add.
+function _shopInlineCommit(input) {
+  const val = (input.value || '').trim();
+  if (!val) return;
+  input.value = '';
+  mealPrepPlan.shoppingExtras = mealPrepPlan.shoppingExtras || [];
+  mealPrepPlan.shoppingExtras.push({ id: 'x' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name: val });
+  _iosDictMop(input, val);
+  saveSetting('meal_prep_plan', mealPrepPlan);
+  renderShoppingList();
+}
 function addShoppingExtra() {
   const input = document.getElementById('shopping-add-input');
   const val = (input.value || '').trim();
@@ -16789,9 +16802,8 @@ function renderShoppingList() {
       </div>
       <div style="font-size:12px;color:var(--muted);margin-bottom:14px">${activeDishCount ? `Pulled from ${activeDishCount} dish${activeDishCount === 1 ? '' : 'es'} added to this week's prep plan — add anything else below. ` : 'Nothing from meal prep yet — add whatever you need below. '}Press and hold an item to drag it into your store's order.${(!_famStatus || !_famStatus.household) ? ' <span style=\"color:#CFA13C\">Sharing with family? Turn on Team up in Settings.</span>' : ''}</div>
 
-      <div style="display:flex;gap:8px;margin-bottom:14px">
-        <input type="text" id="shopping-add-input" placeholder="Add an item (e.g. milk, paper towels)" onkeydown="if(event.key==='Enter') addShoppingExtra()" style="flex:1;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:16px;outline:none" />
-        <button type="button" onclick="addShoppingExtra()" style="background:var(--accent);color:#101512;border:none;border-radius:10px;padding:0 16px;font-size:13px;font-weight:700;cursor:pointer">+ Add</button>
+      <div style="display:flex;align-items:center;gap:8px;padding:2px 0 10px">
+        <input type="text" id="shopping-add-input" placeholder="tap to add \u2014 milk, paper towels\u2026" enterkeyhint="done" onkeydown="if(event.key==='Enter'){_shopInlineCommit(this)}" onblur="_shopInlineCommit(this)" style="flex:1;min-width:0;background:none;border:none;border-bottom:1px dashed var(--line);color:var(--ink);font-size:15px;padding:5px 2px;outline:none" />
       </div>
 
       ${!items.length ? `<div style="text-align:center;padding:16px;color:var(--muted);font-size:13px">Nothing on your list yet.</div>` : ''}
