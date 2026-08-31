@@ -3883,7 +3883,7 @@ function renderTodoList() {
               `<span style=\"font-size:13px;font-weight:800;color:var(--ink)\">${escapeHtmlTodo(c.label)}</span>` +
               (fam ? '' : `<span style=\"margin-left:auto;color:var(--muted-2);font-size:13px\">\u25b4</span>`) +
               `</div>` +
-              `<div class=\"todo-drop-zone\" data-owner=\"${c.id}\" style=\"min-height:10px;max-height:252px;overflow-y:auto;-webkit-overflow-scrolling:touch\">` + rows + `</div>` +
+              `<div class=\"todo-drop-zone\" data-owner=\"${c.id}\" style=\"min-height:10px${secItems.length > 5 ? ';max-height:252px;overflow-y:auto;overscroll-behavior:contain' : ''}\">` + rows + `</div>` +
               _todoAddRowHtml(c.id) + `</div>`;
           };
           const tile = (c) => {
@@ -12845,7 +12845,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-31-ek-tododragfix';
+const RATIO_BUILD = '2026-08-31-el-todoscrollfix';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
