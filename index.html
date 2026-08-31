@@ -3883,7 +3883,7 @@ function renderTodoList() {
               `<span style=\"font-size:13px;font-weight:800;color:var(--ink)\">${escapeHtmlTodo(c.label)}</span>` +
               (fam ? '' : `<span style=\"margin-left:auto;color:var(--muted-2);font-size:13px\">\u25b4</span>`) +
               `</div>` +
-              `<div class=\"todo-drop-zone\" data-owner=\"${c.id}\" style=\"min-height:10px\">` + rows + `</div>` +
+              `<div class=\"todo-drop-zone\" data-owner=\"${c.id}\" style=\"min-height:10px;max-height:252px;overflow-y:auto;-webkit-overflow-scrolling:touch\">` + rows + `</div>` +
               _todoAddRowHtml(c.id) + `</div>`;
           };
           const tile = (c) => {
@@ -3945,6 +3945,7 @@ function initTodoDragZones() {
           item.owner = newOwner;
           _todoPersist();
           scheduleTodoNotifications(); // reminders follow the new owner
+          _todoNotifyOthers(item, 'assigned');
           const label = (_todoOwnerChoices().find(c => c.id === newOwner) || {}).label || 'that list';
           toast(`Moved to ${label} \u2713`);
         }
@@ -3982,6 +3983,20 @@ function _todoToggleMember(uid) {
 }
 // Tap-a-line adding (Aug 31, his workouts-planner vision): each box ends
 // in a dashed blank line; type there, calendar beside it for a due date.
+// Tell the other member (Aug 31, his spec): family tasks and tasks FOR
+// them push to their phone; your own stay silent. Fire-and-forget - a
+// failed push never blocks the add.
+function _todoNotifyOthers(item, kind) {
+  try {
+    if (!_famHouseholdId() || !item || !item.owner) return;
+    if (item.owner === _currentUser?.id) return; // your own list is your business
+    fetch(`${WORKER_URL}/family/todo-notify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (_authToken || '') },
+      body: JSON.stringify({ taskName: item.name, owner: item.owner, kind: kind || 'added', dueText: item.dueDate ? formatTodoDue(item.dueDate).replace(' \u00b7 overdue', '') : null })
+    }).catch(e => console.warn('[todo-notify] failed', e && e.message));
+  } catch (e) { console.warn('[todo-notify] failed', e && e.message); }
+}
 function _todoInlineDueMark(dueInput) {
   const icon = dueInput.parentElement && dueInput.parentElement.querySelector('i');
   if (icon) icon.style.color = dueInput.value ? '#CFA13C' : 'var(--muted)';
@@ -4045,6 +4060,7 @@ function addTodoItem(name, dueDate, owner) {
   todoList.items.push(item);
   _todoPersist();
   scheduleTodoNotifications();
+  _todoNotifyOthers(item, 'added');
   return item;
 }
 
@@ -12826,7 +12842,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-31-eg-todotiles';
+const RATIO_BUILD = '2026-08-31-ei-todoscroll';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
