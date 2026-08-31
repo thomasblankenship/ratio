@@ -3697,16 +3697,33 @@ function defaultTodoList() { return { items: [], seeded: false }; }
 function _famHouseholdId() {
   return (_famStatus && _famStatus.household && _famStatus.household.id) || null;
 }
+// Direct REST, deliberately NOT the db helpers: dbGet injects
+// user_id=eq.<me> and order=created_at.asc, dbUpsert injects user_id into
+// the payload - three references to columns this HOUSEHOLD table doesn't
+// have. That injection was the entire '400 / PGRST204' failure (Aug 31);
+// the schema cache was never guilty. Errors here log the response BODY.
 async function _sharedLoad(key) {
   const hid = _famHouseholdId();
   if (!hid) return { shared: false, value: null };
-  const rows = await dbGet('household_settings', `household_id=eq.${hid}&key=eq.${key}&select=value`);
+  const url = `${SUPABASE_URL}/rest/v1/household_settings?household_id=eq.${hid}&key=eq.${encodeURIComponent(key)}&select=value`;
+  const send = () => fetch(url, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${_authToken || SUPABASE_KEY}` } });
+  let res = await send();
+  if (res.status === 401 && _currentUser) { if (await _sbRefreshAuth()) res = await send(); }
+  if (!res.ok) { const body = await res.text().catch(() => ''); throw new Error(`shared read ${res.status}: ${body.slice(0, 200)}`); }
+  const rows = await res.json();
   return { shared: true, value: (rows && rows.length) ? JSON.parse(rows[0].value) : null };
 }
 async function _sharedSave(key, obj) {
   const hid = _famHouseholdId();
   if (!hid) return false;
-  await dbUpsert('household_settings', { household_id: hid, key, value: JSON.stringify(obj), updated_at: new Date().toISOString() }, 'household_id,key');
+  const send = () => fetch(`${SUPABASE_URL}/rest/v1/household_settings?on_conflict=household_id,key`, {
+    method: 'POST',
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${_authToken || SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
+    body: JSON.stringify({ household_id: hid, key, value: JSON.stringify(obj), updated_at: new Date().toISOString() })
+  });
+  let res = await send();
+  if (res.status === 401 && _currentUser) { if (await _sbRefreshAuth()) res = await send(); }
+  if (!res.ok) { const body = await res.text().catch(() => ''); throw new Error(`shared write ${res.status}: ${body.slice(0, 200)}`); }
   return true;
 }
 // Pure merge: union my personal items into the shared list by name
@@ -12690,7 +12707,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-29-ea-famlexical';
+const RATIO_BUILD = '2026-08-31-eb-shareddirect';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
