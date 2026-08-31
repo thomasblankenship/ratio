@@ -3756,6 +3756,12 @@ function _todoPersist() {
 // The add-box placeholder text is the only example a first-timer needs.
 
 async function loadTodoList() {
+  // Boot race (Aug 31, his find): opening the sheet right after launch ran
+  // this before /family/status answered - _famStatus null, personal branch,
+  // stale empty list until a reopen. Wait for the answer when it's missing.
+  if (_famStatus === null && _currentUser) {
+    try { await _famFetchStatus(); } catch (e) { console.warn('[todo] family status wait failed', e && e.message); }
+  }
   let saved = null, sharedMode = false;
   if (_famHouseholdId()) {
     try { const r = await _sharedLoad('todo_list'); sharedMode = r.shared; saved = r.value; }
@@ -3858,46 +3864,27 @@ function renderTodoList() {
         <div class="card-title" style="margin-bottom:0">To-Do List</div>
         <button type="button" onclick="shareTodoList()" style="flex-shrink:0;background:var(--surface);color:#CFA13C;border:1px solid var(--gold-line);border-radius:20px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">📤 Share</button>
       </div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Sorted by soonest due date. Tap a task to check it off; tap × to remove it. You'll get a reminder when a task is due (unless it's already done).${_famHouseholdId() ? ' Press and hold a task to drag it to another person.' : ''}${(!_famStatus || !_famStatus.household) ? ' <span style=\"color:#CFA13C\">Sharing with family? Turn on Team up in Settings.</span>' : ' <span style=\"color:#CFA13C\">Shared with your family.</span>'}</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Tap a blank line in a box to add a task \u2014 the calendar beside it sets an optional due date, and you\u2019ll get a reminder when it\u2019s due. Tap a task to check it off; tap \u00d7 to remove it.${_famHouseholdId() ? ' Press and hold a task to drag it to another person.' : ''}${(!_famStatus || !_famStatus.household) ? ' <span style=\\"color:#CFA13C\\">Sharing with family? Turn on Team up in Settings.</span>' : ' <span style=\\"color:#CFA13C\\">Shared with your family.</span>'}</div>
 
-      <div style="display:flex;gap:8px;margin-bottom:8px">
-        <input type="text" id="todo-add-input" placeholder="Add a task (e.g. Mow the lawn)" onkeydown="if(event.key==='Enter') addTodoItemFromInput()" style="flex:1;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:16px;outline:none" />
-        <button type="button" onclick="addTodoItemFromInput()" style="background:var(--accent);color:#101512;border:none;border-radius:10px;padding:0 16px;font-size:13px;font-weight:700;cursor:pointer">+ Add</button>
-      </div>
-      <div style="display:flex;gap:8px;margin-bottom:14px;align-items:center">
-        <!-- Compact due-date chip. The real datetime-local input sits invisibly
-             on top so tapping the chip opens iOS's native picker directly —
-             a user-gesture on the actual input, which WKWebView honors. -->
-        <div style="position:relative;flex-shrink:0">
-          <div id="todo-due-chip" style="display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:20px;padding:8px 14px;font-size:12px;font-weight:600;color:var(--muted);background:var(--surface)">
-            <i class="fa-regular fa-calendar" style="font-size:12px"></i><span id="todo-due-chip-label">Add due date</span>
-          </div>
-          <input type="datetime-local" id="todo-add-due" onchange="updateTodoDueChip()" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;border:0;padding:0" />
-        </div>
-        <button type="button" id="todo-due-clear" onclick="clearTodoDue()" style="display:${_todoDueSet ? 'inline-block' : 'none'};background:none;border:none;color:var(--muted-2);font-size:16px;cursor:pointer;padding:2px 6px;line-height:1">×</button>
-        <span style="font-size:11px;color:var(--muted-2);white-space:nowrap">Optional</span>
-      </div>
-
-      ${_famHouseholdId() ? `<div style="display:flex;gap:6px;align-items:center;margin-bottom:12px;flex-wrap:wrap"><span style="font-size:11px;color:var(--muted-2)">For:</span>${_todoOwnerChoices().map(c => `<button type="button" class="todo-owner-chip" data-owner="${c.id}" onclick="_todoSetOwner('${c.id}')" style="background:${_todoOwnerSel === c.id ? 'var(--gold-tint)' : 'var(--surface)'};border:1px solid ${_todoOwnerSel === c.id ? '#CFA13C' : 'var(--line)'};color:${_todoOwnerSel === c.id ? '#CFA13C' : 'var(--muted)'};border-radius:16px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer">${escapeHtmlTodo(c.label)}</button>`).join('')}</div>` : ''}
-      ${(!_famHouseholdId() && !items.length) ? `<div style="text-align:center;padding:16px;color:var(--muted);font-size:13px">Nothing on your list yet.</div>` : ''}
       <div id="todo-list-rows">
         ${(() => {
-          if (!_famHouseholdId()) return items.map((item, i) => renderTodoListRow(item, i)).join('');
-          // A card per person, Everyone last (his printable). Empty cards
-          // still render - a blank box is an invitation, like the paper
-          // version. Legacy items with no owner read as Everyone's.
-          return _todoOwnerChoices().map(c => {
+          if (!_famHouseholdId()) return items.map((item, i) => renderTodoListRow(item, i)).join('') + _todoAddRowHtml('');
+          // His printable, faithfully (Aug 31): people side by side in two
+          // columns, Everyone spanning below, every box ending in blank
+          // lines you write on. Legacy items with no owner are Everyone's.
+          const cards = _todoOwnerChoices().map(c => {
             const secItems = items.filter(it => (it.owner || 'family') === c.id);
-            const rows = secItems.length
-              ? secItems.map((item, i) => renderTodoListRow(item, i)).join('')
-              : `<div style=\"font-size:12px;color:var(--muted-2);padding:6px 0\">Nothing yet.</div>`;
-            return `<div style=\"border:1px solid ${c.id === 'family' ? 'var(--gold-line)' : 'var(--line)'};border-radius:12px;padding:8px 12px 4px;margin-bottom:12px\">` +
+            const rows = secItems.map((item, i) => renderTodoListRow(item, i)).join('');
+            const fam = c.id === 'family';
+            return `<div style=\"border:1px solid ${fam ? 'var(--gold-line)' : 'var(--line)'};border-radius:12px;padding:8px 10px 2px;${fam ? 'grid-column:1 / -1;' : ''}\">` +
               `<div style=\"display:flex;align-items:center;gap:7px;padding:2px 0 4px\">` +
               `<span style=\"width:9px;height:9px;border-radius:50%;background:${c.color};display:inline-block;flex-shrink:0\"></span>` +
               `<span style=\"font-size:13px;font-weight:800;color:var(--ink)\">${escapeHtmlTodo(c.label)}</span>` +
               `</div>` +
-              `<div class=\"todo-drop-zone\" data-owner=\"${c.id}\" style=\"min-height:34px\">` + rows + `</div></div>`;
-          }).join('');
+              `<div class=\"todo-drop-zone\" data-owner=\"${c.id}\" style=\"min-height:10px\">` + rows + `</div>` +
+              _todoAddRowHtml(c.id) + `</div>`;
+          });
+          return `<div style=\"display:grid;grid-template-columns:1fr 1fr;gap:10px\">` + cards.join('') + `</div>`;
         })()}
       </div>
       ${items.length ? (() => {
@@ -3964,14 +3951,30 @@ function _todoOwnerChoices() {
   return members.map(m => ({ id: m.userId, label: m.name || 'Member', color: m.color || 'var(--muted)' }))
     .concat([{ id: 'family', label: 'Everyone', color: '#CFA13C' }]);
 }
-function _todoSetOwner(sel) {
-  _todoOwnerSel = sel;
-  document.querySelectorAll('.todo-owner-chip').forEach(ch => {
-    const on = ch.dataset.owner === sel;
-    ch.style.borderColor = on ? '#CFA13C' : 'var(--line)';
-    ch.style.color = on ? '#CFA13C' : 'var(--muted)';
-    ch.style.background = on ? 'var(--gold-tint)' : 'var(--surface)';
-  });
+// Tap-a-line adding (Aug 31, his workouts-planner vision): each box ends
+// in a dashed blank line; type there, calendar beside it for a due date.
+function _todoInlineDueMark(dueInput) {
+  const icon = dueInput.parentElement && dueInput.parentElement.querySelector('i');
+  if (icon) icon.style.color = dueInput.value ? '#CFA13C' : 'var(--muted)';
+}
+function _todoInlineCommit(input) {
+  const val = (input.value || '').trim();
+  if (!val) return;
+  input.value = ''; // clears BEFORE re-render; also disarms the blur echo
+  const dueEl = input.parentElement && input.parentElement.querySelector('.todo-inline-due');
+  const dueRaw = dueEl && dueEl.value ? dueEl.value : null;
+  const due = dueRaw ? (dueRaw.length === 16 ? dueRaw + ':00' : dueRaw) : null;
+  addTodoItem(val, due, input.dataset.owner || undefined);
+  _iosDictMop(input, val);
+  renderTodoList();
+}
+function _todoAddRowHtml(ownerId) {
+  return `<div class="todo-add-row" style="display:flex;align-items:center;gap:8px;padding:8px 0 6px">` +
+    `<input type="text" class="todo-inline-input" data-owner="${ownerId}" placeholder="tap to add\u2026" enterkeyhint="done" onkeydown="if(event.key==='Enter'){this.blur()}" onblur="_todoInlineCommit(this)" style="flex:1;min-width:0;background:none;border:none;border-bottom:1px dashed var(--line);color:var(--ink);font-size:14px;padding:4px 2px;outline:none" />` +
+    `<span style="position:relative;flex-shrink:0;width:28px;height:28px">` +
+    `<i class="fa-regular fa-calendar" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--muted)"></i>` +
+    `<input type="datetime-local" class="todo-inline-due" onchange="_todoInlineDueMark(this)" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;border:0;padding:0" />` +
+    `</span></div>`;
 }
 
 function updateTodoDueChip() {
@@ -3996,7 +3999,7 @@ function clearTodoDue() {
   updateTodoDueChip();
 }
 
-function addTodoItem(name, dueDate) {
+function addTodoItem(name, dueDate, owner) {
   const val = (name || '').trim();
   if (!val) return null;
   if (!todoList) todoList = defaultTodoList();
@@ -4005,7 +4008,9 @@ function addTodoItem(name, dueDate) {
     name: val,
     dueDate: dueDate || null,
     completed: false,
-    ...(_famHouseholdId() ? { owner: _todoOwnerSel } : {})
+    // The card you typed in IS the owner; the voice route passes none and
+    // lands in Everyone.
+    ...(_famHouseholdId() ? { owner: owner || 'family' } : {})
   };
   todoList.items = todoList.items || [];
   todoList.items.push(item);
@@ -12792,7 +12797,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-31-ee-tododrag';
+const RATIO_BUILD = '2026-08-31-ef-todopaper';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
