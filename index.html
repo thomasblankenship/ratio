@@ -3878,17 +3878,23 @@ function renderTodoList() {
       </div>
 
       ${_famHouseholdId() ? `<div style="display:flex;gap:6px;align-items:center;margin-bottom:12px;flex-wrap:wrap"><span style="font-size:11px;color:var(--muted-2)">For:</span>${_todoOwnerChoices().map(c => `<button type="button" class="todo-owner-chip" data-owner="${c.id}" onclick="_todoSetOwner('${c.id}')" style="background:${_todoOwnerSel === c.id ? 'var(--gold-tint)' : 'var(--surface)'};border:1px solid ${_todoOwnerSel === c.id ? '#CFA13C' : 'var(--line)'};color:${_todoOwnerSel === c.id ? '#CFA13C' : 'var(--muted)'};border-radius:16px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer">${escapeHtmlTodo(c.label)}</button>`).join('')}</div>` : ''}
-      ${!items.length ? `<div style="text-align:center;padding:16px;color:var(--muted);font-size:13px">Nothing on your list yet.</div>` : ''}
+      ${(!_famHouseholdId() && !items.length) ? `<div style="text-align:center;padding:16px;color:var(--muted);font-size:13px">Nothing on your list yet.</div>` : ''}
       <div id="todo-list-rows">
         ${(() => {
           if (!_famHouseholdId()) return items.map((item, i) => renderTodoListRow(item, i)).join('');
-          // Sections in choice order (FAMILY, then you, then the others);
-          // legacy items with no owner read as family. Empty sections hide.
+          // A card per person, Everyone last (his printable). Empty cards
+          // still render - a blank box is an invitation, like the paper
+          // version. Legacy items with no owner read as Everyone's.
           return _todoOwnerChoices().map(c => {
             const secItems = items.filter(it => (it.owner || 'family') === c.id);
-            if (!secItems.length) return '';
-            return `<div style=\"font-size:10px;font-weight:800;letter-spacing:0.6px;color:#CFA13C;padding:10px 0 2px;text-transform:uppercase\">${escapeHtmlTodo(c.label)}</div>` +
-              secItems.map((item, i) => renderTodoListRow(item, i)).join('');
+            const rows = secItems.length
+              ? secItems.map((item, i) => renderTodoListRow(item, i)).join('')
+              : `<div style=\"font-size:12px;color:var(--muted-2);padding:6px 0\">Nothing yet.</div>`;
+            return `<div style=\"border:1px solid ${c.id === 'family' ? 'var(--gold-line)' : 'var(--line)'};border-radius:12px;padding:8px 12px 4px;margin-bottom:12px\">` +
+              `<div style=\"display:flex;align-items:center;gap:7px;padding:2px 0 4px\">` +
+              `<span style=\"width:9px;height:9px;border-radius:50%;background:${c.color};display:inline-block;flex-shrink:0\"></span>` +
+              `<span style=\"font-size:13px;font-weight:800;color:var(--ink)\">${escapeHtmlTodo(c.label)}</span>` +
+              `</div>` + rows + `</div>`;
           }).join('');
         })()}
       </div>
@@ -3910,8 +3916,11 @@ let _todoDueSet = false;
 let _todoOwnerSel = 'family';
 function _todoOwnerChoices() {
   if (!_famHouseholdId()) return [];
+  // His printable's shape (Aug 31): a named box per person, Everyone at
+  // the bottom. Member dots reuse the family colors.
   const members = (_famStatus.members || []).slice().sort((a, b) => (b.you ? 1 : 0) - (a.you ? 1 : 0));
-  return [{ id: 'family', label: 'Family' }].concat(members.map(m => ({ id: m.userId, label: m.name || 'Member' })));
+  return members.map(m => ({ id: m.userId, label: m.name || 'Member', color: m.color || 'var(--muted)' }))
+    .concat([{ id: 'family', label: 'Everyone', color: '#CFA13C' }]);
 }
 function _todoSetOwner(sel) {
   _todoOwnerSel = sel;
@@ -12741,7 +12750,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-31-ec-todosections';
+const RATIO_BUILD = '2026-08-31-ed-todocards';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
