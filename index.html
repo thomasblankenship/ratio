@@ -3877,9 +3877,20 @@ function renderTodoList() {
         <span style="font-size:11px;color:var(--muted-2);white-space:nowrap">Optional</span>
       </div>
 
+      ${_famHouseholdId() ? `<div style="display:flex;gap:6px;align-items:center;margin-bottom:12px;flex-wrap:wrap"><span style="font-size:11px;color:var(--muted-2)">For:</span>${_todoOwnerChoices().map(c => `<button type="button" class="todo-owner-chip" data-owner="${c.id}" onclick="_todoSetOwner('${c.id}')" style="background:${_todoOwnerSel === c.id ? 'var(--gold-tint)' : 'var(--surface)'};border:1px solid ${_todoOwnerSel === c.id ? '#CFA13C' : 'var(--line)'};color:${_todoOwnerSel === c.id ? '#CFA13C' : 'var(--muted)'};border-radius:16px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer">${escapeHtmlTodo(c.label)}</button>`).join('')}</div>` : ''}
       ${!items.length ? `<div style="text-align:center;padding:16px;color:var(--muted);font-size:13px">Nothing on your list yet.</div>` : ''}
       <div id="todo-list-rows">
-        ${items.map((item, i) => renderTodoListRow(item, i)).join('')}
+        ${(() => {
+          if (!_famHouseholdId()) return items.map((item, i) => renderTodoListRow(item, i)).join('');
+          // Sections in choice order (FAMILY, then you, then the others);
+          // legacy items with no owner read as family. Empty sections hide.
+          return _todoOwnerChoices().map(c => {
+            const secItems = items.filter(it => (it.owner || 'family') === c.id);
+            if (!secItems.length) return '';
+            return `<div style=\"font-size:10px;font-weight:800;letter-spacing:0.6px;color:#CFA13C;padding:10px 0 2px;text-transform:uppercase\">${escapeHtmlTodo(c.label)}</div>` +
+              secItems.map((item, i) => renderTodoListRow(item, i)).join('');
+          }).join('');
+        })()}
       </div>
       ${items.length ? (() => {
         const n = items.filter(i => i.completed).length;
@@ -3892,6 +3903,25 @@ function renderTodoList() {
 // restore the × button; the input value itself resets with each render, which
 // is correct — a queued due date belongs to the add-in-progress, not the page.
 let _todoDueSet = false;
+
+// SECTIONS (Aug 31, his design): a household to-do list isn't one pot -
+// it's FAMILY plus a section per member. Each item carries owner:
+// 'family' | <userId>; legacy items without one read as family.
+let _todoOwnerSel = 'family';
+function _todoOwnerChoices() {
+  if (!_famHouseholdId()) return [];
+  const members = (_famStatus.members || []).slice().sort((a, b) => (b.you ? 1 : 0) - (a.you ? 1 : 0));
+  return [{ id: 'family', label: 'Family' }].concat(members.map(m => ({ id: m.userId, label: m.name || 'Member' })));
+}
+function _todoSetOwner(sel) {
+  _todoOwnerSel = sel;
+  document.querySelectorAll('.todo-owner-chip').forEach(ch => {
+    const on = ch.dataset.owner === sel;
+    ch.style.borderColor = on ? '#CFA13C' : 'var(--line)';
+    ch.style.color = on ? '#CFA13C' : 'var(--muted)';
+    ch.style.background = on ? 'var(--gold-tint)' : 'var(--surface)';
+  });
+}
 
 function updateTodoDueChip() {
   const inp = document.getElementById('todo-add-due');
@@ -3923,7 +3953,8 @@ function addTodoItem(name, dueDate) {
     id: 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
     name: val,
     dueDate: dueDate || null,
-    completed: false
+    completed: false,
+    ...(_famHouseholdId() ? { owner: _todoOwnerSel } : {})
   };
   todoList.items = todoList.items || [];
   todoList.items.push(item);
@@ -4078,6 +4109,9 @@ async function scheduleTodoNotifications() {
     const now = Date.now();
     const due = (todoList?.items || [])
       .filter(it => it.dueDate && !it.completed && new Date(it.dueDate).getTime() > now)
+      // Sections: your phone reminds you about FAMILY tasks and YOURS -
+      // not the ones assigned to other members.
+      .filter(it => !it.owner || it.owner === 'family' || it.owner === _currentUser?.id)
       .slice(0, 60); // iOS caps pending notifications; stay well under
     const notifications = due.map((it, idx) => ({
       id: TODO_NOTIF_ID_BASE + idx,
@@ -12707,7 +12741,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-31-eb-shareddirect';
+const RATIO_BUILD = '2026-08-31-ec-todosections';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
