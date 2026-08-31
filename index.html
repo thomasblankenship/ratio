@@ -3850,6 +3850,7 @@ function escapeHtmlTodo(s) {
 function renderTodoList() {
   const el = document.getElementById('todo-list-results');
   if (!el || !todoList) return;
+  setTimeout(initTodoDragZones, 0); // after this render's DOM lands
   const items = sortedTodoItems();
   el.innerHTML = `
     <div class="card">
@@ -3857,7 +3858,7 @@ function renderTodoList() {
         <div class="card-title" style="margin-bottom:0">To-Do List</div>
         <button type="button" onclick="shareTodoList()" style="flex-shrink:0;background:var(--surface);color:#CFA13C;border:1px solid var(--gold-line);border-radius:20px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">📤 Share</button>
       </div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Sorted by soonest due date. Tap a task to check it off; tap × to remove it. You'll get a reminder when a task is due (unless it's already done).${(!_famStatus || !_famStatus.household) ? ' <span style=\"color:#CFA13C\">Sharing with family? Turn on Team up in Settings.</span>' : ' <span style=\"color:#CFA13C\">Shared with your family.</span>'}</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Sorted by soonest due date. Tap a task to check it off; tap × to remove it. You'll get a reminder when a task is due (unless it's already done).${_famHouseholdId() ? ' Press and hold a task to drag it to another person.' : ''}${(!_famStatus || !_famStatus.household) ? ' <span style=\"color:#CFA13C\">Sharing with family? Turn on Team up in Settings.</span>' : ' <span style=\"color:#CFA13C\">Shared with your family.</span>'}</div>
 
       <div style="display:flex;gap:8px;margin-bottom:8px">
         <input type="text" id="todo-add-input" placeholder="Add a task (e.g. Mow the lawn)" onkeydown="if(event.key==='Enter') addTodoItemFromInput()" style="flex:1;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:16px;outline:none" />
@@ -3894,7 +3895,8 @@ function renderTodoList() {
               `<div style=\"display:flex;align-items:center;gap:7px;padding:2px 0 4px\">` +
               `<span style=\"width:9px;height:9px;border-radius:50%;background:${c.color};display:inline-block;flex-shrink:0\"></span>` +
               `<span style=\"font-size:13px;font-weight:800;color:var(--ink)\">${escapeHtmlTodo(c.label)}</span>` +
-              `</div>` + rows + `</div>`;
+              `</div>` +
+              `<div class=\"todo-drop-zone\" data-owner=\"${c.id}\" style=\"min-height:34px\">` + rows + `</div></div>`;
           }).join('');
         })()}
       </div>
@@ -3903,6 +3905,46 @@ function renderTodoList() {
         return `<button type="button" onclick="clearTodoList()" style="width:100%;margin-top:14px;background:none;border:1px solid #3A2020;border-radius:10px;padding:10px;font-size:13px;font-weight:600;color:#EF4444;cursor:pointer">${n ? `Clear Completed (${n})` : 'Clear All'}</button>`;
       })() : ''}
     </div>`;
+}
+
+// Drag a task between people (Aug 31, his ask): 'go to store' sits under
+// Everyone, Lauren says I'll go - press-hold and drop it on her card.
+// Mirrors the meals cross-zone Sortable pattern: 250ms delay preserves
+// taps and scrolling; re-render happens OUTSIDE onEnd (destroying the
+// active instance from inside its own callback can throw mid-cleanup).
+let _todoZoneSortables = [];
+function initTodoDragZones() {
+  if (typeof Sortable === 'undefined' || !_famHouseholdId()) return;
+  _todoZoneSortables.forEach(inst => { try { inst.destroy(); } catch (e) {} });
+  _todoZoneSortables = [];
+  document.querySelectorAll('#todo-list-rows .todo-drop-zone').forEach(zone => {
+    _todoZoneSortables.push(Sortable.create(zone, {
+      group: 'todo-cards',
+      draggable: '.todo-row',
+      animation: 150,
+      delay: 250,
+      delayOnTouchOnly: true,
+      touchStartThreshold: 6,
+      onEnd: (evt) => {
+        const id = evt.item?.dataset?.id;
+        const newOwner = evt.to?.dataset?.owner || null;
+        const oldOwner = evt.from?.dataset?.owner || null;
+        if (!id || !newOwner || evt.to === evt.from || newOwner === oldOwner) {
+          setTimeout(() => renderTodoList(), 0); // snap back cleanly
+          return;
+        }
+        const item = (todoList?.items || []).find(t => t.id === id);
+        if (item) {
+          item.owner = newOwner;
+          _todoPersist();
+          scheduleTodoNotifications(); // reminders follow the new owner
+          const label = (_todoOwnerChoices().find(c => c.id === newOwner) || {}).label || 'that list';
+          toast(`Moved to ${label} \u2713`);
+        }
+        setTimeout(() => renderTodoList(), 0);
+      }
+    }));
+  });
 }
 
 // Due-date chip state. _todoDueSet survives re-renders only long enough to
@@ -12750,7 +12792,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-31-ed-todocards';
+const RATIO_BUILD = '2026-08-31-ee-tododrag';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
