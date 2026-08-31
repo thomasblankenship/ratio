@@ -3869,22 +3869,42 @@ function renderTodoList() {
       <div id="todo-list-rows">
         ${(() => {
           if (!_famHouseholdId()) return items.map((item, i) => renderTodoListRow(item, i)).join('') + _todoAddRowHtml('');
-          // His printable, faithfully (Aug 31): people side by side in two
-          // columns, Everyone spanning below, every box ending in blank
-          // lines you write on. Legacy items with no owner are Everyone's.
-          const cards = _todoOwnerChoices().map(c => {
+          // Family List expanded on top; people as tappable tiles below
+          // (his Progress-tab pattern), the open one unfolding full-width.
+          // Tiles carry todo-drop-zone so a drag can land on a closed tile.
+          const choices = _todoOwnerChoices();
+          const fullCard = (c) => {
             const secItems = items.filter(it => (it.owner || 'family') === c.id);
             const rows = secItems.map((item, i) => renderTodoListRow(item, i)).join('');
             const fam = c.id === 'family';
-            return `<div style=\"border:1px solid ${fam ? 'var(--gold-line)' : 'var(--line)'};border-radius:12px;padding:8px 10px 2px;${fam ? 'grid-column:1 / -1;' : ''}\">` +
-              `<div style=\"display:flex;align-items:center;gap:7px;padding:2px 0 4px\">` +
+            return `<div style=\"border:1px solid ${fam ? 'var(--gold-line)' : 'var(--line)'};border-radius:12px;padding:8px 10px 2px;margin-bottom:10px\">` +
+              `<div ${fam ? '' : `onclick=\"_todoToggleMember('${c.id}')\" `}style=\"display:flex;align-items:center;gap:7px;padding:2px 0 4px${fam ? '' : ';cursor:pointer'}\">` +
               `<span style=\"width:9px;height:9px;border-radius:50%;background:${c.color};display:inline-block;flex-shrink:0\"></span>` +
               `<span style=\"font-size:13px;font-weight:800;color:var(--ink)\">${escapeHtmlTodo(c.label)}</span>` +
+              (fam ? '' : `<span style=\"margin-left:auto;color:var(--muted-2);font-size:13px\">\u25b4</span>`) +
               `</div>` +
               `<div class=\"todo-drop-zone\" data-owner=\"${c.id}\" style=\"min-height:10px\">` + rows + `</div>` +
               _todoAddRowHtml(c.id) + `</div>`;
-          });
-          return `<div style=\"display:grid;grid-template-columns:1fr 1fr;gap:10px\">` + cards.join('') + `</div>`;
+          };
+          const tile = (c) => {
+            const secItems = items.filter(it => (it.owner || 'family') === c.id);
+            const open = secItems.filter(i => !i.completed);
+            const soonest = open.filter(i => i.dueDate).sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))[0];
+            const sub = open.length
+              ? `${open.length} task${open.length === 1 ? '' : 's'}${soonest ? ' \u00b7 ' + formatTodoDue(soonest.dueDate) : ''}`
+              : 'Nothing yet';
+            return `<div class=\"todo-drop-zone\" data-owner=\"${c.id}\" onclick=\"_todoToggleMember('${c.id}')\" style=\"background:var(--surface-2);border-radius:14px;padding:12px;cursor:pointer\">` +
+              `<div style=\"display:flex;align-items:center;gap:7px\">` +
+              `<span style=\"width:9px;height:9px;border-radius:50%;background:${c.color};display:inline-block;flex-shrink:0\"></span>` +
+              `<span style=\"font-size:13px;font-weight:800;color:#CFA13C;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap\">${escapeHtmlTodo(c.label)}</span>` +
+              `<span style=\"margin-left:auto;color:var(--muted-2)\">\u203a</span></div>` +
+              `<div style=\"font-size:11px;color:var(--muted);margin-top:6px\">${sub}</div></div>`;
+          };
+          const famCard = fullCard(choices.find(c => c.id === 'family'));
+          const memberChoices = choices.filter(c => c.id !== 'family');
+          const tilesRow = `<div style=\"display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px\">` + memberChoices.map(tile).join('') + `</div>`;
+          const openCard = _todoOpenMember ? (memberChoices.some(c => c.id === _todoOpenMember) ? fullCard(memberChoices.find(c => c.id === _todoOpenMember)) : '') : '';
+          return famCard + tilesRow + openCard;
         })()}
       </div>
       ${items.length ? (() => {
@@ -3949,7 +3969,16 @@ function _todoOwnerChoices() {
   // the bottom. Member dots reuse the family colors.
   const members = (_famStatus.members || []).slice().sort((a, b) => (b.you ? 1 : 0) - (a.you ? 1 : 0));
   return members.map(m => ({ id: m.userId, label: m.name || 'Member', color: m.color || 'var(--muted)' }))
-    .concat([{ id: 'family', label: 'Everyone', color: '#CFA13C' }]);
+    .concat([{ id: 'family', label: 'Family List', color: '#CFA13C' }]);
+}
+// Small-screen layout (Aug 31, his call after the two-column try): Family
+// List expanded on top; each person is a Progress-style tile that opens
+// into their card. Tiles are also drag TARGETS - drop a task straight
+// onto someone's tile to hand it to them.
+let _todoOpenMember = null;
+function _todoToggleMember(uid) {
+  _todoOpenMember = (_todoOpenMember === uid) ? null : uid;
+  renderTodoList();
 }
 // Tap-a-line adding (Aug 31, his workouts-planner vision): each box ends
 // in a dashed blank line; type there, calendar beside it for a due date.
@@ -12797,7 +12826,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-31-ef-todopaper';
+const RATIO_BUILD = '2026-08-31-eg-todotiles';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
