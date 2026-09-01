@@ -1797,7 +1797,7 @@
     </div>
 
     <!-- TO-DO LIST — independent top-level page -->
-    <div id="tab-todo" style="display:none">
+    <div id="tab-todo" style="display:none;overflow-x:hidden;touch-action:pan-y;max-width:100%">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
         <div style="font-size:18px;font-weight:700">To-Do List</div>
         <button onclick="closeTodoListPage()" style="background:var(--surface-2);border:none;border-radius:10px;width:32px;height:32px;font-size:18px;color:var(--muted);cursor:pointer">×</button>
@@ -12845,7 +12845,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-08-31-el-todoscrollfix';
+const RATIO_BUILD = '2026-09-01-em-todoclamp';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
