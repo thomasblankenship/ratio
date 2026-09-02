@@ -3669,7 +3669,8 @@ function openShoppingListPage() {
   // Same as the to-do page: show the cached list instantly, then re-fetch —
   // the watch writes to this setting too.
   if (mealPrepPlanLoaded) renderShoppingList();
-  loadMealPrepPlan().then(() => renderShoppingList());
+  // Plan first (the migration reads it), then the household list, then paint.
+  loadMealPrepPlan().then(() => _shopLoadShared()).then(() => renderShoppingList());
 }
 
 function closeShoppingListPage() {
@@ -12863,7 +12864,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-09-02-en-pendingguard';
+const RATIO_BUILD = '2026-09-02-eo-sharedshopping';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
@@ -16698,6 +16699,93 @@ function removeShoppingItem(key) {
   renderShoppingList();
 }
 
+// ---- SHARED SHOPPING (Sep 2, the settled design) ----
+// Hand-added items + checked state live in household_settings key
+// 'shopping_list' with the to-do list's Family/person card model.
+// Prep-derived ingredients stay local ('From your meal prep') because the
+// other phone cannot compute them from a plan it doesn't have.
+let sharedShopping = { items: [] }; // {id, name, owner:'family'|uid, checked}
+let _shopOpenMember = null;
+function _shopToggleMember(uid) { _shopOpenMember = (_shopOpenMember === uid) ? null : uid; renderShoppingList(); }
+async function _shopLoadShared() {
+  if (_famStatus === null && _currentUser) { try { await _famFetchStatus(); } catch (e) {} }
+  if (!_famHouseholdId()) return false;
+  try {
+    const r = await _sharedLoad('shopping_list');
+    sharedShopping = (r.value && Array.isArray(r.value.items)) ? r.value : { items: [] };
+  } catch (e) { console.warn('[shop] shared read failed - personal view', e && e.message); return false; }
+  // One-time migration: my personal extras move into the household (with
+  // their checked state), then the personal copies are retired - the same
+  // zombie guard as the to-do migration.
+  const ex = mealPrepPlan.shoppingExtras || [];
+  if (ex.length && !mealPrepPlan.shoppingExtrasMigrated) {
+    const have = new Set(sharedShopping.items.map(i => String(i.name || '').toLowerCase().trim()));
+    ex.forEach(e => {
+      const k = String(e.name || '').toLowerCase().trim();
+      if (k && !have.has(k)) {
+        sharedShopping.items.push({ id: e.id, name: e.name, owner: _currentUser?.id || 'family', checked: (mealPrepPlan.shoppingChecked || []).includes('extra:' + e.id) });
+        have.add(k);
+      }
+    });
+    mealPrepPlan.shoppingExtras = [];
+    mealPrepPlan.shoppingExtrasMigrated = true;
+    mealPrepPlan.shoppingChecked = (mealPrepPlan.shoppingChecked || []).filter(k => !String(k).startsWith('extra:'));
+    saveSetting('meal_prep_plan', mealPrepPlan);
+    _shopPersistShared();
+  }
+  return true;
+}
+function _shopPersistShared() { _sharedSave('shopping_list', sharedShopping).catch(e => console.warn('[shop] shared save failed', e && e.message)); }
+function _shopToggleShared(id) { const it = sharedShopping.items.find(i => i.id === id); if (!it) return; it.checked = !it.checked; _shopPersistShared(); renderShoppingList(); }
+function _shopRemoveShared(id) { sharedShopping.items = sharedShopping.items.filter(i => i.id !== id); _shopPersistShared(); renderShoppingList(); }
+function _shopSharedRow(it) {
+  const textStyle = it.checked ? 'text-decoration:line-through;font-style:italic;color:var(--muted)' : 'color:var(--ink)';
+  return `<div class="shop-row-shared" data-sid="${it.id}" style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--gray-100);background:var(--surface);-webkit-user-select:none;user-select:none;-webkit-touch-callout:none">` +
+    `<span style="position:relative;width:20px;height:20px;flex-shrink:0;display:inline-block">` +
+    `<input type="checkbox" ${it.checked ? 'checked' : ''} onchange="_shopToggleShared('${it.id}')" style="position:absolute;inset:0;width:20px;height:20px;margin:0;opacity:0;cursor:pointer;z-index:1" />` +
+    `<span style="position:absolute;inset:0;border:1.5px solid #CFA13C;border-radius:5px;background:${it.checked ? '#CFA13C' : 'transparent'};display:flex;align-items:center;justify-content:center;pointer-events:none"><i class="fa-solid fa-check" style="font-size:12px;color:#101512;${it.checked ? '' : 'display:none'}"></i></span>` +
+    `</span>` +
+    `<div style="flex:1;min-width:0;cursor:pointer" onclick="_shopToggleShared('${it.id}')"><div style="font-size:14px;font-weight:600;${textStyle}">${_weEscHtml(it.name)}</div></div>` +
+    `<button type="button" onclick="_shopRemoveShared('${it.id}')" style="background:none;border:none;color:var(--muted-2);cursor:pointer;font-size:18px;line-height:1;padding:0 2px;flex-shrink:0">\u00d7</button></div>`;
+}
+function _shopAddRowHtml(ownerId) {
+  return `<div class="shop-add-row" style="display:flex;align-items:center;gap:8px;padding:8px 0 6px">` +
+    `<input type="text" class="shop-inline-input" data-owner="${ownerId}" placeholder="tap to add\u2026" enterkeyhint="done" onkeydown="if(event.key==='Enter'){this.blur()}" onblur="_shopInlineCommit(this)" style="flex:1;min-width:0;background:none;border:none;border-bottom:1px dashed var(--line);color:var(--ink);font-size:14px;padding:4px 2px;outline:none" /></div>`;
+}
+let _shopZoneSortables = [];
+function initShopCardZones() {
+  if (typeof Sortable === 'undefined' || !_famHouseholdId()) return;
+  _shopZoneSortables.forEach(inst => { try { inst.destroy(); } catch (e) {} });
+  _shopZoneSortables = [];
+  document.querySelectorAll('.shop-drop-zone').forEach(zone => {
+    _shopZoneSortables.push(Sortable.create(zone, {
+      group: { name: 'shop-cards', pull: zone.hasAttribute('onclick') ? false : true, put: true },
+      sort: false,
+      draggable: '.shop-row-shared',
+      filter: '.shop-add-row',
+      preventOnFilter: false,
+      animation: 150,
+      delay: 250,
+      delayOnTouchOnly: true,
+      touchStartThreshold: 6,
+      onEnd: (evt) => {
+        const sid = evt.item?.dataset?.sid;
+        const newOwner = evt.to?.dataset?.owner || null;
+        const oldOwner = evt.from?.dataset?.owner || null;
+        if (!sid || !newOwner || evt.to === evt.from || newOwner === oldOwner) { setTimeout(() => renderShoppingList(), 0); return; }
+        const it = sharedShopping.items.find(i => i.id === sid);
+        if (it) {
+          it.owner = newOwner;
+          _shopPersistShared();
+          const label = (_todoOwnerChoices().find(c => c.id === newOwner) || {}).label || 'that list';
+          toast(`Moved to ${label} \u2713`);
+        }
+        setTimeout(() => renderShoppingList(), 0);
+      }
+    }));
+  });
+}
+
 function removeShoppingExtra(id) {
   mealPrepPlan.shoppingExtras = (mealPrepPlan.shoppingExtras || []).filter(e => e.id !== id);
   saveSetting('meal_prep_plan', mealPrepPlan);
@@ -16717,19 +16805,36 @@ function shoppingCheckedCount() {
 // "I bought these" case); with nothing ticked it falls back to clearing all.
 async function clearShoppingList() {
   const { items } = getShoppingListData();
-  if (!items.length) return;
+  const hh = _famHouseholdId();
+  const sharedChecked = hh ? sharedShopping.items.filter(i => i.checked) : [];
+  const sharedAll = hh ? sharedShopping.items : [];
+  if (!items.length && !sharedAll.length) return;
   const checked = mealPrepPlan.shoppingChecked || [];
   const selected = items.filter(i => checked.includes(i.key));
-  const clearingSelected = selected.length > 0;
+  const clearingSelected = (selected.length + sharedChecked.length) > 0;
   const targets = clearingSelected ? selected : items;
+  const totalSel = selected.length + sharedChecked.length;
+  const totalAll = items.length + sharedAll.length;
+  // Shared items clear for EVERYONE in the household - say so.
+  if (hh) {
+    const msg2 = clearingSelected
+      ? `Remove ${totalSel} checked item${totalSel === 1 ? '' : 's'}? Shared items disappear for the whole family.`
+      : `Clear the entire list (${totalAll} item${totalAll === 1 ? '' : 's'})? Shared items disappear for the whole family.`;
+    if (!await appConfirm(msg2, { title: clearingSelected ? 'Clear Checked' : 'Clear All', yesLabel: clearingSelected ? 'Yes, Clear Checked' : 'Yes, Clear All' })) return;
+    sharedShopping.items = clearingSelected ? sharedShopping.items.filter(i => !i.checked) : [];
+    _shopPersistShared();
+    if (!targets.length) { renderShoppingList(); toast(clearingSelected ? `${totalSel} item${totalSel === 1 ? '' : 's'} cleared` : 'Shopping list cleared'); return; }
+  }
 
-  const msg = clearingSelected
-    ? `Remove ${selected.length} checked item${selected.length === 1 ? '' : 's'} from your shopping list?`
-    : `Clear your entire shopping list (${items.length} item${items.length === 1 ? '' : 's'})?`;
-  if (!await appConfirm(msg, {
-    title: clearingSelected ? 'Clear Checked' : 'Clear All',
-    yesLabel: clearingSelected ? 'Yes, Clear Checked' : 'Yes, Clear All'
-  })) return;
+  if (!hh) {
+    const msg = clearingSelected
+      ? `Remove ${selected.length} checked item${selected.length === 1 ? '' : 's'} from your shopping list?`
+      : `Clear your entire shopping list (${items.length} item${items.length === 1 ? '' : 's'})?`;
+    if (!await appConfirm(msg, {
+      title: clearingSelected ? 'Clear Checked' : 'Clear All',
+      yesLabel: clearingSelected ? 'Yes, Clear Checked' : 'Yes, Clear All'
+    })) return;
+  }
 
   // Recipe-derived items are hidden by key; extras are deleted outright,
   // otherwise re-adding the same item later would come back pre-hidden.
@@ -16752,9 +16857,17 @@ function _shopInlineCommit(input) {
   const val = (input.value || '').trim();
   if (!val) return;
   input.value = '';
+  _iosDictMop(input, val);
+  if (_famHouseholdId()) {
+    // The card you typed in owns the item (data-owner from the add line).
+    const owner = input.dataset.owner || 'family';
+    sharedShopping.items.push({ id: 'x' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name: val, owner, checked: false });
+    _shopPersistShared();
+    renderShoppingList();
+    return;
+  }
   mealPrepPlan.shoppingExtras = mealPrepPlan.shoppingExtras || [];
   mealPrepPlan.shoppingExtras.push({ id: 'x' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name: val });
-  _iosDictMop(input, val);
   saveSetting('meal_prep_plan', mealPrepPlan);
   renderShoppingList();
 }
@@ -16828,6 +16941,57 @@ function renderShoppingList() {
   if (!el || !mealPrepPlan) return;
 
   const { items, activeDishCount } = getShoppingListData();
+
+  if (_famHouseholdId()) {
+    const choices = _todoOwnerChoices();
+    const sharedFor = (own) => sharedShopping.items.filter(i => (i.owner || 'family') === own);
+    const fullCard = (c) => {
+      const rows = sharedFor(c.id).map(_shopSharedRow).join('');
+      const fam = c.id === 'family';
+      return `<div style="border:1px solid ${fam ? 'var(--gold-line)' : 'var(--line)'};border-radius:12px;padding:8px 10px 2px;margin-bottom:10px">` +
+        `<div ${fam ? '' : `onclick="_shopToggleMember('${c.id}')" `}style="display:flex;align-items:center;gap:7px;padding:2px 0 4px${fam ? '' : ';cursor:pointer'}">` +
+        `<span style="width:9px;height:9px;border-radius:50%;background:${c.color};display:inline-block;flex-shrink:0"></span>` +
+        `<span style="font-size:13px;font-weight:800;color:var(--ink)">${_weEscHtml(c.label)}</span>` +
+        (fam ? '' : `<span style="margin-left:auto;color:var(--muted-2);font-size:13px">\u25b4</span>`) +
+        `</div>` +
+        `<div class="shop-drop-zone" data-owner="${c.id}" style="min-height:10px${sharedFor(c.id).length > 6 ? ';max-height:300px;overflow-y:auto;overscroll-behavior:contain' : ''}">` + rows + `</div>` +
+        _shopAddRowHtml(c.id) + `</div>`;
+    };
+    const tile = (c) => {
+      const open = sharedFor(c.id).filter(i => !i.checked);
+      const sub = open.length ? `${open.length} item${open.length === 1 ? '' : 's'}` : 'Nothing yet';
+      return `<div class="shop-drop-zone" data-owner="${c.id}" onclick="_shopToggleMember('${c.id}')" style="background:var(--surface-2);border-radius:14px;padding:12px;cursor:pointer">` +
+        `<div style="display:flex;align-items:center;gap:7px"><span style="width:9px;height:9px;border-radius:50%;background:${c.color};display:inline-block;flex-shrink:0"></span>` +
+        `<span style="font-size:13px;font-weight:800;color:#CFA13C;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_weEscHtml(c.label)}</span>` +
+        `<span style="margin-left:auto;color:var(--muted-2)">\u203a</span></div>` +
+        `<div style="font-size:11px;color:var(--muted);margin-top:6px">${sub}</div></div>`;
+    };
+    const famCard = fullCard(choices.find(c => c.id === 'family'));
+    const memberChoices = choices.filter(c => c.id !== 'family');
+    const tilesRow = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">` + memberChoices.map(tile).join('') + `</div>`;
+    const openCard = _shopOpenMember && memberChoices.some(c => c.id === _shopOpenMember) ? fullCard(memberChoices.find(c => c.id === _shopOpenMember)) : '';
+    const prepCard = items.length
+      ? `<div style="border:1px solid var(--line);border-radius:12px;padding:8px 10px 4px;margin-bottom:10px">` +
+        `<div style="font-size:13px;font-weight:800;color:var(--ink);padding:2px 0 2px">From your meal prep</div>` +
+        `<div style="font-size:11px;color:var(--muted);margin-bottom:4px">Only on your phone \u2014 pulled from ${activeDishCount} dish${activeDishCount === 1 ? '' : 'es'} in your prep plan. Press and hold to set your store order.</div>` +
+        `<div id="shopping-list-rows">${items.map(item => renderShoppingListRow(item)).join('')}</div></div>`
+      : '';
+    const anyClearable = sharedShopping.items.length || items.length;
+    const nChecked = sharedShopping.items.filter(i => i.checked).length + shoppingCheckedCount();
+    el.innerHTML = `
+      <div class="card" style="overflow-x:hidden;touch-action:pan-y">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:4px">
+          <div class="card-title" style="margin-bottom:0">Shopping List</div>
+          <button type="button" onclick="shareShoppingList()" style="flex-shrink:0;background:var(--surface);color:#CFA13C;border:1px solid var(--gold-line);border-radius:20px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">\ud83d\udce4 Share</button>
+        </div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Tap a blank line in a box to add an item. Press and hold to drag one to another person. <span style="color:#CFA13C">Shared with your family.</span></div>
+        <div style="-webkit-user-select:none;user-select:none;-webkit-touch-callout:none">${famCard}${tilesRow}${openCard}${prepCard}</div>
+        ${anyClearable ? `<button type="button" onclick="clearShoppingList()" style="width:100%;margin-top:8px;background:none;border:1px solid #3A2020;border-radius:10px;padding:10px;font-size:13px;font-weight:600;color:#EF4444;cursor:pointer">${nChecked ? `Clear Checked (${nChecked})` : 'Clear All'}</button>` : ''}
+      </div>`;
+    setTimeout(initShopCardZones, 0);
+    initShoppingListSortable();
+    return;
+  }
 
   el.innerHTML = `
     <div class="card">
