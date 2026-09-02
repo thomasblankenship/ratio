@@ -11506,6 +11506,22 @@ async function resendOtpCode() {
   setTimeout(() => { btn.textContent = "Didn't get a code? Resend"; btn.disabled = false; }, 15000);
 }
 
+// Purge every copy of pending_onboarding - localStorage, IndexedDB, AND
+// the Supabase backup row (the immortal one: appInit 'recovered' it every
+// boot and re-stamped a stale test interview over his real profile,
+// targets, and photo - Sep 2's mystery).
+async function _pendingPurgeEverywhere() {
+  try { await _obIdbDelete('pending_onboarding'); } catch (e) {}
+  try { localStorage.removeItem('pending_onboarding'); } catch (e) {}
+  try {
+    if (_currentUser && _authToken) {
+      await fetch(`${SUPABASE_URL}/rest/v1/user_settings?user_id=eq.${_currentUser.id}&key=eq.pending_onboarding`, {
+        method: 'DELETE', headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${_authToken}` }
+      });
+    }
+  } catch (e) { console.warn('[pending] purge of Supabase copy failed', e && e.message); }
+}
+
 async function handleLogin() {
   const rawInput = document.getElementById('auth-email').value.trim();
   const password = document.getElementById('auth-password').value;
@@ -11576,6 +11592,7 @@ async function handleLogin() {
     if (pending && profile) {
       console.warn('[handleLogin] Ignoring pending_onboarding — this account already has a profile. This pending data belongs to a different, incomplete signup.');
       pending = null;
+      _pendingPurgeEverywhere();
     }
     if (pending) {
       try {
@@ -11613,6 +11630,7 @@ async function handleLogin() {
         const check = await loadSetting('profile');
         if (!check) throw new Error('Settings did not persist — will retry on next login');
         if (p.healthOptIn) { try { await saveSetting('healthkit_enabled', true); } catch(e) {} }
+        _pendingPurgeEverywhere(); // applied once - never again
         // Reminders were asked about during signup; honour a decline on recovery too.
         if (p.notifOptIn === false) { try { await saveSetting('notifications_enabled', false); await saveSetting('todo_notifications_enabled', false); } catch(e) {} }
         if (p.goals?.weightStart) {
@@ -12845,7 +12863,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-09-01-em-todoclamp';
+const RATIO_BUILD = '2026-09-02-en-pendingguard';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
@@ -13210,6 +13228,19 @@ async function appInit() {
         }
       } catch(e) { /* fall through, JSON.parse below will also fail and be caught */ }
     }
+    // THE MISSING GUARD (Sep 2): handleLogin refused stale pendings for
+    // accounts that are already set up - this path, which runs EVERY boot,
+    // did not, so a blob with his own user_id re-applied forever.
+    if (pending) {
+      try {
+        const doneAlready = await loadSetting('onboarding_complete');
+        if (doneAlready) {
+          console.warn('[appInit] Ignoring pending_onboarding - account already set up. Purging the stale blob everywhere.');
+          pending = null;
+          _pendingPurgeEverywhere();
+        }
+      } catch (e) {}
+    }
     if (pending && _currentUser) {
         try {
           const p = JSON.parse(pending);
@@ -13232,6 +13263,7 @@ async function appInit() {
           const check = await loadSetting('profile');
           if (!check) throw new Error('Settings did not persist');
           if (p.healthOptIn) { try { await saveSetting('healthkit_enabled', true); } catch(e) {} }
+        _pendingPurgeEverywhere(); // applied once - never again
         // Reminders were asked about during signup; honour a decline on recovery too.
         if (p.notifOptIn === false) { try { await saveSetting('notifications_enabled', false); await saveSetting('todo_notifications_enabled', false); } catch(e) {} }
           if (p.goals?.weightStart) {
