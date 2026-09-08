@@ -12864,7 +12864,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-09-02-eo-sharedshopping';
+const RATIO_BUILD = '2026-09-08-ep-oneshoplist';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
@@ -16943,52 +16943,30 @@ function renderShoppingList() {
   const { items, activeDishCount } = getShoppingListData();
 
   if (_famHouseholdId()) {
-    const choices = _todoOwnerChoices();
-    const sharedFor = (own) => sharedShopping.items.filter(i => (i.owner || 'family') === own);
-    const fullCard = (c) => {
-      const rows = sharedFor(c.id).map(_shopSharedRow).join('');
-      const fam = c.id === 'family';
-      return `<div style="border:1px solid ${fam ? 'var(--gold-line)' : 'var(--line)'};border-radius:12px;padding:8px 10px 2px;margin-bottom:10px">` +
-        `<div ${fam ? '' : `onclick="_shopToggleMember('${c.id}')" `}style="display:flex;align-items:center;gap:7px;padding:2px 0 4px${fam ? '' : ';cursor:pointer'}">` +
-        `<span style="width:9px;height:9px;border-radius:50%;background:${c.color};display:inline-block;flex-shrink:0"></span>` +
-        `<span style="font-size:13px;font-weight:800;color:var(--ink)">${_weEscHtml(c.label)}</span>` +
-        (fam ? '' : `<span style="margin-left:auto;color:var(--muted-2);font-size:13px">\u25b4</span>`) +
-        `</div>` +
-        `<div class="shop-drop-zone" data-owner="${c.id}" style="min-height:10px${sharedFor(c.id).length > 6 ? ';max-height:300px;overflow-y:auto;overscroll-behavior:contain' : ''}">` + rows + `</div>` +
-        _shopAddRowHtml(c.id) + `</div>`;
-    };
-    const tile = (c) => {
-      const open = sharedFor(c.id).filter(i => !i.checked);
-      const sub = open.length ? `${open.length} item${open.length === 1 ? '' : 's'}` : 'Nothing yet';
-      return `<div class="shop-drop-zone" data-owner="${c.id}" onclick="_shopToggleMember('${c.id}')" style="background:var(--surface-2);border-radius:14px;padding:12px;cursor:pointer">` +
-        `<div style="display:flex;align-items:center;gap:7px"><span style="width:9px;height:9px;border-radius:50%;background:${c.color};display:inline-block;flex-shrink:0"></span>` +
-        `<span style="font-size:13px;font-weight:800;color:#CFA13C;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_weEscHtml(c.label)}</span>` +
-        `<span style="margin-left:auto;color:var(--muted-2)">\u203a</span></div>` +
-        `<div style="font-size:11px;color:var(--muted);margin-top:6px">${sub}</div></div>`;
-    };
-    const famCard = fullCard(choices.find(c => c.id === 'family'));
-    const memberChoices = choices.filter(c => c.id !== 'family');
-    const tilesRow = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">` + memberChoices.map(tile).join('') + `</div>`;
-    const openCard = _shopOpenMember && memberChoices.some(c => c.id === _shopOpenMember) ? fullCard(memberChoices.find(c => c.id === _shopOpenMember)) : '';
+    const shared = sharedShopping.items || [];
+    const nChecked = shared.filter(i => i.checked).length + shoppingCheckedCount();
+    const anyClearable = shared.length || items.length;
     const prepCard = items.length
-      ? `<div style="border:1px solid var(--line);border-radius:12px;padding:8px 10px 4px;margin-bottom:10px">` +
+      ? `<div style="border:1px solid var(--line);border-radius:12px;padding:8px 10px 4px;margin-top:12px">` +
         `<div style="font-size:13px;font-weight:800;color:var(--ink);padding:2px 0 2px">From your meal prep</div>` +
         `<div style="font-size:11px;color:var(--muted);margin-bottom:4px">Only on your phone \u2014 pulled from ${activeDishCount} dish${activeDishCount === 1 ? '' : 'es'} in your prep plan. Press and hold to set your store order.</div>` +
         `<div id="shopping-list-rows">${items.map(item => renderShoppingListRow(item)).join('')}</div></div>`
       : '';
-    const anyClearable = sharedShopping.items.length || items.length;
-    const nChecked = sharedShopping.items.filter(i => i.checked).length + shoppingCheckedCount();
     el.innerHTML = `
       <div class="card" style="overflow-x:hidden;touch-action:pan-y">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:4px">
           <div class="card-title" style="margin-bottom:0">Shopping List</div>
           <button type="button" onclick="shareShoppingList()" style="flex-shrink:0;background:var(--surface);color:#CFA13C;border:1px solid var(--gold-line);border-radius:20px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">\ud83d\udce4 Share</button>
         </div>
-        <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Tap a blank line in a box to add an item. Press and hold to drag one to another person. <span style="color:#CFA13C">Shared with your family.</span></div>
-        <div style="-webkit-user-select:none;user-select:none;-webkit-touch-callout:none">${famCard}${tilesRow}${openCard}${prepCard}</div>
-        ${anyClearable ? `<button type="button" onclick="clearShoppingList()" style="width:100%;margin-top:8px;background:none;border:1px solid #3A2020;border-radius:10px;padding:10px;font-size:13px;font-weight:600;color:#EF4444;cursor:pointer">${nChecked ? `Clear Checked (${nChecked})` : 'Clear All'}</button>` : ''}
+        <div style="font-size:12px;color:var(--muted);margin-bottom:12px">One list for the whole family \u2014 add below, and checking things off syncs to everyone. <span style="color:#CFA13C">Shared with your family.</span></div>
+        <div style="display:flex;align-items:center;gap:8px;padding:2px 0 10px">
+          <input type="text" class="shop-inline-input" data-owner="family" placeholder="tap to add \u2014 milk, paper towels\u2026" enterkeyhint="done" onkeydown="if(event.key==='Enter'){this.blur()}" onblur="_shopInlineCommit(this)" style="flex:1;min-width:0;background:none;border:none;border-bottom:1px dashed var(--line);color:var(--ink);font-size:15px;padding:5px 2px;outline:none" />
+        </div>
+        ${(!shared.length && !items.length) ? `<div style="text-align:center;padding:16px;color:var(--muted);font-size:13px">Nothing on your list yet.</div>` : ''}
+        <div style="-webkit-user-select:none;user-select:none;-webkit-touch-callout:none">${shared.map(_shopSharedRow).join('')}</div>
+        ${prepCard}
+        ${anyClearable ? `<button type="button" onclick="clearShoppingList()" style="width:100%;margin-top:14px;background:none;border:1px solid #3A2020;border-radius:10px;padding:10px;font-size:13px;font-weight:600;color:#EF4444;cursor:pointer">${nChecked ? `Clear Checked (${nChecked})` : 'Clear All'}</button>` : ''}
       </div>`;
-    setTimeout(initShopCardZones, 0);
     initShoppingListSortable();
     return;
   }
