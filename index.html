@@ -12865,7 +12865,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-09-10-ew-onexercise';
+const RATIO_BUILD = '2026-09-10-ey-editpast';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
@@ -13695,6 +13695,7 @@ function renderTodayStrength() {
   if (!el) return;
   const forDate = progressWorkoutDate();
   const isToday = forDate === _wsToday();
+  const isEditable = forDate <= _wsToday(); // today OR past - future stays plan-only
 
   // group logged sets per exercise in first-logged order
   const order = [];
@@ -13753,9 +13754,9 @@ function renderTodayStrength() {
     const reps = rows.map(r => (+r.reps || 0) || '');
     const wts  = rows.map(r => { const w = +r.weight || 0; return w ? w : '\u2014'; });
     const tick = plannedNames.has(n) ? ' <span class="ink-red" style="font-size:12px">\u2713</span>' : '';
-    const tap = isToday ? ` onclick="wsQuickLog('${_wsEscAttr(n)}','${_wsEscAttr(group)}')" style="cursor:pointer"` : '';
+    const tap = isEditable ? ` onclick="wsQuickLog('${_wsEscAttr(n)}','${_wsEscAttr(group)}')" style="cursor:pointer"` : '';
     bodies.push(`<tbody${tap}>
-      <tr class="rdash"><td class="pnum" rowspan="2">${num}</td><td class="pname" rowspan="2"><span class="ink" style="font-size:13px;line-height:1.15">${_weEscHtml(n)}</span>${tick}${isToday ? ` <button type="button" onclick="event.stopPropagation();wsDeleteExercise('${_wsEscAttr(n)}',${byEx[n].length})" aria-label="Delete ${_wsEscAttr(n)}" style="background:none;border:none;color:#b06a5a;cursor:pointer;font-size:12px;padding:0 2px;vertical-align:middle">\u00d7</button>` : ''}</td><td class="psub">REPS</td>${cells(reps, false)}</tr>
+      <tr class="rdash"><td class="pnum" rowspan="2">${num}</td><td class="pname" rowspan="2"><span class="ink" style="font-size:13px;line-height:1.15">${_weEscHtml(n)}</span>${tick}${isEditable ? ` <button type="button" onclick="event.stopPropagation();wsDeleteExercise('${_wsEscAttr(n)}',${byEx[n].length})" aria-label="Delete ${_wsEscAttr(n)}" style="background:none;border:none;color:#b06a5a;cursor:pointer;font-size:12px;padding:0 2px;vertical-align:middle">\u00d7</button>` : ''}</td><td class="psub">REPS</td>${cells(reps, false)}</tr>
       <tr class="rsolid"><td class="psub" style="border-top:1px dashed #999">WEIGHT</td>${cells(wts, false)}</tr>
     </tbody>`);
   }
@@ -13769,7 +13770,7 @@ function renderTodayStrength() {
     for (const ex of _wsSession.exercises) {
       if (byEx[ex.name] || plannedNames.has(ex.name)) continue;
       num++;
-      bodies.push(`<tbody onclick="wsQuickLog('${_wsEscAttr(ex.name)}','${_wsEscAttr(ex.group || '')}')" style="cursor:pointer">
+      bodies.push(`<tbody${isEditable ? ` onclick="wsQuickLog('${_wsEscAttr(ex.name)}','${_wsEscAttr(ex.group || '')}')" style="cursor:pointer"` : ''}>
       <tr class="rdash"><td class="pnum" rowspan="2">${num}</td><td class="pname" rowspan="2"><span class="ink" style="font-size:13px;line-height:1.15">${_weEscHtml(ex.name)}</span> <span style="font-size:8px;color:#8a8375">no sets yet — tap</span></td><td class="psub">REPS</td>${cells([], true)}</tr>
       <tr class="rsolid"><td class="psub" style="border-top:1px dashed #999">WEIGHT</td>${cells([], true)}</tr>
     </tbody>`);
@@ -13818,19 +13819,19 @@ function renderTodayStrength() {
   // Blank numbered rows pad the sheet to at least four lines - a pad has
   // empty lines. On today, tapping one turns it into a real line to write
   // on: an inline input in the name cell (type it) with BROWSE still up top.
-  const minRows = 4;
-  let blanks = Math.max(1, minRows - num);
+  const minRows = isEditable ? 4 : 0;
+  let blanks = isEditable ? Math.max(1, minRows - num) : 0;
   for (let b = 0; b < blanks; b++) {
     num++;
     const first = b === 0;
-    const addTap = isToday ? ` onclick="wsBlankRowTap(this)"` : '';
-    bodies.push(`<tbody${addTap}${isToday ? ' style="cursor:pointer"' : ''}${first ? ' id="ws-empty-row"' : ''} class="ws-blank-row">
-    <tr class="rdash"><td class="pnum" rowspan="2">${num}</td><td class="pname" rowspan="2">${isToday && first ? '<span style="font-size:9px;color:#b9b2a0">tap to add\u2026</span>' : ''}</td><td class="psub">REPS</td>${cells([], true)}</tr>
+    const addTap = isEditable ? ` onclick="wsBlankRowTap(this)"` : '';
+    bodies.push(`<tbody${addTap}${isEditable ? ' style="cursor:pointer"' : ''}${first ? ' id="ws-empty-row"' : ''} class="ws-blank-row">
+    <tr class="rdash"><td class="pnum" rowspan="2">${num}</td><td class="pname" rowspan="2">${isEditable && first ? '<span style="font-size:9px;color:#b9b2a0">tap to add\u2026</span>' : ''}</td><td class="psub">REPS</td>${cells([], true)}</tr>
     <tr class="rsolid"><td class="psub" style="border-top:1px dashed #999">WEIGHT</td>${cells([], true)}</tr>
   </tbody>`);
   }
 
-  const saveTplBtn = order.length
+  const saveTplBtn = order.length && isEditable
     ? `<div style="text-align:center;margin:8px 0 2px"><button type="button" onclick="wsSaveLoggedAsTemplate()" style="background:none;border:1px solid var(--gold-line);border-radius:10px;padding:7px 14px;font-size:11px;font-weight:700;color:#CFA13C;cursor:pointer">\u25a4 Save this workout as a template</button></div>`
     : '';
   el.innerHTML = invite + `<table class="pgrid">${head}${bodies.join('')}</table>` + saveTplBtn + clearBtn;
@@ -19630,6 +19631,10 @@ let _wsSetsToday = [];      // rows already logged in this session
 let _wsHistory = {};        // exerciseName -> { lastSets:[], best:{} }
 
 function _wsToday() { return new Date().toLocaleDateString('en-CA'); }
+// The date edits write to: the day being VIEWED. Past days are editable
+// (Sep 10 - he couldn't fix a missed Wednesday); only future days lock.
+function _wsLogDate() { try { return progressWorkoutDate ? progressWorkoutDate() : _wsToday(); } catch (e) { return _wsToday(); } }
+function _wsIsPastOrToday() { return _wsLogDate() <= _wsToday(); }
 
 async function wsStartSession(dayIdx) {
   const plan = (typeof weeklyPlan !== 'undefined' ? weeklyPlan : [])[dayIdx];
@@ -19646,7 +19651,7 @@ async function wsStartSession(dayIdx) {
   // Anything already logged today for these movements belongs to this session -
   // reopening after a phone lock must not start the set count from zero again.
   try {
-    const existing = await dbGet('workout_sets', `date=eq.${_wsToday()}&order=created_at.asc`);
+    const existing = await dbGet('workout_sets', `date=eq.${_wsLogDate()}&order=created_at.asc`);
     _wsSetsToday = existing || [];
     if (_wsSetsToday.length && _wsSetsToday[0].workout_id) _wsSession.workoutId = _wsSetsToday[0].workout_id;
   } catch (e) {}
@@ -19829,7 +19834,7 @@ async function vlLogSets(name, group, sets) {
     // Replace the cache only when the reload SUCCEEDS — pre-clearing meant
     // a failed fetch left [] and today's logged sets vanished from view.
     try {
-      const existing = await dbGet('workout_sets', `date=eq.${_wsToday()}&order=created_at.asc`);
+      const existing = await dbGet('workout_sets', `date=eq.${_wsLogDate()}&order=created_at.asc`);
       _wsSetsToday = existing || [];
       if (_wsSetsToday.length && _wsSetsToday[0].workout_id) _wsSession.workoutId = _wsSetsToday[0].workout_id;
     } catch (e) {}
@@ -19844,7 +19849,7 @@ async function vlLogSets(name, group, sets) {
     const setNumber = _wsSetsFor(name).length + 1;
     const saved = await dbPost('workout_sets', {
       workout_id: workoutId,
-      date: _wsToday(),
+      date: _wsLogDate(),
       exercise_name: name,
       muscle_group: group || null,
       set_number: setNumber,
@@ -19872,7 +19877,7 @@ async function wsQuickLog(name, group) {
     // Replace the cache only when the reload SUCCEEDS — pre-clearing meant
     // a failed fetch left [] and today's logged sets vanished from view.
     try {
-      const existing = await dbGet('workout_sets', `date=eq.${_wsToday()}&order=created_at.asc`);
+      const existing = await dbGet('workout_sets', `date=eq.${_wsLogDate()}&order=created_at.asc`);
       _wsSetsToday = existing || [];
       if (_wsSetsToday.length && _wsSetsToday[0].workout_id) _wsSession.workoutId = _wsSetsToday[0].workout_id;
     } catch (e) {}
@@ -19963,7 +19968,8 @@ function rtRender() {
     `<div style="display:flex;gap:8px;align-items:center;padding:10px 2px 4px">` +
     `<input type="text" id="rt-new-name" placeholder="add an exercise\u2026" style="flex:1;min-width:0;background:none;border:none;border-bottom:1px dashed var(--line);color:var(--ink);font-size:14px;padding:4px 2px;outline:none" onkeydown="if(event.key==='Enter')rtCreate()" />` +
     `<input type="number" id="rt-new-sets" placeholder="sets" min="1" max="10" style="width:48px;background:none;border:none;border-bottom:1px dashed var(--line);color:var(--ink);font-size:14px;padding:4px 2px;outline:none;text-align:center" />` +
-    `<input type="number" id="rt-new-reps" placeholder="reps" min="1" style="width:48px;background:none;border:none;border-bottom:1px dashed var(--line);color:var(--ink);font-size:14px;padding:4px 2px;outline:none;text-align:center" />` +
+    `<input type="number" id="rt-new-reps" placeholder="reps" min="1" style="width:44px;background:none;border:none;border-bottom:1px dashed var(--line);color:var(--ink);font-size:14px;padding:4px 2px;outline:none;text-align:center" />` +
+    `<input type="number" id="rt-new-weight" placeholder="lb" min="0" step="0.5" style="width:44px;background:none;border:none;border-bottom:1px dashed var(--line);color:var(--ink);font-size:14px;padding:4px 2px;outline:none;text-align:center" />` +
     `<button type="button" onclick="rtCreate()" style="background:none;border:1px solid #CFA13C;border-radius:8px;padding:5px 12px;font-size:12px;font-weight:700;color:#CFA13C;cursor:pointer">Add</button></div>`;
 }
 function _rtField(label, inner) {
@@ -19972,13 +19978,14 @@ function _rtField(label, inner) {
 function _rtFind(id) { return (_rtData && _rtData.templates.find(t => t.id === id)) || null; }
 async function rtCreate() {
   await _rtLoad();
-  const nameEl = document.getElementById('rt-new-name'), setsEl = document.getElementById('rt-new-sets'), repsEl = document.getElementById('rt-new-reps');
+  const nameEl = document.getElementById('rt-new-name'), setsEl = document.getElementById('rt-new-sets'), repsEl = document.getElementById('rt-new-reps'), weightEl = document.getElementById('rt-new-weight');
   const raw = (nameEl && nameEl.value || '').trim();
   if (!raw) { toast('Type an exercise name first'); return; }
   const r = _wsResolveExercise(raw);
+  const wv = weightEl && weightEl.value;
   const t = { id: _rtNewId(), name: r.name, group: r.group || null,
     sets: Math.min(10, Math.max(1, +(setsEl && setsEl.value) || 1)),
-    reps: +(repsEl && repsEl.value) || null, weight: null };
+    reps: +(repsEl && repsEl.value) || null, weight: (wv === '' || wv == null) ? null : (+wv || null) };
   _rtData.templates.push(t); _rtSave(); rtRender();
   _rtHydrateLastWeights().then(rtRender);
 }
@@ -20008,7 +20015,7 @@ async function wsStartSessionFromTemplate(id) {
     _wsSetsToday = [];
     _wsHistory = {};
     try {
-      const existing = await dbGet('workout_sets', `date=eq.${_wsToday()}&order=created_at.asc`);
+      const existing = await dbGet('workout_sets', `date=eq.${_wsLogDate()}&order=created_at.asc`);
       _wsSetsToday = existing || [];
       if (_wsSetsToday.length && _wsSetsToday[0].workout_id) _wsSession.workoutId = _wsSetsToday[0].workout_id;
     } catch (e) {}
@@ -20327,7 +20334,7 @@ async function _wsEnsureWorkout() {
   if (_wsSession.workoutId) return _wsSession.workoutId;
   const now = new Date();
   const row = await dbPost('workouts', {
-    date: _wsToday(),
+    date: _wsLogDate(),
     name: _wsSession.name,
     duration: 0,
     started_at: _wsSession.startedAt,
@@ -20351,7 +20358,7 @@ async function wsLogSet() {
     const setNumber = _wsSetsFor(ex.name).length + 1;
     const saved = await dbPost('workout_sets', {
       workout_id: workoutId,
-      date: _wsToday(),
+      date: _wsLogDate(),
       exercise_name: ex.name,
       muscle_group: ex.group || null,
       set_number: setNumber,
@@ -27129,7 +27136,7 @@ if (document.readyState === 'loading') {
     </div>
     <div class="card">
       <div class="card-title" style="margin-bottom:6px">Routine templates</div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Your go-to workouts, saved once. Tap Start to load one into today \u2014 last time's weights come along.</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Save each exercise once with its sets, reps and weight. Tap Use today to drop it onto your workout.</div>
       <div id="rt-body"></div>
     </div>
   </div>
