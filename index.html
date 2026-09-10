@@ -12865,7 +12865,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-09-10-es-templatelook';
+const RATIO_BUILD = '2026-09-10-eu-deleteexercise';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
@@ -13755,7 +13755,7 @@ function renderTodayStrength() {
     const tick = plannedNames.has(n) ? ' <span class="ink-red" style="font-size:12px">\u2713</span>' : '';
     const tap = isToday ? ` onclick="wsQuickLog('${_wsEscAttr(n)}','${_wsEscAttr(group)}')" style="cursor:pointer"` : '';
     bodies.push(`<tbody${tap}>
-      <tr class="rdash"><td class="pnum" rowspan="2">${num}</td><td class="pname" rowspan="2"><span class="ink" style="font-size:13px;line-height:1.15">${_weEscHtml(n)}</span>${tick}</td><td class="psub">REPS</td>${cells(reps, false)}</tr>
+      <tr class="rdash"><td class="pnum" rowspan="2">${num}</td><td class="pname" rowspan="2"><span class="ink" style="font-size:13px;line-height:1.15">${_weEscHtml(n)}</span>${tick}${isToday ? ` <button type="button" onclick="event.stopPropagation();wsDeleteExercise('${_wsEscAttr(n)}',${byEx[n].length})" aria-label="Delete ${_wsEscAttr(n)}" style="background:none;border:none;color:#b06a5a;cursor:pointer;font-size:12px;padding:0 2px;vertical-align:middle">\u00d7</button>` : ''}</td><td class="psub">REPS</td>${cells(reps, false)}</tr>
       <tr class="rsolid"><td class="psub" style="border-top:1px dashed #999">WEIGHT</td>${cells(wts, false)}</tr>
     </tbody>`);
   }
@@ -13830,8 +13830,32 @@ function renderTodayStrength() {
   </tbody>`);
   }
 
-  el.innerHTML = invite + `<table class="pgrid">${head}${bodies.join('')}</table>` + clearBtn;
+  const saveTplBtn = order.length
+    ? `<div style="text-align:center;margin:8px 0 2px"><button type="button" onclick="wsSaveLoggedAsTemplate()" style="background:none;border:1px solid var(--gold-line);border-radius:10px;padding:7px 14px;font-size:11px;font-weight:700;color:#CFA13C;cursor:pointer">\u25a4 Save this workout as a template</button></div>`
+    : '';
+  el.innerHTML = invite + `<table class="pgrid">${head}${bodies.join('')}</table>` + saveTplBtn + clearBtn;
   renderSheetTimes();
+}
+
+// Save the currently-shown logged strength (progressSets) as a template.
+// Sets = how many were logged per exercise (capped 10); reps = the last
+// set's reps; weight never stored. His main-screen entry point.
+async function wsSaveLoggedAsTemplate() {
+  const byEx = {}; const order = [];
+  for (const r of (progressSets || [])) { const n = r.exercise_name || 'Exercise'; if (!byEx[n]) { byEx[n] = []; order.push(n); } byEx[n].push(r); }
+  if (!order.length) { toast('No logged exercises to save'); return; }
+  await _rtLoad();
+  const name = await appPrompt('Name this routine', { title: 'Save as template', value: '', okLabel: 'Save' });
+  if (!name || !name.trim()) return;
+  const exercises = order.map(nm => {
+    const sets = byEx[nm];
+    const grp = (sets.find(s => s.muscle_group) || {}).muscle_group || null;
+    const lastReps = +sets[sets.length - 1].reps || null;
+    return { name: nm, group: grp, sets: Math.min(10, sets.length), reps: lastReps };
+  });
+  const t = { id: _rtNewId(), name: name.trim(), days: [], exercises };
+  _rtData.templates.push(t); _rtSave();
+  toast(`Saved "${t.name}" \u2713`);
 }
 
 // Glanceable hub cards under the sheet - the Meals-hub pattern he asked to
@@ -19892,41 +19916,81 @@ async function openRoutineTemplates() {
   await _rtLoad();
   document.getElementById('rt-panel').style.display = 'flex';
   rtRender();
+  _rtHydrateLastWeights().then(rtRender); // weights fill in when they arrive
 }
 function closeRoutineTemplates() { document.getElementById('rt-panel').style.display = 'none'; _rtEditing = null; }
 const RT_DAY_ABBR = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+let _rtLastByName = {}; // exercise name (lower) -> { weight, reps } from last session
+async function _rtHydrateLastWeights() {
+  _rtLastByName = {};
+  const names = new Set();
+  (_rtData.templates || []).forEach(t => (t.exercises || []).forEach(e => names.add(e.name)));
+  await Promise.all([...names].map(async nm => {
+    try {
+      const rows = await dbGet('workout_sets', `exercise_name=eq.${encodeURIComponent(nm)}&order=date.desc`) || [];
+      const today = _wsToday();
+      const past = rows.filter(r => r.date !== today);
+      if (past.length) { const last = past[0]; _rtLastByName[nm.toLowerCase()] = { weight: +last.weight || null, reps: +last.reps || null }; }
+    } catch (e) {}
+  }));
+}
+function _rtEditBody(t) {
+  const exRows = (t.exercises || []).map((e, i) => `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--gray-100)">` +
+    `<div style="flex:1;min-width:0;font-size:13px;color:var(--ink)">${_weEscHtml(e.name)}<span style="color:var(--muted);font-size:11px"> &middot; ${Math.min(10, +e.sets || 1)} &times; ${e.reps ? +e.reps : '\u2013'}</span></div>` +
+    `<button type="button" onclick="rtMoveExercise('${t.id}',${i},-1)" style="background:none;border:none;color:var(--muted-2);cursor:pointer;font-size:13px;padding:0 4px">\u25b4</button>` +
+    `<button type="button" onclick="rtMoveExercise('${t.id}',${i},1)" style="background:none;border:none;color:var(--muted-2);cursor:pointer;font-size:13px;padding:0 4px">\u25be</button>` +
+    `<button type="button" onclick="rtRemoveExercise('${t.id}',${i})" style="background:none;border:none;color:var(--muted-2);cursor:pointer;font-size:17px;padding:0 4px">\u00d7</button></div>`).join('');
+  const addRow = `<div style="display:flex;align-items:center;gap:6px;padding:8px 0 4px">` +
+    `<input type="text" id="rt-add-name-${t.id}" placeholder="add an exercise\u2026" style="flex:1;min-width:0;background:none;border:none;border-bottom:1px dashed var(--line);color:var(--ink);font-size:13px;padding:4px 2px;outline:none" />` +
+    `<input type="number" id="rt-add-sets-${t.id}" placeholder="sets" min="1" max="10" style="width:44px;background:none;border:none;border-bottom:1px dashed var(--line);color:var(--ink);font-size:13px;padding:4px 2px;outline:none;text-align:center" />` +
+    `<input type="number" id="rt-add-reps-${t.id}" placeholder="reps" min="1" style="width:44px;background:none;border:none;border-bottom:1px dashed var(--line);color:var(--ink);font-size:13px;padding:4px 2px;outline:none;text-align:center" />` +
+    `<button type="button" onclick="rtAddExercise('${t.id}')" style="background:none;border:1px solid #CFA13C;border-radius:8px;padding:4px 9px;font-size:11px;font-weight:700;color:#CFA13C;cursor:pointer">Add</button></div>`;
+  const dayChips = `<div style="display:flex;gap:5px;flex-wrap:wrap;padding:8px 0 2px"><span style="font-size:11px;color:var(--muted-2);align-self:center">Days:</span>` +
+    RT_DAY_ABBR.map((d, i) => { const on = (t.days || []).includes(i); return `<button type="button" onclick="rtToggleDay('${t.id}',${i})" style="background:${on ? 'var(--gold-tint)' : 'none'};border:1px solid ${on ? '#CFA13C' : 'var(--line)'};color:${on ? '#CFA13C' : 'var(--muted)'};border-radius:12px;padding:3px 9px;font-size:11px;font-weight:700;cursor:pointer">${d}</button>`; }).join('') + `</div>`;
+  const footer = `<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">` +
+    `<button type="button" onclick="rtRename('${t.id}')" style="background:none;border:none;color:#CFA13C;font-size:12px;font-weight:700;cursor:pointer;padding:0">Rename</button>` +
+    `<button type="button" onclick="rtDelete('${t.id}')" style="background:none;border:none;color:#EF4444;font-size:12px;font-weight:700;cursor:pointer;padding:0">Delete template</button></div>`;
+  return exRows + addRow + dayChips + footer;
+}
 function rtRender() {
   const el = document.getElementById('rt-body');
   if (!el || !_rtData) return;
   const tpls = _rtData.templates;
   const card = (t) => {
     const editing = _rtEditing === t.id;
-    const n = (t.exercises || []).length;
+    const exs = t.exercises || [];
+    const n = exs.length;
     const days = (t.days || []).map(d => `<span style="display:inline-block;font-size:10px;padding:2px 7px;border-radius:10px;background:var(--gold-tint);color:#CFA13C;margin-right:4px">${RT_DAY_ABBR[d] || ''}</span>`).join('');
-    const head = `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">` +
-      `<div style="display:flex;align-items:center;gap:8px;min-width:0"><i class="fa-solid fa-dumbbell" style="color:#CFA13C;font-size:13px;flex-shrink:0"></i><div style="font-size:14px;font-weight:700;color:#CFA13C;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_weEscHtml(t.name || 'Untitled')}</div></div>` +
+    const head = `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px">` +
+      `<div style="display:flex;align-items:center;gap:8px;min-width:0"><i class="fa-solid fa-dumbbell" style="color:#CFA13C;font-size:13px;flex-shrink:0"></i><div style="font-size:15px;font-weight:700;color:#CFA13C;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_weEscHtml(t.name || 'Untitled')}</div></div>` +
       `<div style="display:flex;gap:6px;flex-shrink:0">` +
       `<button type="button" onclick="rtToggleEdit('${t.id}')" style="background:none;border:1px solid var(--line);border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;color:var(--muted);cursor:pointer">${editing ? 'Done' : 'Edit'}</button>` +
-      `<button type="button" onclick="wsStartSessionFromTemplate('${t.id}')" style="background:var(--accent);border:none;border-radius:8px;padding:5px 12px;font-size:11px;font-weight:700;color:#101512;cursor:pointer">Start</button>` +
-      `</div></div>` +
-      `<div style="font-size:11px;color:var(--muted);margin:4px 0 6px">${n} exercise${n === 1 ? '' : 's'}${days ? ' &middot; ' : ''}${days}</div>`;
-    if (!editing) return `<div style="background:var(--surface-2);border-radius:14px;padding:12px 14px;margin-bottom:10px">${head}</div>`;
-    const exRows = (t.exercises || []).map((e, i) => `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--gray-100)">` +
-      `<div style="flex:1;min-width:0;font-size:13px;color:var(--ink)">${_weEscHtml(e.name)}<span style="color:var(--muted);font-size:11px"> &middot; ${+e.sets || 1} &times; ${e.reps ? +e.reps : '\u2013'}</span></div>` +
-      `<button type="button" onclick="rtMoveExercise('${t.id}',${i},-1)" style="background:none;border:none;color:var(--muted-2);cursor:pointer;font-size:13px;padding:0 4px">\u25b4</button>` +
-      `<button type="button" onclick="rtMoveExercise('${t.id}',${i},1)" style="background:none;border:none;color:var(--muted-2);cursor:pointer;font-size:13px;padding:0 4px">\u25be</button>` +
-      `<button type="button" onclick="rtRemoveExercise('${t.id}',${i})" style="background:none;border:none;color:var(--muted-2);cursor:pointer;font-size:17px;padding:0 4px">\u00d7</button></div>`).join('');
-    const addRow = `<div style="display:flex;align-items:center;gap:6px;padding:8px 0 4px">` +
-      `<input type="text" id="rt-add-name-${t.id}" placeholder="tap to add an exercise\u2026" style="flex:1;min-width:0;background:none;border:none;border-bottom:1px dashed var(--line);color:var(--ink);font-size:13px;padding:4px 2px;outline:none" />` +
-      `<input type="number" id="rt-add-sets-${t.id}" placeholder="sets" min="1" style="width:48px;background:none;border:none;border-bottom:1px dashed var(--line);color:var(--ink);font-size:13px;padding:4px 2px;outline:none;text-align:center" />` +
-      `<input type="number" id="rt-add-reps-${t.id}" placeholder="reps" min="1" style="width:48px;background:none;border:none;border-bottom:1px dashed var(--line);color:var(--ink);font-size:13px;padding:4px 2px;outline:none;text-align:center" />` +
-      `<button type="button" onclick="rtAddExercise('${t.id}')" style="background:none;border:1px solid #CFA13C;border-radius:8px;padding:4px 9px;font-size:11px;font-weight:700;color:#CFA13C;cursor:pointer">Add</button></div>`;
-    const dayChips = `<div style="display:flex;gap:5px;flex-wrap:wrap;padding:8px 0 2px"><span style="font-size:11px;color:var(--muted-2);align-self:center">Days:</span>` +
-      RT_DAY_ABBR.map((d, i) => { const on = (t.days || []).includes(i); return `<button type="button" onclick="rtToggleDay('${t.id}',${i})" style="background:${on ? 'var(--gold-tint)' : 'none'};border:1px solid ${on ? '#CFA13C' : 'var(--line)'};color:${on ? '#CFA13C' : 'var(--muted)'};border-radius:12px;padding:3px 9px;font-size:11px;font-weight:700;cursor:pointer">${d}</button>`; }).join('') + `</div>`;
-    const footer = `<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">` +
-      `<button type="button" onclick="rtRename('${t.id}')" style="background:none;border:none;color:#CFA13C;font-size:12px;font-weight:700;cursor:pointer;padding:0">Rename</button>` +
-      `<button type="button" onclick="rtDelete('${t.id}')" style="background:none;border:none;color:#EF4444;font-size:12px;font-weight:700;cursor:pointer;padding:0">Delete template</button></div>`;
-    return `<div style="background:var(--surface-2);border:1px solid var(--gold-line);border-radius:14px;padding:12px 14px;margin-bottom:10px">${head}${exRows}${addRow}${dayChips}${footer}</div>`;
+      `<button type="button" onclick="wsStartSessionFromTemplate('${t.id}')" style="background:var(--accent);border:none;border-radius:8px;padding:5px 14px;font-size:11px;font-weight:700;color:#101512;cursor:pointer">Use today</button>` +
+      `</div></div>`;
+    if (!n) {
+      const emptyBody = editing ? _rtEditBody(t) : `<div style="font-size:12px;color:var(--muted);padding:2px 0 4px">No exercises yet \u2014 tap Edit to add some.</div>`;
+      return `<div style="background:var(--surface-2);border:1px solid ${editing ? 'var(--gold-line)' : 'transparent'};border-radius:14px;padding:12px 14px;margin-bottom:10px">${head}${emptyBody}</div>`;
+    }
+    if (editing) return `<div style="background:var(--surface-2);border:1px solid var(--gold-line);border-radius:14px;padding:12px 14px;margin-bottom:10px">${head}${_rtEditBody(t)}</div>`;
+    const rows = exs.map(e => {
+      const last = _rtLastByName[e.name.toLowerCase()];
+      const wCell = last && last.weight ? (last.weight + ' lb') : '\u2013';
+      const rCell = last && last.reps ? last.reps : (e.reps ? e.reps : '\u2013');
+      return `<tr>` +
+        `<td style="padding:6px 4px;font-size:13px;color:var(--ink)">${_weEscHtml(e.name)}</td>` +
+        `<td style="padding:6px 4px;text-align:center;font-size:13px;color:var(--muted)">${Math.min(10, +e.sets || 1)}</td>` +
+        `<td style="padding:6px 4px;text-align:center;font-size:13px;color:var(--muted)">${rCell}</td>` +
+        `<td style="padding:6px 4px;text-align:right;font-size:13px;color:var(--ink);font-weight:600">${wCell}</td></tr>`;
+    }).join('');
+    const table = `<table style="width:100%;border-collapse:collapse">` +
+      `<thead><tr style="border-bottom:1px solid var(--line)">` +
+      `<td style="padding:2px 4px;font-size:9px;font-weight:700;color:var(--muted-2);letter-spacing:0.5px">EXERCISE</td>` +
+      `<td style="padding:2px 4px;font-size:9px;font-weight:700;color:var(--muted-2);text-align:center">SETS</td>` +
+      `<td style="padding:2px 4px;font-size:9px;font-weight:700;color:var(--muted-2);text-align:center">REPS</td>` +
+      `<td style="padding:2px 4px;font-size:9px;font-weight:700;color:var(--muted-2);text-align:right">WEIGHT</td>` +
+      `</tr></thead><tbody>${rows}</tbody></table>`;
+    const daysLine = days ? `<div style="margin-top:8px">${days}</div>` : '';
+    return `<div style="background:var(--surface-2);border-radius:14px;padding:12px 14px;margin-bottom:10px">${head}${table}${daysLine}<div style="font-size:10px;color:var(--muted-2);margin-top:8px">Weight shows what you lifted last time. Use today fills it into your workout.</div></div>`;
   };
   el.innerHTML = (tpls.length ? tpls.map(card).join('') : `<div style="background:var(--surface-2);border-radius:14px;padding:18px 14px;margin-bottom:10px;text-align:center"><i class="fa-solid fa-dumbbell" style="color:#CFA13C;font-size:22px"></i><div style="font-size:14px;font-weight:700;color:var(--ink);margin-top:8px">Save your first routine</div><div style="font-size:12px;color:var(--muted);margin-top:4px;line-height:1.5">Log a workout once, then tap <span style="color:#CFA13C">Save as template</span> at the bottom of it. Or build one from scratch below.</div></div>`) +
     `<div onclick="rtCreate()" style="display:flex;align-items:center;gap:8px;padding:10px 2px 4px;cursor:pointer"><span style="flex:1;border-bottom:1px dashed var(--line);color:var(--muted);font-size:14px;padding:4px 2px">tap to add a template\u2026</span><i class="fa-solid fa-plus" style="color:#CFA13C;font-size:14px"></i></div>` +
@@ -19957,7 +20021,7 @@ function rtAddExercise(id) {
   const nameEl = document.getElementById('rt-add-name-' + id), setsEl = document.getElementById('rt-add-sets-' + id), repsEl = document.getElementById('rt-add-reps-' + id);
   const raw = (nameEl && nameEl.value || '').trim(); if (!raw) return;
   const r = _wsResolveExercise(raw);
-  t.exercises.push({ name: r.name, group: r.group || null, sets: Math.max(1, +(setsEl && setsEl.value) || 1), reps: +(repsEl && repsEl.value) || null });
+  t.exercises.push({ name: r.name, group: r.group || null, sets: Math.min(10, Math.max(1, +(setsEl && setsEl.value) || 1)), reps: +(repsEl && repsEl.value) || null });
   _rtSave(); rtRender();
 }
 function rtRemoveExercise(id, i) { const t = _rtFind(id); if (!t) return; t.exercises.splice(i, 1); _rtSave(); rtRender(); }
@@ -19970,7 +20034,7 @@ async function wsStartSessionFromTemplate(id) {
   await _rtLoad();
   const t = _rtFind(id); if (!t) return;
   if (!(t.exercises || []).length) { toast('Add some exercises to this template first'); return; }
-  const incoming = t.exercises.map(e => ({ name: e.name, group: e.group || null, sets: +e.sets || 1, reps: e.reps ? +e.reps : null }));
+  const incoming = t.exercises.map(e => ({ name: e.name, group: e.group || null, sets: Math.min(10, Math.max(1, +e.sets || 1)), reps: e.reps ? +e.reps : null }));
   if (_wsSession && (_wsSession.exercises || []).length) {
     incoming.forEach(ex => { if (!_wsSession.exercises.find(e => e.name === ex.name)) _wsSession.exercises.push(ex); });
     _wsSession.templateId = t.id;
@@ -20000,7 +20064,7 @@ async function wsQuickCheck(i) {
   if (!_wsSession) return;
   const ex = _wsSession.exercises[i]; if (!ex) return;
   const done = _wsSetsFor(ex.name);
-  const target = Math.max(1, +ex.sets || 1);
+  const target = Math.min(10, Math.max(1, +ex.sets || 1));
   if (done.length >= target) {
     for (const s of done) { if (s.id) { try { await dbDelete('workout_sets', s.id); } catch (e) {} } }
     _wsSetsToday = _wsSetsToday.filter(s => s.exercise_name !== ex.name);
@@ -20015,7 +20079,8 @@ async function wsQuickCheck(i) {
   else if (hist.lastSets.length) { const last = hist.lastSets[hist.lastSets.length - 1]; w = last.weight; reps = last.reps; }
   if (!reps) reps = ex.reps || null;
   if (!reps) { wsOpenSet(i); return; } // first time ever: type it once
-  const remaining = target - done.length;
+  const remaining = Math.min(10, Math.max(0, target - done.length));
+  if (!remaining) { wsRenderSession(); return; }
   const sets = Array.from({ length: remaining }, () => ({ weight: w, reps }));
   await vlLogSets(ex.name, ex.group || null, sets);
   toast(`${ex.name}: ${remaining} \u00d7 ${reps}${w ? ' @ ' + w + ' lb' : ''} \u2713`);
@@ -20032,7 +20097,7 @@ async function wsSaveAsTemplate() {
   if (!name || !name.trim()) return;
   const exercises = _wsSession.exercises.map(ex => {
     const done = _wsSetsFor(ex.name);
-    return { name: ex.name, group: ex.group || null, sets: done.length || +ex.sets || 1, reps: done.length ? (+done[done.length - 1].reps || null) : (ex.reps ? +ex.reps : null) };
+    return { name: ex.name, group: ex.group || null, sets: Math.min(10, done.length || +ex.sets || 1), reps: done.length ? (+done[done.length - 1].reps || null) : (ex.reps ? +ex.reps : null) };
   });
   const t = { id: _rtNewId(), name: name.trim(), days: [], exercises };
   _rtData.templates.push(t); _rtSave();
@@ -20360,6 +20425,24 @@ function _wsTouchEnd(workoutId) {
       await dbPatch('workouts', workoutId, { ended_at: new Date().toISOString(), duration: mins });
     } catch (e) {}
   }, 1500);
+}
+
+// Delete every logged set of one exercise for the shown date - the missing
+// control that left a 349-set mistake unclearable (Sep 10). Confirms with
+// the count, deletes by id, tolerates a big pile.
+async function wsDeleteExercise(name, count) {
+  const forDate = progressWorkoutDate();
+  const label = count ? `${count} set${count === 1 ? '' : 's'}` : 'this exercise';
+  if (!await appConfirm(`Delete ${label} of "${name}"? This can't be undone.`, { title: 'Delete exercise', yesLabel: 'Delete' })) return;
+  let rows = [];
+  try { rows = await dbGet('workout_sets', `date=eq.${forDate}&exercise_name=eq.${encodeURIComponent(name)}`) || []; } catch (e) {}
+  let gone = 0;
+  for (const r of rows) { if (r.id != null) { try { await dbDelete('workout_sets', r.id); gone++; } catch (e) {} } }
+  if (typeof _wsSetsToday !== 'undefined') _wsSetsToday = _wsSetsToday.filter(s => s.exercise_name !== name);
+  if (_wsSession && Array.isArray(_wsSession.exercises)) _wsSession.exercises = _wsSession.exercises.filter(e => e.name !== name);
+  toast(`Deleted ${name}${gone ? ' \u00b7 ' + gone + ' set' + (gone === 1 ? '' : 's') : ''}`);
+  await loadProgressWorkouts();
+  if (_wsSession && document.getElementById('ws-session-panel').style.display !== 'none') wsRenderSession();
 }
 
 // Undo a mis-tapped set - the most recent one for the open exercise.
