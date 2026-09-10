@@ -12865,7 +12865,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-09-10-er-panelfix';
+const RATIO_BUILD = '2026-09-10-es-templatelook';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
@@ -19904,13 +19904,13 @@ function rtRender() {
     const n = (t.exercises || []).length;
     const days = (t.days || []).map(d => `<span style="display:inline-block;font-size:10px;padding:2px 7px;border-radius:10px;background:var(--gold-tint);color:#CFA13C;margin-right:4px">${RT_DAY_ABBR[d] || ''}</span>`).join('');
     const head = `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">` +
-      `<div style="font-size:14px;font-weight:700;color:var(--ink);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_weEscHtml(t.name || 'Untitled')}</div>` +
+      `<div style="display:flex;align-items:center;gap:8px;min-width:0"><i class="fa-solid fa-dumbbell" style="color:#CFA13C;font-size:13px;flex-shrink:0"></i><div style="font-size:14px;font-weight:700;color:#CFA13C;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_weEscHtml(t.name || 'Untitled')}</div></div>` +
       `<div style="display:flex;gap:6px;flex-shrink:0">` +
       `<button type="button" onclick="rtToggleEdit('${t.id}')" style="background:none;border:1px solid var(--line);border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;color:var(--muted);cursor:pointer">${editing ? 'Done' : 'Edit'}</button>` +
       `<button type="button" onclick="wsStartSessionFromTemplate('${t.id}')" style="background:var(--accent);border:none;border-radius:8px;padding:5px 12px;font-size:11px;font-weight:700;color:#101512;cursor:pointer">Start</button>` +
       `</div></div>` +
       `<div style="font-size:11px;color:var(--muted);margin:4px 0 6px">${n} exercise${n === 1 ? '' : 's'}${days ? ' &middot; ' : ''}${days}</div>`;
-    if (!editing) return `<div style="border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:10px">${head}</div>`;
+    if (!editing) return `<div style="background:var(--surface-2);border-radius:14px;padding:12px 14px;margin-bottom:10px">${head}</div>`;
     const exRows = (t.exercises || []).map((e, i) => `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--gray-100)">` +
       `<div style="flex:1;min-width:0;font-size:13px;color:var(--ink)">${_weEscHtml(e.name)}<span style="color:var(--muted);font-size:11px"> &middot; ${+e.sets || 1} &times; ${e.reps ? +e.reps : '\u2013'}</span></div>` +
       `<button type="button" onclick="rtMoveExercise('${t.id}',${i},-1)" style="background:none;border:none;color:var(--muted-2);cursor:pointer;font-size:13px;padding:0 4px">\u25b4</button>` +
@@ -19926,11 +19926,11 @@ function rtRender() {
     const footer = `<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">` +
       `<button type="button" onclick="rtRename('${t.id}')" style="background:none;border:none;color:#CFA13C;font-size:12px;font-weight:700;cursor:pointer;padding:0">Rename</button>` +
       `<button type="button" onclick="rtDelete('${t.id}')" style="background:none;border:none;color:#EF4444;font-size:12px;font-weight:700;cursor:pointer;padding:0">Delete template</button></div>`;
-    return `<div style="border:1px solid #CFA13C;border-radius:12px;padding:10px 12px;margin-bottom:10px">${head}${exRows}${addRow}${dayChips}${footer}</div>`;
+    return `<div style="background:var(--surface-2);border:1px solid var(--gold-line);border-radius:14px;padding:12px 14px;margin-bottom:10px">${head}${exRows}${addRow}${dayChips}${footer}</div>`;
   };
-  el.innerHTML = (tpls.length ? tpls.map(card).join('') : `<div style="text-align:center;padding:18px 8px;color:var(--muted);font-size:13px">No templates yet. Log a workout once, then tap Save as template &mdash; or build one below.</div>`) +
-    `<button type="button" onclick="rtCreate()" style="width:100%;border:1px dashed var(--line);background:none;border-radius:12px;padding:12px;font-size:13px;font-weight:700;color:#CFA13C;cursor:pointer">+ New template</button>` +
-    `<div style="font-size:11px;color:var(--muted);text-align:center;margin-top:10px">Weights aren't saved in a template &mdash; each start uses your most recent numbers.</div>`;
+  el.innerHTML = (tpls.length ? tpls.map(card).join('') : `<div style="background:var(--surface-2);border-radius:14px;padding:18px 14px;margin-bottom:10px;text-align:center"><i class="fa-solid fa-dumbbell" style="color:#CFA13C;font-size:22px"></i><div style="font-size:14px;font-weight:700;color:var(--ink);margin-top:8px">Save your first routine</div><div style="font-size:12px;color:var(--muted);margin-top:4px;line-height:1.5">Log a workout once, then tap <span style="color:#CFA13C">Save as template</span> at the bottom of it. Or build one from scratch below.</div></div>`) +
+    `<div onclick="rtCreate()" style="display:flex;align-items:center;gap:8px;padding:10px 2px 4px;cursor:pointer"><span style="flex:1;border-bottom:1px dashed var(--line);color:var(--muted);font-size:14px;padding:4px 2px">tap to add a template\u2026</span><i class="fa-solid fa-plus" style="color:#CFA13C;font-size:14px"></i></div>` +
+    `<div style="font-size:11px;color:var(--muted-2);text-align:center;margin-top:14px">Weights aren't saved in a template &mdash; each start uses your most recent numbers.</div>`;
 }
 function _rtFind(id) { return (_rtData && _rtData.templates.find(t => t.id === id)) || null; }
 function rtToggleEdit(id) { _rtEditing = (_rtEditing === id) ? null : id; rtRender(); }
@@ -27063,14 +27063,17 @@ if (document.readyState === 'loading') {
 
 
 <div id="rt-panel" style="display:none;position:fixed;inset:0;background:var(--bg-deep);z-index:900;flex-direction:column;max-width:520px;margin:0 auto">
-  <div style="padding:14px 16px;border-bottom:1px solid var(--gray-100);display:flex;align-items:center;gap:12px;flex-shrink:0">
-    <button type="button" onclick="closeRoutineTemplates()" aria-label="Close templates" style="background:none;border:none;color:var(--ink);font-size:20px;cursor:pointer;padding:0;width:28px">&#8592;</button>
-    <div style="flex:1;min-width:0">
-      <div style="font-size:16px;font-weight:700;color:var(--ink)">My Routine Templates</div>
-      <div style="font-size:11px;color:var(--muted)">Tap Start to load one into today. Last time's weights come along.</div>
+  <div style="flex:1;overflow-y:auto;padding:16px 16px 40px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div style="font-size:18px;font-weight:700">My Routine Templates</div>
+      <button type="button" onclick="closeRoutineTemplates()" aria-label="Close templates" style="background:var(--surface-2);border:none;border-radius:10px;width:32px;height:32px;font-size:18px;color:var(--muted);cursor:pointer">&times;</button>
+    </div>
+    <div class="card">
+      <div class="card-title" style="margin-bottom:6px">Routine templates</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Your go-to workouts, saved once. Tap Start to load one into today \u2014 last time's weights come along.</div>
+      <div id="rt-body"></div>
     </div>
   </div>
-  <div id="rt-body" style="flex:1;overflow-y:auto;padding:12px 16px 40px"></div>
 </div>
 
 <div id="ws-session-panel" style="display:none;position:fixed;inset:0;background:var(--bg-deep);z-index:900;flex-direction:column;max-width:520px;margin:0 auto">
