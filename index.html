@@ -12865,7 +12865,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-09-10-ey-editpast';
+const RATIO_BUILD = '2026-09-10-fa-templatecompact';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
@@ -19945,23 +19945,22 @@ function rtRender() {
   const tpls = _rtData.templates;
   // Each template IS one exercise (his call Sep 10): name + sets/reps/weight,
   // editable in place. No nesting, no "add an exercise inside an exercise."
+  const numInput = (val, ph, id, field, wpx) => `<input type="number" min="0" ${field==='sets'?'max="10" ':''}${field==='weight'?'step="0.5" ':''}value="${val != null ? val : ''}" placeholder="${ph}" onchange="rtSetField('${id}','${field}',this.value)" style="width:${wpx}px;background:none;border:none;border-bottom:1px solid var(--line);color:var(--ink);font-size:14px;padding:3px 2px;outline:none;text-align:center" />`;
   const card = (t) => {
     const last = _rtLastByName[(t.name || '').toLowerCase()];
-    const wPlaceholder = last && last.weight ? (last.weight + ' lb last') : 'weight';
-    const rPlaceholder = last && last.reps ? (last.reps + ' last') : 'reps';
-    return `<div style="background:var(--surface-2);border-radius:14px;padding:12px 14px;margin-bottom:10px">` +
-      `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px">` +
-      `<div style="display:flex;align-items:center;gap:8px;min-width:0"><i class="fa-solid fa-dumbbell" style="color:#CFA13C;font-size:13px;flex-shrink:0"></i><div style="font-size:15px;font-weight:700;color:#CFA13C;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_weEscHtml(t.name || 'Exercise')}</div></div>` +
-      `<div style="display:flex;gap:6px;flex-shrink:0">` +
-      `<button type="button" onclick="wsStartSessionFromTemplate('${t.id}')" style="background:var(--accent);border:none;border-radius:8px;padding:6px 14px;font-size:11px;font-weight:700;color:#101512;cursor:pointer">Use today</button>` +
-      `<button type="button" onclick="rtDelete('${t.id}')" aria-label="Delete" style="background:none;border:none;color:#b06a5a;cursor:pointer;font-size:18px;padding:0 2px">\u00d7</button>` +
-      `</div></div>` +
-      `<div style="display:flex;gap:8px;align-items:flex-end">` +
-      _rtField('Sets', `<input type="number" min="1" max="10" value="${t.sets != null ? Math.min(10, t.sets) : ''}" onchange="rtSetField('${t.id}','sets',this.value)" style="width:100%;background:none;border:none;border-bottom:1px solid var(--line);color:var(--ink);font-size:15px;padding:4px 2px;outline:none;text-align:center">`) +
-      _rtField('Reps', `<input type="number" min="1" value="${t.reps != null ? t.reps : ''}" placeholder="${rPlaceholder}" onchange="rtSetField('${t.id}','reps',this.value)" style="width:100%;background:none;border:none;border-bottom:1px solid var(--line);color:var(--ink);font-size:15px;padding:4px 2px;outline:none;text-align:center">`) +
-      _rtField('Weight (lb)', `<input type="number" min="0" step="0.5" value="${t.weight != null ? t.weight : ''}" placeholder="${wPlaceholder}" onchange="rtSetField('${t.id}','weight',this.value)" style="width:100%;background:none;border:none;border-bottom:1px solid var(--line);color:var(--ink);font-size:15px;padding:4px 2px;outline:none;text-align:center">`) +
+    const rPh = last && last.reps ? String(last.reps) : 'reps';
+    const wPh = last && last.weight ? String(last.weight) : 'last';
+    return `<div style="background:var(--surface-2);border-radius:12px;padding:9px 12px;margin-bottom:8px;display:flex;align-items:center;gap:10px">` +
+      `<div style="flex:1;min-width:0">` +
+        `<div style="display:flex;align-items:center;gap:6px;min-width:0"><i class="fa-solid fa-dumbbell" style="color:#CFA13C;font-size:12px;flex-shrink:0"></i><span style="font-size:14px;font-weight:700;color:#CFA13C;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_weEscHtml(t.name || 'Exercise')}</span></div>` +
+        `<div style="display:flex;align-items:center;gap:4px;margin-top:3px;font-size:12px;color:var(--muted)">` +
+          numInput(t.sets != null ? Math.min(10, t.sets) : null, 'sets', t.id, 'sets', 30) + `<span>&times;</span>` +
+          numInput(t.reps, rPh, t.id, 'reps', 34) + `<span>@</span>` +
+          numInput(t.weight, wPh, t.id, 'weight', 42) + `<span style="font-size:11px">lb</span>` +
+        `</div>` +
       `</div>` +
-      `<div style="font-size:10px;color:var(--muted-2);margin-top:8px">Leave weight blank to use last time's automatically.</div>` +
+      `<button type="button" onclick="wsStartSessionFromTemplate('${t.id}')" style="flex-shrink:0;background:var(--accent);border:none;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;color:#101512;cursor:pointer">Use today</button>` +
+      `<button type="button" onclick="rtDelete('${t.id}')" aria-label="Delete" style="flex-shrink:0;background:none;border:none;color:#b06a5a;cursor:pointer;font-size:17px;padding:0 2px">\u00d7</button>` +
       `</div>`;
   };
   el.innerHTML = (tpls.length ? tpls.map(card).join('') : `<div style="background:var(--surface-2);border-radius:14px;padding:18px 14px;margin-bottom:10px;text-align:center"><i class="fa-solid fa-dumbbell" style="color:#CFA13C;font-size:22px"></i><div style="font-size:14px;font-weight:700;color:var(--ink);margin-top:8px">Add your first exercise</div><div style="font-size:12px;color:var(--muted);margin-top:4px;line-height:1.5">Each one saves its sets, reps and weight. Tap Use today to drop it into your workout.</div></div>`) +
@@ -20004,14 +20003,15 @@ async function rtDelete(id) {
 
 // Use today: drop this one exercise onto the sheet (append), prefilled with
 // its saved weight or last time's, ready to check off.
+// Use today: drop the exercise straight onto the workout page and open the
+// set sheet prefilled with the template's reps/weight - adjust or log right
+// there. No separate checklist step (Sep 10, his call).
 async function wsStartSessionFromTemplate(id) {
   await _rtLoad();
   const t = _rtFind(id); if (!t) return;
   const ex = { name: t.name, group: t.group || null, sets: Math.min(10, Math.max(1, +t.sets || 1)), reps: t.reps ? +t.reps : null, weight: t.weight != null ? +t.weight : null };
-  if (_wsSession && (_wsSession.exercises || []).length) {
-    if (!_wsSession.exercises.find(e => e.name === ex.name)) _wsSession.exercises.push(ex);
-  } else {
-    _wsSession = { templateId: null, exercises: [ex], workoutId: null, startedAt: new Date().toISOString(), name: 'Workout' };
+  if (!_wsSession) {
+    _wsSession = { adhoc: true, exercises: [], workoutId: null, startedAt: new Date().toISOString(), name: 'Workout' };
     _wsSetsToday = [];
     _wsHistory = {};
     try {
@@ -20020,13 +20020,18 @@ async function wsStartSessionFromTemplate(id) {
       if (_wsSetsToday.length && _wsSetsToday[0].workout_id) _wsSession.workoutId = _wsSetsToday[0].workout_id;
     } catch (e) {}
   }
+  let i = _wsSession.exercises.findIndex(e => e.name === ex.name);
+  if (i < 0) { _wsSession.exercises.push(ex); i = _wsSession.exercises.length - 1; }
+  else { _wsSession.exercises[i] = Object.assign({}, _wsSession.exercises[i], ex); }
   closeRoutineTemplates();
-  const titleEl = document.getElementById('ws-session-title');
-  if (titleEl) titleEl.textContent = _wsSession.name || 'Workout';
-  document.getElementById('ws-session-panel').style.display = 'flex';
-  wsRenderSession();
+  try { switchTab('workouts'); } catch (e) {}
+  if (typeof renderTodayStrength === 'function') { try { renderTodayStrength(); } catch (e) {} }
   await _wsLoadHistory(ex.name);
-  wsRenderSession();
+  await wsOpenSet(i);
+  // Prefer the template's own numbers when the sheet had nothing to prefill.
+  const wEl = document.getElementById('ws-weight'), rEl = document.getElementById('ws-reps');
+  if (wEl && (wEl.value === '' || wEl.value == null) && ex.weight != null) wEl.value = ex.weight;
+  if (rEl && (rEl.value === '' || rEl.value == null) && ex.reps != null) rEl.value = ex.reps;
 }
 
 // The one-tap circle: log every remaining target set at last time's
@@ -20221,7 +20226,7 @@ function wsRenderSession() {
     <div style="margin-top:18px;font-size:11px;color:var(--muted);text-align:center">
       ${totalSets ? totalSets + ' set' + (totalSets === 1 ? '' : 's') + ' logged' + (_wsSession.templateId ? ' \u00b7 ' + doneCount + ' of ' + _wsSession.exercises.length + ' done' : '') : 'Tap the circle to log last time\u2019s numbers, or tap the exercise to adjust'}
     </div>
-    <button type="button" onclick="wsSaveAsTemplate()" style="width:100%;margin-top:14px;background:none;border:1px solid var(--line);border-radius:10px;padding:10px;font-size:12px;font-weight:700;color:#CFA13C;cursor:pointer">\u25a4 Save as template</button>`;
+`;
 }
 
 // Minimal escaper - exercise names come from the library and the AI, so they
