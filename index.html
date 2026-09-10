@@ -12865,7 +12865,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-09-10-fc-deleteplanned';
+const RATIO_BUILD = '2026-09-10-fd-savewithweight';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
@@ -13852,7 +13852,8 @@ async function wsSaveLoggedAsTemplate() {
     if (have.has(nm.toLowerCase())) continue;
     const sets = byEx[nm];
     const grp = (sets.find(s => s.muscle_group) || {}).muscle_group || null;
-    _rtData.templates.push({ id: _rtNewId(), name: nm, group: grp, sets: Math.min(10, sets.length), reps: +sets[sets.length - 1].reps || null, weight: null });
+    const lastSet = sets[sets.length - 1];
+    _rtData.templates.push({ id: _rtNewId(), name: nm, group: grp, sets: Math.min(10, sets.length), reps: +lastSet.reps || null, weight: (+lastSet.weight > 0) ? +lastSet.weight : null });
     have.add(nm.toLowerCase()); added++;
   }
   _rtSave();
@@ -20086,9 +20087,11 @@ async function wsSaveAsTemplate() {
   for (const ex of _wsSession.exercises) {
     if (have.has((ex.name || '').toLowerCase())) continue;
     const done = _wsSetsFor(ex.name);
+    const lastDone = done.length ? done[done.length - 1] : null;
     _rtData.templates.push({ id: _rtNewId(), name: ex.name, group: ex.group || null,
       sets: Math.min(10, done.length || +ex.sets || 1),
-      reps: done.length ? (+done[done.length - 1].reps || null) : (ex.reps ? +ex.reps : null), weight: null });
+      reps: lastDone ? (+lastDone.reps || null) : (ex.reps ? +ex.reps : null),
+      weight: (lastDone && +lastDone.weight > 0) ? +lastDone.weight : (ex.weight != null ? +ex.weight : null) });
     have.add((ex.name || '').toLowerCase()); added++;
   }
   _rtSave();
