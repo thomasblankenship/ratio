@@ -12865,7 +12865,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-09-10-fa-templatecompact';
+const RATIO_BUILD = '2026-09-10-fc-deleteplanned';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
@@ -13771,7 +13771,7 @@ function renderTodayStrength() {
       if (byEx[ex.name] || plannedNames.has(ex.name)) continue;
       num++;
       bodies.push(`<tbody${isEditable ? ` onclick="wsQuickLog('${_wsEscAttr(ex.name)}','${_wsEscAttr(ex.group || '')}')" style="cursor:pointer"` : ''}>
-      <tr class="rdash"><td class="pnum" rowspan="2">${num}</td><td class="pname" rowspan="2"><span class="ink" style="font-size:13px;line-height:1.15">${_weEscHtml(ex.name)}</span> <span style="font-size:8px;color:#8a8375">no sets yet — tap</span></td><td class="psub">REPS</td>${cells([], true)}</tr>
+      <tr class="rdash"><td class="pnum" rowspan="2">${num}</td><td class="pname" rowspan="2"><span class="ink" style="font-size:13px;line-height:1.15">${_weEscHtml(ex.name)}</span> <span style="font-size:8px;color:#8a8375">no sets yet — tap</span>${isEditable ? ` <button type="button" onclick="event.stopPropagation();wsRemovePlannedExercise('${_wsEscAttr(ex.name)}')" aria-label="Remove ${_wsEscAttr(ex.name)}" style="background:none;border:none;color:#b06a5a;cursor:pointer;font-size:12px;padding:0 2px;vertical-align:middle">×</button>` : EMPTY}</td><td class="psub">REPS</td>${cells([], true)}</tr>
       <tr class="rsolid"><td class="psub" style="border-top:1px dashed #999">WEIGHT</td>${cells([], true)}</tr>
     </tbody>`);
     }
@@ -19971,9 +19971,6 @@ function rtRender() {
     `<input type="number" id="rt-new-weight" placeholder="lb" min="0" step="0.5" style="width:44px;background:none;border:none;border-bottom:1px dashed var(--line);color:var(--ink);font-size:14px;padding:4px 2px;outline:none;text-align:center" />` +
     `<button type="button" onclick="rtCreate()" style="background:none;border:1px solid #CFA13C;border-radius:8px;padding:5px 12px;font-size:12px;font-weight:700;color:#CFA13C;cursor:pointer">Add</button></div>`;
 }
-function _rtField(label, inner) {
-  return `<div style="flex:1;min-width:0"><div style="font-size:9px;font-weight:700;color:var(--muted-2);letter-spacing:0.5px;text-align:center;margin-bottom:2px">${label}</div>${inner}</div>`;
-}
 function _rtFind(id) { return (_rtData && _rtData.templates.find(t => t.id === id)) || null; }
 async function rtCreate() {
   await _rtLoad();
@@ -20025,13 +20022,26 @@ async function wsStartSessionFromTemplate(id) {
   else { _wsSession.exercises[i] = Object.assign({}, _wsSession.exercises[i], ex); }
   closeRoutineTemplates();
   try { switchTab('workouts'); } catch (e) {}
-  if (typeof renderTodayStrength === 'function') { try { renderTodayStrength(); } catch (e) {} }
+  // BOOM: log exactly what the template says - all sets, at its reps/weight -
+  // with no dialog (Sep 10, his call). Weight comes from the template, else
+  // last time's; reps from the template. Then land on the sheet, filled in.
   await _wsLoadHistory(ex.name);
-  await wsOpenSet(i);
-  // Prefer the template's own numbers when the sheet had nothing to prefill.
-  const wEl = document.getElementById('ws-weight'), rEl = document.getElementById('ws-reps');
-  if (wEl && (wEl.value === '' || wEl.value == null) && ex.weight != null) wEl.value = ex.weight;
-  if (rEl && (rEl.value === '' || rEl.value == null) && ex.reps != null) rEl.value = ex.reps;
+  const target = Math.min(10, Math.max(1, +ex.sets || 1));
+  let w = ex.weight, reps = ex.reps;
+  const hist = _wsHistory[ex.name] || { lastSets: [] };
+  if (w == null && hist.lastSets.length) w = hist.lastSets[hist.lastSets.length - 1].weight;
+  if (reps == null && hist.lastSets.length) reps = hist.lastSets[hist.lastSets.length - 1].reps;
+  if (reps == null) reps = 1; // a template with no reps still logs; user edits on the sheet
+  const already = _wsSetsFor(ex.name).length;
+  const toLog = Math.max(0, target - already);
+  if (toLog > 0) {
+    const sets = Array.from({ length: toLog }, () => ({ weight: w, reps }));
+    await vlLogSets(ex.name, ex.group || null, sets);
+    toast(`${ex.name}: ${toLog} \u00d7 ${reps}${w ? ' @ ' + w + ' lb' : ''} \u2713`);
+  } else {
+    toast(`${ex.name} already logged`);
+  }
+  if (typeof renderTodayStrength === 'function') { try { renderTodayStrength(); } catch (e) {} }
 }
 
 // The one-tap circle: log every remaining target set at last time's
@@ -20431,6 +20441,19 @@ async function wsDeleteExercise(name, count) {
   toast(`Deleted ${name}${gone ? ' \u00b7 ' + gone + ' set' + (gone === 1 ? '' : 's') : ''}`);
   await loadProgressWorkouts();
   if (_wsSession && document.getElementById('ws-session-panel').style.display !== 'none') wsRenderSession();
+}
+
+// Remove a planned exercise that has no logged sets yet - lets a typo be
+// fixed (Sep 10). If it has sets, route to the full deleter.
+async function wsRemovePlannedExercise(name) {
+  if (!name) return;
+  const logged = _wsSetsFor(name);
+  if (logged.length) { return wsDeleteExercise(name, logged.length); }
+  if (_wsSession && Array.isArray(_wsSession.exercises)) {
+    _wsSession.exercises = _wsSession.exercises.filter(e => e.name !== name);
+  }
+  toast(`Removed ${name}`);
+  if (typeof renderTodayStrength === 'function') { try { renderTodayStrength(); } catch (e) {} }
 }
 
 // Undo a mis-tapped set - the most recent one for the open exercise.
