@@ -12865,7 +12865,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-09-10-fe-sharefix';
+const RATIO_BUILD = '2026-09-10-ff-templateimport';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
@@ -19950,6 +19950,84 @@ async function _rtHydrateLastWeights() {
       if (past.length) { const last = past[0]; _rtLastByName[nm.toLowerCase()] = { weight: +last.weight || null, reps: +last.reps || null }; }
     } catch (e) {}
   }));
+}
+// Parse a pasted workout export (FitNotes etc.). Format is forgiving:
+// an exercise header is a line like ** Name ** (or a bare 'Name:' / a
+// non-set line), and each following '- 80 lbs x 20 reps' (or '80x20',
+// '80 lb x 20') is one set. Repeated set lines => that many sets. Returns
+// [{ name, sets, reps, weight }]. Only name/sets/reps/weight are kept.
+function _rtParseImport(text) {
+  const lines = String(text || '').split(/\r?\n/);
+  const out = []; let cur = null;
+  const setRe = /(?:-\s*)?(\d+(?:\.\d+)?)\s*(?:lbs?|kg)?\s*[x\u00d7*]\s*(\d+)\s*(?:reps?)?/i;
+  const repsOnlyRe = /(?:-\s*)?(\d+)\s*reps?\b/i;
+  const flush = () => { if (cur && cur.setList.length) { const reps = cur.setList[cur.setList.length - 1].reps; const weight = cur.setList[cur.setList.length - 1].weight; out.push({ name: cur.name, sets: Math.min(10, cur.setList.length), reps: reps || null, weight: (weight > 0) ? weight : null }); } cur = null; };
+  for (let raw of lines) {
+    let line = raw.trim();
+    if (!line) continue;
+    if (/^FitNotes|^Sent from|^Workout\b|Workout\s*-\s/i.test(line) && !setRe.test(line)) continue;
+    const sm = line.match(setRe);
+    if (sm) {
+      if (!cur) continue; // a set with no exercise above it - skip
+      cur.setList.push({ weight: parseFloat(sm[1]), reps: parseInt(sm[2], 10) });
+      continue;
+    }
+    const ro = line.match(repsOnlyRe);
+    if (ro && cur) { cur.setList.push({ weight: 0, reps: parseInt(ro[1], 10) }); continue; }
+    // Otherwise it's an exercise header. Strip **, leading -, trailing :.
+    let name = line.replace(/\*+/g, '').replace(/^[-\u2022\s]+/, '').replace(/:\s*$/, '').trim();
+    if (!name || name.length > 60) continue;
+    flush();
+    cur = { name, setList: [] };
+  }
+  flush();
+  return out;
+}
+function rtOpenImport() {
+  const el = document.getElementById('rt-import'); if (!el) return;
+  el.style.display = 'block';
+  el.innerHTML = `<div style="background:var(--surface-2);border-radius:12px;padding:12px">` +
+    `<div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:4px">Paste a workout to import</div>` +
+    `<div style="font-size:11px;color:var(--muted);margin-bottom:8px">From FitNotes or similar \u2014 exercise name, then a line like \u201c80 lbs x 20 reps\u201d. We\u2019ll pull the name, sets, reps and weight.</div>` +
+    `<textarea id="rt-import-text" rows="6" placeholder="** Tricep Extension **\n- 80.0 lbs x 20 reps\n\n** Bicep Curl **\n- 50.0 lbs x 20 reps" style="width:100%;box-sizing:border-box;background:var(--bg-deep);border:1px solid var(--line);border-radius:8px;color:var(--ink);font-size:13px;padding:8px;outline:none;resize:vertical"></textarea>` +
+    `<div style="display:flex;gap:8px;margin-top:8px">` +
+    `<button type="button" onclick="rtCloseImport()" style="flex:1;background:none;border:1px solid var(--line);border-radius:8px;padding:9px;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer">Cancel</button>` +
+    `<button type="button" onclick="rtPreviewImport()" style="flex:1;background:var(--accent);border:none;border-radius:8px;padding:9px;font-size:12px;font-weight:700;color:#101512;cursor:pointer">Preview</button>` +
+    `</div><div id="rt-import-preview"></div></div>`;
+  const ta = document.getElementById('rt-import-text'); if (ta) ta.focus();
+}
+function rtCloseImport() { const el = document.getElementById('rt-import'); if (el) { el.style.display = 'none'; el.innerHTML = ''; } }
+function rtPreviewImport() {
+  const ta = document.getElementById('rt-import-text');
+  const parsed = _rtParseImport(ta ? ta.value : '');
+  const pv = document.getElementById('rt-import-preview'); if (!pv) return;
+  if (!parsed.length) { pv.innerHTML = `<div style="font-size:12px;color:#EF4444;margin-top:10px">Couldn\u2019t find any exercises \u2014 check the format and try again.</div>`; return; }
+  window._rtImportParsed = parsed;
+  const rows = parsed.map(p => `<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:4px 0;border-bottom:1px solid var(--gray-100)"><span style="color:var(--ink);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_weEscHtml(p.name)}</span><span style="color:var(--muted);flex-shrink:0">${p.sets} \u00d7 ${p.reps || '\u2013'}${p.weight ? ' @ ' + p.weight + ' lb' : ''}</span></div>`).join('');
+  pv.innerHTML = `<div style="margin-top:10px"><div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:4px">Found ${parsed.length} exercise${parsed.length === 1 ? '' : 's'}</div>${rows}` +
+    `<button type="button" onclick="rtDoImport()" style="width:100%;margin-top:10px;background:var(--accent);border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:700;color:#101512;cursor:pointer">Import ${parsed.length}</button></div>`;
+}
+async function rtDoImport() {
+  const parsed = window._rtImportParsed || [];
+  if (!parsed.length) return;
+  await _rtLoad();
+  const have = new Set(_rtData.templates.map(x => (x.name || '').toLowerCase()));
+  let added = 0, skipped = 0;
+  for (const p of parsed) {
+    const r = _wsResolveExercise(p.name);
+    const key = (r.name || '').toLowerCase();
+    if (have.has(key)) { skipped++; continue; }
+    _rtData.templates.push({ id: _rtNewId(), name: r.name, group: r.group || null,
+      sets: Math.min(10, Math.max(1, +p.sets || 1)), reps: p.reps ? +p.reps : null,
+      weight: (p.weight > 0) ? +p.weight : null });
+    have.add(key); added++;
+  }
+  _rtSave();
+  window._rtImportParsed = null;
+  rtCloseImport();
+  rtRender();
+  _rtHydrateLastWeights().then(rtRender);
+  toast(`Imported ${added}${skipped ? ' \u00b7 ' + skipped + ' already saved' : ''} \u2713`);
 }
 function rtRender() {
   const el = document.getElementById('rt-body');
@@ -27177,8 +27255,12 @@ if (document.readyState === 'loading') {
       <button type="button" onclick="closeRoutineTemplates()" aria-label="Close templates" style="background:var(--surface-2);border:none;border-radius:10px;width:32px;height:32px;font-size:18px;color:var(--muted);cursor:pointer">&times;</button>
     </div>
     <div class="card">
-      <div class="card-title" style="margin-bottom:6px">Routine templates</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px">
+        <div class="card-title" style="margin-bottom:0">Routine templates</div>
+        <button type="button" onclick="rtOpenImport()" style="background:none;border:1px solid var(--gold-line);border-radius:8px;padding:5px 11px;font-size:11px;font-weight:700;color:#CFA13C;cursor:pointer;white-space:nowrap">\u2913 Import</button>
+      </div>
       <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Save each exercise once with its sets, reps and weight. Tap Use today to drop it onto your workout.</div>
+      <div id="rt-import" style="display:none;margin-bottom:14px"></div>
       <div id="rt-body"></div>
     </div>
   </div>
