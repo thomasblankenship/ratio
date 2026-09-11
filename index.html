@@ -12865,7 +12865,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-09-11-fj-parsefix';
+const RATIO_BUILD = '2026-09-11-fk-importflow';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
@@ -20010,9 +20010,9 @@ function rtOpenImport() {
     `<div style="font-size:16px;font-weight:700;margin-bottom:10px">Import a workout</div>` +
     `<div style="font-size:13px;color:var(--muted);margin-bottom:12px">Paste a workout \u2014 from your notes, a text, or wherever you track it. We\u2019ll pull the exercise name, sets, reps and weight.</div>` +
     `<textarea id="rt-import-text" oninput="rtImportInputChanged()" rows="8" placeholder="Paste your workout here" style="width:100%;padding:12px 14px;border:1.5px solid var(--line);border-radius:10px;font-size:15px;line-height:1.5;outline:none;box-sizing:border-box;margin-bottom:10px;resize:vertical;background:var(--bg-deep);color:var(--ink);font-family:inherit"></textarea>` +
-    `<div style="display:flex;gap:10px">` +
+    `<div id="rt-import-btns" style="display:flex;gap:10px">` +
     `<button type="button" onclick="rtCloseImport()" style="flex:1;padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font-size:15px;font-weight:600;cursor:pointer">Cancel</button>` +
-    `<button type="button" id="rt-import-go" onclick="rtPreviewImport()" style="display:none;flex:1;padding:14px;border:none;border-radius:12px;background:var(--accent);color:#101512;font-size:15px;font-weight:700;cursor:pointer">Import</button>` +
+    `<button type="button" id="rt-import-go" onclick="rtPreviewImport()" style="display:none;flex:1;padding:14px;border:none;border-radius:12px;background:var(--accent);color:#101512;font-size:15px;font-weight:700;cursor:pointer">Preview</button>` +
     `</div><div id="rt-import-preview"></div></div>`;
   const ta = document.getElementById('rt-import-text'); if (ta) ta.focus();
 }
@@ -20031,13 +20031,46 @@ function rtPreviewImport() {
   const pv = document.getElementById('rt-import-preview'); if (!pv) return;
   if (!parsed.length) { pv.innerHTML = `<div style="font-size:12px;color:#EF4444;margin-top:10px">Couldn\u2019t find any exercises \u2014 check the format and try again.</div>`; return; }
   window._rtImportParsed = parsed;
-  const rows = parsed.map(p => `<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:4px 0;border-bottom:1px solid var(--gray-100)"><span style="color:var(--ink);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_weEscHtml(p.name)}</span><span style="color:${p.incomplete ? '#CFA13C' : 'var(--muted)'};flex-shrink:0">${p.sets} \u00d7 ${p.reps || '?'}${p.weight ? ' @ ' + p.weight + ' lb' : ''}${p.incomplete ? ' \u00b7 fill reps' : ''}</span></div>`).join('');
-  pv.innerHTML = `<div style="margin-top:10px"><div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:4px">Found ${parsed.length} exercise${parsed.length === 1 ? '' : 's'}</div>${rows}` +
+  // Sep 11 (fk): once previewed, the paste box and its buttons get out of the
+  // way. "Edit text" brings them back. Incomplete rows get a real reps input
+  // instead of dead gold text — nothing to "fill" if there's nothing to tap.
+  if (ta) ta.style.display = 'none';
+  const btns = document.getElementById('rt-import-btns'); if (btns) btns.style.display = 'none';
+  const rows = parsed.map((p, i) => {
+    const reps = p.incomplete
+      ? `<input type="number" min="1" data-rt-reps="${i}" placeholder="reps?" inputmode="numeric" style="width:52px;background:none;border:none;border-bottom:1.5px solid #CFA13C;color:var(--ink);font-size:12px;padding:2px;outline:none;text-align:center" />`
+      : String(p.reps);
+    return `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;padding:4px 0;border-bottom:1px solid var(--gray-100)"><span style="color:var(--ink);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_weEscHtml(p.name)}</span><span style="color:${p.incomplete ? '#CFA13C' : 'var(--muted)'};flex-shrink:0;white-space:nowrap">${p.sets} \u00d7 ${reps}${p.weight ? ' @ ' + p.weight + ' lb' : ''}</span></div>`;
+  }).join('');
+  const needs = parsed.filter(p => p.incomplete).length;
+  pv.innerHTML = `<div style="margin-top:10px"><div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px"><div style="font-size:12px;font-weight:700;color:var(--ink)">Found ${parsed.length} exercise${parsed.length === 1 ? '' : 's'}</div><button type="button" onclick="rtImportEditText()" style="background:none;border:none;color:var(--accent);font-size:12px;font-weight:600;cursor:pointer;padding:0">\u2039 Edit text</button></div>` +
+    (needs ? `<div style="font-size:12px;color:#CFA13C;margin-bottom:6px">${needs} missing reps \u2014 fill in below</div>` : '') + rows +
     `<button type="button" onclick="rtDoImport()" style="width:100%;margin-top:10px;background:var(--accent);border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:700;color:#101512;cursor:pointer">Import ${parsed.length}</button></div>`;
+}
+function rtImportEditText() {
+  const ta = document.getElementById('rt-import-text'); if (ta) { ta.style.display = ''; ta.focus(); }
+  const btns = document.getElementById('rt-import-btns'); if (btns) btns.style.display = 'flex';
+  const pv = document.getElementById('rt-import-preview'); if (pv) pv.innerHTML = '';
+  window._rtImportParsed = null;
 }
 async function rtDoImport() {
   const parsed = window._rtImportParsed || [];
   if (!parsed.length) return;
+  // Read reps typed into the preview; ask for anything still blank. A cancel
+  // aborts the whole import — we never save a template with unknown reps and
+  // we never drop the exercise silently.
+  document.querySelectorAll('[data-rt-reps]').forEach(inp => {
+    const i = +inp.getAttribute('data-rt-reps'); const v = parseInt(inp.value, 10);
+    if (parsed[i] && v > 0) { parsed[i].reps = v; parsed[i].incomplete = false; }
+  });
+  for (const p of parsed) {
+    if (p.reps > 0) continue;
+    const a = prompt(`How many reps for ${p.name}?`);
+    if (a === null) { toast('Import cancelled \u2014 reps needed for ' + p.name); return; }
+    const v = parseInt(a, 10);
+    if (!(v > 0)) { toast('Enter a number of reps for ' + p.name); return; }
+    p.reps = v; p.incomplete = false;
+  }
   await _rtLoad();
   const have = new Set(_rtData.templates.map(x => (x.name || '').toLowerCase()));
   let added = 0, skipped = 0;
@@ -20067,7 +20100,7 @@ function rtRender() {
   const card = (t) => {
     const last = _rtLastByName[(t.name || '').toLowerCase()];
     const rPh = last && last.reps ? String(last.reps) : 'reps';
-    const wPh = last && last.weight ? String(last.weight) : 'last';
+    const wPh = last && last.weight ? String(last.weight) : '';
     return `<div style="background:var(--surface-2);border-radius:12px;padding:9px 12px;margin-bottom:8px;display:flex;align-items:center;gap:10px">` +
       `<div style="flex:1;min-width:0">` +
         `<div style="display:flex;align-items:center;gap:6px;min-width:0"><i class="fa-solid fa-dumbbell" style="color:#CFA13C;font-size:12px;flex-shrink:0"></i><span style="font-size:14px;font-weight:700;color:#CFA13C;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_weEscHtml(t.name || 'Exercise')}</span></div>` +
