@@ -12865,7 +12865,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-09-11-fi-pinnedadd';
+const RATIO_BUILD = '2026-09-11-fj-parsefix';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
@@ -19961,7 +19961,22 @@ function _rtParseImport(text) {
   const out = []; let cur = null;
   const setRe = /(?:-\s*)?(\d+(?:\.\d+)?)\s*(?:lbs?|kg)?\s*[x\u00d7*]\s*(\d+)\s*(?:reps?)?/i;
   const repsOnlyRe = /(?:-\s*)?(\d+)\s*reps?\b/i;
-  const flush = () => { if (cur && cur.setList.length) { const reps = cur.setList[cur.setList.length - 1].reps; const weight = cur.setList[cur.setList.length - 1].weight; out.push({ name: cur.name, sets: Math.min(10, cur.setList.length), reps: reps || null, weight: (weight > 0) ? weight : null }); } cur = null; };
+  // Weight given but reps missing ("- 100 lbs x", "- 100 lbs"): keep the
+  // exercise, record the weight, leave reps blank and flag it (Sep 11).
+  const weightOnlyRe = /^(?:-\s*)?(\d+(?:\.\d+)?)\s*(?:lbs?|kg)\b\s*(?:[x\u00d7*]\s*)?$/i;
+  const looksLikeSet = /^(?:-\s*)?\d/; // a line starting with a number is never an exercise name
+  const flush = () => {
+    if (cur) {
+      if (cur.setList.length) {
+        const last = cur.setList[cur.setList.length - 1];
+        out.push({ name: cur.name, sets: Math.min(10, cur.setList.length), reps: last.reps || null, weight: (last.weight > 0) ? last.weight : null, incomplete: !last.reps });
+      } else {
+        // Exercise with no set lines at all: still import it, flagged.
+        out.push({ name: cur.name, sets: 1, reps: null, weight: null, incomplete: true });
+      }
+    }
+    cur = null;
+  };
   for (let raw of lines) {
     let line = raw.trim();
     if (!line) continue;
@@ -19974,6 +19989,9 @@ function _rtParseImport(text) {
     }
     const ro = line.match(repsOnlyRe);
     if (ro && cur) { cur.setList.push({ weight: 0, reps: parseInt(ro[1], 10) }); continue; }
+    const wo = line.match(weightOnlyRe);
+    if (wo && cur) { cur.setList.push({ weight: parseFloat(wo[1]), reps: null }); continue; }
+    if (looksLikeSet.test(line)) continue; // numeric junk that isn't a set - never a name
     // Otherwise it's an exercise header. Strip **, leading -, trailing :.
     let name = line.replace(/\*+/g, '').replace(/^[-\u2022\s]+/, '').replace(/:\s*$/, '').trim();
     if (!name || name.length > 60) continue;
@@ -20013,7 +20031,7 @@ function rtPreviewImport() {
   const pv = document.getElementById('rt-import-preview'); if (!pv) return;
   if (!parsed.length) { pv.innerHTML = `<div style="font-size:12px;color:#EF4444;margin-top:10px">Couldn\u2019t find any exercises \u2014 check the format and try again.</div>`; return; }
   window._rtImportParsed = parsed;
-  const rows = parsed.map(p => `<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:4px 0;border-bottom:1px solid var(--gray-100)"><span style="color:var(--ink);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_weEscHtml(p.name)}</span><span style="color:var(--muted);flex-shrink:0">${p.sets} \u00d7 ${p.reps || '\u2013'}${p.weight ? ' @ ' + p.weight + ' lb' : ''}</span></div>`).join('');
+  const rows = parsed.map(p => `<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:4px 0;border-bottom:1px solid var(--gray-100)"><span style="color:var(--ink);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_weEscHtml(p.name)}</span><span style="color:${p.incomplete ? '#CFA13C' : 'var(--muted)'};flex-shrink:0">${p.sets} \u00d7 ${p.reps || '?'}${p.weight ? ' @ ' + p.weight + ' lb' : ''}${p.incomplete ? ' \u00b7 fill reps' : ''}</span></div>`).join('');
   pv.innerHTML = `<div style="margin-top:10px"><div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:4px">Found ${parsed.length} exercise${parsed.length === 1 ? '' : 's'}</div>${rows}` +
     `<button type="button" onclick="rtDoImport()" style="width:100%;margin-top:10px;background:var(--accent);border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:700;color:#101512;cursor:pointer">Import ${parsed.length}</button></div>`;
 }
@@ -27270,9 +27288,11 @@ if (document.readyState === 'loading') {
       <button type="button" onclick="rtOpenImport()" style="background:none;border:1px solid var(--gold-line);border-radius:8px;padding:5px 11px;font-size:11px;font-weight:700;color:#CFA13C;cursor:pointer;white-space:nowrap">&#8595; Import</button>
     </div>
     <div style="font-size:12px;color:var(--muted)">Save each exercise once with its sets, reps and weight. Tap Use today to drop it onto your workout.</div>
-    <div id="rt-import" style="display:none;margin-top:12px"></div>
   </div>
-  <div id="rt-body" style="flex:1;overflow-y:auto;padding:12px 16px 8px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain"></div>
+  <div id="rt-scroll" style="flex:1;overflow-y:auto;padding:12px 16px 8px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain">
+    <div id="rt-import" style="display:none;margin-bottom:12px"></div>
+    <div id="rt-body"></div>
+  </div>
   <div id="rt-add-footer" style="flex-shrink:0;padding:10px 16px calc(12px + env(safe-area-inset-bottom));border-top:1px solid var(--line);background:var(--bg-deep)"></div>
 </div>
 
