@@ -1479,7 +1479,6 @@
 
             <span style="display:none" id="workout-date-sub"></span>
           </div>
-          <button type="button" onclick="openRoutineTemplates()" style="background:none;border:none;cursor:pointer;padding:2px 4px;font-size:9px;font-weight:700;color:#CFA13C;letter-spacing:0.5px">&#9636; TEMPLATES</button>
           <button type="button" onclick="wsAddExercise()" style="background:none;border:none;cursor:pointer;padding:2px 4px;font-size:9px;font-weight:700;color:#CFA13C;letter-spacing:0.5px"><i class="fa-solid fa-magnifying-glass" style="font-size:9px"></i> EXERCISE LIBRARY</button>
           <button type="button" onclick="wsShiftDay(1)" id="ws-day-fwd" style="background:none;border:none;cursor:pointer;padding:2px 4px"><i class="fa-solid fa-chevron-right" style="color:#999;font-size:12px"></i></button>
         </div>
@@ -12865,7 +12864,7 @@ function maybeLoadDebugConsole() {
   document.head.appendChild(d);
 }
 
-const RATIO_BUILD = '2026-09-11-fk-importflow';
+const RATIO_BUILD = '2026-09-11-fl-tplbtn';
 window.RATIO_BUILD = RATIO_BUILD;
 // Fetches the worker build once (cached on window.WORKER_BUILD) and logs
 // index + worker as one line. Called at boot AND again after eruda.init()
@@ -13805,8 +13804,13 @@ function renderTodayStrength() {
         <button type="button" class="ws-invite-ghost" onclick="wsAddExercise()" style="flex:1;padding:8px 4px;background:none;border:1px solid #2a2a2a;border-radius:4px;font-size:10px;font-weight:700;color:#2a2a2a;cursor:pointer">\u270e FILL IN MY OWN</button>
         <button type="button" class="ws-invite-solid" onclick="editPlanDayForDate()" style="flex:1;padding:8px 4px;background:#2a2a2a;border:none;border-radius:4px;font-size:10px;font-weight:700;color:#f7f5f0;cursor:pointer">\u2726 HAVE COACH BUILD IT</button>
       </div>
-      <button type="button" onclick="openRoutineTemplates()" style="width:100%;margin-top:6px;padding:8px 4px;background:none;border:1.5px solid #CFA13C;border-radius:4px;font-size:10px;font-weight:700;color:#CFA13C;cursor:pointer">\u25a4 MY ROUTINE TEMPLATES</button>
+      ${_wsTplBtn('margin-top:6px')}
     </div>`;
+  } else if (isEditable && !(planDay && planDay.is_rest_day)) {
+    // Sep 11 (fl): the header TEMPLATES link is gone (crowded the iPhone
+    // header), so the sheet itself carries the button on every editable day,
+    // not only the empty-today invite.
+    invite = `<div style="margin-bottom:6px">${_wsTplBtn('')}</div>`;
   }
 
   // A planned day that hasn't finished gets an eraser: one tap (plus a
@@ -19914,6 +19918,9 @@ function wsLogFromDetail() {
 }
 
 // ===== MY ROUTINE TEMPLATES (Sep 10, his dad's spec) =====
+function _wsTplBtn(extra) {
+  return `<button type="button" onclick="openRoutineTemplates()" style="width:100%;${extra || ''}padding:8px 4px;background:none;border:1.5px solid #CFA13C;border-radius:4px;font-size:10px;font-weight:700;color:#CFA13C;cursor:pointer">\u25a4 MY ROUTINE TEMPLATES</button>`;
+}
 // A template is a named exercise list with target sets/reps. Weights are
 // never stored in it - they come live from the last logged sets, so the
 // template never goes stale as you progress. Starting one feeds the
